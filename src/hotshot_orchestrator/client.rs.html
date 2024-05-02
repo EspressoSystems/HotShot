@@ -401,12 +401,51 @@
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
-<span class="kw">use </span>hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
+<span class="kw">use </span>hotshot_types::{
+    constants::Version01, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
+};
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
@@ -417,7 +456,7 @@
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {
     <span class="doccomment">/// the client
-    </span>client: surf_disco::Client&lt;ClientError, OrchestratorVersion&gt;,
+    </span><span class="kw">pub </span>client: surf_disco::Client&lt;ClientError, OrchestratorVersion&gt;,
 }
 
 <span class="doccomment">/// Struct describing a benchmark result
@@ -680,7 +719,7 @@
         </span><span class="kw">let </span>get_config_after_collection = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>result = client
-                    .get(<span class="string">"api/get_config_after_peer_collected"</span>)
+                    .post(<span class="string">"api/post_config_after_peer_collected"</span>)
                     .send()
                     .<span class="kw">await</span>;
 
@@ -706,19 +745,49 @@
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">"orchestrator public keys"</span>)]
     </span><span class="kw">pub async fn </span>post_and_wait_all_public_keys&lt;K: SignatureKey&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        node_index: u64,
-        my_pub_key: PeerConfig&lt;K&gt;,
-        is_da: bool,
+        <span class="kw-2">mut </span>validator_config: ValidatorConfig&lt;K&gt;,
+        libp2p_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
+        libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
     ) -&gt; NetworkConfig&lt;K&gt; {
-        <span class="comment">// send my public key
-        </span><span class="kw">let </span>_send_pubkey_ready_f: <span class="prelude-ty">Result</span>&lt;(), ClientError&gt; = <span class="self">self
-            </span>.client
-            .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/pubkey/{node_index}/{is_da}"</span>))
-            .body_binary(<span class="kw-2">&amp;</span>PeerConfig::&lt;K&gt;::to_bytes(<span class="kw-2">&amp;</span>my_pub_key))
-            .unwrap()
-            .send()
-            .<span class="kw">await
-            </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>));
+        <span class="comment">// Get the (possible) Libp2p advertise address from our args
+        </span><span class="kw">let </span>libp2p_address: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt; = libp2p_address.map(|f| {
+            Multiaddr::try_from(<span class="macro">format!</span>(
+                <span class="string">"/{}/{}/udp/{}/quic-v1"</span>,
+                <span class="kw">if </span>f.is_ipv4() { <span class="string">"ip4" </span>} <span class="kw">else </span>{ <span class="string">"ip6" </span>},
+                f.ip(),
+                f.port()
+            ))
+            .expect(<span class="string">"failed to create multiaddress"</span>)
+        });
+
+        <span class="kw">let </span>pubkey: Vec&lt;u8&gt; =
+            PeerConfig::&lt;K&gt;::to_bytes(<span class="kw-2">&amp;</span>validator_config.get_public_config()).clone();
+        <span class="kw">let </span>da_requested: bool = validator_config.is_da;
+
+        <span class="comment">// Serialize our (possible) libp2p-specific data
+        </span><span class="kw">let </span>request_body =
+            vbs::Serializer::&lt;Version01&gt;::serialize(<span class="kw-2">&amp;</span>(pubkey, libp2p_address, libp2p_public_key))
+                .expect(<span class="string">"failed to serialize request"</span>);
+
+        <span class="comment">// register our public key with the orchestrator
+        </span><span class="kw">let </span>(node_index, is_da): (u64, bool) = <span class="kw">loop </span>{
+            <span class="kw">let </span>result = <span class="self">self
+                </span>.client
+                .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"api/pubkey/{da_requested}"</span>))
+                .body_binary(<span class="kw-2">&amp;</span>request_body)
+                .expect(<span class="string">"Failed to form request"</span>)
+                .send()
+                .<span class="kw">await
+                </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"{err}"</span>));
+
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>((index, is_da)) = result {
+                <span class="kw">break </span>(index, is_da);
+            }
+
+            async_sleep(Duration::from_millis(<span class="number">250</span>)).<span class="kw">await</span>;
+        };
+
+        validator_config.is_da = is_da;
 
         <span class="comment">// wait for all nodes' public keys
         </span><span class="kw">let </span>wait_for_all_nodes_pub_key = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
@@ -734,8 +803,13 @@
         <span class="self">self</span>.wait_for_fn_from_orchestrator::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ()&gt;(wait_for_all_nodes_pub_key)
             .<span class="kw">await</span>;
 
-        <span class="self">self</span>.get_config_after_collection().<span class="kw">await
-    </span>}
+        <span class="kw">let </span><span class="kw-2">mut </span>network_config = <span class="self">self</span>.get_config_after_collection().<span class="kw">await</span>;
+
+        network_config.node_index = node_index;
+        network_config.config.my_own_validator_config = validator_config;
+
+        network_config
+    }
 
     <span class="doccomment">/// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start

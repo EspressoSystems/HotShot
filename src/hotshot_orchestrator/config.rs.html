@@ -751,14 +751,6 @@
 <a href="#749" id="749">749</a>
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     env, fs,
     net::SocketAddr,
@@ -918,8 +910,15 @@
 </span><span class="kw">pub struct </span>NetworkConfig&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// number of views to run
     </span><span class="kw">pub </span>rounds: usize,
+    <span class="doccomment">/// whether DA membership is determined by index.
+    /// if true, the first k nodes to register form the DA committee
+    /// if false, DA membership is requested by the nodes
+    </span><span class="kw">pub </span>indexed_da: bool,
     <span class="doccomment">/// number of transactions per view
     </span><span class="kw">pub </span>transactions_per_round: usize,
+    <span class="doccomment">/// password to have the orchestrator start the network,
+    /// regardless of the number of nodes connected.
+    </span><span class="kw">pub </span>manual_start_password: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// number of bootstrap nodes
     </span><span class="kw">pub </span>num_bootrap: usize,
     <span class="doccomment">/// timeout before starting the next view
@@ -1052,50 +1051,24 @@
     /// If we are unable to get the configuration from the orchestrator
     </span><span class="kw">pub async fn </span>get_complete_config(
         client: <span class="kw-2">&amp;</span>OrchestratorClient,
-        file: <span class="prelude-ty">Option</span>&lt;String&gt;,
         my_own_validator_config: ValidatorConfig&lt;K&gt;,
         libp2p_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
-        <span class="comment">// If true, we will use the node index to determine if we are a DA node
-        </span>indexed_da: bool,
     ) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K&gt;, NetworkConfigSource)&gt; {
-        <span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) =
-            <span class="self">Self</span>::from_file_or_orchestrator(client, file, libp2p_address, libp2p_public_key)
-                .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>node_index = run_config.node_index;
-
-        <span class="comment">// Assign my_own_validator_config to the run_config if not loading from file
-        </span><span class="kw">match </span>source {
-            NetworkConfigSource::Orchestrator =&gt; {
-                run_config.config.my_own_validator_config = my_own_validator_config.clone();
-            }
-            NetworkConfigSource::File =&gt; {
-                <span class="comment">// do nothing, my_own_validator_config has already been loaded from file
-            </span>}
-        }
-
-        <span class="comment">// If we've chosen to be DA based on the index, do so
-        </span><span class="kw">if </span>indexed_da {
-            run_config.config.my_own_validator_config.is_da =
-                run_config.node_index &lt; run_config.config.da_staked_committee_size <span class="kw">as </span>u64;
-        }
-
-        <span class="comment">// one more round of orchestrator here to get peer's public key/config
-        </span><span class="kw">let </span>updated_config: NetworkConfig&lt;K&gt; = client
+        <span class="comment">// get the configuration from the orchestrator
+        </span><span class="kw">let </span>run_config: NetworkConfig&lt;K&gt; = client
             .post_and_wait_all_public_keys::&lt;K&gt;(
-                run_config.node_index,
-                run_config
-                    .config
-                    .my_own_validator_config
-                    .get_public_config(),
-                run_config.config.my_own_validator_config.is_da,
+                my_own_validator_config,
+                libp2p_address,
+                libp2p_public_key,
             )
             .<span class="kw">await</span>;
-        run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
-        run_config.config.known_da_nodes = updated_config.config.known_da_nodes;
 
-        <span class="macro">info!</span>(<span class="string">"Retrieved config; our node index is {node_index}."</span>);
-        <span class="prelude-val">Ok</span>((run_config, source))
+        <span class="macro">info!</span>(
+            <span class="string">"Retrieved config; our node index is {}. DA committee member: {}"</span>,
+            run_config.node_index, run_config.config.my_own_validator_config.is_da
+        );
+        <span class="prelude-val">Ok</span>((run_config, NetworkConfigSource::Orchestrator))
     }
 
     <span class="doccomment">/// Loads a `NetworkConfig` from a file.
@@ -1195,10 +1168,12 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             rounds: ORCHESTRATOR_DEFAULT_NUM_ROUNDS,
+            indexed_da: <span class="bool-val">true</span>,
             transactions_per_round: ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND,
             node_index: <span class="number">0</span>,
             seed: [<span class="number">0u8</span>; <span class="number">32</span>],
             transaction_size: ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE,
+            manual_start_password: <span class="prelude-val">None</span>,
             libp2p_config: <span class="prelude-val">None</span>,
             config: HotShotConfigFile::default().into(),
             start_delay_seconds: <span class="number">60</span>,
@@ -1227,9 +1202,16 @@
     <span class="doccomment">/// number of views to run
     </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_NUM_ROUNDS)]
     </span><span class="kw">pub </span>rounds: usize,
+    <span class="doccomment">/// number of views to run
+    </span><span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>indexed_da: bool,
     <span class="doccomment">/// number of transactions per view
     </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND)]
     </span><span class="kw">pub </span>transactions_per_round: usize,
+    <span class="doccomment">/// password to have the orchestrator start the network,
+    /// regardless of the number of nodes connected.
+    </span><span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>manual_start_password: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// global index of node (for testing purposes a uid)
     </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>node_index: u64,
@@ -1274,9 +1256,11 @@
     <span class="kw">fn </span>from(val: NetworkConfigFile&lt;K&gt;) -&gt; <span class="self">Self </span>{
         NetworkConfig {
             rounds: val.rounds,
+            indexed_da: val.indexed_da,
             transactions_per_round: val.transactions_per_round,
             node_index: <span class="number">0</span>,
             num_bootrap: val.config.num_bootstrap,
+            manual_start_password: val.manual_start_password,
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
             builder_timeout: val.config.builder_timeout,
@@ -1497,7 +1481,7 @@
 
         <span class="self">Self </span>{
             num_nodes_with_stake: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
-            start_threshold: (<span class="number">8</span>, <span class="number">10</span>),
+            start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
             num_nodes_without_stake: <span class="number">0</span>,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
