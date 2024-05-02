@@ -112,7 +112,7 @@ impl std::ops::Sub<u64> for ViewNumber {
 }
 
 /// A proposal to start providing data availability for a block.
-#[derive(custom_debug::Debug, Serialize, Clone, Eq, PartialEq, Hash)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct DAProposal<TYPES>
 where
     TYPES: NodeType,
