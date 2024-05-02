@@ -224,9 +224,8 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         _pd: PhantomData,
     };
     debug!(
-        "Sending null proposal for view {:?} \n {:?}",
+        "Sending null proposal for view {:?} \n",
         proposed_leaf.get_view_number(),
-        ""
     );
 
     async_sleep(Duration::from_millis(round_start_delay)).await;
@@ -1005,7 +1004,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             task_state.cancel_tasks(new_anchor_view).await;
         }
         if should_propose {
-            debug!(
+            error!(
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
