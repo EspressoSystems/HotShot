@@ -133,7 +133,6 @@ pub fn define_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
 where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
-    Types: NodeType,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
@@ -201,7 +200,6 @@ pub fn submit_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
 where
     State: 'static + Send + Sync + WriteState,
     <State as ReadState>::State: Send + Sync + AcceptsTxnSubmits<Types>,
-    Types: NodeType,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
