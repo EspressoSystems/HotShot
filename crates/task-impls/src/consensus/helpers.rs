@@ -929,7 +929,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 true
             },
         ) {
-            error!("view publish error {e}");
+            debug!("view publish error {e}");
         }
     }
 
