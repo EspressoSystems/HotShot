@@ -20,7 +20,9 @@ use hotshot_builder_api::{
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
-use hotshot_example_types::{block_types::TestTransaction, state_types::TestInstanceState};
+use hotshot_example_types::{
+    block_types::TestTransaction, node_types::TestTypes, state_types::TestInstanceState,
+};
 use hotshot_orchestrator::config::RandomBuilderConfig;
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
@@ -542,7 +544,7 @@ async fn build_block<TYPES: NodeType>(
     AvailableBlockHeaderInput<TYPES>,
 ) {
     let (block_payload, metadata) =
-        TYPES::BlockPayload::from_transactions(transactions, Arc::new(TestInstanceState {}))
+        TYPES::BlockPayload::from_transactions::<TestTypes>(transactions, &TestInstanceState {})
             .expect("failed to build block payload from transactions");
 
     let commitment = block_payload.builder_commitment(&metadata);

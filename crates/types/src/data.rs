@@ -112,14 +112,26 @@ impl std::ops::Sub<u64> for ViewNumber {
 }
 
 /// A proposal to start providing data availability for a block.
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-pub struct DAProposal<TYPES: NodeType> {
+#[derive(custom_debug::Debug, Serialize, Clone, Eq, PartialEq, Hash)]
+pub struct DAProposal<TYPES>
+where
+    TYPES: NodeType,
+{
     /// Encoded transactions in the block to be applied.
     pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
+}
+
+impl<'de, TYPE: NodeType> Deserialize<'de> for DAProposal<TYPE> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
+    }
 }
 
 /// A proposal to upgrade the network
@@ -360,7 +372,7 @@ pub enum BlockError {
 }
 
 /// Additional functions required to use a [`Leaf`] with hotshot-testing.
-pub trait TestableLeaf {
+pub trait TestableLeaf<TYPES: NodeType> {
     /// Type of nodes participating in the network.
     type NodeType: NodeType;
 
@@ -369,7 +381,9 @@ pub trait TestableLeaf {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction;
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<TYPES>>::Transaction
+    where
+        <<Self as TestableLeaf<TYPES>>::NodeType as NodeType>::BlockPayload: BlockPayload<TYPES>;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -457,7 +471,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// interpreted as bytes).
     #[must_use]
     pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
-        let (payload, metadata) = TYPES::BlockPayload::genesis();
+        let (payload, metadata) =
+            TYPES::BlockPayload::from_transactions([], instance_state).unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode().expect("unable to encode genesis payload");
 
@@ -605,10 +620,10 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
+impl<TYPES: NodeType> TestableLeaf<TYPES> for Leaf<TYPES>
 where
     TYPES::ValidatedState: TestableState<TYPES>,
-    TYPES::BlockPayload: TestableBlock,
+    TYPES::BlockPayload: TestableBlock<TYPES>,
 {
     type NodeType = TYPES;
 
@@ -616,7 +631,7 @@ where
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<TYPES>>::Transaction {
         TYPES::ValidatedState::create_random_transaction(None, rng, padding)
     }
 }
@@ -735,7 +750,7 @@ pub mod null_block {
     #[must_use]
     pub fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
-        state: Arc<TYPES::InstanceState>,
+        instance_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Instance,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
@@ -746,7 +761,7 @@ pub mod null_block {
             );
 
         let (_null_block, null_block_metadata) =
-            <TYPES::BlockPayload as BlockPayload>::from_transactions([], state).ok()?;
+            <TYPES::BlockPayload as BlockPayload>::from_transactions([], instance_state).ok()?;
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,

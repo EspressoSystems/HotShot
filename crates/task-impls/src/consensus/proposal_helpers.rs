@@ -416,9 +416,9 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
 
     // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
     ensure!(upgrade_cert.in_interim(cur_view), "Cert is not in interim");
-    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions(
+    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions::<TYPES>(
         Vec::new(),
-        Arc::<<TYPES as NodeType>::InstanceState>::clone(&instance_state),
+        instance_state.as_ref(),
     )
     .context("Failed to build null block payload and metadata")?;
 
@@ -426,11 +426,9 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     let null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context("Failed to calculate null block commitment")?;
 
-    let null_block_fee = null_block::builder_fee::<TYPES>(
-        quorum_membership.total_nodes(),
-        Arc::<<TYPES as NodeType>::InstanceState>::clone(&instance_state),
-    )
-    .context("Failed to calculate null block fee info")?;
+    let null_block_fee =
+        null_block::builder_fee::<TYPES>(quorum_membership.total_nodes(), instance_state.as_ref())
+            .context("Failed to calculate null block fee info")?;
 
     Ok(async_spawn(async move {
         create_and_send_proposal(
@@ -451,7 +449,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
             Some(upgrade_cert),
             None,
             delay,
-            Arc::clone(&instance_state),
+            instance_state,
         )
         .await;
     }))
@@ -532,7 +530,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             proposal_upgrade_certificate,
             proposal_certificate,
             delay,
-            Arc::clone(&instance_state),
+            instance_state,
         )
         .await;
     });

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use time::OffsetDateTime;
 
-use crate::node_types::TestTypes;
+use crate::{node_types::TestTypes, state_types::TestInstanceState};
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -116,12 +116,13 @@ impl EncodeBytes for TestMetadata {
 
 impl BlockPayload for TestBlockPayload {
     type Error = BlockError;
+    type Instance = TestInstanceState;
     type Transaction = TestTransaction;
     type Metadata = TestMetadata;
 
-    fn from_transactions(
+    fn from_transactions<TYPES: NodeType>(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        _state: Arc<dyn InstanceState>,
+        _instance_state: &TYPES::InstanceState,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
         Ok((
