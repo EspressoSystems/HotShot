@@ -198,7 +198,6 @@ pub fn submit_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
 ) -> Result<Api<State, Error, Ver>, ApiError>
 where
     State: 'static + Send + Sync + AcceptsTxnSubmits<Types>,
-    Types: NodeType,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),

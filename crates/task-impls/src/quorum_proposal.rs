@@ -32,13 +32,13 @@ use tracing::{debug, error, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
-use hotshot_types::vote::HasViewNumber;
-use committable::Committable;
 use crate::{
     consensus::helpers::publish_proposal_if_able,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
+use committable::Committable;
+use hotshot_types::vote::HasViewNumber;
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -111,6 +111,7 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     /// Sends a proposal if possible from the high qc we have
     #[allow(clippy::too_many_lines)]
+    #[allow(dead_code)]
     pub async fn publish_proposal_if_able(
         &self,
         view: TYPES::Time,
@@ -594,7 +595,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         }
 
         debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
-        if self.propose_dependencies.get(&view_number).is_some() {
+        if self.propose_dependencies.contains_key(&view_number) {
             debug!("Task already exists");
             return;
         }
