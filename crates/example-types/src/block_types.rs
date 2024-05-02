@@ -10,7 +10,6 @@ use hotshot_types::{
     traits::{
         block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
-        states::InstanceState,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,

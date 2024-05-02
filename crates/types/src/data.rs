@@ -714,7 +714,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 
 pub mod null_block {
     #![allow(missing_docs)]
-    use std::sync::Arc;
+    
 
     use jf_primitives::vid::VidScheme;
     use memoize::memoize;

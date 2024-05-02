@@ -21,7 +21,7 @@ use hotshot_builder_api::{
     data_source::BuilderDataSource,
 };
 use hotshot_example_types::{
-    block_types::TestTransaction, node_types::TestTypes, state_types::TestInstanceState,
+    block_types::TestTransaction,
 };
 use hotshot_orchestrator::config::RandomBuilderConfig;
 use hotshot_types::{
