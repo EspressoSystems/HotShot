@@ -108,12 +108,21 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
+        error!(
+            "About to propose from {} events",
+            res.iter()
+                .flatten()
+                .flatten()
+                .collect::<Vec<&Arc<HotShotEvent<TYPES>>>>()
+                .len()
+        );
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut _quorum_certificate = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
+            tracing::info!("Propsing from Event: {event:?}");
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -276,6 +285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
                         if let HotShotEvent::QCFormed(either::Left(qc)) = event {
+                            error!("Checking qc {qc:?}");
                             qc.view_number + 1
                         } else {
                             return false;

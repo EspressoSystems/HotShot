@@ -358,7 +358,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         self.spawned_tasks
             .entry(view)
             .or_default()
-            .push(create_and_send_proposal_handle);
+            .push(create_and_send_proposal_handle.unwrap());
 
         Ok(())
     }

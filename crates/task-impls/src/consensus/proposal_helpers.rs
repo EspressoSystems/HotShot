@@ -267,6 +267,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
 /// compared to `cur_view` which is the highest proposed view (so far) for the caller. If the proposal
 /// is for a view that's later than expected, that the proposal includes a timeout or view sync certificate.
 pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
+    id: u64,
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     cur_view: TYPES::Time,
@@ -285,6 +286,10 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         view_leader_key == *sender,
         "Leader key does not match key in proposal"
     );
+
+    if id == *view {
+        info!("Received proposal {proposal:?}");
+    }
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.get_view_number() != view - 1 {
@@ -404,7 +409,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     upgrade_cert: UpgradeCertificate<TYPES>,
     delay: u64,
     instance_state: Arc<TYPES::InstanceState>,
-) -> Result<JoinHandle<()>> {
+) -> Result<Option<JoinHandle<()>>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
         view,
@@ -432,7 +437,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     )
     .context("Failed to calculate null block fee info")?;
 
-    Ok(async_spawn(async move {
+    Ok(Some(async_spawn(async move {
         create_and_send_proposal(
             public_key,
             private_key,
@@ -454,7 +459,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
             Arc::clone(&instance_state),
         )
         .await;
-    }))
+    })))
 }
 
 /// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
@@ -474,7 +479,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
-) -> Result<JoinHandle<()>> {
+) -> Result<Option<JoinHandle<()>>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
         view,
@@ -519,7 +524,34 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         "Cannot propose because our VID payload commitment and metadata is for an older view."
     );
 
-    let create_and_send_proposal_handle = async_spawn(async move {
+    #[cfg(not(feature = "dependency-tasks"))]
+    {
+        let create_and_send_proposal_handle = async_spawn(async move {
+            create_and_send_proposal(
+                public_key,
+                private_key,
+                consensus,
+                sender,
+                view,
+                cnm,
+                parent_leaf.clone(),
+                state,
+                proposal_upgrade_certificate,
+                proposal_certificate,
+                delay,
+                Arc::clone(&instance_state),
+            )
+            .await;
+        });
+
+        *proposal_cert = None;
+        *commitment_and_metadata = None;
+
+        Ok(Some(create_and_send_proposal_handle))
+    }
+
+    #[cfg(feature = "dependency-tasks")]
+    {
         create_and_send_proposal(
             public_key,
             private_key,
@@ -535,12 +567,9 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             Arc::clone(&instance_state),
         )
         .await;
-    });
 
-    *proposal_cert = None;
-    *commitment_and_metadata = None;
-
-    Ok(create_and_send_proposal_handle)
+        Ok(None)
+    }
 }
 
 /// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
@@ -560,7 +589,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
-) -> Result<JoinHandle<()>> {
+) -> Result<Option<JoinHandle<()>>> {
     if let Some(upgrade_cert) = decided_upgrade_cert {
         publish_proposal_from_upgrade_cert(
             cur_view,
@@ -576,22 +605,50 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         )
         .await
     } else {
-        publish_proposal_from_commitment_and_metadata(
-            cur_view,
-            view,
-            sender,
-            quorum_membership,
-            public_key,
-            private_key,
-            consensus,
-            delay,
-            formed_upgrade_certificate,
-            decided_upgrade_cert,
-            commitment_and_metadata,
-            proposal_cert,
-            instance_state,
-        )
-        .await
+        // this is *not* a new place to panic, and will always be defined when this is enabled.
+        #[cfg(not(feature = "dependency-tasks"))]
+        {
+            let maybe_handle = publish_proposal_from_commitment_and_metadata(
+                cur_view,
+                view,
+                sender,
+                quorum_membership,
+                public_key,
+                private_key,
+                consensus,
+                delay,
+                formed_upgrade_certificate,
+                decided_upgrade_cert,
+                commitment_and_metadata,
+                proposal_cert,
+                instance_state,
+            )
+            .await;
+
+            Ok(maybe_handle.unwrap())
+        }
+
+        #[cfg(feature = "dependency-tasks")]
+        {
+            publish_proposal_from_commitment_and_metadata(
+                cur_view,
+                view,
+                sender,
+                quorum_membership,
+                public_key,
+                private_key,
+                consensus,
+                delay,
+                formed_upgrade_certificate,
+                decided_upgrade_cert,
+                commitment_and_metadata,
+                proposal_cert,
+                instance_state,
+            )
+            .await?;
+
+            Ok(None)
+        }
     }
 }
 
@@ -629,6 +686,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         .await;
 
     validate_proposal_view_and_certs(
+        task_state.id,
         proposal,
         &sender,
         task_state.cur_view,
@@ -791,7 +849,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                         .spawned_tasks
                         .entry(view)
                         .or_default()
-                        .push(create_and_send_proposal_handle);
+                        .push(create_and_send_proposal_handle.unwrap());
                 }
             }
 
@@ -804,6 +862,8 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         return Ok(None);
     };
 
+    // #[cfg(not(feature = "dependency-tasks"))]
+    // {
     task_state
         .spawned_tasks
         .entry(proposal.data.get_view_number())
@@ -825,6 +885,26 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
             )
             .map(AnyhowTracing::err_as_debug),
         ));
+    // }
+
+    // #[cfg(feature = "dependency-tasks")]
+    // {
+    //     validate_proposal_safety_and_liveness(
+    //         proposal.clone(),
+    //         parent_leaf,
+    //         Arc::clone(&task_state.consensus),
+    //         task_state.decided_upgrade_cert.clone(),
+    //         Arc::clone(&task_state.quorum_membership),
+    //         Arc::clone(&parent_state),
+    //         view_leader_key,
+    //         event_stream.clone(),
+    //         sender,
+    //         task_state.output_event_stream.clone(),
+    //         Arc::clone(&task_state.storage),
+    //         Arc::clone(&task_state.instance_state),
+    //     )
+    //     .await?
+    // }
     Ok(None)
 }
 
