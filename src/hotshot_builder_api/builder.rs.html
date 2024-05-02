@@ -227,6 +227,12 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>clap::Args;
@@ -237,11 +243,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
-<span class="kw">use </span>tide_disco::{
-    api::ApiError,
-    method::{ReadState, WriteState},
-    Api, RequestError, RequestParams, StatusCode,
-};
+<span class="kw">use </span>tide_disco::{api::ApiError, method::ReadState, Api, RequestError, RequestParams, StatusCode};
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
@@ -431,8 +433,7 @@
     options: <span class="kw-2">&amp;</span>Options,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error, Ver&gt;, ApiError&gt;
 <span class="kw">where
-    </span>State: <span class="lifetime">'static </span>+ Send + Sync + WriteState,
-    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + AcceptsTxnSubmits&lt;Types&gt;,
+    </span>State: <span class="lifetime">'static </span>+ Send + Sync + AcceptsTxnSubmits&lt;Types&gt;,
     Types: NodeType,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>api = load_api::&lt;State, Error, Ver&gt;(
@@ -441,14 +442,25 @@
         options.extensions.clone(),
     )<span class="question-mark">?</span>;
     api.with_version(<span class="string">"0.0.1"</span>.parse().unwrap())
-        .post(<span class="string">"submit_txn"</span>, |req, state| {
+        .at(<span class="string">"submit_txn"</span>, |req: RequestParams, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>tx = req
                     .body_auto::&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction, Ver&gt;(Ver::instance())
                     .context(TxnUnpackSnafu)<span class="question-mark">?</span>;
                 <span class="kw">let </span>hash = tx.commit();
-                state.submit_txn(tx).<span class="kw">await</span>.context(TxnSubmitSnafu)<span class="question-mark">?</span>;
+                state.submit_txns(<span class="macro">vec!</span>[tx]).<span class="kw">await</span>.context(TxnSubmitSnafu)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(hash)
+            }
+            .boxed()
+        })<span class="question-mark">?
+        </span>.at(<span class="string">"submit_batch"</span>, |req: RequestParams, state| {
+            <span class="kw">async move </span>{
+                <span class="kw">let </span>txns = req
+                    .body_auto::&lt;Vec&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;, Ver&gt;(Ver::instance())
+                    .context(TxnUnpackSnafu)<span class="question-mark">?</span>;
+                <span class="kw">let </span>hashes = txns.iter().map(|tx| tx.commit()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                state.submit_txns(txns).<span class="kw">await</span>.context(TxnSubmitSnafu)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(hashes)
             }
             .boxed()
         })<span class="question-mark">?</span>;

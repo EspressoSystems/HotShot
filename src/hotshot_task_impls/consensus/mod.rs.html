@@ -870,19 +870,10 @@
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
 <a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>anyhow::Result;
-
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::vid::vid_scheme;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>jf_primitives::vid::VidScheme;
-
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -894,6 +885,8 @@
 </span><span class="kw">use </span>hotshot_types::data::VidDisperseShare;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>hotshot_types::message::Proposal;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>hotshot_types::vid::vid_scheme;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
@@ -911,7 +904,8 @@
     },
     vote::{Certificate, HasViewNumber},
 };
-
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};

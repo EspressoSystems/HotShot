@@ -566,17 +566,15 @@
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::{path::Path, sync::Arc, time::Duration};
 
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
+<span class="kw">use </span>async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>cdn_broker::reexports::{

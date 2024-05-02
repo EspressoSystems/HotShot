@@ -55,16 +55,18 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::BuildError,
-};
-<span class="kw">use </span>async_trait::async_trait;
+<a href="#56" id="56">56</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>hotshot_types::{
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     utils::BuilderCommitment,
     vid::VidCommitment,
+};
+
+<span class="kw">use crate</span>::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    builder::BuildError,
 };
 
 <span class="attr">#[async_trait]
@@ -105,9 +107,9 @@
 <span class="kw">where
     </span>I: NodeType,
 {
-    <span class="kw">async fn </span>submit_txn(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        txn: &lt;I <span class="kw">as </span>NodeType&gt;::Transaction,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Commitment&lt;&lt;I <span class="kw">as </span>NodeType&gt;::Transaction&gt;, BuildError&gt;;
+    <span class="kw">async fn </span>submit_txns(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        txns: Vec&lt;&lt;I <span class="kw">as </span>NodeType&gt;::Transaction&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Commitment&lt;&lt;I <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;, BuildError&gt;;
 }
 </code></pre></div></section></main></body></html>
