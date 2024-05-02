@@ -580,7 +580,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event: Arc<HotShotEvent<TYPES>>,
     ) {
         info!("Attempting to make dependency task for event {:?}", event);
-        if self.propose_dependencies.get(&view_number).is_some() {
+        if self.propose_dependencies.contains_key(&view_number) {
             debug!("Task already exists");
             return;
         }
