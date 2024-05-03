@@ -345,12 +345,9 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-<span class="kw">use </span>hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
+<span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 <span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::{
@@ -583,10 +580,7 @@
     &gt;(
         <span class="self">self</span>,
         node_id: u64,
-    ) -&gt; TestLauncher&lt;TYPES, I&gt;
-    <span class="kw">where
-        </span>I: NodeImplementation&lt;TYPES&gt;,
-    {
+    ) -&gt; TestLauncher&lt;TYPES, I&gt; {
         <span class="kw">let </span>TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,

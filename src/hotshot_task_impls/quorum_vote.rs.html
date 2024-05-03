@@ -795,7 +795,7 @@
         event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="kw">if </span><span class="self">self</span>.vote_dependencies.get(<span class="kw-2">&amp;</span>view_number).is_some() {
+        <span class="kw">if </span><span class="self">self</span>.vote_dependencies.contains_key(<span class="kw-2">&amp;</span>view_number) {
             <span class="kw">return</span>;
         }
 

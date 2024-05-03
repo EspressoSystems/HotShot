@@ -1120,7 +1120,6 @@
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Web server for `HotShot`
 
 /// Configuration for the webserver
@@ -1996,14 +1995,13 @@
 /// Transport versioning (generic params here) only changes when the web-CDN itself changes.
 /// When transport versioning changes, the application itself must update its version.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
-</span><span class="kw">fn </span>define_api&lt;State, KEY, NetworkVersion: StaticVersionType&gt;(
+</span><span class="kw">fn </span>define_api&lt;State, KEY, NetworkVersion: StaticVersionType + <span class="lifetime">'static</span>&gt;(
     options: <span class="kw-2">&amp;</span>Options,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error, NetworkVersion&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + WebServerDataSource&lt;KEY&gt;,
     KEY: SignatureKey,
-    NetworkVersion: <span class="lifetime">'static</span>,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>api = <span class="kw">match </span><span class="kw-2">&amp;</span>options.api_path {
         <span class="prelude-val">Some</span>(path) =&gt; Api::&lt;State, Error, NetworkVersion&gt;::from_file(path)<span class="question-mark">?</span>,

@@ -630,7 +630,6 @@
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -1130,13 +1129,12 @@
 }
 
 <span class="doccomment">/// Sets up all API routes
-</span><span class="kw">fn </span>define_api&lt;KEY: SignatureKey, State, VER: StaticVersionType&gt;(
-) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError, VER&gt;, ApiError&gt;
+</span><span class="kw">fn </span>define_api&lt;KEY, State, VER&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError, VER&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
     &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + OrchestratorApi&lt;KEY&gt;,
-    KEY: serde::Serialize,
-    VER: <span class="lifetime">'static</span>,
+    KEY: serde::Serialize + SignatureKey,
+    VER: StaticVersionType + <span class="lifetime">'static</span>,
 {
     <span class="kw">let </span>api_toml = toml::from_str::&lt;toml::Value&gt;(<span class="macro">include_str!</span>(<span class="macro">concat!</span>(
         <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),

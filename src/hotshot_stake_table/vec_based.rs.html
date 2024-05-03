@@ -621,7 +621,7 @@
         amount: <span class="self">Self</span>::Amount,
         aux: <span class="self">Self</span>::Aux,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), StakeTableError&gt; {
-        <span class="kw">if </span><span class="self">self</span>.bls_mapping.get(<span class="kw-2">&amp;</span>new_key).is_some() {
+        <span class="kw">if </span><span class="self">self</span>.bls_mapping.contains_key(<span class="kw-2">&amp;</span>new_key) {
             <span class="prelude-val">Err</span>(StakeTableError::ExistingKey)
         } <span class="kw">else </span>{
             <span class="kw">let </span>pos = <span class="self">self</span>.bls_mapping.len();

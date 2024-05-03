@@ -132,7 +132,6 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
@@ -179,14 +178,13 @@
 /// Panics if any state the test expects is not set. Panicking causes a test failure
 </span><span class="attr">#[allow(clippy::implicit_hasher)]
 #[allow(clippy::panic)]
-</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;(
+</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
     input: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
     state: S,
     allow_extra_output: bool,
 ) <span class="kw">where
     </span>TYPES: NodeType,
-    S: Send + <span class="lifetime">'static</span>,
 {
     <span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
     <span class="kw">let </span><span class="kw-2">mut </span>tasks = <span class="macro">vec!</span>[];
