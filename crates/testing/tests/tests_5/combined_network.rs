@@ -59,7 +59,7 @@ async fn test_combined_network_cdn_crash() {
     let mut metadata: TestDescription = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
-            next_view_timeout: 9_000,
+            next_view_timeout: 10_000,
             ..Default::default()
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
