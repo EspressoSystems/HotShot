@@ -124,15 +124,6 @@ where
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
-// NOTE enabling this resolves error related to `Deserialized`
-// impl<'de, TYPE: NodeType> Deserialize<'de> for DAProposal<TYPE> {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         todo!()
-//     }
-// }
 
 /// A proposal to upgrade the network
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
