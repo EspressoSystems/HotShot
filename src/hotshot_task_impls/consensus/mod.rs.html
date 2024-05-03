@@ -1057,7 +1057,7 @@
                     &amp;&amp; <span class="prelude-val">Some</span>(proposal.block_header.payload_commitment())
                         != null_block::commitment(<span class="self">self</span>.quorum_membership.total_nodes())
                 {
-                    <span class="macro">info!</span>(<span class="string">"Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}"</span>, null_block::commitment(<span class="self">self</span>.quorum_membership.total_nodes()), <span class="prelude-val">Some</span>(proposal.block_header.payload_commitment()));
+                    <span class="macro">warn!</span>(<span class="string">"Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}"</span>, null_block::commitment(<span class="self">self</span>.quorum_membership.total_nodes()), <span class="prelude-val">Some</span>(proposal.block_header.payload_commitment()));
                     <span class="kw">return </span><span class="bool-val">false</span>;
                 }
             }
@@ -1377,13 +1377,13 @@
                             </span>.publish_proposal(qc.view_number + <span class="number">1</span>, event_stream)
                             .<span class="kw">await
                         </span>{
-                            <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                            <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                         };
                     }
                     either::Left(qc) =&gt; {
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.update_high_qc(qc.clone()).<span class="kw">await
                         </span>{
-                            <span class="macro">warn!</span>(<span class="string">"Failed to store High QC of QC we formed. Error: {:?}"</span>, e);
+                            <span class="macro">error!</span>(<span class="string">"Failed to store High QC of QC we formed. Error: {:?}"</span>, e);
                         }
 
                         <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
@@ -1406,7 +1406,7 @@
                             </span>.publish_proposal(qc.view_number + <span class="number">1</span>, event_stream)
                             .<span class="kw">await
                         </span>{
-                            <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                            <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                         };
                     }
                 }
@@ -1461,14 +1461,14 @@
                 // Adding `+ 1` on the LHS rather than `- 1` on the RHS, to avoid the overflow
                 // error due to subtracting the genesis view number.
                 </span><span class="kw">if </span>view + <span class="number">1 </span>&lt; <span class="self">self</span>.cur_view {
-                    <span class="macro">warn!</span>(<span class="string">"Throwing away VID disperse data that is more than one view older"</span>);
+                    <span class="macro">info!</span>(<span class="string">"Throwing away VID disperse data that is more than one view older"</span>);
                     <span class="kw">return</span>;
                 }
 
                 <span class="macro">debug!</span>(<span class="string">"VID disperse data is not more than one view older."</span>);
 
                 <span class="kw">if </span>!<span class="self">self</span>.validate_disperse(disperse) {
-                    <span class="macro">warn!</span>(<span class="string">"Could not verify VID dispersal/share sig."</span>);
+                    <span class="macro">warn!</span>(<span class="string">"Failed to validated the VID dispersal/share sig."</span>);
                     <span class="kw">return</span>;
                 }
 
@@ -1642,7 +1642,7 @@
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
                 {
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
-                        <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                        <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                     };
                 }
 
@@ -1653,7 +1653,7 @@
                                 == <span class="self">self</span>.public_key
                             {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
-                                    <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                                    <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                                 };
                             }
                         }
@@ -1662,7 +1662,7 @@
                                 == <span class="self">self</span>.public_key
                             {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
-                                    <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                                    <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                                 };
                             }
                         }
@@ -1672,7 +1672,7 @@
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
-                    <span class="macro">warn!</span>(
+                    <span class="macro">error!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
                         certificate.get_data()
                     );
@@ -1697,7 +1697,7 @@
                     );
 
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
-                        <span class="macro">warn!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                        <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                     };
                 }
             }
