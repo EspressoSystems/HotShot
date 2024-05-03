@@ -515,7 +515,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         }
 
                         let mut consensus = self.consensus.write().await;
-                        consensus.high_qc = qc.clone();
+                        consensus.update_high_qc_if_new(qc.clone());
 
                         // cancel poll for votes
                         self.quorum_network
@@ -767,7 +767,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     block_view: view,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view
+                    && self.consensus.read().await.high_qc().get_view_number() + 1 == view
                 {
                     if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         warn!("Failed to propose; error = {e:?}");
