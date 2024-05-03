@@ -5,7 +5,7 @@ edition = { workspace = true }
 name = "hotshot-examples"
 readme = "README.md"
 version = { workspace = true }
-rust-version = "1.76.0"
+rust-version = "1.70.0"
 
 [features]
 default = ["docs", "doc-images", "hotshot-testing"]
