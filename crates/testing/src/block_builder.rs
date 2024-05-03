@@ -542,7 +542,6 @@ async fn build_block<TYPES: NodeType>(
     AvailableBlockHeaderInput<TYPES>,
 )
 where
-    TYPES: NodeType,
     <TYPES as NodeType>::InstanceState: Default,
 {
     let (block_payload, metadata) =
