@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use hotshot::{
     tasks::{inject_consensus_polls, task_state::CreateTaskState},

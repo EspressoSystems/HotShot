@@ -156,11 +156,8 @@ async fn test_da_task_storage_failure() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![exact(DAProposalSend(proposals[1].clone(), leaders[1]))],
