@@ -390,7 +390,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
     /// Handle a vote dependent event received on the event stream
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote handle", level = "error")]
-    #[allow(unused_variables)]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

@@ -158,7 +158,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         join_all(cancel).await;
     }
 
-    /// Validates whether the VID Dispersal Proposal is correctly signed
+    /// Validate the VID disperse is correctly signed and has the correct share.
     #[cfg(not(feature = "dependency-tasks"))]
     fn validate_disperse(&self, disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> bool {
         let view = disperse.data.get_view_number();
