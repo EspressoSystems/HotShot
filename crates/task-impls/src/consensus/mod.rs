@@ -593,7 +593,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // Adding `+ 1` on the LHS rather than `- 1` on the RHS, to avoid the overflow
                 // error due to subtracting the genesis view number.
                 if view + 1 < self.cur_view {
-                    info!("Throwing away VID disperse data that is more than one view older");
+                    tracing::info!(
+                        "Throwing away VID disperse data that is more than one view older"
+                    );
                     return;
                 }
 
