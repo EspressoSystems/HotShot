@@ -113,10 +113,7 @@ impl std::ops::Sub<u64> for ViewNumber {
 
 /// A proposal to start providing data availability for a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-pub struct DAProposal<TYPES>
-where
-    TYPES: NodeType,
-{
+pub struct DAProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
     pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
