@@ -20,9 +20,7 @@ use hotshot_builder_api::{
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
-use hotshot_example_types::{
-    block_types::TestTransaction,
-};
+use hotshot_example_types::block_types::TestTransaction;
 use hotshot_orchestrator::config::RandomBuilderConfig;
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
