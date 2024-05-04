@@ -1,6 +1,6 @@
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
+use hotshot::traits::{NetworkReliability, TestableNodeImplementation};
 use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::{
@@ -80,7 +80,7 @@ impl Default for TimingData {
             timeout_ratio: (11, 10),
             round_start_delay: 100,
             start_delay: 100,
-            builder_timeout: Duration::from_millis(1000),
+            builder_timeout: Duration::from_millis(500),
             data_request_delay: Duration::from_millis(200),
             secondary_network_delay: Duration::from_millis(1000),
             view_sync_timeout: Duration::from_millis(2000),
@@ -233,10 +233,7 @@ impl TestDescription {
     >(
         self,
         node_id: u64,
-    ) -> TestLauncher<TYPES, I>
-    where
-        I: NodeImplementation<TYPES>,
-    {
+    ) -> TestLauncher<TYPES, I> {
         let TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,

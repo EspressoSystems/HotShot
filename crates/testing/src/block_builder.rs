@@ -202,6 +202,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
         _for_parent: &VidCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
@@ -218,6 +219,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
@@ -234,6 +236,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
@@ -308,6 +311,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
         _for_parent: &VidCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
@@ -330,6 +334,16 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
                 })
             })
             .await;
+
+        if transactions.is_empty() {
+            // We don't want to return an empty block, as we will end up driving consensus to
+            // produce empty blocks extremely quickly. Instead, we return no blocks, so that
+            // consensus will keep asking for blocks until either we have something non-trivial to
+            // propose, or a timeout, in which case consensus will finally propose an empty block
+            // anyways.
+            return Ok(vec![]);
+        }
+
         let (metadata, payload, header_input) = build_block(
             transactions,
             self.num_storage_nodes,
@@ -353,6 +367,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
@@ -381,6 +396,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {

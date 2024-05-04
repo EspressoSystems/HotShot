@@ -1,9 +1,13 @@
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+// TODO: Remove after integration of dependency-tasks
+#![allow(unused_imports)]
 
 use std::sync::Arc;
 
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_example_types::state_types::TestInstanceState;
+use hotshot::tasks::{task_state::CreateTaskState};
+use hotshot_example_types::{
+    node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
+};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::event::{
@@ -26,6 +30,7 @@ use jf_primitives::vid::VidScheme;
 use sha2::Digest;
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
@@ -108,16 +113,15 @@ async fn test_consensus_task() {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
-
     run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
-    use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+    use hotshot::tasks::task_state::CreateTaskState;
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
@@ -166,13 +170,13 @@ async fn test_consensus_vote() {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(vec![view_1], consensus_state).await;
 }
 
 /// Tests the voting behavior by allowing the input to be permuted in any order desired. This
 /// assures that, no matter what, a vote is indeed sent no matter what order the precipitating
 /// events occur. The permutation is specified as `input_permutation` and is a vector of indices.
+#[cfg(not(feature = "dependency-tasks"))]
 async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -233,11 +237,11 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote_with_permuted_dac() {
@@ -253,6 +257,7 @@ async fn test_consensus_vote_with_permuted_dac() {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
@@ -386,11 +391,11 @@ async fn test_view_sync_finalize_propose() {
 
     let stages = vec![view_1, view_2_3, view_4];
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
@@ -483,11 +488,11 @@ async fn test_view_sync_finalize_vote() {
 
     let stages = vec![view_1, view_2, view_3];
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
@@ -590,11 +595,11 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
     let stages = vec![view_1, view_2, view_3];
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_disperse_storage_failure() {
@@ -640,8 +645,6 @@ async fn test_vid_disperse_storage_failure() {
     };
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-
-    inject_consensus_polls(&consensus_state).await;
 
     run_test_script(vec![view_1], consensus_state).await;
 }

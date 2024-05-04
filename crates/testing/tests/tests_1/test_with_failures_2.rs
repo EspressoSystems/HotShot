@@ -1,5 +1,8 @@
+// TODO: Remove this after integration
+#![allow(unused_imports)]
+
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, WebImpl},
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
     state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
@@ -9,9 +12,10 @@ use hotshot_testing::{
     test_builder::TestDescription,
 };
 // Test that a good leader can succeed in the view directly after view sync
+#[cfg(not(feature = "dependency-tasks"))]
 cross_tests!(
     TestName: test_with_failures_2,
-    Impls: [MemoryImpl, WebImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
     Ignore: false,
     Metadata: {

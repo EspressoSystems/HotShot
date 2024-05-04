@@ -30,4 +30,17 @@ FORMAT_VERSION = "0.1.0"
 [route.submit_txn]
 PATH = ["/submit"]
 METHOD = "POST"
-DOC = "Submit a transaction to builder's private mempool."
+DOC = """
+Submit a transaction to builder's private mempool."
+
+Returns transaction hash
+"""
+
+[route.submit_batch]
+PATH = ["/batch"]
+METHOD = "POST"
+DOC = """
+Submit a list of transactions to builder's private mempool."
+
+Returns the corresponding list of transaction hashes
+"""

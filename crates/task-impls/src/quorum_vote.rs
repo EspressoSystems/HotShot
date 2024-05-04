@@ -19,7 +19,6 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -30,7 +29,7 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use crate::{
     events::HotShotEvent,
@@ -40,7 +39,7 @@ use crate::{
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]
 enum VoteDependency {
-    /// For the `QuorumProposalRecv` event.
+    /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
     QuorumProposal,
     /// For the `DACertificateRecv` event.
     Dac,
@@ -253,7 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                 };
                 if event_view == view_number {
-                    debug!("Vote dependency {:?} completed", dependency_type);
+                    trace!("Vote dependency {:?} completed", dependency_type);
                     return true;
                 }
                 false
@@ -271,7 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         event: Option<Arc<HotShotEvent<TYPES>>>,
     ) {
-        if self.vote_dependencies.get(&view_number).is_some() {
+        if self.vote_dependencies.contains_key(&view_number) {
             return;
         }
 
@@ -380,7 +379,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::DACertificateRecv(cert) => {
                 let view = cert.view_number;
-                debug!("Received DAC for view {}", *view);
+                trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -389,14 +388,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 if !cert.is_valid_cert(self.da_membership.as_ref()) {
                     return;
                 }
-
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(*view))
-                    .await;
-
-                self.committee_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
 
                 // Add to the storage.
                 self.consensus
@@ -414,7 +405,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
-                debug!("Received VID share for view {}", *view);
+                trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -463,16 +454,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .entry(view)
                     .or_default()
                     .insert(disperse.data.recipient_key.clone(), disperse.clone());
+
                 if disperse.data.recipient_key != self.public_key {
                     debug!("Got a Valid VID share but it's not for our key");
                     return;
                 }
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
+
                 broadcast_event(
                     Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
                     &event_sender.clone(),
@@ -487,22 +474,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
             }
-            HotShotEvent::ViewChange(new_view) => {
-                let new_view = *new_view;
-                debug!(
-                    "View Change event for view {} in quorum vote task",
-                    *new_view
-                );
-
-                let old_voted_view = self.latest_voted_view;
-
-                // Start polling for VID disperse for the new view
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVIDDisperse(
-                        *old_voted_view + 1,
-                    ))
-                    .await;
-            }
             _ => {}
         }
     }
@@ -515,7 +486,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
         !matches!(
             event.as_ref(),
             HotShotEvent::DACertificateRecv(_)
-                | HotShotEvent::ViewChange(_)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(_)
                 | HotShotEvent::VoteNow(..)

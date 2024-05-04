@@ -2,7 +2,7 @@
 version = "0.5.43"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.76.0"
 homepage = "https://github.com/EspressoSystems/HotShot"
 documentation = "https://hotshot.docs.espressosys.com"
 repository = "https://github.com/EspressoSystems/HotShot"
@@ -131,10 +131,10 @@ anyhow = "1"
 
 
 # Push CDN imports
-cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.4" }
-cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.4" }
-cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.4" }
-cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.2.4" }
+cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3" }
+cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3" }
+cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3" }
+cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3" }
 
 ### Profiles
 ###
