@@ -539,6 +539,8 @@
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -941,7 +943,9 @@
                 }
                 HotShotEvent::ViewChange(view) =&gt; {
                     <span class="self">self</span>.view = view;
-                    <span class="self">self</span>.channel.update_view(<span class="self">self</span>.view.get_u64());
+                    <span class="self">self</span>.channel
+                        .update_view::&lt;TYPES&gt;(<span class="self">self</span>.view.get_u64(), membership)
+                        .<span class="kw">await</span>;
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 HotShotEvent::VersionUpgrade(version) =&gt; {

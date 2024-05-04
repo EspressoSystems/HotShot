@@ -106,40 +106,6 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -151,12 +117,7 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    constants::LOOK_AHEAD,
-    traits::{
-        election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    },
+    traits::node_implementation::{ConsensusTime, NodeType},
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
@@ -178,13 +139,9 @@
 ///
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
-</span><span class="attr">#[allow(clippy::too_many_arguments)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_view&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
-    public_key: TYPES::SignatureKey,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_view&lt;TYPES: NodeType&gt;(
     new_view: TYPES::Time,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    quorum_membership: Arc&lt;TYPES::Membership&gt;,
-    quorum_network: Arc&lt;I::QuorumNetwork&gt;,
     timeout: u64,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     cur_view: <span class="kw-2">&amp;mut </span>TYPES::Time,
@@ -211,38 +168,13 @@
 
     <span class="kw-2">*</span>cur_view = new_view;
 
-    <span class="comment">// Poll the future leader for lookahead
-    </span><span class="kw">let </span>lookahead_view = new_view + LOOK_AHEAD;
-    <span class="kw">if </span>quorum_membership.get_leader(lookahead_view) != public_key {
-        quorum_network
-            .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
-                <span class="kw-2">*</span>lookahead_view,
-                quorum_membership.get_leader(lookahead_view),
-            ))
-            .<span class="kw">await</span>;
-    }
-
     <span class="comment">// The next view is just the current view + 1
     </span><span class="kw">let </span>next_view = <span class="kw-2">*</span>cur_view + <span class="number">1</span>;
-
-    <span class="comment">// Start polling for proposals for the new view
-    </span>quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(<span class="kw-2">*</span>next_view))
-        .<span class="kw">await</span>;
-
-    quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(<span class="kw-2">*</span>next_view))
-        .<span class="kw">await</span>;
-
-    <span class="kw">if </span>quorum_membership.get_leader(next_view) == public_key {
-        quorum_network
-            .inject_consensus_info(ConsensusIntentEvent::PollForVotes(<span class="kw-2">**</span>cur_view))
-            .<span class="kw">await</span>;
-    }
 
     <span class="kw">if </span>send_view_change_event {
         broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).<span class="kw">await</span>;
     }
+
     <span class="comment">// Spawn a timeout task if we did actually update view
     </span><span class="kw-2">*</span>timeout_task = <span class="prelude-val">Some</span>(async_spawn({
         <span class="kw">let </span>stream = event_stream.clone();

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_num_tx_per_round","load_config_from_file","main_entry_point","read_orchestrator_init_config","run_orchestrator","webserver_network_from_config"],"struct":["CombinedDARun","ConfigArgs","Libp2pDARun","OrchestratorArgs","PushCdnDaRun","WebServerDARun"],"trait":["RunDA"]};

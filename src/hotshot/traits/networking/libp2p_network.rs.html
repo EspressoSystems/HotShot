@@ -1129,12 +1129,6 @@
 <a href="#1127" id="1127">1127</a>
 <a href="#1128" id="1128">1128</a>
 <a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a>
-<a href="#1134" id="1134">1134</a>
-<a href="#1135" id="1135">1135</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1176,9 +1170,10 @@
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
+        election::Membership,
         network::{
-            <span class="self">self</span>, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ResponseMessage,
+            <span class="self">self</span>, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
+            ResponseMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -2249,25 +2244,18 @@
             .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, event: ConsensusIntentEvent&lt;K&gt;) {
-        <span class="kw">match </span>event {
-            ConsensusIntentEvent::PollFutureLeader(future_view, future_leader) =&gt; {
-                <span class="kw">let _ </span>= <span class="self">self
-                    </span>.queue_node_lookup(ViewNumber::new(future_view), future_leader)
-                    .<span class="kw">await
-                    </span>.map_err(|err| <span class="macro">warn!</span>(<span class="string">"failed to process node lookup request: {}"</span>, err));
-            }
+    <span class="doccomment">/// handles view update
+    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
+    <span class="kw">where
+        </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
+    {
+        <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time::new(view) + LOOK_AHEAD;
+        <span class="kw">let </span>future_leader = membership.get_leader(future_view);
 
-            ConsensusIntentEvent::PollForProposal(new_view) =&gt; {
-                <span class="kw">if </span>new_view &gt; <span class="self">self</span>.inner.latest_seen_view.load(Ordering::Relaxed) {
-                    <span class="self">self</span>.inner
-                        .latest_seen_view
-                        .store(new_view, Ordering::Relaxed);
-                }
-            }
-
-            <span class="kw">_ </span>=&gt; {}
-        }
+        <span class="kw">let _ </span>= <span class="self">self
+            </span>.queue_node_lookup(ViewNumber::new(<span class="kw-2">*</span>future_view), future_leader)
+            .<span class="kw">await
+            </span>.map_err(|err| <span class="macro">tracing::warn!</span>(<span class="string">"failed to process node lookup request: {err}"</span>));
     }
 }
 </code></pre></div></section></main></body></html>

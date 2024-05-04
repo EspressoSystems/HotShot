@@ -663,83 +663,6 @@
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -755,6 +678,7 @@
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::time::error::Elapsed <span class="kw">as </span>TimeoutError;
+
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
 </span><span class="macro">compile_error! </span>{<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 <span class="kw">use </span>std::{
@@ -908,83 +832,6 @@
         </span>errors: Vec&lt;Box&lt;NetworkError&gt;&gt;,
     },
 }
-<span class="attr">#[derive(Clone, Debug)]
-</span><span class="comment">// Storing view number as a u64 to avoid the need TYPES generic
-</span><span class="doccomment">/// Events to poll or cancel consensus processes.
-</span><span class="kw">pub enum </span>ConsensusIntentEvent&lt;K: SignatureKey&gt; {
-    <span class="doccomment">/// Poll for votes for a particular view
-    </span>PollForVotes(u64),
-    <span class="doccomment">/// Poll for upgrade votes for a particular view
-    </span>PollForUpgradeVotes(u64),
-    <span class="doccomment">/// Poll for a proposal for a particular view
-    </span>PollForProposal(u64),
-    <span class="doccomment">/// Poll for an upgrade proposal for a particular view
-    </span>PollForUpgradeProposal(u64),
-    <span class="doccomment">/// Poll for VID disperse data for a particular view
-    </span>PollForVIDDisperse(u64),
-    <span class="doccomment">/// Poll for the most recent [quorum/da] proposal the webserver has
-    </span>PollForLatestProposal,
-    <span class="doccomment">/// Poll for the most recent view sync proposal the webserver has
-    </span>PollForLatestViewSyncCertificate,
-    <span class="doccomment">/// Poll for a DAC for a particular view
-    </span>PollForDAC(u64),
-    <span class="doccomment">/// Poll for view sync votes starting at a particular view
-    </span>PollForViewSyncVotes(u64),
-    <span class="doccomment">/// Poll for view sync proposals (certificates) for a particular view
-    </span>PollForViewSyncCertificate(u64),
-    <span class="doccomment">/// Poll for new transactions
-    </span>PollForTransactions(u64),
-    <span class="doccomment">/// Poll for future leader
-    </span>PollFutureLeader(u64, K),
-    <span class="doccomment">/// Cancel polling for votes
-    </span>CancelPollForVotes(u64),
-    <span class="doccomment">/// Cancel polling for view sync votes.
-    </span>CancelPollForViewSyncVotes(u64),
-    <span class="doccomment">/// Cancel polling for proposals.
-    </span>CancelPollForProposal(u64),
-    <span class="doccomment">/// Cancel polling for the latest proposal.
-    </span>CancelPollForLatestProposal(u64),
-    <span class="doccomment">/// Cancel polling for the latest view sync certificate
-    </span>CancelPollForLatestViewSyncCertificate(u64),
-    <span class="doccomment">/// Cancal polling for DAC.
-    </span>CancelPollForDAC(u64),
-    <span class="doccomment">/// Cancel polling for view sync certificate.
-    </span>CancelPollForViewSyncCertificate(u64),
-    <span class="doccomment">/// Cancel polling for VID disperse data
-    </span>CancelPollForVIDDisperse(u64),
-    <span class="doccomment">/// Cancel polling for transactions
-    </span>CancelPollForTransactions(u64),
-}
-
-<span class="kw">impl</span>&lt;K: SignatureKey&gt; ConsensusIntentEvent&lt;K&gt; {
-    <span class="doccomment">/// Get the view number of the event.
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
-            ConsensusIntentEvent::PollForVotes(view_number)
-            | ConsensusIntentEvent::PollForProposal(view_number)
-            | ConsensusIntentEvent::PollForUpgradeVotes(view_number)
-            | ConsensusIntentEvent::PollForUpgradeProposal(view_number)
-            | ConsensusIntentEvent::PollForDAC(view_number)
-            | ConsensusIntentEvent::PollForViewSyncVotes(view_number)
-            | ConsensusIntentEvent::CancelPollForViewSyncVotes(view_number)
-            | ConsensusIntentEvent::CancelPollForVotes(view_number)
-            | ConsensusIntentEvent::CancelPollForProposal(view_number)
-            | ConsensusIntentEvent::CancelPollForLatestProposal(view_number)
-            | ConsensusIntentEvent::CancelPollForLatestViewSyncCertificate(view_number)
-            | ConsensusIntentEvent::PollForVIDDisperse(view_number)
-            | ConsensusIntentEvent::CancelPollForVIDDisperse(view_number)
-            | ConsensusIntentEvent::CancelPollForDAC(view_number)
-            | ConsensusIntentEvent::CancelPollForViewSyncCertificate(view_number)
-            | ConsensusIntentEvent::PollForViewSyncCertificate(view_number)
-            | ConsensusIntentEvent::PollForTransactions(view_number)
-            | ConsensusIntentEvent::CancelPollForTransactions(view_number)
-            | ConsensusIntentEvent::PollFutureLeader(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
-            ConsensusIntentEvent::PollForLatestProposal
-            | ConsensusIntentEvent::PollForLatestViewSyncCertificate =&gt; <span class="number">1</span>,
-        }
-    }
-}
 
 <span class="doccomment">/// common traits we would like our network messages to implement
 </span><span class="kw">pub trait </span>NetworkMsg:
@@ -1045,11 +892,11 @@
     </span>Denied,
 }
 
-<span class="doccomment">/// represents a networking implmentration
+<span class="attr">#[async_trait]
+</span><span class="doccomment">/// represents a networking implmentration
 /// exposes low level API for interacting with a network
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
-</span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>ConnectedNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt;:
     Clone + Send + Sync + <span class="lifetime">'static
 </span>{
@@ -1162,13 +1009,12 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Injects consensus data such as view number into the networking implementation
-    /// blocking
-    /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    </span><span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _event: ConsensusIntentEvent&lt;K&gt;) {}
-
     <span class="doccomment">/// handles view update
-    </span><span class="kw">fn </span>update_view(<span class="kw-2">&amp;</span><span class="self">self</span>, _view: u64) {}
+    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, _view: u64, _membership: <span class="kw-2">&amp;</span>TYPES::Membership)
+    <span class="kw">where
+        </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
+    {
+    }
 
     <span class="doccomment">/// Is primary network down? Makes sense only for combined network
     </span><span class="kw">fn </span>is_primary_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
