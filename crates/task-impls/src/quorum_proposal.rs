@@ -1,7 +1,6 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -13,9 +12,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{Leaf, QuorumProposal},
     event::Event,
-    message::Proposal,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -32,12 +29,8 @@ use tracing::{debug, error, instrument, warn};
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
 use crate::{
-    consensus::helpers::publish_proposal_if_able,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    consensus::helpers::publish_proposal_if_able, events::HotShotEvent, helpers::cancel_task,
 };
-use committable::Committable;
-use hotshot_types::vote::HasViewNumber;
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -105,152 +98,6 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     /// The node's id
     #[allow(dead_code)]
     id: u64,
-}
-
-impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
-    /// Sends a proposal if possible from the high qc we have
-    #[allow(clippy::too_many_lines)]
-    #[allow(dead_code)]
-    pub async fn publish_proposal_if_able(
-        &self,
-        view: TYPES::Time,
-        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-        commit_and_metadata: CommitmentAndMetadata<TYPES>,
-        instance_state: Arc<TYPES::InstanceState>,
-    ) -> bool {
-        if self.quorum_membership.get_leader(view) != self.public_key {
-            // This is expected for view 1, so skipping the logging.
-            if view != TYPES::Time::new(1) {
-                error!(
-                    "Somehow we formed a QC but are not the leader for the next view {:?}",
-                    view
-                );
-            }
-            return false;
-        }
-
-        let consensus = self.consensus.read().await;
-        let parent_view_number = &consensus.high_qc().get_view_number();
-        let mut reached_decided = false;
-
-        let Some(parent_view) = consensus.validated_state_map.get(parent_view_number) else {
-            // This should have been added by the replica?
-            error!("Couldn't find parent view in state map, waiting for replica to see proposal\n parent view number: {}", **parent_view_number);
-            return false;
-        };
-        // Leaf hash in view inner does not match high qc hash - Why?
-        let Some((leaf_commitment, state)) = parent_view.get_leaf_and_state() else {
-            error!(
-                ?parent_view_number,
-                ?parent_view,
-                "Parent of high QC points to a view without a proposal"
-            );
-            return false;
-        };
-        if leaf_commitment != consensus.high_qc().get_data().leaf_commit {
-            // NOTE: This happens on the genesis block
-            debug!(
-                "They don't equal: {:?}   {:?}",
-                leaf_commitment,
-                consensus.high_qc().get_data().leaf_commit
-            );
-        }
-        let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
-            error!("Failed to find high QC of parent.");
-            return false;
-        };
-        if leaf.get_view_number() == consensus.last_decided_view {
-            reached_decided = true;
-        }
-
-        let parent_leaf = leaf.clone();
-
-        let original_parent_hash = parent_leaf.commit();
-
-        let mut next_parent_hash = original_parent_hash;
-
-        // Walk back until we find a decide
-        if !reached_decided {
-            debug!(
-                "We have not reached decide from view {:?}",
-                self.view_number
-            );
-            while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
-                if next_parent_leaf.get_view_number() <= consensus.last_decided_view {
-                    break;
-                }
-                next_parent_hash = next_parent_leaf.get_parent_commitment();
-            }
-            debug!("updated saved leaves");
-            // TODO do some sort of sanity check on the view number that it matches decided
-        }
-
-        let Some(Some(vid_share)) = consensus
-            .vid_shares
-            .get(&leaf.get_view_number())
-            .map(|shares| shares.get(&self.public_key))
-        else {
-            debug!("Cannot propopse without our VID share");
-            return false;
-        };
-
-        // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
-        let Ok(block_header) = TYPES::BlockHeader::new(
-            state,
-            instance_state.as_ref(),
-            &parent_leaf,
-            commit_and_metadata.commitment,
-            commit_and_metadata.builder_commitment,
-            commit_and_metadata.metadata,
-            commit_and_metadata.fee,
-            vid_share.data.common.clone(),
-        )
-        .await
-        else {
-            warn!("Cannot propose because header creation failed");
-            return false;
-        };
-
-        // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
-        let proposal = QuorumProposal {
-            block_header,
-            view_number: view,
-            justify_qc: consensus.high_qc().clone(),
-            proposal_certificate: None,
-            upgrade_certificate: None,
-        };
-
-        let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
-
-        let Ok(signature) =
-            TYPES::SignatureKey::sign(&self.private_key, proposed_leaf.commit().as_ref())
-        else {
-            error!("Failed to sign new_leaf.commit()!");
-            return false;
-        };
-
-        let message = Proposal {
-            data: proposal,
-            signature,
-            _pd: PhantomData,
-        };
-        debug!(
-            "Sending null proposal for view {:?} \n {:?}",
-            proposed_leaf.get_view_number(),
-            ""
-        );
-
-        async_sleep(Duration::from_millis(self.round_start_delay)).await;
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumProposalSend(
-                message.clone(),
-                self.public_key.clone(),
-            )),
-            event_stream,
-        )
-        .await;
-        true
-    }
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {

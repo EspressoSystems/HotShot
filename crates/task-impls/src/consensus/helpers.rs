@@ -1021,36 +1021,11 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 proposal.get_view_number(),
                 new_view,
                 proposal.clone(),
-                event_stream.clone(),
+                event_stream,
             );
         } else {
-            let proposal = proposal.clone();
-            let upgrade = task_state.decided_upgrade_cert.clone();
-            let pub_key = task_state.public_key.clone();
-            let priv_key = task_state.private_key.clone();
-            let consensus = Arc::clone(&task_state.consensus);
-            let storage = Arc::clone(&task_state.storage);
-            let quorum_mem = Arc::clone(&task_state.quorum_membership);
-            let committee_mem = Arc::clone(&task_state.committee_membership);
-            let instance_state = Arc::clone(&task_state.instance_state);
-            let handle = async_spawn(async move {
-                update_state_and_vote_if_able::<TYPES, I>(
-                    view,
-                    proposal,
-                    pub_key,
-                    consensus,
-                    storage,
-                    quorum_mem,
-                    instance_state,
-                    (priv_key, upgrade, committee_mem, event_stream),
-                )
-                .await;
-            });
-            task_state
-                .spawned_tasks
-                .entry(view)
-                .or_default()
-                .push(handle);
+            task_state.current_proposal = Some(proposal.clone());
+            task_state.spawn_vote_task(view, event_stream);
         }
     }
 

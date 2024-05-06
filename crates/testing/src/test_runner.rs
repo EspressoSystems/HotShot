@@ -28,7 +28,7 @@ use hotshot_types::{
     HotShotConfig, ValidatorConfig,
 };
 #[allow(deprecated)]
-use tracing::info;
+use tracing::{error, info};
 
 use super::{
     completion_task::CompletionTask,
@@ -296,7 +296,7 @@ where
         {
             let results = join_all(task_futs).await;
 
-            tracing::error!("test tasks joined");
+            error!("test tasks joined");
             for result in results {
                 match result {
                     Ok(res) => {
@@ -311,7 +311,7 @@ where
                         }
                     }
                     Err(e) => {
-                        tracing::error!("Error Joining the test task {:?}", e);
+                        error!("Error Joining the test task {:?}", e);
                     }
                 }
             }

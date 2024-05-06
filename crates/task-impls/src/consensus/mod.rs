@@ -35,7 +35,7 @@ use hotshot_types::{traits::storage::Storage, vote::Certificate};
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
@@ -235,6 +235,40 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         Ok(())
     }
 
+    /// Spawn a vote task for the given view.  Will try to vote
+    /// and emit a `QuorumVoteSend` event we should vote on the current proposal
+    fn spawn_vote_task(
+        &mut self,
+        view: TYPES::Time,
+        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) {
+        let Some(proposal) = self.current_proposal.clone() else {
+            return;
+        };
+        let upgrade = self.decided_upgrade_cert.clone();
+        let pub_key = self.public_key.clone();
+        let priv_key = self.private_key.clone();
+        let consensus = Arc::clone(&self.consensus);
+        let storage = Arc::clone(&self.storage);
+        let quorum_mem = Arc::clone(&self.quorum_membership);
+        let committee_mem = Arc::clone(&self.committee_membership);
+        let instance_state = Arc::clone(&self.instance_state);
+        let handle = async_spawn(async move {
+            update_state_and_vote_if_able::<TYPES, I>(
+                view,
+                proposal,
+                pub_key,
+                consensus,
+                storage,
+                quorum_mem,
+                instance_state,
+                (priv_key, upgrade, committee_mem, event_stream),
+            )
+            .await;
+        });
+        self.spawned_tasks.entry(view).or_default().push(handle);
+    }
+
     #[cfg(not(feature = "dependency-tasks"))]
     /// Tries to vote then Publishes a proposal
     fn vote_and_publish_proposal(
@@ -333,32 +367,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     .await
                 {
                     Ok(Some(current_proposal)) => {
-                        error!("voting for liveness");
                         let view = current_proposal.get_view_number();
-                        let proposal = current_proposal.clone();
-                        let upgrade = self.decided_upgrade_cert.clone();
                         self.current_proposal = Some(current_proposal);
-                        let pub_key = self.public_key.clone();
-                        let priv_key = self.private_key.clone();
-                        let consensus = Arc::clone(&self.consensus);
-                        let storage = Arc::clone(&self.storage);
-                        let quorum_mem = Arc::clone(&self.quorum_membership);
-                        let committee_mem = Arc::clone(&self.committee_membership);
-                        let instance_state = Arc::clone(&self.instance_state);
-                        let handle = async_spawn(async move {
-                            update_state_and_vote_if_able::<TYPES, I>(
-                                view,
-                                proposal,
-                                pub_key,
-                                consensus,
-                                storage,
-                                quorum_mem,
-                                instance_state,
-                                (priv_key, upgrade, committee_mem, event_stream),
-                            )
-                            .await;
-                        });
-                        self.spawned_tasks.entry(view).or_default().push(handle);
+                        self.spawn_vote_task(view, event_stream);
                     }
                     Ok(None) => {}
                     Err(e) => debug!("Failed to propose {e:#}"),
@@ -533,28 +544,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if proposal.get_view_number() != view {
                     return;
                 }
-                let upgrade = self.decided_upgrade_cert.clone();
-                let pub_key = self.public_key.clone();
-                let priv_key = self.private_key.clone();
-                let consensus = Arc::clone(&self.consensus);
-                let storage = Arc::clone(&self.storage);
-                let quorum_mem = Arc::clone(&self.quorum_membership);
-                let committee_mem = Arc::clone(&self.committee_membership);
-                let instance_state = Arc::clone(&self.instance_state);
-                let handle = async_spawn(async move {
-                    update_state_and_vote_if_able::<TYPES, I>(
-                        view,
-                        proposal,
-                        pub_key,
-                        consensus,
-                        storage,
-                        quorum_mem,
-                        instance_state,
-                        (priv_key, upgrade, committee_mem, event_stream),
-                    )
-                    .await;
-                });
-                self.spawned_tasks.entry(view).or_default().push(handle);
+                self.spawn_vote_task(view, event_stream);
             }
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::VIDShareRecv(disperse) => {
@@ -570,9 +560,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // Adding `+ 1` on the LHS rather than `- 1` on the RHS, to avoid the overflow
                 // error due to subtracting the genesis view number.
                 if view + 1 < self.cur_view {
-                    tracing::info!(
-                        "Throwing away VID disperse data that is more than one view older"
-                    );
+                    info!("Throwing away VID disperse data that is more than one view older");
                     return;
                 }
 
@@ -593,31 +581,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }
-                let Some(proposal) = self.current_proposal.clone() else {
-                    return;
-                };
-                let upgrade = self.decided_upgrade_cert.clone();
-                let pub_key = self.public_key.clone();
-                let priv_key = self.private_key.clone();
-                let consensus = Arc::clone(&self.consensus);
-                let storage = Arc::clone(&self.storage);
-                let quorum_mem = Arc::clone(&self.quorum_membership);
-                let committee_mem = Arc::clone(&self.committee_membership);
-                let instance_state = Arc::clone(&self.instance_state);
-                let handle = async_spawn(async move {
-                    update_state_and_vote_if_able::<TYPES, I>(
-                        view,
-                        proposal,
-                        pub_key,
-                        consensus,
-                        storage,
-                        quorum_mem,
-                        instance_state,
-                        (priv_key, upgrade, committee_mem, event_stream),
-                    )
-                    .await;
-                });
-                self.spawned_tasks.entry(view).or_default().push(handle);
+                self.spawn_vote_task(view, event_stream);
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
