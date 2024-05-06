@@ -111,7 +111,7 @@
 };
 
 <span class="doccomment">/// Instance-level state, which allows us to fetch missing validated state.
-</span><span class="kw">pub trait </span>InstanceState: Debug + Send + Sync + Default {}
+</span><span class="kw">pub trait </span>InstanceState: Debug + Send + Sync {}
 
 <span class="doccomment">/// Application-specific state delta, which will be used to store a list of merkle tree entries.
 </span><span class="kw">pub trait </span>StateDelta: Debug + Send + Sync + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; {}

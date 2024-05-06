@@ -601,6 +601,23 @@
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -640,7 +657,10 @@
 <span class="kw">use </span>tide_disco::{method::ReadState, App, Url};
 
 <span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>TestBuilderImplementation&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub trait </span>TestBuilderImplementation&lt;TYPES: NodeType&gt;
+<span class="kw">where
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
+{
     <span class="kw">type </span>Config: Default;
 
     <span class="kw">async fn </span>start(
@@ -655,6 +675,7 @@
 </span><span class="kw">impl</span>&lt;TYPES&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>RandomBuilderImplementation
 <span class="kw">where
     </span>TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
 {
     <span class="kw">type </span>Config = RandomBuilderConfig;
 
@@ -672,7 +693,10 @@
 <span class="kw">pub struct </span>SimpleBuilderImplementation;
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderImplementation {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestBuilderImplementation&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderImplementation
+<span class="kw">where
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
+{
     <span class="kw">type </span>Config = ();
 
     <span class="kw">async fn </span>start(
@@ -743,7 +767,10 @@
 
     <span class="doccomment">/// Spawn a task building blocks, configured with given options
     </span><span class="attr">#[allow(clippy::missing_panics_doc)] </span><span class="comment">// ony panics on 16-bit platforms
-    </span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>, num_storage_nodes: usize, options: RandomBuilderConfig) {
+    </span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>, num_storage_nodes: usize, options: RandomBuilderConfig)
+    <span class="kw">where
+        </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
+    {
         <span class="kw">let </span>blocks = <span class="self">self</span>.blocks.clone();
         <span class="kw">let </span>(priv_key, pub_key) = (<span class="self">self</span>.priv_key.clone(), <span class="self">self</span>.pub_key.clone());
         async_spawn(<span class="kw">async move </span>{
@@ -865,6 +892,7 @@
 </span><span class="kw">pub fn </span>run_random_builder&lt;TYPES&gt;(url: Url, num_storage_nodes: usize, options: RandomBuilderConfig)
 <span class="kw">where
     </span>TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
 {
     <span class="kw">let </span>(pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
     <span class="kw">let </span>source = RandomBuilderSource::new(pub_key, priv_key);
@@ -910,7 +938,10 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderSource&lt;TYPES&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderSource&lt;TYPES&gt;
+<span class="kw">where
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
+{
     <span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _for_parent: <span class="kw-2">&amp;</span>VidCommitment,
@@ -1014,7 +1045,10 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; SimpleBuilderSource&lt;TYPES&gt; {
-    <span class="kw">pub async fn </span>run(<span class="self">self</span>, url: Url) {
+    <span class="kw">pub async fn </span>run(<span class="self">self</span>, url: Url)
+    <span class="kw">where
+        </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
+    {
         <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
             SimpleBuilderSource&lt;TYPES&gt;,
             TYPES,
