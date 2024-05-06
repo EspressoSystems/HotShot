@@ -41,20 +41,10 @@
           "rustfmt"
           "llvm-tools-preview"
         ];
-        fenixStable = fenix.packages.${system}.combine [
-          ( fenix.packages.${system}.stable.withComponents [
-              "cargo"
-              "clippy"
-              "rust-src"
-              "rustc"
-              "llvm-tools-preview"
-            ]
-          )
-          ( fenix.packages.${system}.latest.withComponents [
-              "rustfmt"
-            ]
-          )
-        ];
+        fenixStable = fenix.packages.${system}.fromToolchainFile {
+          dir = ./.;
+          sha256 = "sha256-opUgs6ckUQCyDxcB9Wy51pqhd0MPGHUVbwRKKPGiwZU=";
+        };
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system};
           combine [
