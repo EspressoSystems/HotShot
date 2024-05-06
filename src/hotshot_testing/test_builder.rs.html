@@ -339,17 +339,10 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
-<span class="kw">use </span>hotshot_orchestrator::config::ValidatorConfigFile;
 <span class="kw">use </span>hotshot_types::{
     traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
@@ -613,18 +606,13 @@
             })
             .collect();
         <span class="comment">// But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
+        </span><span class="kw">let </span>my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
             [<span class="number">0u8</span>; <span class="number">32</span>],
             node_id,
             <span class="number">1</span>,
             <span class="comment">// This is the config for node 0
             </span><span class="number">0 </span>&lt; da_staked_committee_size,
         );
-        <span class="kw">if </span>node_id == <span class="number">0 </span>{
-            my_own_validator_config = ValidatorConfig::from(ValidatorConfigFile::from_file(
-                <span class="string">"config/ValidatorConfigFile.toml"</span>,
-            ));
-        }
         <span class="comment">// let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         </span><span class="kw">let </span>config = HotShotConfig {
             <span class="comment">// TODO this doesn't exist anymore

@@ -1018,7 +1018,6 @@
 <a href="#1016" id="1016">1016</a>
 <a href="#1017" id="1017">1017</a>
 <a href="#1018" id="1018">1018</a>
-<a href="#1019" id="1019">1019</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     fmt::Debug,
@@ -1467,7 +1466,6 @@
         <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.get_event_stream();
         <span class="kw">let </span><span class="kw-2">mut </span>anchor_view: TYPES::Time = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
         <span class="kw">let </span><span class="kw-2">mut </span>num_successful_commits = <span class="number">0</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>failed_num_views = <span class="number">0</span>;
 
         context.hotshot.start_consensus().<span class="kw">await</span>;
 
@@ -1549,11 +1547,9 @@
                             <span class="comment">// when we make progress, submit new events
                         </span>}
                         EventType::ReplicaViewTimeout { view_number } =&gt; {
-                            failed_num_views += <span class="number">1</span>;
                             <span class="macro">warn!</span>(<span class="string">"Timed out as a replicas in view {:?}"</span>, view_number);
                         }
                         EventType::ViewTimeout { view_number } =&gt; {
-                            failed_num_views += <span class="number">1</span>;
                             <span class="macro">warn!</span>(<span class="string">"Timed out in view {:?}"</span>, view_number);
                         }
                         <span class="kw">_ </span>=&gt; {} <span class="comment">// mostly DA proposal
@@ -1564,18 +1560,20 @@
         <span class="kw">let </span>consensus_lock = context.hotshot.get_consensus();
         <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
         <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
+        <span class="comment">// `failed_num_views` could include uncommitted views
+        </span><span class="kw">let </span>failed_num_views = total_num_views - num_successful_commits;
         <span class="comment">// When posting to the orchestrator, note that the total number of views also include un-finalized views.
         </span><span class="macro">println!</span>(<span class="string">"[{node_index}]: Total views: {total_num_views}, Failed views: {failed_num_views}, num_successful_commits: {num_successful_commits}"</span>);
-        <span class="comment">// +2 is for uncommitted views
-        </span><span class="macro">assert!</span>(total_num_views &lt;= (failed_num_views + num_successful_commits + <span class="number">2</span>));
         <span class="comment">// Output run results
         </span><span class="kw">let </span>total_time_elapsed = start.elapsed(); <span class="comment">// in seconds
         </span><span class="macro">println!</span>(<span class="string">"[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}"</span>);
         <span class="kw">if </span>total_transactions_committed != <span class="number">0 </span>{
+            <span class="comment">// prevent devision by 0
+            </span><span class="kw">let </span>total_time_elapsed_sec = std::cmp::max(total_time_elapsed.as_secs(), <span class="number">1u64</span>);
             <span class="comment">// extra 8 bytes for timestamp
             </span><span class="kw">let </span>throughput_bytes_per_sec = total_transactions_committed
                 * (transaction_size_in_bytes + <span class="number">8</span>)
-                / total_time_elapsed.as_secs();
+                / total_time_elapsed_sec;
             <span class="kw">let </span>avg_latency_in_sec = total_latency / num_latency;
             <span class="macro">println!</span>(<span class="string">"[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec."</span>);
             BenchResults {
