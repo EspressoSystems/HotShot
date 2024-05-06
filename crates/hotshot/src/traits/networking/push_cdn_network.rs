@@ -155,15 +155,12 @@ pub struct PushCdnNetwork<TYPES: NodeType> {
 
 /// The enum for the topics we can subscribe to in the Push CDN
 #[repr(u8)]
-pub enum Topics {
+pub enum Topic {
     /// The global topic
     Global = 0,
     /// The DA topic
     DA = 1,
 }
-
-/// A type alias for the topic type. This is just a `u8`.
-type Topic = u8;
 
 impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
@@ -180,7 +177,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         // Build config
         let config = ClientConfig {
             endpoint: marshal_endpoint,
-            subscribed_topics: topics,
+            subscribed_topics: topics.into_iter().map(|t| t as u8).collect(),
             keypair,
             use_local_authority: true,
         };
@@ -226,7 +223,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         // TODO: check if we need to print this error
         if self
             .client
-            .send_broadcast_message(vec![topic], serialized_message)
+            .send_broadcast_message(vec![topic as u8], serialized_message)
             .await
             .is_err()
         {
@@ -368,9 +365,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
                     // Calculate if we're DA or not
                     let topics = if node_id < da_committee_size as u64 {
-                        vec![Topics::DA as u8, Topics::Global as u8]
+                        vec![Topic::DA as u8, Topic::Global as u8]
                     } else {
-                        vec![Topics::Global as u8]
+                        vec![Topic::Global as u8]
                     };
 
                     // Configure our client
@@ -444,7 +441,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         _recipients: BTreeSet<TYPES::SignatureKey>,
         bind_version: Ver,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topics::Global as u8, bind_version)
+        self.broadcast_message(message, Topic::Global, bind_version)
             .await
     }
 
@@ -459,7 +456,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         _recipients: BTreeSet<TYPES::SignatureKey>,
         bind_version: Ver,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topics::DA as u8, bind_version)
+        self.broadcast_message(message, Topic::DA, bind_version)
             .await
     }
 

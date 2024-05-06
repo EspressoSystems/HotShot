@@ -20,7 +20,7 @@ use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topics,
+            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topic,
             WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
@@ -631,9 +631,9 @@ where
         };
 
         // See if we should be DA, subscribe to the DA topic if so
-        let mut topics = vec![Topics::Global];
+        let mut topics = vec![Topic::Global];
         if config.config.my_own_validator_config.is_da {
-            topics.push(Topics::DA);
+            topics.push(Topic::DA);
         }
 
         // Create the network and await the initial connection
@@ -642,7 +642,7 @@ where
                 .cdn_marshal_address
                 .clone()
                 .expect("`cdn_marshal_address` needs to be supplied for a push CDN run"),
-            topics.into_iter().map(|t| t as u8).collect(),
+            topics,
             keypair,
         )
         .expect("failed to create network");
