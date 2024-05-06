@@ -1,6 +1,6 @@
 //! Provides the core consensus types
 
-use anyhow::{bail, Result};
+use anyhow::{ensure, Result};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{Arc, Mutex},
@@ -310,12 +310,15 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the high QC if given a newer one.
+    /// # Errors
+    /// Returns an error when the provided `high_qc` is not greater than the existing one.
     pub fn update_high_qc_if_new(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
-        if high_qc.view_number > self.high_qc.view_number {
-            self.high_qc = high_qc;
-            return Ok(());
-        }
-        bail!("Provided high qc is not newer than the existing one.");
+        ensure!(
+            high_qc.view_number > self.high_qc.view_number,
+            "Provided high qc is not newer than the existing one."
+        );
+        self.high_qc = high_qc;
+        Ok(())
     }
 
     /// gather information from the parent chain of leaves

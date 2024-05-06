@@ -74,11 +74,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -158,11 +155,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(node_id),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -222,11 +216,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -293,11 +284,8 @@ async fn test_quorum_proposal_task_view_sync() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -384,11 +372,8 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment: builder_commitment.clone(),
             metadata: TestMetadata,
-            fee: null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                Arc::new(TestInstanceState {}),
-            )
-            .unwrap(),
+            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -404,11 +389,8 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment: builder_commitment.clone(),
             metadata: TestMetadata,
-            fee: null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                Arc::new(TestInstanceState {}),
-            )
-            .unwrap(),
+            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -434,11 +416,8 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment,
             metadata: TestMetadata,
-            fee: null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                Arc::new(TestInstanceState {}),
-            )
-            .unwrap(),
+            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
