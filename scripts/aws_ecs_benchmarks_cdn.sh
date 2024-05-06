@@ -47,10 +47,10 @@ do
             do
                 for transaction_size in 512 # 4096 1000000
                 do
-                    for fixed_leader_for_gpuvid in 1 #5 10
-                    do
-                        if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
-                        then
+                    # for fixed_leader_for_gpuvid in 1 #5 10
+                    # do
+                        # if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
+                        # then
                             rounds=100
 
                             # start orchestrator
@@ -68,15 +68,15 @@ do
 
                             # start validators
                             ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
-                            sleep $(( ($rounds + $total_nodes) * $transactions_per_round ))
+                            sleep $(( ($rounds + $total_nodes) * $transactions_per_round * 2))
 
                             # kill them
                             ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
                             sleep 1m
                             for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                             sleep 10
-                        fi
-                    done
+                        # fi
+                    # done
                 done
             done
         fi
