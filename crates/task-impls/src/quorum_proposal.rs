@@ -349,24 +349,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         )
     }
 
-    /// Determines if the event view number is valid by checking if it is at least newer than the
-    /// most recently proposed view.
-    fn is_event_view_number_valid(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        let view = match event.as_ref() {
-            HotShotEvent::ProposeNow(view, _)
-            | HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view, _) => *view,
-            HotShotEvent::QuorumProposalValidated(proposal, _) => proposal.get_view_number(),
-            HotShotEvent::QCFormed(cert) => match cert {
-                Either::Right(tc) => tc.get_view_number(),
-                Either::Left(qc) => qc.get_view_number(),
-            },
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(vsc) => vsc.get_view_number(),
-            _ => return false,
-        };
-
-        view > self.latest_proposed_view
-    }
-
     /// Creates the requisite dependencies for the Quorum Proposal task. It also handles any event forwarding.
     fn create_and_complete_dependencies(
         &self,
@@ -483,11 +465,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
         // Don't try to propose twice for the same view.
         if view_number <= self.latest_proposed_view {
-            return;
-        }
-
-        // Don't take the event if it's for a view older than one we've already proposed for
-        if !self.is_event_view_number_valid(&event) {
             return;
         }
 
