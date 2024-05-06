@@ -6,9 +6,12 @@ source "$HOME/.cargo/env"
 # assign local ip
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 orchestrator_url=http://"$ip":4444
+cdn_marshal_address=http://"$ip":9000
 
-# build
-# `just async_std example validator-push-cdn -- http://127.0.0.1:4444` to get the bin in advance
+# build to get the bin in advance
+just async_std example validator-push-cdn -- http://localhost:4444 &
+sleep 30
+for pid in $(ps -ef | grep "validator-push-cdn" | awk '{print $2}'); do sudo kill -9 $pid; done
 
 # docker build and push
 docker build . -f ./docker/validator-cdn.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
@@ -19,7 +22,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
 # runstart keydb
-# docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb
+docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb
 # server1: broker and marshal
 just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
 # remember to sleep enough time if it's built first time
@@ -42,7 +45,7 @@ do
         then
             for transactions_per_round in 1 # 10 50 100
             do
-                for transaction_size in 512 4096 1000000
+                for transaction_size in 512 # 4096 1000000
                 do
                     for fixed_leader_for_gpuvid in 1 #5 10
                     do
@@ -59,6 +62,7 @@ do
                                                                             --transaction_size ${transaction_size} \
                                                                             --rounds ${rounds} \
                                                                             --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
+                                                                            --cdn_marshal_address ${cdn_marshal_address} \
                                                                             --commit_sha cdn_no_gpu &
                             sleep 30
 
@@ -82,3 +86,4 @@ done
 # shut down all related threads
 for pid in $(ps -ef | grep "cdn-broker" | awk '{print $2}'); do kill -9 $pid; done
 for pid in $(ps -ef | grep "cdn-marshal" | awk '{print $2}'); do kill -9 $pid; done
+for pid in $(ps -ef | grep "keydb-server" | awk '{print $2}'); do sudo kill -9 $pid; done

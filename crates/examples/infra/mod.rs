@@ -152,7 +152,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
         )
         .arg(
             Arg::new("commit_sha")
-                .short('m')
+                .short('h')
                 .long("commit_sha")
                 .value_name("SHA")
                 .help("Sets the commit sha to output in the results")
@@ -197,6 +197,14 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
                 .value_name("BUILDER_TYPE")
                 .value_parser(value_parser!(BuilderType))
                 .help("Sets type of builder. `simple` or `random` to run corresponding integrated builder, `external` to use the one specified by `[config.builder_url]` in config")
+                .required(false),
+        )
+        .arg(
+            Arg::new("cdn_marshal_address")
+                .short('m')
+                .long("cdn_marshal_address")
+                .value_name("URL")
+                .help("Sets the url for cdn_broker_marshal_endpoint")
                 .required(false),
         )
         .get_matches();
@@ -261,6 +269,9 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
     }
     if let Some(builder_type) = matches.get_one::<BuilderType>("builder") {
         config.builder = *builder_type;
+    }
+    if let Some(cdn_marshal_address_string) = matches.get_one::<String>("cdn_marshal_address") {
+        config.cdn_marshal_address = Some(cdn_marshal_address_string.to_string());
     }
 
     (config, orchestrator_url)
