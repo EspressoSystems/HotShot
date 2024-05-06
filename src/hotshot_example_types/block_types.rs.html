@@ -271,6 +271,8 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -466,6 +468,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&lt;BlockHeader = <span class="self">Self</span>, BlockPayload = TestBlockPayload&gt;&gt; BlockHeader&lt;TYPES&gt;
     <span class="kw">for </span>TestBlockHeader
 {
+    <span class="kw">type </span>Error = std::convert::Infallible;
+
     <span class="kw">async fn </span>new(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
@@ -474,7 +478,7 @@
         builder_commitment: BuilderCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         _builder_fee: BuilderFee&lt;TYPES&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="kw">let </span>parent = parent_leaf.get_block_header();
 
         <span class="kw">let </span><span class="kw-2">mut </span>timestamp = OffsetDateTime::now_utc().unix_timestamp() <span class="kw">as </span>u64;
@@ -483,12 +487,12 @@
             </span>timestamp = parent.timestamp;
         }
 
-        <span class="self">Self </span>{
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             block_number: parent.block_number + <span class="number">1</span>,
             payload_commitment,
             builder_commitment,
             timestamp,
-        }
+        })
     }
 
     <span class="kw">fn </span>genesis(

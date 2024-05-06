@@ -201,6 +201,9 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -370,6 +373,9 @@
 </span><span class="kw">pub trait </span>BlockHeader&lt;TYPES: NodeType&gt;:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
 {
+    <span class="doccomment">/// Error type for this type of block header
+    </span><span class="kw">type </span>Error: Error + Debug + Send + Sync;
+
     <span class="doccomment">/// Build a header with the parent validate state, instance-level state, parent leaf, payload
     /// commitment, and metadata.
     </span><span class="kw">fn </span>new(
@@ -380,7 +386,7 @@
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         builder_fee: BuilderFee&lt;TYPES&gt;,
-    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="self">Self</span>&gt; + Send;
+    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;&gt; + Send;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.
     </span><span class="kw">fn </span>genesis(
