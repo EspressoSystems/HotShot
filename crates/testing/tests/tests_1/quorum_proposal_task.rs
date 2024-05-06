@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use hotshot::tasks::{task_state::CreateTaskState};
+use hotshot::tasks::task_state::CreateTaskState;
+use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
 use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, },
+    state_types::TestInstanceState,
 };
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
@@ -13,15 +14,16 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{ViewChangeEvidence, ViewNumber},
+    data::{null_block, ViewChangeEvidence, ViewNumber},
     simple_vote::ViewSyncFinalizeData,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
-    utils::BuilderCommitment,
+    utils::{BuilderCommitment, View, ViewInner},
     vid::VidSchemeType,
 };
+
 use jf_primitives::vid::VidScheme;
 use sha2::Digest;
 
@@ -98,12 +100,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
-    use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
-    use hotshot_types::{
-        data::null_block,
-        utils::{View, ViewInner},
-    };
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -346,15 +342,47 @@ async fn test_quorum_proposal_task_propose_now() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
     }
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
     }
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+
+    let consensus = handle.get_consensus();
+    let mut consensus = consensus.write().await;
+
+    // `validate_proposal_safety_and_liveness` depends on the existence of prior values in the consensus
+    // state, but since we do not spin up the consensus task, these values must be manually filled
+    // out.
+
+    // First, insert a parent view whose leaf commitment will be returned in the lower function
+    // call.
+    consensus.validated_state_map.insert(
+        ViewNumber::new(1),
+        View {
+            view_inner: ViewInner::Leaf {
+                leaf: leaves[0].get_parent_commitment(),
+                state: TestValidatedState::default().into(),
+                delta: None,
+            },
+        },
+    );
+
+    // Match an entry into the saved leaves for the parent commitment, returning the generated leaf
+    // for this call.
+    consensus
+        .saved_leaves
+        .insert(leaves[0].get_parent_commitment(), leaves[0].clone());
+
+    // Release the write lock before proceeding with the test
+    drop(consensus);
     // proposal dependency data - quorum proposal and cert
     let pdd_qp = ProposalDependencyData {
         commitment_and_metadata: CommitmentAndMetadata {

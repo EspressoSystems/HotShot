@@ -122,7 +122,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
-            tracing::info!("Propsing from Event: {event:?}");
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -266,8 +265,6 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    // /// most recent decided upgrade certificate
-    // pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     /// The node's id
     pub id: u64,
 }
