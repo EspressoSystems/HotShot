@@ -403,7 +403,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     upgrade_cert: UpgradeCertificate<TYPES>,
     delay: u64,
     instance_state: Arc<TYPES::InstanceState>,
-) -> Result<Option<JoinHandle<()>>> {
+) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
         view,
@@ -431,7 +431,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     )
     .context("Failed to calculate null block fee info")?;
 
-    Ok(Some(async_spawn(async move {
+    Ok(async_spawn(async move {
         create_and_send_proposal(
             public_key,
             private_key,
@@ -453,7 +453,7 @@ async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
             Arc::clone(&instance_state),
         )
         .await;
-    })))
+    }))
 }
 
 /// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
@@ -473,7 +473,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
-) -> Result<Option<JoinHandle<()>>> {
+) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
         view,
@@ -518,34 +518,7 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         "Cannot propose because our VID payload commitment and metadata is for an older view."
     );
 
-    #[cfg(not(feature = "dependency-tasks"))]
-    {
-        let create_and_send_proposal_handle = async_spawn(async move {
-            create_and_send_proposal(
-                public_key,
-                private_key,
-                consensus,
-                sender,
-                view,
-                cnm,
-                parent_leaf.clone(),
-                state,
-                proposal_upgrade_certificate,
-                proposal_certificate,
-                delay,
-                Arc::clone(&instance_state),
-            )
-            .await;
-        });
-
-        *proposal_cert = None;
-        *commitment_and_metadata = None;
-
-        Ok(Some(create_and_send_proposal_handle))
-    }
-
-    #[cfg(feature = "dependency-tasks")]
-    {
+    let create_and_send_proposal_handle = async_spawn(async move {
         create_and_send_proposal(
             public_key,
             private_key,
@@ -561,9 +534,12 @@ async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             Arc::clone(&instance_state),
         )
         .await;
+    });
 
-        Ok(None)
-    }
+    *proposal_cert = None;
+    *commitment_and_metadata = None;
+
+    Ok(create_and_send_proposal_handle)
 }
 
 /// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
@@ -583,7 +559,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     commitment_and_metadata: &mut Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: &mut Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
-) -> Result<Option<JoinHandle<()>>> {
+) -> Result<JoinHandle<()>> {
     if let Some(upgrade_cert) = decided_upgrade_cert {
         publish_proposal_from_upgrade_cert(
             cur_view,
@@ -599,50 +575,24 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         )
         .await
     } else {
-        // this is *not* a new place to panic, and will always be defined when this is enabled.
-        #[cfg(not(feature = "dependency-tasks"))]
-        {
-            let maybe_handle = publish_proposal_from_commitment_and_metadata(
-                cur_view,
-                view,
-                sender,
-                quorum_membership,
-                public_key,
-                private_key,
-                consensus,
-                delay,
-                formed_upgrade_certificate,
-                decided_upgrade_cert,
-                commitment_and_metadata,
-                proposal_cert,
-                instance_state,
-            )
-            .await;
+        let maybe_handle = publish_proposal_from_commitment_and_metadata(
+            cur_view,
+            view,
+            sender,
+            quorum_membership,
+            public_key,
+            private_key,
+            consensus,
+            delay,
+            formed_upgrade_certificate,
+            decided_upgrade_cert,
+            commitment_and_metadata,
+            proposal_cert,
+            instance_state,
+        )
+        .await;
 
-            Ok(maybe_handle.unwrap())
-        }
-
-        #[cfg(feature = "dependency-tasks")]
-        {
-            publish_proposal_from_commitment_and_metadata(
-                cur_view,
-                view,
-                sender,
-                quorum_membership,
-                public_key,
-                private_key,
-                consensus,
-                delay,
-                formed_upgrade_certificate,
-                decided_upgrade_cert,
-                commitment_and_metadata,
-                proposal_cert,
-                instance_state,
-            )
-            .await?;
-
-            Ok(None)
-        }
+        Ok(maybe_handle.unwrap())
     }
 }
 
@@ -831,7 +781,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                         .spawned_tasks
                         .entry(view)
                         .or_default()
-                        .push(create_and_send_proposal_handle.unwrap());
+                        .push(create_and_send_proposal_handle);
                 }
             }
 
