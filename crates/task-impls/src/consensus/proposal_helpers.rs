@@ -575,7 +575,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         )
         .await
     } else {
-        let maybe_handle = publish_proposal_from_commitment_and_metadata(
+        publish_proposal_from_commitment_and_metadata(
             cur_view,
             view,
             sender,
@@ -590,9 +590,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
             proposal_cert,
             instance_state,
         )
-        .await;
-
-        Ok(maybe_handle.unwrap())
+        .await
     }
 }
 
