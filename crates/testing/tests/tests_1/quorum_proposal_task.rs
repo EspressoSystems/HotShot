@@ -63,7 +63,6 @@ async fn insert_vid_shares_for_view(
         .insert(vid.1, vid.0[0].clone());
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -122,7 +121,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -213,7 +211,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -282,7 +279,6 @@ async fn test_quorum_proposal_task_qc_timeout() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -356,7 +352,6 @@ async fn test_quorum_proposal_task_view_sync() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -419,7 +414,6 @@ async fn test_quorum_proposal_task_propose_now() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -492,7 +486,6 @@ async fn test_quorum_proposal_task_propose_now_timeout() {
     let script = vec![view_timeout];
     run_test_script(script, quorum_proposal_task_state).await;
 }
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -568,7 +561,6 @@ async fn test_quorum_proposal_task_propose_now_view_sync() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
