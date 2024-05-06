@@ -35,7 +35,6 @@ use hotshot_types::{traits::storage::Storage, vote::Certificate};
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-#[cfg(not(feature = "dependency-tasks"))]
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
@@ -805,6 +804,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     };
                 }
             }
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumVoteSend(vote) => {
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
