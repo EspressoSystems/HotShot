@@ -10,7 +10,6 @@ use hotshot_types::{
     traits::{
         block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
-        states::InstanceState,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
@@ -20,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use time::OffsetDateTime;
 
-use crate::node_types::TestTypes;
+use crate::{node_types::TestTypes, state_types::TestInstanceState};
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -116,12 +115,13 @@ impl EncodeBytes for TestMetadata {
 
 impl BlockPayload for TestBlockPayload {
     type Error = BlockError;
+    type Instance = TestInstanceState;
     type Transaction = TestTransaction;
     type Metadata = TestMetadata;
 
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        _state: Arc<dyn InstanceState>,
+        _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
         Ok((
@@ -193,6 +193,8 @@ pub struct TestBlockHeader {
 impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> BlockHeader<TYPES>
     for TestBlockHeader
 {
+    type Error = std::convert::Infallible;
+
     async fn new(
         _parent_state: &TYPES::ValidatedState,
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
@@ -201,7 +203,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         builder_commitment: BuilderCommitment,
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         _builder_fee: BuilderFee<TYPES>,
-    ) -> Self {
+    ) -> Result<Self, Self::Error> {
         let parent = parent_leaf.get_block_header();
 
         let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;
@@ -210,12 +212,12 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
             timestamp = parent.timestamp;
         }
 
-        Self {
+        Ok(Self {
             block_number: parent.block_number + 1,
             payload_commitment,
             builder_commitment,
             timestamp,
-        }
+        })
     }
 
     fn genesis(
