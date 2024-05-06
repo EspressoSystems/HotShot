@@ -4,10 +4,9 @@ use std::{collections::BTreeSet, marker::PhantomData};
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, sync::Arc, time::Duration};
 
-use async_compatibility_layer::art::async_sleep;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
@@ -38,7 +37,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, PushCdnNetworkError},
+        network::{ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -561,7 +560,4 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
     }
-
-    /// We don't need to poll.
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
 }

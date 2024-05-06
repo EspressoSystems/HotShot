@@ -8,11 +8,7 @@ use hotshot_types::{traits::node_implementation::NodeType, utils::BuilderCommitm
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use tagged_base64::TaggedBase64;
-use tide_disco::{
-    api::ApiError,
-    method::{ReadState, WriteState},
-    Api, RequestError, RequestParams, StatusCode,
-};
+use tide_disco::{api::ApiError, method::ReadState, Api, RequestError, RequestParams, StatusCode};
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -133,7 +129,6 @@ pub fn define_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
 where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
-    Types: NodeType,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
@@ -202,9 +197,7 @@ pub fn submit_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
     options: &Options,
 ) -> Result<Api<State, Error, Ver>, ApiError>
 where
-    State: 'static + Send + Sync + WriteState,
-    <State as ReadState>::State: Send + Sync + AcceptsTxnSubmits<Types>,
-    Types: NodeType,
+    State: 'static + Send + Sync + AcceptsTxnSubmits<Types>,
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
@@ -212,14 +205,25 @@ where
         options.extensions.clone(),
     )?;
     api.with_version("0.0.1".parse().unwrap())
-        .post("submit_txn", |req, state| {
+        .at("submit_txn", |req: RequestParams, state| {
             async move {
                 let tx = req
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .context(TxnUnpackSnafu)?;
                 let hash = tx.commit();
-                state.submit_txn(tx).await.context(TxnSubmitSnafu)?;
+                state.submit_txns(vec![tx]).await.context(TxnSubmitSnafu)?;
                 Ok(hash)
+            }
+            .boxed()
+        })?
+        .at("submit_batch", |req: RequestParams, state| {
+            async move {
+                let txns = req
+                    .body_auto::<Vec<<Types as NodeType>::Transaction>, Ver>(Ver::instance())
+                    .context(TxnUnpackSnafu)?;
+                let hashes = txns.iter().map(|tx| tx.commit()).collect::<Vec<_>>();
+                state.submit_txns(txns).await.context(TxnSubmitSnafu)?;
+                Ok(hashes)
             }
             .boxed()
         })?;

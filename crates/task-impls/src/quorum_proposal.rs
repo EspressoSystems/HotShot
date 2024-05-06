@@ -17,7 +17,6 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -493,7 +492,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         }
 
         debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
-        if self.propose_dependencies.get(&view_number).is_some() {
+        if self.propose_dependencies.contains_key(&view_number) {
             debug!("Task already exists");
             return;
         }
@@ -567,13 +566,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QCFormed(cert) => {
                 match cert.clone() {
                     either::Right(timeout_cert) => {
-                        // cancel poll for votes
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *timeout_cert.view_number,
-                            ))
-                            .await;
-
                         let view = timeout_cert.view_number + 1;
 
                         self.create_dependency_task_if_new(
@@ -599,13 +591,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         {
                             warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                         }
-
-                        // cancel poll for votes
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *qc.view_number,
-                            ))
-                            .await;
 
                         let view = qc.view_number + 1;
 
@@ -642,13 +627,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     );
                     return;
                 }
-
-                // cancel poll for votes
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                        *certificate.view_number - 1,
-                    ))
-                    .await;
 
                 let view = certificate.view_number;
 

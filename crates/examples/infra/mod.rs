@@ -21,7 +21,7 @@ use hotshot::{
     traits::{
         implementations::{
             derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork,
-            WebServerNetwork, WrappedSignatureKey,
+            WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
     },
@@ -62,7 +62,6 @@ use hotshot_types::{
 use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
 use tracing::{error, info, warn};
-use vbs::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -323,25 +322,9 @@ fn calculate_num_tx_per_round(
 ) -> usize {
     transactions_per_round / total_num_nodes
         + usize::from(
-            (total_num_nodes - 1 - node_index as usize)
-                < (transactions_per_round % total_num_nodes),
+            (total_num_nodes)
+                < (transactions_per_round % total_num_nodes) + 1 + (node_index as usize),
         )
-}
-
-/// create a web server network from a config file + public key
-/// # Panics
-/// Panics if the web server config doesn't exist in `config`
-fn webserver_network_from_config<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>(
-    config: NetworkConfig<TYPES::SignatureKey>,
-    pub_key: TYPES::SignatureKey,
-) -> WebServerNetwork<TYPES, NetworkVersion> {
-    // Get the configuration for the web server
-    let WebServerConfig {
-        url,
-        wait_between_polls,
-    }: WebServerConfig = config.web_server_config.unwrap();
-
-    WebServerNetwork::create(url, wait_between_polls, pub_key, false)
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -600,89 +583,6 @@ pub trait RunDA<
 
     /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey>;
-}
-
-// WEB SERVER
-
-/// Represents a web server-based run
-pub struct WebServerDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
-    /// the network configuration
-    config: NetworkConfig<TYPES::SignatureKey>,
-    /// quorum channel
-    quorum_channel: WebServerNetwork<TYPES, NetworkVersion>,
-    /// data availability channel
-    da_channel: WebServerNetwork<TYPES, NetworkVersion>,
-}
-
-#[async_trait]
-impl<
-        TYPES: NodeType<
-            Transaction = TestTransaction,
-            BlockPayload = TestBlockPayload,
-            BlockHeader = TestBlockHeader,
-            InstanceState = TestInstanceState,
-        >,
-        NODE: NodeImplementation<
-            TYPES,
-            QuorumNetwork = WebServerNetwork<TYPES, NetworkVersion>,
-            CommitteeNetwork = WebServerNetwork<TYPES, NetworkVersion>,
-            Storage = TestStorage<TYPES>,
-        >,
-        NetworkVersion: StaticVersionType,
-    >
-    RunDA<
-        TYPES,
-        WebServerNetwork<TYPES, NetworkVersion>,
-        WebServerNetwork<TYPES, NetworkVersion>,
-        NODE,
-    > for WebServerDARun<TYPES, NetworkVersion>
-where
-    <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
-    Leaf<TYPES>: TestableLeaf,
-    Self: Sync,
-    NetworkVersion: 'static,
-{
-    async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey>,
-        _libp2p_advertise_address: Option<SocketAddr>,
-    ) -> WebServerDARun<TYPES, NetworkVersion> {
-        // Get our own key
-        let pub_key = config.config.my_own_validator_config.public_key.clone();
-
-        // extract values from config (for DA network)
-        let WebServerConfig {
-            url,
-            wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
-
-        // create and wait for underlying network
-        let underlying_quorum_network =
-            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
-
-        underlying_quorum_network.wait_for_ready().await;
-
-        let da_channel: WebServerNetwork<TYPES, NetworkVersion> =
-            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true);
-
-        WebServerDARun {
-            config,
-            quorum_channel: underlying_quorum_network,
-            da_channel,
-        }
-    }
-
-    fn get_da_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
-        self.da_channel.clone()
-    }
-
-    fn get_quorum_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
-        self.quorum_channel.clone()
-    }
-
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey> {
-        self.config.clone()
-    }
 }
 
 // Push CDN
@@ -1020,12 +920,9 @@ pub async fn main_entry_point<
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
     let (mut run_config, source) = NetworkConfig::<TYPES::SignatureKey>::get_complete_config(
         &orchestrator_client,
-        args.clone().network_config_file,
         my_own_validator_config,
         args.advertise_address,
         Some(libp2p_public_key),
-        // If `indexed_da` is true: use the node index to determine if we are a DA node.
-        true,
     )
     .await
     .expect("failed to get config");
