@@ -267,7 +267,6 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
 /// compared to `cur_view` which is the highest proposed view (so far) for the caller. If the proposal
 /// is for a view that's later than expected, that the proposal includes a timeout or view sync certificate.
 pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
-    id: u64,
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     cur_view: TYPES::Time,
@@ -286,10 +285,6 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         view_leader_key == *sender,
         "Leader key does not match key in proposal"
     );
-
-    if id == *view {
-        info!("Received proposal {proposal:?}");
-    }
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.get_view_number() != view - 1 {
@@ -686,7 +681,6 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         .await;
 
     validate_proposal_view_and_certs(
-        task_state.id,
         proposal,
         &sender,
         task_state.cur_view,
@@ -862,8 +856,6 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         return Ok(None);
     };
 
-    // #[cfg(not(feature = "dependency-tasks"))]
-    // {
     task_state
         .spawned_tasks
         .entry(proposal.data.get_view_number())
@@ -885,26 +877,6 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
             )
             .map(AnyhowTracing::err_as_debug),
         ));
-    // }
-
-    // #[cfg(feature = "dependency-tasks")]
-    // {
-    //     validate_proposal_safety_and_liveness(
-    //         proposal.clone(),
-    //         parent_leaf,
-    //         Arc::clone(&task_state.consensus),
-    //         task_state.decided_upgrade_cert.clone(),
-    //         Arc::clone(&task_state.quorum_membership),
-    //         Arc::clone(&parent_state),
-    //         view_leader_key,
-    //         event_stream.clone(),
-    //         sender,
-    //         task_state.output_event_stream.clone(),
-    //         Arc::clone(&task_state.storage),
-    //         Arc::clone(&task_state.instance_state),
-    //     )
-    //     .await?
-    // }
     Ok(None)
 }
 

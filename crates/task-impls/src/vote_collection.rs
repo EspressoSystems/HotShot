@@ -91,7 +91,7 @@ impl<
         match accumulator.accumulate(vote, &self.membership) {
             Either::Left(()) => None,
             Either::Right(cert) => {
-                error!("Certificate Formed! {:?}", cert);
+                debug!("Certificate Formed! {:?}", cert);
 
                 broadcast_event(
                     Arc::new(VOTE::make_cert_event(cert, &self.public_key)),

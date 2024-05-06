@@ -22,17 +22,17 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vote::Certificate,
+    vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::proposal_helpers::handle_quorum_proposal_validated;
 use crate::{
     consensus::proposal_helpers::publish_proposal_if_able, events::HotShotEvent,
-    helpers::cancel_task,
+    helpers::cancel_task, quorum_proposal,
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -109,16 +109,17 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
         error!(
-            "About to propose from {} events",
+            "About to propose from {} events for view {:?}",
             res.iter()
                 .flatten()
                 .flatten()
                 .collect::<Vec<&Arc<HotShotEvent<TYPES>>>>()
-                .len()
+                .len(),
+            self.view_number,
         );
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
-        let mut _quorum_certificate = None;
+        let mut quorum_certificate = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
@@ -154,7 +155,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
-                        _quorum_certificate = Some(qc.clone());
+                        quorum_certificate = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
@@ -163,8 +164,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::ProposeNow(_, pdd) => {
                     commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
                     match &pdd.secondary_proposal_information {
-                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) => {
-                            _quorum_certificate = Some(quorum_certificate.clone());
+                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_cert) => {
+                            quorum_certificate = Some(quorum_cert.clone());
                             payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
                         },
                         hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
@@ -193,6 +194,14 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         } else {
             None
         };
+
+        let mut consensus_writer = self.consensus.write().await;
+        if let Some(qc) = quorum_certificate {
+            if qc.get_view_number() > consensus_writer.high_qc.get_view_number() {
+                consensus_writer.high_qc = qc;
+            }
+        }
+        drop(consensus_writer);
 
         if let Err(e) = publish_proposal_if_able(
             self.latest_proposed_view,
@@ -256,9 +265,6 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Round start delay from config, in milliseconds.
     pub round_start_delay: u64,
-
-    /// timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
@@ -344,6 +350,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 valid
             }),
         )
+    }
+
+    fn is_event_view_number_valid(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
+        let view = match event.as_ref() {
+            HotShotEvent::ProposeNow(view, _) => *view,
+            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view, _) => *view,
+            HotShotEvent::QuorumProposalValidated(proposal, _) => proposal.get_view_number(),
+            HotShotEvent::QCFormed(cert) => match cert {
+                Either::Right(tc) => tc.get_view_number(),
+                Either::Left(qc) => qc.get_view_number(),
+            },
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(vsc) => vsc.get_view_number(),
+            _ => return false,
+        };
+
+        view >= self.latest_proposed_view
     }
 
     /// Creates the requisite dependencies for the Quorum Proposal task. It also handles any event forwarding.
@@ -465,6 +487,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
+        // Don't take the event if it's for a view older than one we've already proposed for
+        if !self.is_event_view_number_valid(&event) {
+            return;
+        }
+
         debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
         if self.propose_dependencies.get(&view_number).is_some() {
             debug!("Task already exists");
@@ -557,13 +584,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         );
                     }
                     either::Left(qc) => {
+                        let mut consensus = self.consensus.write().await;
+
+                        // Only update the high qc if we're receiving a newer one.
+                        if qc.get_view_number() < consensus.high_qc.get_view_number() {
+                            debug!("Received qc was not higher than our existing high qc.");
+                            return;
+                        }
+
+                        consensus.high_qc = qc.clone();
+                        drop(consensus);
+
                         if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
                         {
                             warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                         }
-
-                        let mut consensus = self.consensus.write().await;
-                        consensus.high_qc = qc.clone();
 
                         // cancel poll for votes
                         self.quorum_network
@@ -571,9 +606,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                                 *qc.view_number,
                             ))
                             .await;
-
-                        // We need to drop our handle here to make the borrow checker happy.
-                        drop(consensus);
 
                         let view = qc.view_number + 1;
 

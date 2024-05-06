@@ -148,10 +148,6 @@ impl<TYPES: NodeType, S: Storage<TYPES> + 'static> HandleDepOutput
             return;
         };
         if let GeneralConsensusMessage::Vote(vote) = message {
-            // debug!(
-            //     "Sending vote to next quorum leader {:?}",
-            //     vote.get_view_number() + 1
-            // );
             // Add to the storage.
             let Some(disperse) = disperse_share else {
                 return;
