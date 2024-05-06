@@ -598,6 +598,9 @@
 <a href="#596" id="596">596</a>
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -620,7 +623,7 @@
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
-<span class="kw">use </span>hotshot_example_types::{block_types::TestTransaction, state_types::TestInstanceState};
+<span class="kw">use </span>hotshot_example_types::block_types::TestTransaction;
 <span class="kw">use </span>hotshot_orchestrator::config::RandomBuilderConfig;
 <span class="kw">use </span>hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
@@ -1140,9 +1143,12 @@
     AvailableBlockInfo&lt;TYPES&gt;,
     AvailableBlockData&lt;TYPES&gt;,
     AvailableBlockHeaderInput&lt;TYPES&gt;,
-) {
+)
+<span class="kw">where
+    </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
+{
     <span class="kw">let </span>(block_payload, metadata) =
-        TYPES::BlockPayload::from_transactions(transactions, Arc::new(TestInstanceState {}))
+        TYPES::BlockPayload::from_transactions(transactions, <span class="kw-2">&amp;</span>Default::default())
             .expect(<span class="string">"failed to build block payload from transactions"</span>);
 
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);

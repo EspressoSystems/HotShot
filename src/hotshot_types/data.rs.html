@@ -1223,7 +1223,8 @@
     /// interpreted as bytes).
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>genesis(instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(payload, metadata) = TYPES::BlockPayload::genesis();
+        <span class="kw">let </span>(payload, metadata) =
+            TYPES::BlockPayload::from_transactions([], instance_state).unwrap();
         <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
         <span class="kw">let </span>payload_bytes = payload.encode().expect(<span class="string">"unable to encode genesis payload"</span>);
 
@@ -1467,9 +1468,8 @@
 
 <span class="kw">pub mod </span>null_block {
     <span class="attr">#![allow(missing_docs)]
-    </span><span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">use </span>jf_primitives::vid::VidScheme;
+    </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
     <span class="kw">use </span>memoize::memoize;
 
     <span class="kw">use crate</span>::{
@@ -1501,7 +1501,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(
         num_storage_nodes: usize,
-        state: Arc&lt;TYPES::InstanceState&gt;,
+        instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Instance,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
         <span class="doccomment">/// Arbitrary fee amount, this block doesn't actually come from a builder
         </span><span class="kw">const </span>FEE_AMOUNT: u64 = <span class="number">0</span>;
@@ -1512,7 +1512,7 @@
             );
 
         <span class="kw">let </span>(_null_block, null_block_metadata) =
-            &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions([], state).ok()<span class="question-mark">?</span>;
+            &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions([], instance_state).ok()<span class="question-mark">?</span>;
 
         <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_fee(
             <span class="kw-2">&amp;</span>priv_key,

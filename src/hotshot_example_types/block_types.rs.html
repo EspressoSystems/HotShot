@@ -285,7 +285,6 @@
     traits::{
         block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
-        states::InstanceState,
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
@@ -295,7 +294,7 @@
 <span class="kw">use </span>sha3::{Digest, Keccak256};
 <span class="kw">use </span>time::OffsetDateTime;
 
-<span class="kw">use </span><span class="kw">crate</span>::node_types::TestTypes;
+<span class="kw">use crate</span>::{node_types::TestTypes, state_types::TestInstanceState};
 
 <span class="doccomment">/// The transaction in a [`TestBlockPayload`].
 </span><span class="attr">#[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -391,12 +390,13 @@
 
 <span class="kw">impl </span>BlockPayload <span class="kw">for </span>TestBlockPayload {
     <span class="kw">type </span>Error = BlockError;
+    <span class="kw">type </span>Instance = TestInstanceState;
     <span class="kw">type </span>Transaction = TestTransaction;
     <span class="kw">type </span>Metadata = TestMetadata;
 
     <span class="kw">fn </span>from_transactions(
         transactions: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="self">Self</span>::Transaction&gt;,
-        _state: Arc&lt;<span class="kw">dyn </span>InstanceState&gt;,
+        _instance_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Metadata), <span class="self">Self</span>::Error&gt; {
         <span class="kw">let </span>txns_vec: Vec&lt;TestTransaction&gt; = transactions.into_iter().collect();
         <span class="prelude-val">Ok</span>((

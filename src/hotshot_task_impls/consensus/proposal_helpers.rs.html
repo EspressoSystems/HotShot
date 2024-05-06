@@ -1064,8 +1064,6 @@
 <a href="#1062" id="1062">1062</a>
 <a href="#1063" id="1063">1063</a>
 <a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1492,7 +1490,7 @@
     </span><span class="macro">ensure!</span>(upgrade_cert.in_interim(cur_view), <span class="string">"Cert is not in interim"</span>);
     <span class="kw">let </span>(payload, metadata) = &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(
         Vec::new(),
-        Arc::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState&gt;::clone(<span class="kw-2">&amp;</span>instance_state),
+        instance_state.as_ref(),
     )
     .context(<span class="string">"Failed to build null block payload and metadata"</span>)<span class="question-mark">?</span>;
 
@@ -1500,11 +1498,9 @@
     <span class="kw">let </span>null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context(<span class="string">"Failed to calculate null block commitment"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>null_block_fee = null_block::builder_fee::&lt;TYPES&gt;(
-        quorum_membership.total_nodes(),
-        Arc::&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState&gt;::clone(<span class="kw-2">&amp;</span>instance_state),
-    )
-    .context(<span class="string">"Failed to calculate null block fee info"</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>null_block_fee =
+        null_block::builder_fee::&lt;TYPES&gt;(quorum_membership.total_nodes(), instance_state.as_ref())
+            .context(<span class="string">"Failed to calculate null block fee info"</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(async_spawn(<span class="kw">async move </span>{
         create_and_send_proposal(
@@ -1525,7 +1521,7 @@
             <span class="prelude-val">Some</span>(upgrade_cert),
             <span class="prelude-val">None</span>,
             delay,
-            Arc::clone(<span class="kw-2">&amp;</span>instance_state),
+            instance_state,
         )
         .<span class="kw">await</span>;
     }))
@@ -1606,7 +1602,7 @@
             proposal_upgrade_certificate,
             proposal_certificate,
             delay,
-            Arc::clone(<span class="kw-2">&amp;</span>instance_state),
+            instance_state,
         )
         .<span class="kw">await</span>;
     });

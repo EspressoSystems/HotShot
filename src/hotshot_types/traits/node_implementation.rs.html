@@ -426,7 +426,7 @@
     <span class="doccomment">/// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
-    </span><span class="kw">type </span>BlockPayload: BlockPayload&lt;Transaction = <span class="self">Self</span>::Transaction&gt;;
+    </span><span class="kw">type </span>BlockPayload: BlockPayload&lt;Instance = <span class="self">Self</span>::InstanceState, Transaction = <span class="self">Self</span>::Transaction&gt;;
     <span class="doccomment">/// The signature key that this hotshot setup is using.
     </span><span class="kw">type </span>SignatureKey: SignatureKey;
     <span class="doccomment">/// The transaction type that this hotshot setup is using.
