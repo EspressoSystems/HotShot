@@ -1,5 +1,6 @@
 //! Provides the core consensus types
 
+use anyhow::{bail, Result};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{Arc, Mutex},
@@ -7,7 +8,7 @@ use std::{
 
 use committable::Commitment;
 use displaydoc::Display;
-use tracing::{debug, error};
+use tracing::error;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
@@ -309,11 +310,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the high QC if given a newer one.
-    pub fn update_high_qc_if_new(&mut self, high_qc: QuorumCertificate<TYPES>) {
+    pub fn update_high_qc_if_new(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
         if high_qc.view_number > self.high_qc.view_number {
-            debug!("Updating high QC");
             self.high_qc = high_qc;
+            return Ok(());
         }
+        bail!("Provided high qc is not newer than the existing one.");
     }
 
     /// gather information from the parent chain of leaves

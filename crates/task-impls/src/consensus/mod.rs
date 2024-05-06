@@ -508,8 +508,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
 
                     let mut consensus = self.consensus.write().await;
-                    consensus.update_high_qc_if_new(qc.clone());
-
+                    if let Err(e) = consensus.update_high_qc_if_new(qc.clone()) {
+                        debug!("{e:?}");
+                    }
                     drop(consensus);
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",

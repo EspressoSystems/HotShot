@@ -21,7 +21,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vote::{Certificate, HasViewNumber},
+    vote::Certificate,
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -193,8 +193,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
         let mut consensus_writer = self.consensus.write().await;
         if let Some(qc) = quorum_certificate {
-            if qc.get_view_number() > consensus_writer.high_qc.get_view_number() {
-                consensus_writer.high_qc = qc;
+            if let Err(e) = consensus_writer.update_high_qc_if_new(qc.clone()) {
+                debug!("{e:?}");
             }
         }
         drop(consensus_writer);
@@ -553,20 +553,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         let mut consensus = self.consensus.write().await;
 
                         // Only update the high qc if we're receiving a newer one.
-                        if qc.get_view_number() < consensus.high_qc.get_view_number() {
-                            debug!("Received qc was not higher than our existing high qc.");
-                            return;
+                        let view = qc.view_number + 1;
+                        if let Err(e) = consensus.update_high_qc_if_new(qc.clone()) {
+                            debug!("{e:?}");
                         }
-
-                        consensus.high_qc = qc.clone();
                         drop(consensus);
 
-                        if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
-                        {
+                        if let Err(e) = self.storage.write().await.update_high_qc(qc).await {
                             warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                         }
-
-                        let view = qc.view_number + 1;
 
                         self.create_dependency_task_if_new(
                             view,
