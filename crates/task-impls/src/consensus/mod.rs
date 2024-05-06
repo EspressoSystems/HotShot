@@ -35,7 +35,7 @@ use hotshot_types::{
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]

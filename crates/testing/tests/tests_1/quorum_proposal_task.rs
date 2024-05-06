@@ -15,7 +15,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewChangeEvidence, ViewNumber},
-    simple_vote::ViewSyncFinalizeData,
+    simple_vote::{TimeoutData, ViewSyncFinalizeData},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -43,9 +43,6 @@ fn make_payload_commitment(
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal_view_1() {
-    use hotshot_example_types::block_types::TestMetadata;
-    use hotshot_types::data::null_block;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -183,8 +180,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_qc_timeout() {
-    use hotshot_example_types::block_types::TestMetadata;
-    use hotshot_types::{data::null_block, simple_vote::TimeoutData};
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
