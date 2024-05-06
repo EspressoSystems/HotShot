@@ -130,7 +130,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         }
 
         let consensus = self.consensus.read().await;
-        let parent_view_number = &consensus.high_qc.get_view_number();
+        let parent_view_number = &consensus.high_qc().get_view_number();
         let mut reached_decided = false;
 
         let Some(parent_view) = consensus.validated_state_map.get(parent_view_number) else {
@@ -147,12 +147,12 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             );
             return false;
         };
-        if leaf_commitment != consensus.high_qc.get_data().leaf_commit {
+        if leaf_commitment != consensus.high_qc().get_data().leaf_commit {
             // NOTE: This happens on the genesis block
             debug!(
                 "They don't equal: {:?}   {:?}",
                 leaf_commitment,
-                consensus.high_qc.get_data().leaf_commit
+                consensus.high_qc().get_data().leaf_commit
             );
         }
         let Some(leaf) = consensus.saved_leaves.get(&leaf_commitment) else {
@@ -190,12 +190,12 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             .get(&leaf.get_view_number())
             .map(|shares| shares.get(&self.public_key))
         else {
-            error!("Cannot propopse without our VID share");
+            debug!("Cannot propopse without our VID share");
             return false;
         };
 
         // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
-        let block_header = TYPES::BlockHeader::new(
+        let Ok(block_header) = TYPES::BlockHeader::new(
             state,
             instance_state.as_ref(),
             &parent_leaf,
@@ -205,13 +205,17 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             commit_and_metadata.fee,
             vid_share.data.common.clone(),
         )
-        .await;
+        .await
+        else {
+            warn!("Cannot propose because header creation failed");
+            return false;
+        };
 
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
         let proposal = QuorumProposal {
-            block_header: block_header.clone(),
+            block_header,
             view_number: view,
-            justify_qc: consensus.high_qc.clone(),
+            justify_qc: consensus.high_qc().clone(),
             proposal_certificate: None,
             upgrade_certificate: None,
         };

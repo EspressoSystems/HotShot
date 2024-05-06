@@ -284,6 +284,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_da_certs: HashMap::new(),
             cur_view,
             last_decided_view,
+            last_proposed_view: last_decided_view,
             saved_leaves,
             saved_payloads,
             locked_view,
