@@ -13,14 +13,14 @@ use async_compatibility_layer::{
     logging::{setup_backtrace, setup_logging},
 };
 use async_trait::async_trait;
-use cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
+use cdn_broker::reexports::crypto::signature::KeyPair;
 use chrono::Utc;
 use clap::{value_parser, Arg, Command, Parser};
 use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork,
+            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topics,
             WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
@@ -631,9 +631,9 @@ where
         };
 
         // See if we should be DA, subscribe to the DA topic if so
-        let mut topics = vec![Topic::Global];
+        let mut topics = vec![Topics::Global];
         if config.config.my_own_validator_config.is_da {
-            topics.push(Topic::DA);
+            topics.push(Topics::DA);
         }
 
         // Create the network and await the initial connection
@@ -642,7 +642,7 @@ where
                 .cdn_marshal_address
                 .clone()
                 .expect("`cdn_marshal_address` needs to be supplied for a push CDN run"),
-            topics.iter().map(ToString::to_string).collect(),
+            topics.into_iter().map(|t| t as u8).collect(),
             keypair,
         )
         .expect("failed to create network");

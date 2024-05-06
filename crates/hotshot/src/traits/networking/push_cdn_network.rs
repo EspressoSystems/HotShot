@@ -21,7 +21,7 @@ use cdn_client::{
     reexports::{
         connection::protocols::Quic,
         crypto::signature::{Serializable, SignatureScheme},
-        message::{Broadcast, Direct, Message as PushCdnMessage, Topic},
+        message::{Broadcast, Direct, Message as PushCdnMessage},
     },
     Client, Config as ClientConfig,
 };
@@ -153,6 +153,18 @@ pub struct PushCdnNetwork<TYPES: NodeType> {
     is_paused: Arc<AtomicBool>,
 }
 
+/// The enum for the topics we can subscribe to in the Push CDN
+#[repr(u8)]
+pub enum Topics {
+    /// The global topic
+    Global = 0,
+    /// The DA topic
+    DA = 1,
+}
+
+/// A type alias for the topic type. This is just a `u8`.
+type Topic = u8;
+
 impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
     /// topics we are interested in, and our wrapped keypair that we use to authenticate with the
@@ -162,19 +174,13 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// If we fail to build the config
     pub fn new(
         marshal_endpoint: String,
-        topics: Vec<String>,
+        topics: Vec<Topic>,
         keypair: KeyPair<WrappedSignatureKey<TYPES::SignatureKey>>,
     ) -> anyhow::Result<Self> {
-        // Transform topics to our internal representation
-        let mut computed_topics: Vec<Topic> = Vec::new();
-        for topic in topics {
-            computed_topics.push(topic.try_into()?);
-        }
-
         // Build config
         let config = ClientConfig {
             endpoint: marshal_endpoint,
-            subscribed_topics: computed_topics,
+            subscribed_topics: topics,
             keypair,
             use_local_authority: true,
         };
@@ -362,9 +368,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
                     // Calculate if we're DA or not
                     let topics = if node_id < da_committee_size as u64 {
-                        vec![Topic::DA, Topic::Global]
+                        vec![Topics::DA as u8, Topics::Global as u8]
                     } else {
-                        vec![Topic::Global]
+                        vec![Topics::Global as u8]
                     };
 
                     // Configure our client
@@ -438,7 +444,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         _recipients: BTreeSet<TYPES::SignatureKey>,
         bind_version: Ver,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Global, bind_version)
+        self.broadcast_message(message, Topics::Global as u8, bind_version)
             .await
     }
 
@@ -453,7 +459,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         _recipients: BTreeSet<TYPES::SignatureKey>,
         bind_version: Ver,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::DA, bind_version)
+        self.broadcast_message(message, Topics::DA as u8, bind_version)
             .await
     }
 
