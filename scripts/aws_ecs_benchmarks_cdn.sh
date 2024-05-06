@@ -11,11 +11,11 @@ orchestrator_url=http://"$ip":4444
 # `just async_std example validator-push-cdn -- http://127.0.0.1:4444` to get the bin in advance
 
 # docker build and push
-docker build . -f ./docker/validator-cdn.Dockerfile -t ghcr.io/espressosystems/hotshot/pushcdn-validator:6
-docker push ghcr.io/espressosystems/hotshot/pushcdn-validator:6
+docker build . -f ./docker/validator-cdn.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/pushcdn-validator:6
+ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
 # runstart keydb
