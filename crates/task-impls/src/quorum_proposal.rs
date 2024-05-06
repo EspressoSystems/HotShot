@@ -25,13 +25,13 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::{debug, error, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::proposal_helpers::handle_quorum_proposal_validated;
 use crate::{
     consensus::proposal_helpers::publish_proposal_if_able, events::HotShotEvent,
-    helpers::cancel_task, quorum_proposal,
+    helpers::cancel_task,
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -188,10 +188,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
         let mut proposal_cert = if let Some(view_sync_cert) = view_sync_finalize_cert {
             Some(ViewChangeEvidence::ViewSync(view_sync_cert))
-        } else if let Some(timeout_cert) = timeout_certificate {
-            Some(ViewChangeEvidence::Timeout(timeout_cert))
         } else {
-            None
+            timeout_certificate.map(ViewChangeEvidence::Timeout)
         };
 
         let mut consensus_writer = self.consensus.write().await;
@@ -351,10 +349,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         )
     }
 
+    /// Determines if the event view number is valid by checking if it is at least newer than the
+    /// most recently proposed view.
     fn is_event_view_number_valid(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
         let view = match event.as_ref() {
-            HotShotEvent::ProposeNow(view, _) => *view,
-            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view, _) => *view,
+            HotShotEvent::ProposeNow(view, _)
+            | HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view, _) => *view,
             HotShotEvent::QuorumProposalValidated(proposal, _) => proposal.get_view_number(),
             HotShotEvent::QCFormed(cert) => match cert {
                 Either::Right(tc) => tc.get_view_number(),
@@ -364,7 +364,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             _ => return false,
         };
 
-        view >= self.latest_proposed_view
+        view > self.latest_proposed_view
     }
 
     /// Creates the requisite dependencies for the Quorum Proposal task. It also handles any event forwarding.
