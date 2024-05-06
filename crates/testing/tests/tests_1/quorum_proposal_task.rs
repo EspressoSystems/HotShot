@@ -1,3 +1,5 @@
+#![cfg(feature = "dependency-tasks")]
+
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::TestMetadata,
@@ -58,7 +60,7 @@ async fn insert_vid_shares_for_view(
         .vid_shares
         .entry(view)
         .or_default()
-        .insert(vid.1.clone(), vid.0[0].clone());
+        .insert(vid.1, vid.0[0].clone());
 }
 
 #[cfg(feature = "dependency-tasks")]
