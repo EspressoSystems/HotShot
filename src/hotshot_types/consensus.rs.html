@@ -444,6 +444,54 @@
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -453,7 +501,7 @@
 
 <span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>displaydoc::Display;
-<span class="kw">use </span>tracing::error;
+<span class="kw">use </span>tracing::{debug, error};
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
@@ -499,7 +547,7 @@
     </span><span class="kw">pub </span>saved_da_certs: HashMap&lt;TYPES::Time, DACertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number that is currently on.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span>cur_view: TYPES::Time,
 
     <span class="doccomment">/// last view had a successful decide event
     </span><span class="kw">pub </span>last_decided_view: TYPES::Time,
@@ -518,7 +566,7 @@
     </span><span class="kw">pub </span>locked_view: TYPES::Time,
 
     <span class="doccomment">/// the highqc per spec
-    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES&gt;,
+    </span>high_qc: QuorumCertificate&lt;TYPES&gt;,
 
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
@@ -709,9 +757,57 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Consensus&lt;TYPES&gt; {
+    <span class="doccomment">/// Constructor.
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub fn </span>new(
+        validated_state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+        cur_view: TYPES::Time,
+        last_decided_view: TYPES::Time,
+        saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
+        saved_payloads: BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt;,
+        locked_view: TYPES::Time,
+        high_qc: QuorumCertificate&lt;TYPES&gt;,
+        metrics: Arc&lt;ConsensusMetricsValue&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        Consensus {
+            validated_state_map,
+            vid_shares: BTreeMap::new(),
+            saved_da_certs: HashMap::new(),
+            cur_view,
+            last_decided_view,
+            saved_leaves,
+            saved_payloads,
+            locked_view,
+            high_qc,
+            metrics,
+            dontuse_decided_upgrade_cert: <span class="prelude-val">None</span>,
+            dontuse_formed_upgrade_certificate: <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="doccomment">/// Get the current view.
+    </span><span class="kw">pub fn </span>cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+        <span class="self">self</span>.cur_view
+    }
+
     <span class="doccomment">/// Update the current view.
-    </span><span class="kw">pub fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time) {
-        <span class="self">self</span>.cur_view = view_number;
+    </span><span class="kw">pub fn </span>update_view_if_new(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time) {
+        <span class="kw">if </span>view_number &gt; <span class="self">self</span>.cur_view {
+            <span class="self">self</span>.cur_view = view_number;
+        }
+    }
+
+    <span class="doccomment">/// Get the high QC.
+    </span><span class="kw">pub fn </span>high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc
+    }
+
+    <span class="doccomment">/// Update the high QC if given a newer one.
+    </span><span class="kw">pub fn </span>update_high_qc_if_new(<span class="kw-2">&amp;mut </span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) {
+        <span class="kw">if </span>high_qc.view_number &gt; <span class="self">self</span>.high_qc.view_number {
+            <span class="macro">debug!</span>(<span class="string">"Updating high QC"</span>);
+            <span class="self">self</span>.high_qc = high_qc;
+        }
     }
 
     <span class="doccomment">/// gather information from the parent chain of leaves

@@ -360,7 +360,7 @@
 
     <span class="doccomment">/// Wrapper to get the view number this node is on.
     </span><span class="kw">pub async fn </span>get_cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="self">self</span>.hotshot.consensus.read().<span class="kw">await</span>.cur_view
+        <span class="self">self</span>.hotshot.consensus.read().<span class="kw">await</span>.cur_view()
     }
 
     <span class="doccomment">/// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to

@@ -811,10 +811,6 @@
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -1084,22 +1080,18 @@
             saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(<span class="kw-2">&amp;</span>encoded_txns));
         }
 
-        <span class="kw">let </span>consensus = Consensus {
+        <span class="kw">let </span>consensus = Consensus::new(
             validated_state_map,
-            vid_shares: BTreeMap::new(),
-            cur_view: anchored_leaf.get_view_number(),
-            last_decided_view: anchored_leaf.get_view_number(),
+            anchored_leaf.get_view_number(),
+            anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
-            saved_da_certs: HashMap::new(),
             <span class="comment">// TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            </span>locked_view: anchored_leaf.get_view_number(),
-            high_qc: initializer.high_qc,
-            metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
-            dontuse_decided_upgrade_cert: <span class="prelude-val">None</span>,
-            dontuse_formed_upgrade_certificate: <span class="prelude-val">None</span>,
-        };
+            </span>anchored_leaf.get_view_number(),
+            initializer.high_qc,
+            Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
+        );
 
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
         <span class="kw">let </span>version = Arc::new(RwLock::new(BASE_VERSION));
@@ -1145,7 +1137,7 @@
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                consensus.high_qc.clone(),
+                consensus.high_qc().clone(),
             ))))
             .<span class="kw">await
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
@@ -1198,7 +1190,7 @@
         <span class="macro">trace!</span>(<span class="string">"Adding transaction to our own queue"</span>);
 
         <span class="kw">let </span>api = <span class="self">self</span>.clone();
-        <span class="kw">let </span>view_number = api.consensus.read().<span class="kw">await</span>.cur_view;
+        <span class="kw">let </span>view_number = api.consensus.read().<span class="kw">await</span>.cur_view();
 
         <span class="comment">// Wrap up a message
         </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction.clone(), view_number);

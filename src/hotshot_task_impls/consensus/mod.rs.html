@@ -812,6 +812,8 @@
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -849,7 +851,9 @@
 </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>tracing::info;
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1320,7 +1324,7 @@
                     }
 
                     <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-                    consensus.high_qc = qc.clone();
+                    consensus.update_high_qc_if_new(qc.clone());
 
                     drop(consensus);
                     <span class="macro">debug!</span>(
@@ -1530,7 +1534,7 @@
                     block_view: view,
                 });
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
-                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc.get_view_number() + <span class="number">1 </span>== view
+                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().get_view_number() + <span class="number">1 </span>== view
                 {
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
                         <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);

@@ -646,6 +646,7 @@
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -1184,7 +1185,8 @@
                         }
 
                         <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-                        consensus.high_qc = qc.clone();
+                        consensus.update_high_qc_if_new(qc.clone());
+
                         <span class="comment">// We need to drop our handle here to make the borrow checker happy.
                         </span>drop(consensus);
 

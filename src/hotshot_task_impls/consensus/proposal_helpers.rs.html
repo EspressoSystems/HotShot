@@ -1066,9 +1066,6 @@
 <a href="#1064" id="1064">1064</a>
 <a href="#1065" id="1065">1065</a>
 <a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1207,7 +1204,7 @@
             .<span class="kw">await</span>;
         }
 
-        <span class="macro">format!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc, proposal.data.clone(), consensus.locked_view)
+        <span class="macro">format!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc(), proposal.data.clone(), consensus.locked_view)
     });
 
     <span class="comment">// We accept the proposal, notify the application layer
@@ -1302,7 +1299,7 @@
     <span class="kw">let </span>proposal = QuorumProposal {
         block_header,
         view_number: view,
-        justify_qc: consensus.read().<span class="kw">await</span>.high_qc.clone(),
+        justify_qc: consensus.read().<span class="kw">await</span>.high_qc().clone(),
         proposal_certificate: proposal_cert,
         upgrade_certificate: upgrade_cert,
     };
@@ -1422,7 +1419,7 @@
     );
 
     <span class="kw">let </span>consensus = consensus.read().<span class="kw">await</span>;
-    <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc.get_view_number();
+    <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc().get_view_number();
     <span class="kw">let </span>parent_view = consensus.validated_state_map.get(parent_view_number).context(
         <span class="macro">format!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">**</span>parent_view_number)
     )<span class="question-mark">?</span>;
@@ -1432,12 +1429,12 @@
         <span class="macro">format!</span>(<span class="string">"Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}"</span>)
     )<span class="question-mark">?</span>;
 
-    <span class="kw">if </span>leaf_commitment != consensus.high_qc.get_data().leaf_commit {
+    <span class="kw">if </span>leaf_commitment != consensus.high_qc().get_data().leaf_commit {
         <span class="comment">// NOTE: This happens on the genesis block
         </span><span class="macro">debug!</span>(
             <span class="string">"They don't equal: {:?}   {:?}"</span>,
             leaf_commitment,
-            consensus.high_qc.get_data().leaf_commit
+            consensus.high_qc().get_data().leaf_commit
         );
     }
 
@@ -1749,7 +1746,7 @@
         <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
     };
 
-    <span class="kw">if </span>justify_qc.get_view_number() &gt; consensus_read.high_qc.view_number {
+    <span class="kw">if </span>justify_qc.get_view_number() &gt; consensus_read.high_qc().view_number {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
             .storage
             .write()
@@ -1763,10 +1760,7 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = RwLockUpgradableReadGuard::upgrade(consensus_read).<span class="kw">await</span>;
 
-    <span class="kw">if </span>justify_qc.get_view_number() &gt; consensus_write.high_qc.view_number {
-        <span class="macro">debug!</span>(<span class="string">"Updating high QC"</span>);
-        consensus_write.high_qc = justify_qc.clone();
-    }
+    consensus_write.update_high_qc_if_new(justify_qc.clone());
 
     <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     </span><span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, parent_state)) = parent <span class="kw">else </span>{
@@ -1815,7 +1809,7 @@
         </span>{
             <span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus_write.locked_view;
 
-            <span class="kw">let </span>high_qc = consensus_write.high_qc.clone();
+            <span class="kw">let </span>high_qc = consensus_write.high_qc().clone();
             <span class="kw">let </span>locked_view = consensus_write.locked_view;
 
             drop(consensus_write);
@@ -2107,10 +2101,10 @@
         // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
         </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view)
             == task_state.public_key
-            &amp;&amp; consensus.high_qc.view_number
+            &amp;&amp; consensus.high_qc().view_number
                 == task_state.current_proposal.clone().unwrap().view_number;
         <span class="comment">// todo get rid of this clone
-        </span><span class="kw">let </span>qc = consensus.high_qc.clone();
+        </span><span class="kw">let </span>qc = consensus.high_qc().clone();
 
         drop(consensus);
         <span class="kw">if </span>new_decide_reached {

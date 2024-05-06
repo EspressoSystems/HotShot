@@ -207,7 +207,7 @@
         );
     }
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-    consensus.update_view(new_view);
+    consensus.update_view_if_new(new_view);
     <span class="macro">tracing::trace!</span>(<span class="string">"View updated successfully"</span>);
 
     <span class="prelude-val">Ok</span>(())
