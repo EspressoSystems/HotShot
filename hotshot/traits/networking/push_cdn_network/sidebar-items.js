@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BrokerDef","ClientDef","KeyPair","ProductionDef","PushCdnNetwork","TestingDef","UserDef","WrappedSignatureKey"]};
+window.SIDEBAR_ITEMS = {"enum":["Topic"],"struct":["BrokerDef","ClientDef","KeyPair","ProductionDef","PushCdnNetwork","TestingDef","UserDef","WrappedSignatureKey"]};

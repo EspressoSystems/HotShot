@@ -1033,14 +1033,14 @@
     logging::{setup_backtrace, setup_logging},
 };
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
+<span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>clap::{value_parser, Arg, Command, Parser};
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork,
+            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topic,
             WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
@@ -1662,7 +1662,7 @@
                 .cdn_marshal_address
                 .clone()
                 .expect(<span class="string">"`cdn_marshal_address` needs to be supplied for a push CDN run"</span>),
-            topics.iter().map(ToString::to_string).collect(),
+            topics,
             keypair,
         )
         .expect(<span class="string">"failed to create network"</span>);
