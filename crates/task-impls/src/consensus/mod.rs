@@ -24,7 +24,6 @@ use hotshot_types::{
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
@@ -36,6 +35,7 @@ use hotshot_types::{traits::storage::Storage, vote::Certificate};
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+#[cfg(not(feature = "dependency-tasks"))]
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
@@ -467,58 +467,44 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             #[cfg(not(feature = "dependency-tasks"))]
-            HotShotEvent::QCFormed(cert) => {
-                match cert {
-                    either::Right(qc) => {
-                        self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
-                        // cancel poll for votes
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *qc.view_number,
-                            ))
-                            .await;
+            HotShotEvent::QCFormed(cert) => match cert {
+                either::Right(qc) => {
+                    self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
 
-                        debug!(
-                            "Attempting to publish proposal after forming a TC for view {}",
-                            *qc.view_number
-                        );
+                    debug!(
+                        "Attempting to publish proposal after forming a TC for view {}",
+                        *qc.view_number
+                    );
 
-                        if let Err(e) = self
-                            .publish_proposal(qc.view_number + 1, event_stream)
-                            .await
-                        {
-                            debug!("Failed to propose; error = {e:?}");
-                        };
-                    }
-                    either::Left(qc) => {
-                        if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
-                        {
-                            error!("Failed to store High QC of QC we formed. Error: {:?}", e);
-                        }
-
-                        self.consensus.write().await.high_qc = qc.clone();
-
-                        // cancel poll for votes
-                        self.quorum_network
-                            .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                                *qc.view_number,
-                            ))
-                            .await;
-
-                        debug!(
-                            "Attempting to publish proposal after forming a QC for view {}",
-                            *qc.view_number
-                        );
-
-                        if let Err(e) = self
-                            .publish_proposal(qc.view_number + 1, event_stream)
-                            .await
-                        {
-                            debug!("Failed to propose; error = {e:?}");
-                        };
-                    }
+                    if let Err(e) = self
+                        .publish_proposal(qc.view_number + 1, event_stream)
+                        .await
+                    {
+                        debug!("Failed to propose; error = {e:?}");
+                    };
                 }
-            }
+                either::Left(qc) => {
+                    if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
+                        error!("Failed to store High QC of QC we formed. Error: {:?}", e);
+                    }
+
+                    let mut consensus = self.consensus.write().await;
+                    consensus.update_high_qc_if_new(qc.clone());
+
+                    drop(consensus);
+                    debug!(
+                        "Attempting to publish proposal after forming a QC for view {}",
+                        *qc.view_number
+                    );
+
+                    if let Err(e) = self
+                        .publish_proposal(qc.view_number + 1, event_stream)
+                        .await
+                    {
+                        debug!("Failed to propose; error = {e:?}");
+                    };
+                }
+            },
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",
@@ -536,14 +522,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             HotShotEvent::DACertificateRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
-
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForDAC(*view))
-                    .await;
-
-                self.committee_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
 
                 self.consensus
                     .write()
@@ -616,12 +594,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }
-                // stop polling for the received disperse after verifying it's valid
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVIDDisperse(
-                        *disperse.data.view_number,
-                    ))
-                    .await;
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
@@ -654,13 +626,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
                 let old_view_number = self.cur_view;
 
-                // Start polling for VID disperse for the new view
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVIDDisperse(
-                        *old_view_number + 1,
-                    ))
-                    .await;
-
                 // If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
                 if let Some(ref cert) = self.decided_upgrade_cert {
@@ -689,12 +654,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
-                if let Err(e) = update_view::<TYPES, I>(
-                    self.public_key.clone(),
+                if let Err(e) = update_view::<TYPES>(
                     new_view,
                     &event_stream,
-                    Arc::clone(&self.quorum_membership),
-                    Arc::clone(&self.quorum_network),
                     self.timeout,
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
@@ -731,16 +693,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     );
                     return;
                 }
-
-                // cancel poll for votes
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(*view))
-                    .await;
-
-                // cancel poll for proposal
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(*view))
-                    .await;
 
                 let Ok(vote) = TimeoutVote::create_signed_vote(
                     TimeoutData { view },
@@ -798,7 +750,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     block_view: view,
                 });
                 if self.quorum_membership.get_leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc.get_view_number() + 1 == view
+                    && self.consensus.read().await.high_qc().get_view_number() + 1 == view
                 {
                     if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         debug!("Failed to propose; error = {e:?}");
@@ -838,13 +790,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     return;
                 }
 
-                // cancel poll for votes
-                self.quorum_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(
-                        *certificate.view_number - 1,
-                    ))
-                    .await;
-
                 let view = certificate.view_number;
 
                 if self.quorum_membership.get_leader(view) == self.public_key {
@@ -868,7 +813,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                 let should_propose = self.quorum_membership.get_leader(new_view) == self.public_key
-                    && self.consensus.read().await.high_qc.view_number
+                    && self.consensus.read().await.high_qc().view_number
                         == proposal.get_view_number();
 
                 if should_propose {

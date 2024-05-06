@@ -1,17 +1,16 @@
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
-use hotshot_example_types::state_types::TestInstanceState;
-use std::sync::Arc;
 use std::time::Duration;
 
 use hotshot::{
-    tasks::{inject_consensus_polls, task_state::CreateTaskState},
+    tasks::{task_state::CreateTaskState},
     types::SystemContextHandle,
 };
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
 };
 use hotshot_macros::test_scripts;
 use hotshot_task_impls::{
@@ -157,8 +156,6 @@ async fn test_consensus_task_upgrade() {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
-
     run_test_script(script, consensus_state).await;
 }
 
@@ -170,6 +167,8 @@ async fn test_consensus_task_upgrade() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Test that we correctly form and include an `UpgradeCertificate` when receiving votes.
 async fn test_upgrade_and_consensus_task() {
+    use std::sync::Arc;
+
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -236,8 +235,6 @@ async fn test_upgrade_and_consensus_task() {
 
     upgrade_state.should_vote = |_| true;
 
-    inject_consensus_polls(&consensus_state).await;
-
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
     let inputs = vec![
@@ -260,7 +257,7 @@ async fn test_upgrade_and_consensus_task() {
                 ViewNumber::new(3),
                 null_block::builder_fee(
                     quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
+                    &TestInstanceState {},
                 )
                 .unwrap(),
             ),
@@ -433,8 +430,6 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
 
     upgrade_state.should_vote = |_| true;
 
-    inject_consensus_polls(&consensus_state).await;
-
     let inputs = vec![
         vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
@@ -450,11 +445,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[1].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         vec![
@@ -465,11 +457,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
@@ -481,11 +470,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[3].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
@@ -497,11 +483,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[4].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
@@ -513,11 +496,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[5].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(6),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
@@ -529,11 +509,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[6].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(7),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),
         ],

@@ -1,12 +1,13 @@
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
-use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
-
 use std::sync::Arc;
 
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_example_types::state_types::TestInstanceState;
+use hotshot::tasks::task_state::CreateTaskState;
+use hotshot_example_types::{
+    node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
+};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::event::{
@@ -96,11 +97,8 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![
@@ -113,8 +111,6 @@ async fn test_consensus_task() {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
-
     run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
@@ -123,7 +119,7 @@ async fn test_consensus_task() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
-    use hotshot::tasks::{inject_consensus_polls, task_state::CreateTaskState};
+    use hotshot::tasks::task_state::CreateTaskState;
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
@@ -172,7 +168,6 @@ async fn test_consensus_vote() {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(vec![view_1], consensus_state).await;
 }
 
@@ -240,7 +235,6 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(vec![view_1, view_2], consensus_state).await;
 }
 
@@ -382,7 +376,7 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4, Arc::new(TestInstanceState {})).unwrap(),
+                null_block::builder_fee(4, &TestInstanceState {}).unwrap(),
             ),
         ],
         outputs: vec![
@@ -397,7 +391,6 @@ async fn test_view_sync_finalize_propose() {
 
     let stages = vec![view_1, view_2_3, view_4];
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
 }
 
@@ -495,7 +488,6 @@ async fn test_view_sync_finalize_vote() {
 
     let stages = vec![view_1, view_2, view_3];
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
 }
 
@@ -603,7 +595,6 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
     let stages = vec![view_1, view_2, view_3];
 
-    inject_consensus_polls(&consensus_state).await;
     run_test_script(stages, consensus_state).await;
 }
 
@@ -654,8 +645,6 @@ async fn test_vid_disperse_storage_failure() {
     };
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-
-    inject_consensus_polls(&consensus_state).await;
 
     run_test_script(vec![view_1], consensus_state).await;
 }

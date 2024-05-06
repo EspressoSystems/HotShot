@@ -1,9 +1,8 @@
-use hotshot::tasks::{inject_quorum_proposal_polls, task_state::CreateTaskState};
-
-use hotshot_example_types::state_types::TestInstanceState;
-use std::sync::Arc;
-
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot::tasks::task_state::CreateTaskState;
+use hotshot_example_types::{
+    node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
+};
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
     predicates::event::quorum_proposal_send,
@@ -74,11 +73,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -87,7 +83,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -165,11 +160,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(node_id),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -178,7 +170,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -233,11 +224,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -246,7 +234,6 @@ async fn test_quorum_proposal_task_qc_timeout() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -306,11 +293,8 @@ async fn test_quorum_proposal_task_view_sync() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    Arc::new(TestInstanceState {}),
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -319,7 +303,6 @@ async fn test_quorum_proposal_task_view_sync() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
@@ -367,11 +350,8 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment: builder_commitment.clone(),
             metadata: TestMetadata,
-            fee: null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                Arc::new(TestInstanceState {}),
-            )
-            .unwrap(),
+            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -387,11 +367,8 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment: builder_commitment.clone(),
             metadata: TestMetadata,
-            fee: null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                Arc::new(TestInstanceState {}),
-            )
-            .unwrap(),
+            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -417,11 +394,8 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment,
             metadata: TestMetadata,
-            fee: null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                Arc::new(TestInstanceState {}),
-            )
-            .unwrap(),
+            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -463,7 +437,6 @@ async fn test_quorum_proposal_task_propose_now() {
     for stage in vec![view_qp, view_timeout, view_view_sync] {
         let quorum_proposal_task_state =
             QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-        inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
         let script = vec![stage];
         run_test_script(script, quorum_proposal_task_state).await;
@@ -509,7 +482,6 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
 
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    inject_quorum_proposal_polls(&quorum_proposal_task_state).await;
 
     let script = vec![view_2];
     run_test_script(script, quorum_proposal_task_state).await;
