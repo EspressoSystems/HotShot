@@ -190,54 +190,16 @@
                     "build",
                     "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot",
-                    "--example=orchestrator-webserver"
+                    "--example=orchestrator"
                 ],
                 "filter": {
                     "kind": "example",
-                    "name": "orchestrator-webserver"
+                    "name": "orchestrator"
                 }
             },
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
-            "name": "Debug orchestrator-webserver example"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
-                    "--package=hotshot",
-                    "--example=webserver"
-                ],
-                "filter": {
-                    "kind": "example",
-                    "name": "webserver"
-                }
-            },
-            "program": "${cargo:program}",
-            "cwd": "${workspaceFolder}",
-            "name": "Debug webserver example"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
-                    "--package=hotshot",
-                    "--example=validator-webserver"
-                ],
-                "filter": {
-                    "kind": "example",
-                    "name": "validator-webserver"
-                }
-            },
-            "program": "${cargo:program}",
-            "cwd": "${workspaceFolder}",
-            "name": "Debug validator-webserver example"
+            "name": "Debug orchestrator example"
         },
         {
             "type": "lldb",
