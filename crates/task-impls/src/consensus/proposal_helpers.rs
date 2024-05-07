@@ -691,7 +691,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     let mut consensus_write = RwLockUpgradableReadGuard::upgrade(consensus_read).await;
 
     if let Err(e) = consensus_write.update_high_qc_if_new(justify_qc.clone()) {
-        debug!("{e:?}");
+        // debug!("{e:?}");
     }
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)

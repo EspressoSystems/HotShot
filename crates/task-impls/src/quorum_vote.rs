@@ -324,16 +324,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
     async fn update_latest_voted_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_voted_view < *new_view {
-            debug!(
-                "Updating next vote view from {} to {} in the quorum vote task",
-                *self.latest_voted_view, *new_view
-            );
+            // debug!(
+            //     "Updating next vote view from {} to {} in the quorum vote task",
+            //     *self.latest_voted_view, *new_view
+            // );
 
             // Cancel the old dependency tasks.
             for view in (*self.latest_voted_view + 1)..=(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
-                    debug!("Vote dependency removed for view {:?}", view);
+                    // debug!("Vote dependency removed for view {:?}", view);
                 }
             }
 
@@ -464,9 +464,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view) => {
-                debug!("All vote dependencies verified for view {:?}", view);
+                // debug!("All vote dependencies verified for view {:?}", view);
                 if !self.update_latest_voted_view(*view).await {
-                    debug!("view not updated");
+                    // debug!("view not updated");
                     return;
                 }
             }

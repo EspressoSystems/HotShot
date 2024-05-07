@@ -308,7 +308,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 return Some(HotShotTaskCompleted);
             }
             _ => {
-                error!("unexpected event {:?}", event);
+                // error!("unexpected event {:?}", event);
             }
         }
         None

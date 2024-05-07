@@ -108,7 +108,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
         error!(
-            "About to propose from {} events for view {:?}",
+            "Node {} is about to propose from {} events for view {:?}",
+            self.id,
             res.iter()
                 .flatten()
                 .flatten()
@@ -122,6 +123,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
+            error!("{event:?}");
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -193,8 +195,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
         let mut consensus_writer = self.consensus.write().await;
         if let Some(qc) = quorum_certificate {
-            if let Err(e) = consensus_writer.update_high_qc_if_new(qc.clone()) {
-                debug!("{e:?}");
+            if let Err(_e) = consensus_writer.update_high_qc_if_new(qc.clone()) {
+                // debug!("{e:?}");
             }
         }
         drop(consensus_writer);
@@ -500,10 +502,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
-            debug!(
-                "Updating latest proposed view from {} to {}",
-                *self.latest_proposed_view, *new_view
-            );
+            // debug!(
+            //     "Updating latest proposed view from {} to {}",
+            //     *self.latest_proposed_view, *new_view
+            // );
 
             // Cancel the old dependency tasks.
             for view in (*self.latest_proposed_view + 1)..=(*new_view) {
@@ -555,7 +557,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         // Only update the high qc if we're receiving a newer one.
                         let view = qc.view_number + 1;
                         if let Err(e) = consensus.update_high_qc_if_new(qc.clone()) {
-                            debug!("{e:?}");
+                            // debug!("{e:?}");
                         }
                         drop(consensus);
 
