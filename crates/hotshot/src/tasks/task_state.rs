@@ -48,6 +48,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> Create
             private_key: handle.private_key().clone(),
             _phantom: PhantomData,
             id: handle.hotshot.id,
+            shutdown_flags: Vec::default(),
         }
     }
 }

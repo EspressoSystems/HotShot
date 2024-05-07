@@ -552,7 +552,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let (event_tx, event_rx) = internal_event_stream.clone();
 
         let handle = SystemContextHandle {
-            registry: Arc::clone(&registry),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),

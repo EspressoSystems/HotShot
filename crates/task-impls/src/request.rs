@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicI8, Ordering};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use async_broadcast::Sender;
@@ -58,6 +59,8 @@ pub struct NetworkRequestState<
     pub _phantom: PhantomData<fn(&Ver)>,
     /// The node's id
     pub id: u64,
+    /// Vector of shutdown flags for delayed requesters
+    pub shutdown_flags: Vec<Arc<AtomicI8>>,
 }
 
 /// Alias for a signature
@@ -77,11 +80,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     ) -> Option<Self::Output> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let state = task.state();
+                let sender = task.clone_sender();
+                let state = task.state_mut();
                 let prop_view = proposal.get_view_number();
                 if prop_view >= state.view {
                     state
-                        .spawn_requests(prop_view, task.clone_sender(), Ver::instance())
+                        .spawn_requests(prop_view, sender, Ver::instance())
                         .await;
                 }
                 None
@@ -93,7 +97,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
                 }
                 None
             }
-            HotShotEvent::Shutdown => Some(HotShotTaskCompleted),
+            HotShotEvent::Shutdown => {
+                task.state().shutdown_delayed_requesters();
+                Some(HotShotTaskCompleted)
+            }
             _ => None,
         }
     }
@@ -110,6 +117,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
                 | HotShotEvent::ViewChange(_)
         )
     }
+
+    async fn shutdown(&mut self) {
+        self.shutdown_delayed_requesters();
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static>
@@ -117,7 +128,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
 {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(
-        &self,
+        &mut self,
         view: TYPES::Time,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         bind_version: Ver,
@@ -145,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
-        &self,
+        &mut self,
         request: RequestKind<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
@@ -165,6 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             sender,
             delay: self.delay,
             recipients,
+            received_shutdown: Arc::new(AtomicI8::new(0i8)),
         };
         let Ok(data) = Serializer::<Ver>::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
@@ -176,7 +188,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
+        self.shutdown_flags
+            .push(Arc::clone(&requester.received_shutdown));
         async_spawn(requester.run::<Ver>(request, signature));
+        self.clean_shutdown_flags();
+    }
+
+    fn shutdown_delayed_requesters(&self) {
+        self.shutdown_flags
+            .iter()
+            .for_each(|f| f.store(1i8, Ordering::Relaxed))
+    }
+
+    fn clean_shutdown_flags(&mut self) {
+        self.shutdown_flags
+            .retain(|f| f.load(Ordering::Relaxed) != -1i8)
     }
 }
 
@@ -194,6 +220,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     delay: Duration,
     /// The peers we will request in a random order
     recipients: Vec<TYPES::SignatureKey>,
+    /// Signals whether shutdown has been received
+    received_shutdown: Arc<AtomicI8>,
 }
 
 /// Wrapper for the info in a VID request
@@ -217,6 +245,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             }
             RequestKind::DAProposal(..) => {}
         }
+        // Signal the requester task has finished
+        self.received_shutdown.store(-1i8, Ordering::Relaxed);
     }
 
     /// Handle sending a VID Share request, runs the loop until the data exists
@@ -267,7 +297,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        state.vid_shares.contains_key(&view) || state.cur_view > view
+        self.received_shutdown.load(Ordering::Relaxed) == 1i8
+            || state.vid_shares.contains_key(&view)
+            || state.cur_view > view
     }
 
     /// Transform a response into a `HotShotEvent`
