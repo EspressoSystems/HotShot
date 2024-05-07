@@ -14,6 +14,7 @@ use std::{
 use async_trait::async_trait;
 use committable::Committable;
 use serde::{Deserialize, Serialize};
+use vbs::version::StaticVersionType;
 
 use super::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
@@ -192,6 +193,8 @@ pub trait NodeType:
     + Sync
     + 'static
 {
+    /// The version for this node, which must match the version that HotShot implements.
+    type Version: StaticVersionType;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `ValidatedState::Time` is using.
@@ -220,4 +223,22 @@ pub trait NodeType:
 
     /// The type builder uses to sign its messages
     type BuilderSignatureKey: BuilderSignatureKey;
+}
+
+/// A versioned HotShot node, defined by a collection of associated types for the base (startup) version
+/// and the upgraded version.
+pub trait VersionedNode<VERSION, UPGRADE>
+where
+    VERSION: StaticVersionType,
+    UPGRADE: StaticVersionType,
+{
+    /// The type of the base node.
+    type Base: NodeType<Version = VERSION>;
+
+    /// The type of the upgraded node.
+    type Upgraded: NodeType<Version = UPGRADE>;
+
+    /// Transition function from the base node type
+    /// to the upgraded node type, which must be provided by the application.
+    fn upgrade(base: Self::Base) -> Self::Upgraded;
 }

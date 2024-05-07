@@ -4,10 +4,11 @@ use hotshot::traits::{
     NodeImplementation,
 };
 use hotshot_types::{
+    constants::{ConsensusUpgradeVersion, ConsensusVersion},
     data::ViewNumber,
     message::Message,
     signature_key::{BLSPubKey, BuilderKey},
-    traits::node_implementation::NodeType,
+    traits::node_implementation::{VersionedNode, NodeType},
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +35,7 @@ use crate::{
 /// to select our traits
 pub struct TestTypes;
 impl NodeType for TestTypes {
+    type Version = ConsensusVersion;
     type Time = ViewNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
@@ -43,6 +45,59 @@ impl NodeType for TestTypes {
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
     type BuilderSignatureKey = BuilderKey;
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+/// filler struct to implement node type and allow us
+/// to select our traits
+pub struct UpgradedTestTypes;
+impl NodeType for UpgradedTestTypes {
+    type Version = ConsensusUpgradeVersion;
+    type Time = ViewNumber;
+    type BlockHeader = TestBlockHeader;
+    type BlockPayload = TestBlockPayload;
+    type SignatureKey = BLSPubKey;
+    type Transaction = TestTransaction;
+    type ValidatedState = TestValidatedState;
+    type InstanceState = TestInstanceState;
+    type Membership = GeneralStaticCommittee<UpgradedTestTypes, Self::SignatureKey>;
+    type BuilderSignatureKey = BuilderKey;
+}
+
+pub struct TestNode;
+
+impl VersionedNode<ConsensusVersion, ConsensusVersion> for TestNode {
+    type Base = TestTypes;
+
+    type Upgraded = TestTypes;
+
+    fn upgrade(_base: Self::Base) -> Self::Upgraded {
+        TestTypes
+    }
+}
+
+pub struct UpgradableTestNode;
+
+impl VersionedNode<ConsensusVersion, ConsensusUpgradeVersion> for UpgradableTestNode {
+    type Base = TestTypes;
+
+    type Upgraded = UpgradedTestTypes;
+
+    fn upgrade(_base: Self::Base) -> Self::Upgraded {
+        UpgradedTestTypes
+    }
 }
 
 /// The Push CDN implementation

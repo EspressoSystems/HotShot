@@ -13,6 +13,7 @@ use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::TestValidatedState,
 };
+use hotshot_types::constants::ConsensusVersion;
 use hotshot_types::constants::STATIC_VER_0_1;
 use hotshot_types::message::Message;
 use hotshot_types::signature_key::{BLSPubKey, BuilderKey};
@@ -45,6 +46,7 @@ use tracing::trace;
 pub struct Test;
 
 impl NodeType for Test {
+    type Version = ConsensusVersion;
     type Time = ViewNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;

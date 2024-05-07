@@ -33,7 +33,16 @@ pub const VERSION_0_1: Version = Version {
 pub const BASE_VERSION: Version = VERSION_0_1;
 
 /// Type for protocol static version 0.1.
-pub type Version01 = StaticVersion<VERSION_MAJ, VERSION_MIN>;
+pub type Version01 = StaticVersion<0, 1>;
+
+/// Type for protocol static version 0.2.
+pub type Version02 = StaticVersion<0, 2>;
+
+/// Type alias for the base version used by consensus.
+pub type ConsensusVersion = Version01;
+
+/// Type alias for the staged version used by consensus.
+pub type ConsensusUpgradeVersion = Version02;
 
 /// Constant for protocol static version 0.1.
 pub const STATIC_VER_0_1: Version01 = StaticVersion {};
