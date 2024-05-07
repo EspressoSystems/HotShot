@@ -208,6 +208,8 @@
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -371,7 +373,9 @@
 </span><span class="kw">pub struct </span>BuilderFee&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Proposed fee amount
     </span><span class="kw">pub </span>fee_amount: u64,
-    <span class="doccomment">/// Signature over fee amount
+    <span class="doccomment">/// Account authorizing the fee.
+    </span><span class="kw">pub </span>fee_account: TYPES::BuilderSignatureKey,
+    <span class="doccomment">/// Signature over fee amount by `fee_account`.
     </span><span class="kw">pub </span>fee_signature: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
 }
 

@@ -764,6 +764,7 @@
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
 <a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1506,7 +1507,7 @@
         <span class="doccomment">/// Arbitrary fee amount, this block doesn't actually come from a builder
         </span><span class="kw">const </span>FEE_AMOUNT: u64 = <span class="number">0</span>;
 
-        <span class="kw">let </span>(<span class="kw">_</span>, priv_key) =
+        <span class="kw">let </span>(pub_key, priv_key) =
             &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::generated_from_seed_indexed(
                 [<span class="number">0_u8</span>; <span class="number">32</span>], <span class="number">0</span>,
             );
@@ -1522,6 +1523,7 @@
         ) {
             <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
                 fee_amount: FEE_AMOUNT,
+                fee_account: pub_key,
                 fee_signature: sig,
             }),
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,

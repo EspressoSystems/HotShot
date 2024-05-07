@@ -430,6 +430,7 @@
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -583,6 +584,7 @@
                             block_view,
                             BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
+                                fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },
                         )),
