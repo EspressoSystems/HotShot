@@ -351,7 +351,10 @@ impl<TYPES: NodeType> RoundCtx<TYPES> {
 }
 
 impl<TYPES: NodeType> RoundResult<TYPES> {
-    /// insert into round result
+    /// This method takes the decide events from all the nodes in the test for a given view and compares their leaves.
+    /// This function specifically is taking the most recent decided leaf and block from the chain of leaves in the
+    /// decide event and inserting it into a map.  The map is a count of how many different blocks were decided
+    /// on for a view. This map is used to check if nodes agree with one another.
     #[allow(clippy::unit_arg)]
     pub fn insert_into_result(
         &mut self,

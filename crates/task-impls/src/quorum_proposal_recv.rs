@@ -176,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                 Ok(None) => {
                     self.cancel_tasks(proposal.data.get_view_number()).await;
                 }
-                Err(e) => debug!(?e, "Failed to propose"),
+                Err(e) => debug!(?e, "Failed to handle QuorumProposalRecv event"),
             }
         }
     }
