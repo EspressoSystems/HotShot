@@ -39,7 +39,7 @@ just async_std example cdn-broker -- -d redis://localhost:6379 \
 # see `aws_ecs_nginx_benchmarks.sh` for an example
 for total_nodes in 10 # 50 100
 do
-    for da_committee_size in 5 #10 50 100
+    for da_committee_size in 10 #5 50 100
     do
         if [ $da_committee_size -le $total_nodes ]
         then
