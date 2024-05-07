@@ -852,6 +852,10 @@
 <a href="#850" id="850">850</a>
 <a href="#851" id="851">851</a>
 <a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -889,7 +893,10 @@
 </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>tracing::info;
+
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1091,6 +1098,7 @@
 
     <span class="doccomment">/// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">fn </span>spawn_vote_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
