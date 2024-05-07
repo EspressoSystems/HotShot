@@ -278,9 +278,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         proposal: QuorumProposal<TYPES>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        use crate::consensus::helpers::publish_proposal_from_commitment_and_metadata;
-
         use self::helpers::publish_proposal_from_upgrade_cert;
+        use crate::consensus::helpers::publish_proposal_from_commitment_and_metadata;
 
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
