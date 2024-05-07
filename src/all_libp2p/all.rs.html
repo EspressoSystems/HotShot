@@ -63,11 +63,6 @@
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -102,12 +97,7 @@
     </span><span class="kw">let </span>(config, orchestrator_url) = read_orchestrator_init_config::&lt;TestTypes&gt;();
 
     <span class="comment">// orchestrator
-    </span>async_spawn(run_orchestrator::&lt;
-        TestTypes,
-        DANetwork,
-        QuorumNetwork,
-        NodeImpl,
-    &gt;(OrchestratorArgs {
+    </span>async_spawn(run_orchestrator::&lt;TestTypes&gt;(OrchestratorArgs {
         url: orchestrator_url.clone(),
         config: config.clone(),
     }));
