@@ -113,6 +113,8 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>std::fmt::Debug;
 
@@ -125,6 +127,7 @@
         states::{InstanceState, StateDelta, TestableState, ValidatedState},
         BlockPayload,
     },
+    vid::VidCommon,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -188,6 +191,7 @@
         _instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
         _parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         _proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
+        _vid_common: VidCommon,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Delta), <span class="self">Self</span>::Error&gt; {
         <span class="prelude-val">Ok</span>((
             TestValidatedState {

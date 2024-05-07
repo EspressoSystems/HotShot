@@ -780,7 +780,7 @@
                         }
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">panic!</span>(<span class="string">"Error Joining the test task {:?}"</span>, e);
+                        <span class="macro">tracing::error!</span>(<span class="string">"Error Joining the test task {:?}"</span>, e);
                     }
                 }
             }

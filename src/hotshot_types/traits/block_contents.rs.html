@@ -206,6 +206,8 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -228,7 +230,7 @@
     data::Leaf,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
     utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
 };
 
 <span class="doccomment">/// Trait for structures that need to be unambiguously encoded as bytes.
@@ -382,6 +384,7 @@
 
     <span class="doccomment">/// Build a header with the parent validate state, instance-level state, parent leaf, payload
     /// commitment, and metadata.
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">fn </span>new(
         parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
@@ -390,6 +393,7 @@
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         builder_fee: BuilderFee&lt;TYPES&gt;,
+        vid_common: VidCommon,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;&gt; + Send;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.

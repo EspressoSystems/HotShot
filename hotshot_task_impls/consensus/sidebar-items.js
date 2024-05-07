@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["proposal_helpers","view_change"],"struct":["ConsensusTaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"mod":["helpers","view_change"],"struct":["ConsensusTaskState"],"type":["VoteCollectorOption"]};

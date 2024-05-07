@@ -646,7 +646,6 @@
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -676,10 +675,9 @@
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::consensus::proposal_helpers::handle_quorum_proposal_validated;
+</span><span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::handle_quorum_proposal_validated;
 <span class="kw">use crate</span>::{
-    consensus::proposal_helpers::publish_proposal_if_able, events::HotShotEvent,
-    helpers::cancel_task,
+    consensus::helpers::publish_proposal_if_able, events::HotShotEvent, helpers::cancel_task,
 };
 
 <span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -835,8 +833,8 @@
             <span class="self">self</span>.round_start_delay,
             <span class="prelude-val">None</span>,
             <span class="prelude-val">None</span>,
-            <span class="kw-2">&amp;mut </span>commit_and_metadata,
-            <span class="kw-2">&amp;mut </span><span class="prelude-val">None</span>,
+            commit_and_metadata,
+            <span class="prelude-val">None</span>,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
         )
         .<span class="kw">await

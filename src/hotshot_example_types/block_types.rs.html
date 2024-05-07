@@ -273,6 +273,7 @@
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -288,7 +289,7 @@
         BlockPayload, ValidatedState,
     },
     utils::BuilderCommitment,
-    vid::VidCommitment,
+    vid::{VidCommitment, VidCommon},
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha3::{Digest, Keccak256};
@@ -478,6 +479,7 @@
         builder_commitment: BuilderCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         _builder_fee: BuilderFee&lt;TYPES&gt;,
+        _vid_common: VidCommon,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="kw">let </span>parent = parent_leaf.get_block_header();
 

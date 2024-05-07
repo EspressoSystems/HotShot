@@ -235,7 +235,7 @@
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="kw">use crate</span>::{
-    consensus::proposal_helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
+    consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };

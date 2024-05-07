@@ -492,6 +492,10 @@
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -548,6 +552,9 @@
 
     <span class="doccomment">/// View number that is currently on.
     </span>cur_view: TYPES::Time,
+
+    <span class="doccomment">/// View we proposed in last.  To prevent duplicate proposals
+    </span><span class="kw">pub </span>last_proposed_view: TYPES::Time,
 
     <span class="doccomment">/// last view had a successful decide event
     </span><span class="kw">pub </span>last_decided_view: TYPES::Time,
@@ -775,6 +782,7 @@
             saved_da_certs: HashMap::new(),
             cur_view,
             last_decided_view,
+            last_proposed_view: last_decided_view,
             saved_leaves,
             saved_payloads,
             locked_view,

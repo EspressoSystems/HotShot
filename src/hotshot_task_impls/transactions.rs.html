@@ -458,7 +458,7 @@
     utils::ViewInner,
     vid::VidCommitment,
 };
-<span class="kw">use </span>tracing::{debug, error, instrument};
+<span class="kw">use </span>tracing::{debug, error, instrument, warn};
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
@@ -591,7 +591,7 @@
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="comment">// If we couldn't get a block, send an empty block
-                    </span><span class="macro">error!</span>(
+                    </span><span class="macro">warn!</span>(
                         <span class="string">"Failed to get a block for view {:?}, proposing empty block"</span>,
                         view
                     );
@@ -712,7 +712,7 @@
 
                 <span class="comment">// We failed to get a block
                 </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-                    <span class="macro">error!</span>(%err, <span class="string">"Couldn't get a block"</span>);
+                    <span class="macro">tracing::warn!</span>(%err, <span class="string">"Couldn't get a block"</span>);
                     <span class="comment">// pause a bit
                     </span>async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
