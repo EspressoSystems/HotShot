@@ -139,11 +139,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         Self: 'b,
     {
         boxed_sync(async move {
-            self.internal_event_stream
+            let _ = self
+                .internal_event_stream
                 .0
                 .broadcast(Arc::new(HotShotEvent::Shutdown))
-                .await
-                .unwrap();
+                .await;
             self.hotshot.networks.shut_down_networks().await;
         })
     }

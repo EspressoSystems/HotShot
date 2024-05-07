@@ -194,15 +194,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         self.clean_shutdown_flags();
     }
 
+    /// Signals delayed requesters to finish
     fn shutdown_delayed_requesters(&self) {
         self.shutdown_flags
             .iter()
-            .for_each(|f| f.store(1i8, Ordering::Relaxed))
+            .for_each(|f| f.store(1i8, Ordering::Relaxed));
     }
 
+    /// Removes flags from the vector that are related to already finished tasks
     fn clean_shutdown_flags(&mut self) {
         self.shutdown_flags
-            .retain(|f| f.load(Ordering::Relaxed) != -1i8)
+            .retain(|f| f.load(Ordering::Relaxed) != -1i8);
     }
 }
 
