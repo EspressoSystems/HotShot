@@ -16,7 +16,7 @@ use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestS
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    constants::EVENT_CHANNEL_SIZE,
+    constants::{ConsensusVersion, EVENT_CHANNEL_SIZE},
     data::Leaf,
     message::Message,
     simple_certificate::QuorumCertificate,
@@ -114,7 +114,7 @@ pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
 impl<
-        TYPES: NodeType<InstanceState = TestInstanceState>,
+        TYPES: NodeType<InstanceState = TestInstanceState, Version = ConsensusVersion>,
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestRunner<TYPES, I, N>

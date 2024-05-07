@@ -5,6 +5,7 @@ use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotIniti
 use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::{
+    constants::ConsensusVersion,
     data::Leaf,
     event::Event,
     message::Message,
@@ -44,7 +45,9 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) high_qc: QuorumCertificate<TYPES>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for SpinningTask<TYPES, I> {
+impl<TYPES: NodeType<Version = ConsensusVersion>, I: TestableNodeImplementation<TYPES>> TaskState
+    for SpinningTask<TYPES, I>
+{
     type Event = GlobalTestEvent;
 
     type Output = HotShotTaskCompleted;
@@ -62,7 +65,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TaskState for Spinni
 }
 
 impl<
-        TYPES: NodeType<InstanceState = TestInstanceState>,
+        TYPES: NodeType<InstanceState = TestInstanceState, Version = ConsensusVersion>,
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestTaskState for SpinningTask<TYPES, I>

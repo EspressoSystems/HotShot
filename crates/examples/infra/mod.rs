@@ -47,6 +47,7 @@ use hotshot_testing::block_builder::{
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
+    constants::ConsensusVersion,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
     message::Message,
@@ -325,7 +326,7 @@ fn calculate_num_tx_per_round(
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDA<
-    TYPES: NodeType<InstanceState = TestInstanceState>,
+    TYPES: NodeType<InstanceState = TestInstanceState, Version = ConsensusVersion>,
     DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<
@@ -598,6 +599,7 @@ impl<
             BlockPayload = TestBlockPayload,
             BlockHeader = TestBlockHeader,
             InstanceState = TestInstanceState,
+            Version = ConsensusVersion,
         >,
         NODE: NodeImplementation<
             TYPES,
@@ -684,6 +686,7 @@ impl<
             BlockPayload = TestBlockPayload,
             BlockHeader = TestBlockHeader,
             InstanceState = TestInstanceState,
+            Version = ConsensusVersion,
         >,
         NODE: NodeImplementation<
             TYPES,
@@ -782,6 +785,7 @@ impl<
             BlockPayload = TestBlockPayload,
             BlockHeader = TestBlockHeader,
             InstanceState = TestInstanceState,
+            Version = ConsensusVersion,
         >,
         NODE: NodeImplementation<
             TYPES,
@@ -868,6 +872,7 @@ pub async fn main_entry_point<
         BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
+        Version = ConsensusVersion,
     >,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,

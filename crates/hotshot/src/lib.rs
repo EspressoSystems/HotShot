@@ -33,7 +33,10 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    constants::{
+        ConsensusVersion, BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE,
+        STATIC_VER_0_1,
+    },
     data::Leaf,
     event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
@@ -193,7 +196,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
+impl<TYPES: NodeType<Version = ConsensusVersion>, I: NodeImplementation<TYPES>>
+    SystemContext<TYPES, I>
+{
     #![allow(deprecated)]
     /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
     ///
@@ -309,6 +314,58 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(inner)
     }
 
+    /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
+    ///
+    /// Assumes networking implementation is already primed.
+    ///
+    /// Underlying `HotShot` instance starts out paused, and must be unpaused
+    ///
+    /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
+    /// the `HotShot` instance will log the error and shut down.
+    ///
+    /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
+    /// # Errors
+    ///
+    /// Can throw an error if `Self::new` fails.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn init(
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        node_id: u64,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        memberships: Memberships<TYPES>,
+        networks: Networks<TYPES, I>,
+        initializer: HotShotInitializer<TYPES>,
+        metrics: ConsensusMetricsValue,
+        storage: I::Storage,
+    ) -> Result<
+        (
+            SystemContextHandle<TYPES, I>,
+            Sender<Arc<HotShotEvent<TYPES>>>,
+            Receiver<Arc<HotShotEvent<TYPES>>>,
+        ),
+        HotShotError<TYPES>,
+    > {
+        let hotshot = Self::new(
+            public_key,
+            private_key,
+            node_id,
+            config,
+            memberships,
+            networks,
+            initializer,
+            metrics,
+            storage,
+        )
+        .await?;
+        let handle = Arc::clone(&hotshot).run_tasks().await;
+        let (tx, rx) = hotshot.internal_event_stream.clone();
+
+        Ok((handle, tx, rx.activate()))
+    }
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// "Starts" consensus by sending a `QCFormed` event
     ///
     /// # Panics
@@ -464,55 +521,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         self.consensus.read().await.get_state(view).cloned()
     }
 
-    /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
-    ///
-    /// Assumes networking implementation is already primed.
-    ///
-    /// Underlying `HotShot` instance starts out paused, and must be unpaused
-    ///
-    /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
-    /// the `HotShot` instance will log the error and shut down.
-    ///
-    /// To construct a [`SystemContext`] without setting up tasks, use `fn new` instead.
-    /// # Errors
-    ///
-    /// Can throw an error if `Self::new` fails.
-    #[allow(clippy::too_many_arguments)]
-    pub async fn init(
-        public_key: TYPES::SignatureKey,
-        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        node_id: u64,
-        config: HotShotConfig<TYPES::SignatureKey>,
-        memberships: Memberships<TYPES>,
-        networks: Networks<TYPES, I>,
-        initializer: HotShotInitializer<TYPES>,
-        metrics: ConsensusMetricsValue,
-        storage: I::Storage,
-    ) -> Result<
-        (
-            SystemContextHandle<TYPES, I>,
-            Sender<Arc<HotShotEvent<TYPES>>>,
-            Receiver<Arc<HotShotEvent<TYPES>>>,
-        ),
-        HotShotError<TYPES>,
-    > {
-        let hotshot = Self::new(
-            public_key,
-            private_key,
-            node_id,
-            config,
-            memberships,
-            networks,
-            initializer,
-            metrics,
-            storage,
-        )
-        .await?;
-        let handle = Arc::clone(&hotshot).run_tasks().await;
-        let (tx, rx) = hotshot.internal_event_stream.clone();
-
-        Ok((handle, tx, rx.activate()))
-    }
     /// return the timeout for a view for `self`
     #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {

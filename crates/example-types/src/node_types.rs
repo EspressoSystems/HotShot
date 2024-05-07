@@ -8,7 +8,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     signature_key::{BLSPubKey, BuilderKey},
-    traits::node_implementation::{VersionedNode, NodeType},
+    traits::node_implementation::{NodeType, VersionedNode},
 };
 use serde::{Deserialize, Serialize};
 
