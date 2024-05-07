@@ -1234,7 +1234,6 @@
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
 <a href="#1234" id="1234">1234</a>
-<a href="#1235" id="1235">1235</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1389,9 +1388,7 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
 
-    consensus
-        .saved_leaves
-        .insert(proposed_leaf.commit(), proposed_leaf.clone());
+    consensus.update_saved_leaves(proposed_leaf);
 
     <span class="prelude-val">Ok</span>(())
 }
@@ -1415,7 +1412,7 @@
 ) {
     <span class="kw">let </span>consensus_read = consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus_read
-        .vid_shares
+        .vid_shares()
         .get(<span class="kw-2">&amp;</span>view)
         .map(|shares| shares.get(<span class="kw-2">&amp;</span>public_key))
     <span class="kw">else </span>{
@@ -1569,7 +1566,7 @@
 
     <span class="kw">let </span>consensus = consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc().get_view_number();
-    <span class="kw">let </span>parent_view = consensus.validated_state_map.get(parent_view_number).context(
+    <span class="kw">let </span>parent_view = consensus.validated_state_map().get(parent_view_number).context(
         <span class="macro">format!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">**</span>parent_view_number)
     )<span class="question-mark">?</span>;
 
@@ -1588,7 +1585,7 @@
     }
 
     <span class="kw">let </span>leaf = consensus
-        .saved_leaves
+        .saved_leaves()
         .get(<span class="kw-2">&amp;</span>leaf_commitment)
         .context(<span class="string">"Failed to find high QC of parent"</span>)<span class="question-mark">?</span>;
 
@@ -1600,7 +1597,7 @@
     <span class="comment">// Walk back until we find a decide
     </span><span class="kw">if </span>!reached_decided {
         <span class="macro">debug!</span>(<span class="string">"We have not reached decide from view {:?}"</span>, cur_view);
-        <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>next_parent_hash) {
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus.saved_leaves().get(<span class="kw-2">&amp;</span>next_parent_hash) {
             <span class="kw">if </span>next_parent_leaf.get_view_number() &lt;= consensus.last_decided_view {
                 <span class="kw">break</span>;
             }
@@ -1876,7 +1873,7 @@
 
     <span class="comment">// Get the parent leaf and state.
     </span><span class="kw">let </span>parent = <span class="kw">match </span>consensus_read
-        .saved_leaves
+        .saved_leaves()
         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
         .cloned()
     {
@@ -1904,7 +1901,9 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = RwLockUpgradableReadGuard::upgrade(consensus_read).<span class="kw">await</span>;
 
-    consensus_write.update_high_qc_if_new(justify_qc.clone());
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+    }
 
     <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     </span><span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, _parent_state)) = parent <span class="kw">else </span>{
@@ -1920,7 +1919,7 @@
             ),
         );
 
-        consensus_write.validated_state_map.insert(
+        consensus_write.update_validated_state_map(
             view,
             View {
                 view_inner: ViewInner::Leaf {
@@ -1930,17 +1929,16 @@
                 },
             },
         );
-        consensus_write
-            .saved_leaves
-            .insert(leaf.commit(), leaf.clone());
+
+        consensus_write.update_saved_leaves(leaf.clone());
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
             .storage
             .write()
             .<span class="kw">await
             </span>.update_undecided_state(
-                consensus_write.saved_leaves.clone(),
-                consensus_write.validated_state_map.clone(),
+                consensus_write.saved_leaves().clone(),
+                consensus_write.validated_state_map().clone(),
             )
             .<span class="kw">await
         </span>{
@@ -2136,7 +2134,7 @@
                     <span class="comment">// Get the VID share at the leaf's view number, corresponding to our key
                     // (if one exists)
                     </span><span class="kw">let </span>vid_share = consensus
-                        .vid_shares
+                        .vid_shares()
                         .get(<span class="kw-2">&amp;</span>leaf.get_view_number())
                         .unwrap_or(<span class="kw-2">&amp;</span>HashMap::new())
                         .get(<span class="kw-2">&amp;</span>task_state.public_key)
@@ -2311,7 +2309,7 @@
 
     <span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
     <span class="comment">// Only vote if you has seen the VID share for this view
-    </span><span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares.get(<span class="kw-2">&amp;</span>proposal.view_number) <span class="kw">else </span>{
+    </span><span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares().get(<span class="kw-2">&amp;</span>proposal.view_number) <span class="kw">else </span>{
         <span class="macro">debug!</span>(
             <span class="string">"We have not seen the VID share for this view {:?} yet, so we cannot vote."</span>,
             proposal.view_number
@@ -2338,7 +2336,7 @@
 
     <span class="comment">// Only vote if you have the DA cert
     // ED Need to update the view number this is stored under?
-    </span><span class="kw">let </span><span class="prelude-val">Some</span>(cert) = consensus.saved_da_certs.get(<span class="kw-2">&amp;</span>cur_view) <span class="kw">else </span>{
+    </span><span class="kw">let </span><span class="prelude-val">Some</span>(cert) = consensus.saved_da_certs().get(<span class="kw-2">&amp;</span>cur_view) <span class="kw">else </span>{
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
 
@@ -2346,7 +2344,7 @@
     <span class="comment">// TODO: do some of this logic without the vote token check, only do that when voting.
     </span><span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
     <span class="kw">let </span>parent = consensus
-        .saved_leaves
+        .saved_leaves()
         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
         .cloned();
 
@@ -2422,7 +2420,7 @@
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-    consensus.validated_state_map.insert(
+    consensus.update_validated_state_map(
         cur_view,
         View {
             view_inner: ViewInner::Leaf {
@@ -2437,8 +2435,8 @@
         .write()
         .<span class="kw">await
         </span>.update_undecided_state(
-            consensus.saved_leaves.clone(),
-            consensus.validated_state_map.clone(),
+            consensus.saved_leaves().clone(),
+            consensus.validated_state_map().clone(),
         )
         .<span class="kw">await
     </span>{

@@ -435,7 +435,7 @@
     <span class="doccomment">/// Creates the srequest structures for all types that are needed.
     </span><span class="kw">async fn </span>build_requests(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, <span class="kw">_</span>: Ver) -&gt; Vec&lt;RequestKind&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>reqs = Vec::new();
-        <span class="kw">if </span>!<span class="self">self</span>.state.read().<span class="kw">await</span>.vid_shares.contains_key(<span class="kw-2">&amp;</span>view) {
+        <span class="kw">if </span>!<span class="self">self</span>.state.read().<span class="kw">await</span>.vid_shares().contains_key(<span class="kw-2">&amp;</span>view) {
             reqs.push(RequestKind::VID(view, <span class="self">self</span>.public_key.clone()));
         }
         <span class="comment">// TODO request other things
@@ -567,7 +567,7 @@
     </span><span class="kw">async fn </span>cancel_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>VidRequest&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">let </span>view = req.<span class="number">0</span>;
         <span class="kw">let </span>state = <span class="self">self</span>.state.read().<span class="kw">await</span>;
-        state.vid_shares.contains_key(<span class="kw-2">&amp;</span>view) &amp;&amp; state.cur_view() &gt; view
+        state.vid_shares().contains_key(<span class="kw-2">&amp;</span>view) &amp;&amp; state.cur_view() &gt; view
     }
 
     <span class="doccomment">/// Transform a response into a `HotShotEvent`

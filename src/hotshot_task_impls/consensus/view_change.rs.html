@@ -106,6 +106,8 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -207,7 +209,9 @@
         );
     }
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-    consensus.update_view_if_new(new_view);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_view(new_view) {
+        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+    }
     <span class="macro">tracing::trace!</span>(<span class="string">"View updated successfully"</span>);
 
     <span class="prelude-val">Ok</span>(())

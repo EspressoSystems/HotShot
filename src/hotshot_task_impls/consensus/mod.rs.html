@@ -854,8 +854,6 @@
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1361,7 +1359,9 @@
                     }
 
                     <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-                    consensus.update_high_qc_if_new(qc.clone());
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_high_qc(qc.clone()) {
+                        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+                    }
 
                     drop(consensus);
                     <span class="macro">debug!</span>(
@@ -1398,8 +1398,7 @@
                 <span class="self">self</span>.consensus
                     .write()
                     .<span class="kw">await
-                    </span>.saved_da_certs
-                    .insert(view, cert.clone());
+                    </span>.update_saved_da_certs(view, cert.clone());
                 <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
                     <span class="kw">return</span>;
                 };
@@ -1436,10 +1435,7 @@
                 <span class="self">self</span>.consensus
                     .write()
                     .<span class="kw">await
-                    </span>.vid_shares
-                    .entry(view)
-                    .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    </span>.update_vid_shares(view, disperse.clone());
                 <span class="kw">if </span>disperse.data.recipient_key != <span class="self">self</span>.public_key {
                     <span class="kw">return</span>;
                 }

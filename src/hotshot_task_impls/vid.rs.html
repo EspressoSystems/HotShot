@@ -187,12 +187,6 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -270,14 +264,8 @@
                 <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
                 <span class="kw">for </span>share <span class="kw">in </span>shares {
-                    <span class="kw">let </span>s = share.clone();
-                    <span class="kw">let </span>key: &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey = s.recipient_key;
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(prop) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
-                        consensus
-                            .vid_shares
-                            .entry(<span class="kw-2">*</span>view_number)
-                            .or_default()
-                            .insert(key, prop);
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(disperse) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
+                        consensus.update_vid_shares(<span class="kw-2">*</span>view_number, disperse);
                     }
                 }
 

@@ -350,6 +350,11 @@
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -551,9 +556,14 @@
                 <span class="comment">// Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
                 // contains strictly more information.
-                </span>consensus.validated_state_map.entry(view).or_insert(View {
-                    view_inner: ViewInner::DA { payload_commitment },
-                });
+                </span><span class="kw">if </span>!consensus.validated_state_map().contains_key(<span class="kw-2">&amp;</span>view) {
+                    consensus.update_validated_state_map(
+                        view,
+                        View {
+                            view_inner: ViewInner::DA { payload_commitment },
+                        },
+                    );
+                }
 
                 <span class="comment">// Record the payload we have promised to make available.
                 </span>consensus

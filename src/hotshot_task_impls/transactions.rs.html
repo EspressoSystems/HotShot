@@ -657,13 +657,13 @@
         </span><span class="kw">while </span>prev_view != TYPES::Time::genesis() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(commitment) =
                 consensus
-                    .validated_state_map
+                    .validated_state_map()
                     .get(<span class="kw-2">&amp;</span>prev_view)
                     .and_then(|view| <span class="kw">match </span>view.view_inner {
                         <span class="comment">// For a view for which we have a Leaf stored
                         </span>ViewInner::DA { payload_commitment } =&gt; <span class="prelude-val">Some</span>(payload_commitment),
                         ViewInner::Leaf { leaf, .. } =&gt; consensus
-                            .saved_leaves
+                            .saved_leaves()
                             .get(<span class="kw-2">&amp;</span>leaf)
                             .map(Leaf::get_payload_commitment),
                         ViewInner::Failed =&gt; <span class="prelude-val">None</span>,
