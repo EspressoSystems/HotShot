@@ -327,6 +327,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the current view.
+    /// # Errors
+    /// Can return an error when the new view_number is not higher than the existing view number.
     pub fn update_view(&mut self, view_number: TYPES::Time) -> Result<()> {
         ensure!(view_number > self.cur_view);
         self.cur_view = view_number;
@@ -344,6 +346,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the high QC if given a newer one.
+    /// # Errors
+    /// Can return an error when the provided high_qc is not newer than the existing entry.
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
         ensure!(high_qc.view_number > self.high_qc.view_number);
         debug!("Updating high QC");
