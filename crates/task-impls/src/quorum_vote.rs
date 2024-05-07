@@ -78,7 +78,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        #[allow(unused_variables)]
         let mut cur_proposal = None;
         let mut payload_commitment = None;
         let mut leaf = None;
@@ -367,16 +366,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
     async fn update_latest_voted_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_voted_view < *new_view {
-            debug!(
+            tracing::trace!(
                 "Updating next vote view from {} to {} in the quorum vote task",
-                *self.latest_voted_view, *new_view
+                *self.latest_voted_view,
+                *new_view
             );
 
             // Cancel the old dependency tasks.
             for view in (*self.latest_voted_view + 1)..=(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
-                    debug!("Vote dependency removed for view {:?}", view);
+                    tracing::trace!("Vote dependency removed for view {:?}", view);
                 }
             }
 

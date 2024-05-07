@@ -109,6 +109,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
+        error!("About to propose");
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut quorum_certificate = None;
@@ -278,6 +279,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         view_number: TYPES::Time,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
+        let id = self.id.clone();
         EventDependency::new(
             event_receiver,
             Box::new(move |event| {
@@ -345,7 +347,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
+                    debug!("Node {id} dependency {dependency_type:?} is complete for view {event_view:?}!");
                 }
                 valid
             }),
@@ -478,7 +480,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             return;
         }
 
-        debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
+        debug!("Node {} attempting to make dependency task for view {view_number:?} and event {event:?}", self.id);
         if self.propose_dependencies.contains_key(&view_number) {
             debug!("Task already exists");
             return;
@@ -513,9 +515,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
-            debug!(
+            tracing::trace!(
                 "Updating latest proposed view from {} to {}",
-                *self.latest_proposed_view, *new_view
+                *self.latest_proposed_view,
+                *new_view
             );
 
             // Cancel the old dependency tasks.
