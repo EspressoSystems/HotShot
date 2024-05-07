@@ -12,6 +12,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
+    data::ViewChangeEvidence,
     event::Event,
     traits::{
         block_contents::BlockHeader,
@@ -20,7 +21,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vote::Certificate,
+    vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -52,6 +53,9 @@ enum ProposalDependency {
 
     /// For the `ProposeNow` event.
     ProposeNow,
+
+    /// For the `VIDShareValidated` event.
+    VIDShare,
 }
 
 /// Handler for the proposal dependency
@@ -107,10 +111,11 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
-        let mut _quorum_certificate = None;
-        let mut _timeout_certificate = None;
-        let mut _view_sync_finalize_cert = None;
+        let mut quorum_certificate = None;
+        let mut timeout_certificate = None;
+        let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
+            error!("{event:?}");
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -139,27 +144,27 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
                     either::Right(timeout) => {
-                        _timeout_certificate = Some(timeout.clone());
+                        timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
-                        _quorum_certificate = Some(qc.clone());
+                        quorum_certificate = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert.clone());
+                    view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::ProposeNow(_, pdd) => {
                     commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
                     match &pdd.secondary_proposal_information {
-                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) => {
-                            _quorum_certificate = Some(quorum_certificate.clone());
+                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_cert) => {
+                            quorum_certificate = Some(quorum_cert.clone());
                             payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
                         },
                         hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
-                            _timeout_certificate = Some(tc.clone());
+                            timeout_certificate = Some(tc.clone());
                         }
                         hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) => {
-                            _view_sync_finalize_cert = Some(vsc.clone());
+                            view_sync_finalize_cert = Some(vsc.clone());
                         },
                     }
                 }
@@ -174,6 +179,21 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
+        let proposal_cert = if let Some(view_sync_cert) = view_sync_finalize_cert {
+            Some(ViewChangeEvidence::ViewSync(view_sync_cert))
+        } else {
+            timeout_certificate.map(ViewChangeEvidence::Timeout)
+        };
+
+        // Race condition check, sometimes we can propose (in exceedingly rare cases) without justify_qc being updated.
+        // This makes sure that that happens before we propose.
+        if let Some(qc) = quorum_certificate {
+            self.consensus
+                .write()
+                .await
+                .update_high_qc_if_new(qc.clone());
+        }
+
         if let Err(e) = publish_proposal_if_able(
             self.latest_proposed_view,
             self.view_number,
@@ -186,7 +206,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             None,
             None,
             commit_and_metadata,
-            None,
+            proposal_cert,
             Arc::clone(&self.instance_state),
         )
         .await
@@ -315,6 +335,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             return false;
                         }
                     }
+                    ProposalDependency::VIDShare => {
+                        if let HotShotEvent::VIDShareValidated(vid_share) = event {
+                            vid_share.data.get_view_number()
+                        } else {
+                            return false;
+                        }
+                    }
                 };
                 let valid = event_view == view_number;
                 if valid {
@@ -365,8 +392,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let mut propose_now_dependency = self.create_event_dependency(
             ProposalDependency::ProposeNow,
             view_number,
-            event_receiver,
+            event_receiver.clone(),
         );
+
+        let mut vid_share_dependency =
+            self.create_event_dependency(ProposalDependency::VIDShare, view_number, event_receiver);
 
         match event.as_ref() {
             HotShotEvent::ProposeNow(..) => {
@@ -388,6 +418,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 view_sync_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::VIDShareValidated(_) => {
+                vid_share_dependency.mark_as_completed(event);
             }
             _ => {}
         };
@@ -415,6 +448,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             AndDependency::from_deps(vec![
                 OrDependency::from_deps(vec![AndDependency::from_deps(vec![
                     payload_commitment_dependency,
+                    vid_share_dependency,
                 ])]),
                 OrDependency::from_deps(secondary_deps),
             ]),
@@ -602,6 +636,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     Arc::clone(&event),
                 );
             }
+            HotShotEvent::VIDShareValidated(vid_share) => {
+                // We don't actually care about getting the VID share itself. We just need to
+                // actually receive the value, so we can just move on with markng the dependency.
+                let view = vid_share.data.get_view_number();
+
+                self.create_dependency_task_if_new(
+                    view,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(&event),
+                );
+            }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let view = proposal.data.view_number;
                 if !self.update_latest_proposed_view(view).await {
@@ -628,6 +674,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::QuorumProposalSend(..)
+                | HotShotEvent::VIDShareValidated(_)
                 | HotShotEvent::Shutdown,
         )
     }

@@ -237,6 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
     /// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
+    #[cfg(not(feature = "dependency-tasks"))]
     fn spawn_vote_task(
         &mut self,
         view: TYPES::Time,
