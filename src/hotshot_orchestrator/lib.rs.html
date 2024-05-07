@@ -915,6 +915,10 @@
         libp2p_address: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt;,
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(u64, bool), ServerError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((node_index, is_da)) = <span class="self">self</span>.pub_posted.get(pubkey) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>((<span class="kw-2">*</span>node_index, <span class="kw-2">*</span>is_da));
+        }
+
         <span class="kw">if </span>!<span class="self">self</span>.accepting_new_keys {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
@@ -922,10 +926,6 @@
                     <span class="string">"Network has been started manually, and is no longer registering new keys."
                         </span>.to_string(),
             });
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((node_index, is_da)) = <span class="self">self</span>.pub_posted.get(pubkey) {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>((<span class="kw-2">*</span>node_index, <span class="kw-2">*</span>is_da));
         }
 
         <span class="kw">let </span>node_index = <span class="self">self</span>.pub_posted.len() <span class="kw">as </span>u64;
