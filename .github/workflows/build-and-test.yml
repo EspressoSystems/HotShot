@@ -171,11 +171,7 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-combined
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release/examples/webserver
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release/examples/validator-webserver
+            target/${{ matrix.just_variants }}/release/examples/orchestrator
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
 
@@ -213,11 +209,7 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-combined
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release/examples/webserver
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release/examples/validator-webserver
+            target/${{ matrix.just_variants }}/release/examples/orchestrator
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
 
@@ -272,25 +264,11 @@ jobs:
           images: ghcr.io/espressosystems/hotshot/validator-combined
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Generate webserver docker metadata
+      - name: Generate orchestrator docker metadata
         uses: docker/metadata-action@v5
-        id: webserver
+        id: orchestrator
         with:
-          images: ghcr.io/espressosystems/hotshot/webserver
-          flavor: suffix=-${{ matrix.just_variants }}
-
-      - name: Generate orchestrator-webserver docker metadata
-        uses: docker/metadata-action@v5
-        id: orchestrator-webserver
-        with:
-          images: ghcr.io/espressosystems/hotshot/orchestrator-webserver
-          flavor: suffix=-${{ matrix.just_variants }}
-
-      - name: Generate validator-webserver docker metadata
-        uses: docker/metadata-action@v5
-        id: validator-webserver
-        with:
-          images: ghcr.io/espressosystems/hotshot/validator-webserver
+          images: ghcr.io/espressosystems/hotshot/orchestrator
           flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate cdn-broker docker metadata
@@ -335,43 +313,15 @@ jobs:
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
-      - name: Build and push webserver docker
+      - name: Build and push orchestrator docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/webserver.Dockerfile
+          file: ./docker/orchestrator.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
-
-      - name: Build and push orchestrator-webserver docker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./
-          file: ./docker/orchestrator-webserver.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.orchestrator-webserver.outputs.tags }}
-          labels: ${{ steps.orchestrator-webserver.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
-
-      - name: Build and push validator-webserver docker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./
-          file: ./docker/validator-webserver.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.validator-webserver.outputs.tags }}
-          labels: ${{ steps.validator-webserver.outputs.labels }}
+          tags: ${{ steps.orchestrator.outputs.tags }}
+          labels: ${{ steps.orchestrator.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
