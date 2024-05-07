@@ -299,7 +299,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         let state = self.state.read().await;
         self.received_shutdown.load(Ordering::Relaxed) == 1i8
             || state.vid_shares.contains_key(&view)
-            || state.cur_view > view
+            || state.cur_view() > view
     }
 
     /// Transform a response into a `HotShotEvent`
