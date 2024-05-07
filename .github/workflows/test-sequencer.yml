@@ -27,8 +27,8 @@ jobs:
           path: sequencer
           submodules: true
 
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
