@@ -6,7 +6,7 @@ use std::{path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
@@ -21,7 +21,7 @@ use cdn_client::{
     reexports::{
         connection::protocols::Quic,
         crypto::signature::{Serializable, SignatureScheme},
-        message::{Broadcast, Direct, Message as PushCdnMessage, Topic},
+        message::{Broadcast, Direct, Message as PushCdnMessage},
     },
     Client, Config as ClientConfig,
 };
@@ -37,7 +37,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, PushCdnNetworkError},
+        network::{ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -153,6 +153,15 @@ pub struct PushCdnNetwork<TYPES: NodeType> {
     is_paused: Arc<AtomicBool>,
 }
 
+/// The enum for the topics we can subscribe to in the Push CDN
+#[repr(u8)]
+pub enum Topic {
+    /// The global topic
+    Global = 0,
+    /// The DA topic
+    DA = 1,
+}
+
 impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
     /// topics we are interested in, and our wrapped keypair that we use to authenticate with the
@@ -162,19 +171,13 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// If we fail to build the config
     pub fn new(
         marshal_endpoint: String,
-        topics: Vec<String>,
+        topics: Vec<Topic>,
         keypair: KeyPair<WrappedSignatureKey<TYPES::SignatureKey>>,
     ) -> anyhow::Result<Self> {
-        // Transform topics to our internal representation
-        let mut computed_topics: Vec<Topic> = Vec::new();
-        for topic in topics {
-            computed_topics.push(topic.try_into()?);
-        }
-
         // Build config
         let config = ClientConfig {
             endpoint: marshal_endpoint,
-            subscribed_topics: computed_topics,
+            subscribed_topics: topics.into_iter().map(|t| t as u8).collect(),
             keypair,
             use_local_authority: true,
         };
@@ -220,7 +223,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         // TODO: check if we need to print this error
         if self
             .client
-            .send_broadcast_message(vec![topic], serialized_message)
+            .send_broadcast_message(vec![topic as u8], serialized_message)
             .await
             .is_err()
         {
@@ -262,15 +265,32 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
             .to_string_lossy()
             .into_owned();
 
+        // Pick some unused public ports
+        let public_address_1 = format!(
+            "127.0.0.1:{}",
+            portpicker::pick_unused_port().expect("could not find an open port")
+        );
+        let public_address_2 = format!(
+            "127.0.0.1:{}",
+            portpicker::pick_unused_port().expect("could not find an open port")
+        );
+
         // 2 brokers
-        for _ in 0..2 {
+        for i in 0..2 {
             // Get the ports to bind to
             let private_port = portpicker::pick_unused_port().expect("could not find an open port");
-            let public_port = portpicker::pick_unused_port().expect("could not find an open port");
 
             // Extrapolate addresses
             let private_address = format!("127.0.0.1:{private_port}");
-            let public_address = format!("127.0.0.1:{public_port}");
+            let (public_address, other_public_address) = if i == 0 {
+                (public_address_1.clone(), public_address_2.clone())
+            } else {
+                (public_address_2.clone(), public_address_1.clone())
+            };
+
+            // Calculate the broker identifiers
+            let broker_identifier = format!("{public_address}/{public_address}");
+            let other_broker_identifier = format!("{other_public_address}/{other_public_address}");
 
             // Configure the broker
             let config: BrokerConfig<TestingDef<TYPES>> = BrokerConfig {
@@ -292,6 +312,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
             async_spawn(async move {
                 let broker: Broker<TestingDef<TYPES>> =
                     Broker::new(config).await.expect("broker failed to start");
+
+                // If we are the first broker by identifier, we need to sleep a bit
+                // for discovery to happen first
+                if other_broker_identifier > broker_identifier {
+                    async_sleep(Duration::from_secs(2)).await;
+                }
 
                 // Error if we stopped unexpectedly
                 if let Err(err) = broker.start().await {
@@ -339,9 +365,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
                     // Calculate if we're DA or not
                     let topics = if node_id < da_committee_size as u64 {
-                        vec![Topic::DA, Topic::Global]
+                        vec![Topic::DA as u8, Topic::Global as u8]
                     } else {
-                        vec![Topic::Global]
+                        vec![Topic::Global as u8]
                     };
 
                     // Configure our client
@@ -537,7 +563,4 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
     }
-
-    /// We don't need to poll.
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
 }

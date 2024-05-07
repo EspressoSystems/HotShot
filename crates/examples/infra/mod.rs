@@ -13,15 +13,15 @@ use async_compatibility_layer::{
     logging::{setup_backtrace, setup_logging},
 };
 use async_trait::async_trait;
-use cdn_broker::reexports::{crypto::signature::KeyPair, message::Topic};
+use cdn_broker::reexports::crypto::signature::KeyPair;
 use chrono::Utc;
 use clap::{value_parser, Arg, Command, Parser};
 use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork,
-            WebServerNetwork, WrappedSignatureKey,
+            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topic,
+            WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
     },
@@ -62,7 +62,6 @@ use hotshot_types::{
 use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
 use tracing::{error, info, warn};
-use vbs::version::StaticVersionType;
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -323,25 +322,9 @@ fn calculate_num_tx_per_round(
 ) -> usize {
     transactions_per_round / total_num_nodes
         + usize::from(
-            (total_num_nodes - 1 - node_index as usize)
-                < (transactions_per_round % total_num_nodes),
+            (total_num_nodes)
+                < (transactions_per_round % total_num_nodes) + 1 + (node_index as usize),
         )
-}
-
-/// create a web server network from a config file + public key
-/// # Panics
-/// Panics if the web server config doesn't exist in `config`
-fn webserver_network_from_config<TYPES: NodeType, NetworkVersion: StaticVersionType + 'static>(
-    config: NetworkConfig<TYPES::SignatureKey>,
-    pub_key: TYPES::SignatureKey,
-) -> WebServerNetwork<TYPES, NetworkVersion> {
-    // Get the configuration for the web server
-    let WebServerConfig {
-        url,
-        wait_between_polls,
-    }: WebServerConfig = config.web_server_config.unwrap();
-
-    WebServerNetwork::create(url, wait_between_polls, pub_key, false)
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -463,7 +446,6 @@ pub trait RunDA<
         let mut event_stream = context.get_event_stream();
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
-        let mut failed_num_views = 0;
 
         context.hotshot.start_consensus().await;
 
@@ -545,11 +527,9 @@ pub trait RunDA<
                             // when we make progress, submit new events
                         }
                         EventType::ReplicaViewTimeout { view_number } => {
-                            failed_num_views += 1;
                             warn!("Timed out as a replicas in view {:?}", view_number);
                         }
                         EventType::ViewTimeout { view_number } => {
-                            failed_num_views += 1;
                             warn!("Timed out in view {:?}", view_number);
                         }
                         _ => {} // mostly DA proposal
@@ -560,18 +540,20 @@ pub trait RunDA<
         let consensus_lock = context.hotshot.get_consensus();
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
+        // `failed_num_views` could include uncommitted views
+        let failed_num_views = total_num_views - num_successful_commits;
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
         println!("[{node_index}]: Total views: {total_num_views}, Failed views: {failed_num_views}, num_successful_commits: {num_successful_commits}");
-        // +2 is for uncommitted views
-        assert!(total_num_views <= (failed_num_views + num_successful_commits + 2));
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
         println!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
         if total_transactions_committed != 0 {
+            // prevent devision by 0
+            let total_time_elapsed_sec = std::cmp::max(total_time_elapsed.as_secs(), 1u64);
             // extra 8 bytes for timestamp
             let throughput_bytes_per_sec = total_transactions_committed
                 * (transaction_size_in_bytes + 8)
-                / total_time_elapsed.as_secs();
+                / total_time_elapsed_sec;
             let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
             BenchResults {
@@ -600,89 +582,6 @@ pub trait RunDA<
 
     /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey>;
-}
-
-// WEB SERVER
-
-/// Represents a web server-based run
-pub struct WebServerDARun<TYPES: NodeType, NetworkVersion: StaticVersionType> {
-    /// the network configuration
-    config: NetworkConfig<TYPES::SignatureKey>,
-    /// quorum channel
-    quorum_channel: WebServerNetwork<TYPES, NetworkVersion>,
-    /// data availability channel
-    da_channel: WebServerNetwork<TYPES, NetworkVersion>,
-}
-
-#[async_trait]
-impl<
-        TYPES: NodeType<
-            Transaction = TestTransaction,
-            BlockPayload = TestBlockPayload,
-            BlockHeader = TestBlockHeader,
-            InstanceState = TestInstanceState,
-        >,
-        NODE: NodeImplementation<
-            TYPES,
-            QuorumNetwork = WebServerNetwork<TYPES, NetworkVersion>,
-            CommitteeNetwork = WebServerNetwork<TYPES, NetworkVersion>,
-            Storage = TestStorage<TYPES>,
-        >,
-        NetworkVersion: StaticVersionType,
-    >
-    RunDA<
-        TYPES,
-        WebServerNetwork<TYPES, NetworkVersion>,
-        WebServerNetwork<TYPES, NetworkVersion>,
-        NODE,
-    > for WebServerDARun<TYPES, NetworkVersion>
-where
-    <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
-    Leaf<TYPES>: TestableLeaf,
-    Self: Sync,
-    NetworkVersion: 'static,
-{
-    async fn initialize_networking(
-        config: NetworkConfig<TYPES::SignatureKey>,
-        _libp2p_advertise_address: Option<SocketAddr>,
-    ) -> WebServerDARun<TYPES, NetworkVersion> {
-        // Get our own key
-        let pub_key = config.config.my_own_validator_config.public_key.clone();
-
-        // extract values from config (for DA network)
-        let WebServerConfig {
-            url,
-            wait_between_polls,
-        }: WebServerConfig = config.clone().da_web_server_config.unwrap();
-
-        // create and wait for underlying network
-        let underlying_quorum_network =
-            webserver_network_from_config::<TYPES, NetworkVersion>(config.clone(), pub_key.clone());
-
-        underlying_quorum_network.wait_for_ready().await;
-
-        let da_channel: WebServerNetwork<TYPES, NetworkVersion> =
-            WebServerNetwork::create(url.clone(), wait_between_polls, pub_key.clone(), true);
-
-        WebServerDARun {
-            config,
-            quorum_channel: underlying_quorum_network,
-            da_channel,
-        }
-    }
-
-    fn get_da_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
-        self.da_channel.clone()
-    }
-
-    fn get_quorum_channel(&self) -> WebServerNetwork<TYPES, NetworkVersion> {
-        self.quorum_channel.clone()
-    }
-
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey> {
-        self.config.clone()
-    }
 }
 
 // Push CDN
@@ -743,7 +642,7 @@ where
                 .cdn_marshal_address
                 .clone()
                 .expect("`cdn_marshal_address` needs to be supplied for a push CDN run"),
-            topics.iter().map(ToString::to_string).collect(),
+            topics,
             keypair,
         )
         .expect("failed to create network");
@@ -1020,12 +919,9 @@ pub async fn main_entry_point<
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
     let (mut run_config, source) = NetworkConfig::<TYPES::SignatureKey>::get_complete_config(
         &orchestrator_client,
-        args.clone().network_config_file,
         my_own_validator_config,
         args.advertise_address,
         Some(libp2p_public_key),
-        // If `indexed_da` is true: use the node index to determine if we are a DA node.
-        true,
     )
     .await
     .expect("failed to get config");
