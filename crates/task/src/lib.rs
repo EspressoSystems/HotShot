@@ -14,6 +14,7 @@ pub mod dependency_task;
 pub mod task;
 
 /// Cancel a task
+#[allow(clippy::unused_async)]
 pub async fn cancel_task<T>(task: JoinHandle<T>) {
     #[cfg(async_executor_impl = "async-std")]
     task.cancel().await;
