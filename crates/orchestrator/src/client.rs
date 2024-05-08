@@ -76,6 +76,8 @@ pub struct BenchResultsDownloadConfig {
     pub total_nodes: usize,
     /// The size of the da committee
     pub da_committee_size: usize,
+    /// The number of fixed_leader_for_gpuvid when we enable the feature [fixed-leader-election]
+    pub fixed_leader_for_gpuvid: usize,
     /// Number of transactions submitted per round
     pub transactions_per_round: usize,
     /// The size of each transaction in bytes
@@ -84,6 +86,7 @@ pub struct BenchResultsDownloadConfig {
     pub rounds: usize,
     /// The type of leader election: static, fixed, random
     pub leader_election_type: String,
+
     // Results starting here
     /// The average latency of the transactions
     pub avg_latency_in_sec: i64,
