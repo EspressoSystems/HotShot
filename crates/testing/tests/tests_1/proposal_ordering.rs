@@ -10,7 +10,10 @@ use hotshot_example_types::{
 };
 use hotshot_task_impls::consensus::ConsensusTaskState;
 use hotshot_testing::{
-    predicates::event::{all_predicates, exact, quorum_proposal_send, quorum_proposal_validated},
+    predicates::event::{
+        all_predicates, exact, quorum_proposal_send, quorum_proposal_validated,
+        validated_state_update,
+    },
     task_helpers::{get_vid_share, vid_scheme_from_view_number},
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
@@ -75,6 +78,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             all_predicates(vec![
+                validated_state_update(),
                 quorum_proposal_validated(),
                 exact(QuorumVoteSend(votes[0].clone())),
             ]),
@@ -115,6 +119,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
             all_predicates(vec![
+                validated_state_update(),
                 exact(QuorumVoteSend(votes[1].clone())),
                 quorum_proposal_validated(),
                 quorum_proposal_send(),
