@@ -312,12 +312,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
 }
 
 /// Runs the orchestrator
-pub async fn run_orchestrator<
-    TYPES: NodeType,
-    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    NODE: NodeImplementation<TYPES>,
->(
+pub async fn run_orchestrator<TYPES: NodeType>(
     OrchestratorArgs { url, config }: OrchestratorArgs<TYPES>,
 ) {
     println!("Starting orchestrator",);
@@ -398,7 +393,7 @@ pub trait RunDA<
         // as the known da nodes
         let da_membership = <TYPES as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
-            known_nodes_with_stake,
+            config.config.known_da_nodes.clone(),
             config.config.fixed_leader_for_gpuvid,
         );
 

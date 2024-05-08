@@ -20,7 +20,7 @@ use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
     utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
 };
 
 /// Trait for structures that need to be unambiguously encoded as bytes.
@@ -161,7 +161,9 @@ pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
 pub struct BuilderFee<TYPES: NodeType> {
     /// Proposed fee amount
     pub fee_amount: u64,
-    /// Signature over fee amount
+    /// Account authorizing the fee.
+    pub fee_account: TYPES::BuilderSignatureKey,
+    /// Signature over fee amount by `fee_account`.
     pub fee_signature: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
 }
 
@@ -174,6 +176,7 @@ pub trait BlockHeader<TYPES: NodeType>:
 
     /// Build a header with the parent validate state, instance-level state, parent leaf, payload
     /// commitment, and metadata.
+    #[allow(clippy::too_many_arguments)]
     fn new(
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
@@ -182,6 +185,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         builder_fee: BuilderFee<TYPES>,
+        vid_common: VidCommon,
     ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
     /// Build the genesis header, payload, and metadata.

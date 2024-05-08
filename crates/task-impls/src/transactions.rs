@@ -26,7 +26,7 @@ use hotshot_types::{
     utils::ViewInner,
     vid::VidCommitment,
 };
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -151,6 +151,7 @@ impl<
                             block_view,
                             BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
+                                fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },
                         )),
@@ -159,7 +160,7 @@ impl<
                     .await;
                 } else {
                     // If we couldn't get a block, send an empty block
-                    error!(
+                    warn!(
                         "Failed to get a block for view {:?}, proposing empty block",
                         view
                     );
@@ -223,13 +224,13 @@ impl<
         while prev_view != TYPES::Time::genesis() {
             if let Some(commitment) =
                 consensus
-                    .validated_state_map
+                    .validated_state_map()
                     .get(&prev_view)
                     .and_then(|view| match view.view_inner {
                         // For a view for which we have a Leaf stored
                         ViewInner::DA { payload_commitment } => Some(payload_commitment),
                         ViewInner::Leaf { leaf, .. } => consensus
-                            .saved_leaves
+                            .saved_leaves()
                             .get(&leaf)
                             .map(Leaf::get_payload_commitment),
                         ViewInner::Failed => None,
@@ -280,7 +281,7 @@ impl<
 
                 // We failed to get a block
                 Ok(Err(err)) => {
-                    error!(%err, "Couldn't get a block");
+                    tracing::warn!(%err, "Couldn't get a block");
                     // pause a bit
                     async_sleep(Duration::from_millis(100)).await;
                     continue;
