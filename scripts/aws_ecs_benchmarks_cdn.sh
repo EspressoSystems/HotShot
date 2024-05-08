@@ -24,11 +24,11 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
 # runstart keydb
-docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
+# docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
 # server1: broker and marshal
 just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
 # remember to sleep enough time if it's built first time
-just async_std example cdn-broker -- -d ${keydb_address} \
+just async_std example cdn-broker -- -d redis://localhost:6379 \
     --public-bind-endpoint 0.0.0.0:1740 \
     --public-advertise-endpoint local_ip:1740 \
     --private-bind-endpoint 0.0.0.0:1741 \
@@ -52,13 +52,13 @@ do
         then
             for transactions_per_round in 1 # 10 50 100
             do
-                for transaction_size in 512 #1000000 # 512 4096 
+                for transaction_size in 1000000 # 512 4096 
                 do
                     for fixed_leader_for_gpuvid in 1 # 5 10
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
-                            rounds=100
+                            rounds=50
 
                             # start orchestrator
                             just async_std example_fixed_leader orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
@@ -93,4 +93,4 @@ done
 # shut down all related threads
 for pid in $(ps -ef | grep "cdn-broker" | awk '{print $2}'); do kill -9 $pid; done
 for pid in $(ps -ef | grep "cdn-marshal" | awk '{print $2}'); do kill -9 $pid; done
-for pid in $(ps -ef | grep "keydb-server" | awk '{print $2}'); do sudo kill -9 $pid; done
+# for pid in $(ps -ef | grep "keydb-server" | awk '{print $2}'); do sudo kill -9 $pid; done
