@@ -6,7 +6,7 @@ source "$HOME/.cargo/env"
 # assign local ip
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 orchestrator_url=http://"$ip":4444
-cdn_marshal_address=http://"$ip":9000
+cdn_marshal_address="$ip":9000
 
 # build to get the bin in advance
 just async_std example validator-push-cdn -- http://localhost:4444 &
