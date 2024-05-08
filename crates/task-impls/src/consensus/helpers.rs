@@ -126,10 +126,6 @@ async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 
         format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view)
     });
-    let mut consensus = consensus.write().await;
-
-    consensus.update_saved_leaves(proposed_leaf);
-    drop(consensus);
 
     // We accept the proposal, notify the application layer
 
