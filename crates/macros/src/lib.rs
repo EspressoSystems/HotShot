@@ -318,10 +318,12 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
     use hotshot_testing::{predicates::Predicate, script::RECV_TIMEOUT};
     use async_broadcast::broadcast;
-    use hotshot_task_impls::events::HotShotEvent;
     use async_compatibility_layer::art::async_timeout;
     use hotshot_task::task::{Task, TaskRegistry, TaskState};
-    use hotshot_types::traits::node_implementation::NodeType;
+    use hotshot_types::{
+        events::HotShotEvent,
+        traits::node_implementation::NodeType
+    };
     use std::sync::Arc;
 
     let registry = Arc::new(TaskRegistry::default());

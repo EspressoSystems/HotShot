@@ -6,10 +6,11 @@ use hotshot_example_types::{
     node_types::TestTypes,
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
+use hotshot_task_impls::vid::VIDTaskState;
 use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
 use hotshot_types::{
     data::{null_block, DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    events::HotShotEvent,
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,

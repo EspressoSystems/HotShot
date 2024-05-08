@@ -10,9 +10,7 @@ use hotshot_example_types::{
     state_types::TestInstanceState,
 };
 use hotshot_macros::test_scripts;
-use hotshot_task_impls::{
-    consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState,
-};
+use hotshot_task_impls::{consensus::ConsensusTaskState, upgrade::UpgradeTaskState};
 use hotshot_testing::{
     predicates::{event::*, upgrade::*},
     script::{Expectations, TaskScript},
@@ -21,6 +19,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
+    events::HotShotEvent::*,
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
 };

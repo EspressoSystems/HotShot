@@ -9,6 +9,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
+    events::{HotShotEvent, HotShotTaskCompleted},
     message::Proposal,
     traits::{
         consensus_api::ConsensusApi,
@@ -20,10 +21,7 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument, warn};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::calculate_vid_disperse,
-};
+use crate::helpers::calculate_vid_disperse;
 
 /// Tracks state of a VID task
 pub struct VIDTaskState<

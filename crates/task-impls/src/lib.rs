@@ -17,9 +17,6 @@ pub mod da;
 /// The task which implements all transaction handling
 pub mod transactions;
 
-/// Defines the events passed between tasks
-pub mod events;
-
 /// The task which implements the network.
 pub mod network;
 

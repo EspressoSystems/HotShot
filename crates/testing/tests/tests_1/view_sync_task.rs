@@ -1,8 +1,9 @@
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{
+    data::ViewNumber, events::HotShotEvent, traits::node_implementation::ConsensusTime,
+};
 use std::collections::HashMap;
 
 #[cfg(test)]

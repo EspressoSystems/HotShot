@@ -1,7 +1,8 @@
+//! Events sent between HotShot tasks
+
 use std::sync::Arc;
 
-use either::Either;
-use hotshot_types::{
+use crate::{
     consensus::ProposalDependencyData,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
@@ -18,6 +19,7 @@ use hotshot_types::{
     vid::VidCommitment,
     vote::VoteDependencyData,
 };
+use either::Either;
 use vbs::version::Version;
 
 use crate::view_sync::ViewSyncPhase;

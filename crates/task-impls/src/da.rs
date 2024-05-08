@@ -12,6 +12,7 @@ use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
     event::{Event, EventType},
+    events::{HotShotEvent, HotShotTaskCompleted},
     message::Proposal,
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},
@@ -31,11 +32,8 @@ use sha2::{Digest, Sha256};
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
+use crate::vote_collection::{
+    create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
 };
 
 /// Alias for Optional type for Vote Collectors
@@ -202,12 +200,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
                 // contains strictly more information.
                 if !consensus.validated_state_map().contains_key(&view) {
-                    consensus.update_validated_state_map(
-                        view,
-                        View {
-                            view_inner: ViewInner::DA { payload_commitment },
-                        },
-                    );
+                    consensus
+                        .update_validated_state_map(
+                            view,
+                            View {
+                                view_inner: ViewInner::DA { payload_commitment },
+                            },
+                            &event_stream,
+                        )
+                        .await;
                 }
 
                 // Record the payload we have promised to make available.

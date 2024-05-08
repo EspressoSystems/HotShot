@@ -18,6 +18,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
+    events::{HotShotEvent, HotShotTaskCompleted},
     traits::{
         block_contents::{precompute_vid_commitment, BuilderFee},
         consensus_api::ConsensusApi,
@@ -32,10 +33,7 @@ use hotshot_types::{
 use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
 
-use crate::{
-    builder::BuilderClient,
-    events::{HotShotEvent, HotShotTaskCompleted},
-};
+use crate::builder::BuilderClient;
 
 /// Builder Provided Responses
 pub struct BuilderResponses<TYPES: NodeType> {

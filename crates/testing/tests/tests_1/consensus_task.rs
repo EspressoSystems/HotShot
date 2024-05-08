@@ -8,7 +8,7 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
+use hotshot_task_impls::consensus::ConsensusTaskState;
 use hotshot_testing::{
     predicates::event::{
         exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
@@ -22,6 +22,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{ViewChangeEvidence, ViewNumber},
+    events::HotShotEvent::*,
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
@@ -120,7 +121,6 @@ async fn test_consensus_task() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
     use hotshot::tasks::task_state::CreateTaskState;
-    use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,

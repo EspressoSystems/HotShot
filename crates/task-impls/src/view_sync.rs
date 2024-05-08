@@ -1,7 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 use std::{
     collections::{BTreeMap, HashMap},
-    fmt::Debug,
     sync::Arc,
     time::Duration,
 };
@@ -16,6 +15,7 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
+    events::{HotShotEvent, HotShotTaskCompleted},
     message::GeneralConsensusMessage,
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -30,31 +30,16 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
+    view_sync::ViewSyncPhase,
     vote::{Certificate, HasViewNumber, Vote},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
+use crate::vote_collection::{
+    create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
 };
-#[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
-/// Phases of view sync
-pub enum ViewSyncPhase {
-    /// No phase; before the protocol has begun
-    None,
-    /// PreCommit phase
-    PreCommit,
-    /// Commit phase
-    Commit,
-    /// Finalize phase
-    Finalize,
-}
-
 /// Type alias for a map from View Number to Relay to Vote Task
 type RelayMap<TYPES, VOTE, CERT> =
     HashMap<<TYPES as NodeType>::Time, BTreeMap<u64, VoteCollectionTaskState<TYPES, VOTE, CERT>>>;

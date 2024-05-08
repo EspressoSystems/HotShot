@@ -3,9 +3,10 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
-use hotshot_types::traits::node_implementation::NodeType;
-
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
+use hotshot_types::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    traits::node_implementation::NodeType,
+};
 
 /// The state for the test harness task. Keeps track of which events and how many we expect to get
 pub struct TestHarnessState<TYPES: NodeType> {

@@ -8,7 +8,7 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
+use hotshot_task_impls::consensus::ConsensusTaskState;
 use hotshot_testing::{
     predicates::event::{all_predicates, exact, quorum_proposal_send, quorum_proposal_validated},
     task_helpers::{get_vid_share, vid_scheme_from_view_number},
@@ -17,6 +17,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
+    events::HotShotEvent::*,
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
 };
