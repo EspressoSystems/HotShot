@@ -506,7 +506,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     if let Err(e) = consensus.update_high_qc(qc.clone()) {
                         tracing::trace!("{e:?}");
                     }
-
                     drop(consensus);
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",

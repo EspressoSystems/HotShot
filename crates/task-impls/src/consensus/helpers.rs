@@ -95,19 +95,19 @@ async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     // passes.
 
     // Liveness check.
-    let consensus = consensus.upgradable_read().await;
-    let liveness_check = justify_qc.get_view_number() > consensus.locked_view;
+    let read_consensus = consensus.read().await;
+    let liveness_check = justify_qc.get_view_number() > read_consensus.locked_view;
 
     // Safety check.
     // Check if proposal extends from the locked leaf.
-    let outcome = consensus.visit_leaf_ancestors(
+    let outcome = read_consensus.visit_leaf_ancestors(
         justify_qc.get_view_number(),
-        Terminator::Inclusive(consensus.locked_view),
+        Terminator::Inclusive(read_consensus.locked_view),
         false,
         |leaf, _, _| {
             // if leaf view no == locked view no then we're done, report success by
             // returning true
-            leaf.get_view_number() != consensus.locked_view
+            leaf.get_view_number() != read_consensus.locked_view
         },
     );
     let safety_check = outcome.is_ok();
@@ -124,8 +124,12 @@ async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
             .await;
         }
 
-        format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc(), proposal.data.clone(), consensus.locked_view)
+        format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view)
     });
+    let mut consensus = consensus.write().await;
+
+    consensus.update_saved_leaves(proposed_leaf);
+    drop(consensus);
 
     // We accept the proposal, notify the application layer
 
@@ -149,10 +153,6 @@ async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         &event_stream,
     )
     .await;
-
-    let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-
-    consensus.update_saved_leaves(proposed_leaf);
 
     Ok(())
 }
@@ -613,7 +613,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     let justify_qc = proposal.data.justify_qc.clone();
 
     if !justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
-        let consensus = task_state.consensus.write().await;
+        let consensus = task_state.consensus.read().await;
         consensus.metrics.invalid_qc.update(1);
         bail!("Invalid justify_qc in proposal for view {}", *view);
     }
