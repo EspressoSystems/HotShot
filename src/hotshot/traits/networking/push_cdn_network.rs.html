@@ -566,6 +566,14 @@
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
@@ -579,7 +587,7 @@
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>cdn_broker::reexports::{
     connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
-    def::{ConnectionDef, RunDef},
+    def::{ConnectionDef, RunDef, Topic <span class="kw">as </span>TopicTrait},
     discovery::{Embedded, Redis},
 };
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -612,6 +620,7 @@
     utils::bincode_opts,
     BoxSyncFuture,
 };
+<span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 <span class="kw">use </span>tracing::{error, warn};
@@ -669,6 +678,7 @@
     <span class="kw">type </span>User = UserDef&lt;TYPES&gt;;
     <span class="kw">type </span>Broker = BrokerDef&lt;TYPES&gt;;
     <span class="kw">type </span>DiscoveryClientType = Redis;
+    <span class="kw">type </span>Topic = Topic;
 }
 
 <span class="doccomment">/// The user definition for the Push CDN.
@@ -707,6 +717,7 @@
     <span class="kw">type </span>User = UserDef&lt;TYPES&gt;;
     <span class="kw">type </span>Broker = BrokerDef&lt;TYPES&gt;;
     <span class="kw">type </span>DiscoveryClientType = Embedded;
+    <span class="kw">type </span>Topic = Topic;
 }
 
 <span class="doccomment">/// A communication channel to the Push CDN, which is a collection of brokers and a marshal
@@ -723,12 +734,17 @@
 
 <span class="doccomment">/// The enum for the topics we can subscribe to in the Push CDN
 </span><span class="attr">#[repr(u8)]
+#[derive(IntoPrimitive, TryFromPrimitive, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Topic {
     <span class="doccomment">/// The global topic
     </span>Global = <span class="number">0</span>,
     <span class="doccomment">/// The DA topic
     </span>DA = <span class="number">1</span>,
 }
+
+<span class="doccomment">/// Implement the `TopicTrait` for our `Topic` enum. We need this to filter
+/// topics that are not implemented at the application level.
+</span><span class="kw">impl </span>TopicTrait <span class="kw">for </span>Topic {}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; PushCdnNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
