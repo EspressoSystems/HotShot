@@ -26,8 +26,8 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
 use futures::join;
-use hotshot_task::task::TaskRegistry;
-use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network};
+use hotshot_task::{broadcast_event, task::TaskRegistry};
+use hotshot_task_impls::{events::HotShotEvent, network};
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
@@ -278,8 +278,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             validated_state_map,
             anchored_leaf.get_view_number(),
             anchored_leaf.get_view_number(),
-            // TODO this is incorrect
-            // https://github.com/EspressoSystems/HotShot/issues/560
+            saved_leaves,
+            saved_payloads,
             anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,

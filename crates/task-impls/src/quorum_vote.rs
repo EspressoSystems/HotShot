@@ -1,6 +1,6 @@
 #[cfg(feature = "dependency-tasks")]
-use std::marker::PhantomData;
-use std::{collections::HashMap, sync::Arc};
+use crate::consensus::helpers::update_state_and_vote_if_able;
+use crate::events::HotShotEvent;
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -8,6 +8,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use committable::Committable;
 use hotshot_task::{
+    broadcast_event, cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},

@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Arc};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
     data::{VidDisperse, VidDisperseShare},
@@ -23,10 +26,7 @@ use hotshot_types::{
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {

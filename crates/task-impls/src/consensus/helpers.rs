@@ -47,8 +47,10 @@ use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     events::HotShotEvent,
-    helpers::{broadcast_event, AnyhowTracing},
+    helpers::AnyhowTracing,
 };
+
+use hotshot_task::broadcast_event;
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.

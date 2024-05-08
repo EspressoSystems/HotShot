@@ -15,10 +15,8 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+use crate::events::HotShotEvent;
+use hotshot_task::{broadcast_event, cancel_task};
 
 /// Constant which tells [`update_view`] to send a view change event when called.
 pub(crate) const SEND_VIEW_CHANGE_EVENT: bool = true;

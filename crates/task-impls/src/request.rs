@@ -10,7 +10,7 @@ use std::{
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
-use hotshot_task::task::TaskState;
+use hotshot_task::{broadcast_event, task::TaskState};
 use hotshot_types::{
     consensus::Consensus,
     message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
@@ -27,10 +27,7 @@ use sha2::{Digest, Sha256};
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
 /// Amount of time to try for a request before timing out.
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
