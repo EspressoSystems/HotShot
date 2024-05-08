@@ -3353,6 +3353,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
+ "cdn-proto",
  "chrono",
  "committable",
  "either",

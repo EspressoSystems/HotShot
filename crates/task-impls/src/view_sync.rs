@@ -473,6 +473,7 @@ impl<
                 let leader = self.membership.get_leader(view_number);
                 error!(
                     %leader,
+                    leader_mnemonic = cdn_proto::mnemonic(&leader),
                     view_number = *view_number,
                     num_timeouts_tracked = self.num_timeouts_tracked,
                     "view timed out",
