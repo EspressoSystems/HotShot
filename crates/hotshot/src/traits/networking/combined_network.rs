@@ -21,7 +21,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use futures::{channel::mpsc, future::join_all, join, select, FutureExt};
-use hotshot_task_impls::helpers::cancel_task;
+use hotshot_task::cancel_task;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,

@@ -4,7 +4,10 @@ use async_broadcast::Sender;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
@@ -30,7 +33,6 @@ use tracing::{debug, error, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },

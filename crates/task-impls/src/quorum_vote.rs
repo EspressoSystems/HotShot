@@ -1,15 +1,14 @@
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::update_state_and_vote_if_able;
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+use crate::events::HotShotEvent;
+
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use committable::Committable;
 use hotshot_task::{
+    broadcast_event, cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},

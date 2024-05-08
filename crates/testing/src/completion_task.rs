@@ -5,7 +5,7 @@ use async_compatibility_layer::art::{async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_task_impls::helpers::broadcast_event;
+use hotshot_task::broadcast_event;
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]

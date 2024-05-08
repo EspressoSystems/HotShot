@@ -6,6 +6,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use either::Either;
 use hotshot_task::{
+    cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
@@ -28,9 +29,7 @@ use tracing::{debug, error, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
-use crate::{
-    consensus::helpers::publish_proposal_if_able, events::HotShotEvent, helpers::cancel_task,
-};
+use crate::{consensus::helpers::publish_proposal_if_able, events::HotShotEvent};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]

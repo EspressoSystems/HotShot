@@ -11,7 +11,10 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event, cancel_task,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
     message::GeneralConsensusMessage,
     simple_certificate::{
@@ -35,7 +38,6 @@ use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_broadcast::Sender;
 use async_lock::RwLock;
-use hotshot_task::task::TaskState;
+use hotshot_task::{broadcast_event, task::TaskState};
 use hotshot_types::{
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
@@ -19,7 +19,6 @@ use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },

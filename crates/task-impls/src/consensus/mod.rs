@@ -9,7 +9,10 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::future::join_all;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event, cancel_task,
+    task::{Task, TaskState},
+};
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::data::VidDisperseShare;
 #[cfg(not(feature = "dependency-tasks"))]
@@ -49,7 +52,6 @@ use crate::consensus::helpers::{
 use crate::{
     consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },

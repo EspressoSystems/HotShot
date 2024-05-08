@@ -2,7 +2,10 @@ use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::Sender;
 use async_lock::RwLock;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
@@ -19,7 +22,7 @@ use tracing::{debug, error, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, calculate_vid_disperse},
+    helpers::calculate_vid_disperse,
 };
 
 /// Tracks state of a VID task
