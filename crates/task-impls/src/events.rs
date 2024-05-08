@@ -15,7 +15,7 @@ use hotshot_types::{
     },
     traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
     utils::{BuilderCommitment, View},
-    vid::{VidCommitment, VidPrecomputeData},
+    vid::VidCommitment,
     vote::VoteDependencyData,
 };
 use vbs::version::Version;
@@ -157,7 +157,4 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /* Consensus State Update Events */
     /// A undecided view has been created and added to the validated state storage.
     ValidatedStateUpdate(TYPES::Time, View<TYPES>),
-
-    /// A new anchor view has been successfully reached by this node.
-    LastDecidedViewUpdated(TYPES::Time),
 }

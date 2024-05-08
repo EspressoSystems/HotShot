@@ -23,7 +23,7 @@ pub trait InstanceState: Debug + Send + Sync {}
 
 /// Application-specific state delta, which will be used to store a list of merkle tree entries.
 pub trait StateDelta:
-    Debug + PartialEq + Eq + Hash + Send + Sync + Serialize + for<'a> Deserialize<'a>
+    Debug + Hash + PartialEq + Eq + Send + Sync + Serialize + for<'a> Deserialize<'a>
 {
 }
 
