@@ -12,7 +12,6 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    constants::VERSION_0_1,
     event::Event,
     traits::{
         block_contents::BlockHeader,
@@ -253,6 +252,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     // pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     /// The node's id
     pub id: u64,
+
+    /// Current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -475,7 +477,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 id: self.id,
                 instance_state: Arc::clone(&self.instance_state),
-                version: VERSION_0_1,
+                version: self.version,
             },
         );
         self.propose_dependencies
@@ -515,6 +517,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            HotShotEvent::VersionUpgrade(version) => {
+                self.version = *version;
+            }
             HotShotEvent::ProposeNow(view, _) => {
                 self.create_dependency_task_if_new(
                     *view,
