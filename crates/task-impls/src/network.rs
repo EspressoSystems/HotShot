@@ -11,6 +11,7 @@ use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
     data::{VidDisperse, VidDisperseShare},
     event::HotShotAction,
+    events::{HotShotEvent, HotShotTaskCompleted},
     message::{
         CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
         Proposal, SequencingMessage,
@@ -25,8 +26,6 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
-
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
 /// quorum filter
 pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {

@@ -15,6 +15,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{QuorumProposal, ViewChangeEvidence},
     event::Event,
+    events::HotShotEvent,
     simple_certificate::UpgradeCertificate,
     traits::{
         node_implementation::{NodeImplementation, NodeType},
@@ -26,10 +27,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 
-use crate::{
-    consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
-    events::HotShotEvent,
-};
+use crate::consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv};
 
 /// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.

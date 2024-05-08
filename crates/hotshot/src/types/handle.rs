@@ -6,12 +6,12 @@ use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use futures::Stream;
 use hotshot_task::task::TaskRegistry;
-use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     boxed_sync,
     consensus::Consensus,
     data::Leaf,
     error::HotShotError,
+    events::HotShotEvent,
     traits::{election::Membership, node_implementation::NodeType},
     BoxSyncFuture,
 };
@@ -58,6 +58,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     #[must_use]
     pub fn get_event_stream_known_impl(&self) -> Receiver<Event<TYPES>> {
         self.output_event_stream.1.activate_cloned()
+    }
+
+    /// Obtain a reference to the internal event stream sender.
+    #[must_use]
+    pub fn get_internal_event_stream_sender(&self) -> &Sender<Arc<HotShotEvent<TYPES>>> {
+        &self.internal_event_stream.0
     }
 
     /// HACK so we can know the types when running tests...

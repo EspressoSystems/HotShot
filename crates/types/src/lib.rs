@@ -14,6 +14,7 @@ pub mod constants;
 pub mod data;
 pub mod error;
 pub mod event;
+pub mod events;
 pub mod light_client;
 pub mod message;
 pub mod qc;
@@ -24,6 +25,7 @@ pub mod stake_table;
 pub mod traits;
 pub mod utils;
 pub mod vid;
+pub mod view_sync;
 pub mod vote;
 
 /// Pinned future that is Send and Sync

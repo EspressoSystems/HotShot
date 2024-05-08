@@ -8,7 +8,7 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
+use hotshot_task_impls::consensus::ConsensusTaskState;
 use hotshot_testing::{
     predicates::event::{all_predicates, exact, quorum_proposal_send, quorum_proposal_validated},
     task_helpers::{get_vid_share, vid_scheme_from_view_number},
@@ -17,6 +17,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
+    events::HotShotEvent::*,
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
 };
@@ -99,15 +100,25 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
 
     let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
     view_2_inputs.insert(0, DACertificateRecv(dacs[1].clone()));
-    view_2_inputs.insert(0, VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())));
-    view_2_inputs.insert(0, VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())));
+    view_2_inputs.insert(
+        0,
+        VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
+    );
+    view_2_inputs.insert(
+        0,
+        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+    );
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {
         inputs: view_2_inputs,
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
-            all_predicates(vec![exact(QuorumVoteSend(votes[1].clone())), quorum_proposal_validated(), quorum_proposal_send()]),
+            all_predicates(vec![
+                exact(QuorumVoteSend(votes[1].clone())),
+                quorum_proposal_validated(),
+                quorum_proposal_send(),
+            ]),
         ],
         // We should end on view 2.
         asserts: vec![],

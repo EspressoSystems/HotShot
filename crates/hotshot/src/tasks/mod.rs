@@ -12,7 +12,6 @@ use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
     da::DATaskState,
-    events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState,
@@ -26,6 +25,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::{Version01, VERSION_0_1},
+    events::HotShotEvent,
     message::{Message, Messages},
     traits::{
         network::ConnectedNetwork,

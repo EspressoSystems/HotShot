@@ -2,9 +2,9 @@ use std::{collections::HashSet, sync::Arc};
 
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_task_impls::events::{HotShotEvent, HotShotEvent::*};
 use hotshot_types::{
     data::null_block,
+    events::{HotShotEvent, HotShotEvent::*},
     traits::{block_contents::BlockHeader, node_implementation::NodeType},
 };
 

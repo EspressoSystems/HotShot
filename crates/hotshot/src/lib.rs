@@ -27,7 +27,7 @@ use async_trait::async_trait;
 use committable::Committable;
 use futures::join;
 use hotshot_task::{broadcast_event, task::TaskRegistry};
-use hotshot_task_impls::{events::HotShotEvent, network};
+use hotshot_task_impls::network;
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
@@ -36,6 +36,7 @@ use hotshot_types::{
     constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
     event::{EventType, LeafInfo},
+    events::HotShotEvent,
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{

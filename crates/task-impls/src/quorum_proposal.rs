@@ -14,6 +14,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     event::Event,
+    events::HotShotEvent,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -29,7 +30,7 @@ use tracing::{debug, error, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
-use crate::{consensus::helpers::publish_proposal_if_able, events::HotShotEvent};
+use crate::consensus::helpers::publish_proposal_if_able;
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]

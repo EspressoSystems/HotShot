@@ -14,10 +14,10 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    events::HotShotEvent,
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},

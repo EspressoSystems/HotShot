@@ -8,6 +8,7 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
+    events::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -20,8 +21,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
 use tracing::{debug, error};
-
-use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
 /// Task state for collecting votes of one type and emitting a certificate
 pub struct VoteCollectionTaskState<

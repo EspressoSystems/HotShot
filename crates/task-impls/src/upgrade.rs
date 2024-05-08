@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use hotshot_task::{broadcast_event, task::TaskState};
 use hotshot_types::{
     event::{Event, EventType},
+    events::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
@@ -17,11 +18,8 @@ use hotshot_types::{
 };
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
+use crate::vote_collection::{
+    create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
 };
 
 /// Alias for Optional type for Vote Collectors

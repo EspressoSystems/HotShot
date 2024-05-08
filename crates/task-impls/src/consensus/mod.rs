@@ -23,6 +23,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
+    events::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
@@ -51,7 +52,6 @@ use crate::consensus::helpers::{
 };
 use crate::{
     consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
-    events::{HotShotEvent, HotShotTaskCompleted},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },

@@ -3,16 +3,16 @@
 
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_task_impls::{
-    events::HotShotEvent::*, quorum_proposal_recv::QuorumProposalRecvTaskState,
-};
+use hotshot_task_impls::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use hotshot_testing::{
     predicates::event::exact,
     script::{run_test_script, TestScriptStage},
     task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{
+    data::ViewNumber, events::HotShotEvent::*, traits::node_implementation::ConsensusTime,
+};
 
 #[cfg(test)]
 #[cfg(feature = "dependency-tasks")]

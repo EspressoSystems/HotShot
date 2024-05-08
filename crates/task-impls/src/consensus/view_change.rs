@@ -9,13 +9,13 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
+    events::HotShotEvent,
     traits::node_implementation::{ConsensusTime, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
-use crate::events::HotShotEvent;
 use hotshot_task::{broadcast_event, cancel_task};
 
 /// Constant which tells [`update_view`] to send a view change event when called.
