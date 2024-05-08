@@ -14,7 +14,7 @@ use hotshot_types::{
         ViewSyncPreCommitVote,
     },
     traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
-    utils::BuilderCommitment,
+    utils::{BuilderCommitment, View},
     vid::VidCommitment,
     vote::VoteDependencyData,
 };
@@ -152,4 +152,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
+
+    /* Consensus State Update Events */
+    /// A undecided view has been created and added to the validated state storage.
+    ValidatedStateUpdate(TYPES::Time, View<TYPES>),
 }
