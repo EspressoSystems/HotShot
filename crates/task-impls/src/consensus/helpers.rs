@@ -232,8 +232,13 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         "Sending null proposal for view {:?}",
         proposed_leaf.get_view_number(),
     );
-    if let Err(e) = consensus.write().await.update_last_proposed_view(view) {
-        tracing::trace!("{e:?}");
+    if consensus
+        .write()
+        .await
+        .update_last_proposed_view(view)
+        .is_err()
+    {
+        tracing::trace!("New view isn't newer than the previously proposed view.");
         return;
     }
     async_sleep(Duration::from_millis(round_start_delay)).await;
@@ -665,8 +670,8 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
     let mut consensus_write = RwLockUpgradableReadGuard::upgrade(consensus_read).await;
 
-    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
-        tracing::trace!("{e:?}");
+    if consensus_write.update_high_qc(justify_qc.clone()).is_err() {
+        tracing::trace!("High QC with an equal or higher view exists.");
     }
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
@@ -935,10 +940,8 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     };
 
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-    if new_commit_reached {
-        if let Err(e) = consensus.update_locked_view(new_locked_view) {
-            tracing::trace!("{e:?}");
-        }
+    if new_commit_reached && consensus.update_locked_view(new_locked_view).is_err() {
+        tracing::trace!("New view isn't newer than the previously locked view.");
     }
 
     // This is ALWAYS None if "dependency-tasks" is not active.
@@ -967,8 +970,8 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         );
         let old_anchor_view = consensus.last_decided_view();
         consensus.collect_garbage(old_anchor_view, new_anchor_view);
-        if let Err(e) = consensus.update_last_decided_view(new_anchor_view) {
-            tracing::trace!("{e:?}");
+        if consensus.update_last_decided_view(new_anchor_view).is_err() {
+            tracing::trace!("New view isn't newer than the previously decided view.");
         }
         consensus
             .metrics

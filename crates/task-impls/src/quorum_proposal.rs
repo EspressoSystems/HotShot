@@ -535,8 +535,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
 
                         let mut consensus = self.consensus.write().await;
-                        if let Err(e) = consensus.update_high_qc(qc.clone()) {
-                            tracing::trace!("{e:?}");
+                        if consensus.update_high_qc(qc.clone()).is_err() {
+                            tracing::trace!("High QC with an equal or higher view exists.");
                         }
 
                         // We need to drop our handle here to make the borrow checker happy.

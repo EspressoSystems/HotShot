@@ -209,10 +209,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 // Record the payload we have promised to make available.
-                if let Err(e) = consensus
+                if consensus
                     .update_saved_payloads(view, Arc::clone(&proposal.data.encoded_transactions))
+                    .is_err()
                 {
-                    tracing::trace!("{e:?}");
+                    tracing::trace!("Payload with the same view already exists.");
                 }
             }
             HotShotEvent::DAVoteRecv(ref vote) => {

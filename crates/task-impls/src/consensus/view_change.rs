@@ -99,8 +99,8 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         );
     }
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-    if let Err(e) = consensus.update_view(new_view) {
-        tracing::trace!("{e:?}");
+    if consensus.update_view(new_view).is_err() {
+        tracing::trace!("New view isn't newer than the current view.");
     }
     tracing::trace!("View updated successfully");
 
