@@ -18,6 +18,7 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use time::OffsetDateTime;
+use vbs::version::Version;
 
 use crate::{node_types::TestTypes, state_types::TestInstanceState};
 
@@ -204,6 +205,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         _builder_fee: BuilderFee<TYPES>,
         _vid_common: VidCommon,
+        _version: Version,
     ) -> Result<Self, Self::Error> {
         let parent = parent_leaf.get_block_header();
 

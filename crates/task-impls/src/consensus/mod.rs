@@ -224,6 +224,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             self.payload_commitment_and_metadata.clone(),
             self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
+            *self.version.read().await,
         )
         .await?;
 
@@ -237,7 +238,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
     /// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
-    fn spawn_vote_task(
+    async fn spawn_vote_task(
         &mut self,
         view: TYPES::Time,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -253,6 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let quorum_mem = Arc::clone(&self.quorum_membership);
         let committee_mem = Arc::clone(&self.committee_membership);
         let instance_state = Arc::clone(&self.instance_state);
+        let version = *self.version.read().await;
         let handle = async_spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
                 view,
@@ -263,6 +265,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 quorum_mem,
                 instance_state,
                 (priv_key, upgrade, committee_mem, event_stream),
+                version,
             )
             .await;
         });
@@ -271,16 +274,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
     #[cfg(not(feature = "dependency-tasks"))]
     /// Tries to vote then Publishes a proposal
-    fn vote_and_publish_proposal(
+    async fn vote_and_publish_proposal(
         &mut self,
         vote_view: TYPES::Time,
         propose_view: TYPES::Time,
         proposal: QuorumProposal<TYPES>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        use crate::consensus::helpers::publish_proposal_from_commitment_and_metadata;
-
         use self::helpers::publish_proposal_from_upgrade_cert;
+        use crate::consensus::helpers::publish_proposal_from_commitment_and_metadata;
 
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
@@ -297,6 +299,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let delay = self.round_start_delay;
         let formed_upgrade_certificate = self.formed_upgrade_certificate.clone();
         let proposal_cert = self.proposal_cert.clone();
+        let version = *self.version.read().await;
         let handle = async_spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
                 vote_view,
@@ -307,6 +310,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 Arc::clone(&quorum_mem),
                 Arc::clone(&instance_state),
                 (priv_key.clone(), upgrade, committee_mem, event_stream),
+                version,
             )
             .await;
             if let Some(upgrade_cert) = decided_upgrade_cert {
@@ -321,6 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     upgrade_cert,
                     delay,
                     instance_state,
+                    version,
                 )
                 .await
                 {
@@ -340,6 +345,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 commitment_and_metadata,
                 proposal_cert,
                 instance_state,
+                version,
             )
             .await
             {
@@ -360,16 +366,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
+        let version = *self.version.read().await;
         match event.as_ref() {
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
-                    .await
+                match handle_quorum_proposal_recv(
+                    proposal,
+                    sender,
+                    event_stream.clone(),
+                    self,
+                    version,
+                )
+                .await
                 {
                     Ok(Some(current_proposal)) => {
                         let view = current_proposal.get_view_number();
                         self.current_proposal = Some(current_proposal);
-                        self.spawn_vote_task(view, event_stream);
+                        self.spawn_vote_task(view, event_stream).await;
                     }
                     Ok(None) => {}
                     Err(e) => debug!("Failed to propose {e:#}"),
@@ -544,7 +557,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if proposal.get_view_number() != view {
                     return;
                 }
-                self.spawn_vote_task(view, event_stream);
+                self.spawn_vote_task(view, event_stream).await;
             }
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::VIDShareRecv(disperse) => {
@@ -581,7 +594,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }
-                self.spawn_vote_task(view, event_stream);
+                self.spawn_vote_task(view, event_stream).await;
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;

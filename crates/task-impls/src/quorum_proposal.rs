@@ -12,6 +12,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
+    constants::VERSION_0_1,
     event::Event,
     traits::{
         block_contents::BlockHeader,
@@ -25,6 +26,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
+use vbs::version::Version;
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
@@ -98,6 +100,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     /// The node's id
     #[allow(dead_code)]
     id: u64,
+
+    /// Current version of consensus
+    version: Version,
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
@@ -188,6 +193,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             commit_and_metadata,
             None,
             Arc::clone(&self.instance_state),
+            self.version,
         )
         .await
         {
@@ -469,6 +475,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 id: self.id,
                 instance_state: Arc::clone(&self.instance_state),
+                version: VERSION_0_1,
             },
         );
         self.propose_dependencies

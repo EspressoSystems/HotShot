@@ -37,6 +37,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
+use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
 use super::ConsensusTaskState;
@@ -175,6 +176,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     round_start_delay: u64,
     instance_state: Arc<TYPES::InstanceState>,
+    version: Version,
 ) {
     let consensus_read = consensus.read().await;
     let Some(Some(vid_share)) = consensus_read
@@ -194,6 +196,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         commitment_and_metadata.metadata,
         commitment_and_metadata.fee,
         vid_share.data.common.clone(),
+        version,
     )
     .await
     {
@@ -390,6 +393,7 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     upgrade_cert: UpgradeCertificate<TYPES>,
     delay: u64,
     instance_state: Arc<TYPES::InstanceState>,
+    version: Version,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -436,6 +440,7 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
             None,
             delay,
             instance_state,
+            version,
         )
         .await;
     }))
@@ -458,6 +463,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
+    version: Version,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = get_parent_leaf_and_state(
         cur_view,
@@ -517,6 +523,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             proposal_certificate,
             delay,
             instance_state,
+            version,
         )
         .await;
     });
@@ -541,6 +548,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
+    version: Version,
 ) -> Result<JoinHandle<()>> {
     if let Some(upgrade_cert) = decided_upgrade_cert {
         publish_proposal_from_upgrade_cert(
@@ -554,6 +562,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
             upgrade_cert,
             delay,
             instance_state,
+            version,
         )
         .await
     } else {
@@ -571,6 +580,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
             commitment_and_metadata,
             proposal_cert,
             instance_state,
+            version,
         )
         .await
     }
@@ -594,6 +604,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
+    version: Version,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(
@@ -751,6 +762,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                         task_state.payload_commitment_and_metadata.clone(),
                         task_state.proposal_cert.clone(),
                         Arc::clone(&task_state.instance_state),
+                        version,
                     )
                     .await?;
 
@@ -1017,15 +1029,17 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
-            task_state.vote_and_publish_proposal(
-                proposal.get_view_number(),
-                new_view,
-                proposal.clone(),
-                event_stream,
-            );
+            task_state
+                .vote_and_publish_proposal(
+                    proposal.get_view_number(),
+                    new_view,
+                    proposal.clone(),
+                    event_stream,
+                )
+                .await;
         } else {
             task_state.current_proposal = Some(proposal.clone());
-            task_state.spawn_vote_task(view, event_stream);
+            task_state.spawn_vote_task(view, event_stream).await;
         }
     }
 
@@ -1060,6 +1074,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     quorum_membership: Arc<TYPES::Membership>,
     instance_state: Arc<TYPES::InstanceState>,
     vote_info: TemporaryVoteInfo<TYPES>,
+    version: Version,
 ) -> bool {
     #[cfg(not(feature = "dependency-tasks"))]
     use hotshot_types::simple_vote::QuorumVote;
@@ -1132,6 +1147,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
             &parent,
             &proposal.block_header.clone(),
             vid_share.data.common.clone(),
+            version,
         )
         .await
     else {

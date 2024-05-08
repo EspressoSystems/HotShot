@@ -3233,6 +3233,7 @@ dependencies = [
  "time 0.3.36",
  "tokio",
  "tracing",
+ "vbs",
 ]
 
 [[package]]
