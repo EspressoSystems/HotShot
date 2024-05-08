@@ -189,10 +189,9 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         // Race condition check, sometimes we can propose (in exceedingly rare cases) without justify_qc being updated.
         // This makes sure that that happens before we propose.
         if let Some(qc) = quorum_certificate {
-            self.consensus
-                .write()
-                .await
-                .update_high_qc_if_new(qc.clone());
+            if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
+                tracing::trace!("{e:?}");
+            }
         }
 
         if let Err(e) = publish_proposal_if_able(
@@ -279,7 +278,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         view_number: TYPES::Time,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
-        let id = self.id.clone();
+        let id_delete_before_merging = self.id;
         EventDependency::new(
             event_receiver,
             Box::new(move |event| {
@@ -347,7 +346,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    debug!("Node {id} dependency {dependency_type:?} is complete for view {event_view:?}!");
+                    debug!("Node {id_delete_before_merging} dependency {dependency_type:?} is complete for view {event_view:?}!");
                 }
                 valid
             }),

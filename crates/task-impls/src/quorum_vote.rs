@@ -78,6 +78,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
+        #[allow(unused_variables)]
         let mut cur_proposal = None;
         let mut payload_commitment = None;
         let mut leaf = None;
@@ -142,23 +143,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
         )
         .await;
 
-        let Some(proposal) = cur_proposal else {
-            error!("No proposal received, but there should be one.");
-            return;
-        };
         // For this vote task, we'll update the state in storage without voting in this function,
         // then vote later.
-        update_state_and_vote_if_able::<TYPES, I>(
-            self.view_number,
-            proposal,
-            self.public_key.clone(),
-            self.consensus,
-            Arc::clone(&self.storage),
-            self.quorum_membership,
-            self.instance_state,
-            PhantomData,
-        )
-        .await;
+        #[cfg(feature = "dependency-tasks")]
+        {
+            let Some(proposal) = cur_proposal else {
+                error!("No proposal received, but there should be one.");
+                return;
+            };
+
+            update_state_and_vote_if_able::<TYPES, I>(
+                self.view_number,
+                proposal,
+                self.public_key.clone(),
+                self.consensus,
+                Arc::clone(&self.storage),
+                Arc::clone(&self.quorum_membership),
+                self.instance_state,
+                PhantomData,
+            )
+            .await;
+        }
 
         // Create and send the vote.
         let Some(leaf) = leaf else {
