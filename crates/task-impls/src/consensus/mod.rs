@@ -35,7 +35,10 @@ use hotshot_types::{traits::storage::Storage, vote::Certificate};
 use jf_primitives::vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
+#[cfg(not(feature = "dependency-tasks"))]
+use tracing::info;
+
+use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
@@ -238,6 +241,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
     /// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
+    #[cfg(not(feature = "dependency-tasks"))]
     async fn spawn_vote_task(
         &mut self,
         view: TYPES::Time,
@@ -512,7 +516,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
 
                     let mut consensus = self.consensus.write().await;
-                    consensus.update_high_qc_if_new(qc.clone());
+                    if let Err(e) = consensus.update_high_qc(qc.clone()) {
+                        tracing::trace!("{e:?}");
+                    }
 
                     drop(consensus);
                     debug!(
@@ -549,8 +555,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 self.consensus
                     .write()
                     .await
-                    .saved_da_certs
-                    .insert(view, cert.clone());
+                    .update_saved_da_certs(view, cert.clone());
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
@@ -587,10 +592,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 self.consensus
                     .write()
                     .await
-                    .vid_shares
-                    .entry(view)
-                    .or_default()
-                    .insert(disperse.data.recipient_key.clone(), disperse.clone());
+                    .update_vid_shares(view, disperse.clone());
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }
