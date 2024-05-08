@@ -30,13 +30,17 @@ use hotshot_types::{
         signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
+    vid::VidCommitment,
 };
 use lru::LruCache;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use tide_disco::{method::ReadState, App, Url};
 
 #[async_trait]
-pub trait TestBuilderImplementation<TYPES: NodeType> {
+pub trait TestBuilderImplementation<TYPES: NodeType>
+where
+    <TYPES as NodeType>::InstanceState: Default,
+{
     type Config: Default;
 
     async fn start(
@@ -51,6 +55,7 @@ pub struct RandomBuilderImplementation;
 impl<TYPES> TestBuilderImplementation<TYPES> for RandomBuilderImplementation
 where
     TYPES: NodeType<Transaction = TestTransaction>,
+    <TYPES as NodeType>::InstanceState: Default,
 {
     type Config = RandomBuilderConfig;
 
@@ -68,7 +73,10 @@ where
 pub struct SimpleBuilderImplementation;
 
 #[async_trait]
-impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplementation {
+impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplementation
+where
+    <TYPES as NodeType>::InstanceState: Default,
+{
     type Config = ();
 
     async fn start(
@@ -87,7 +95,7 @@ impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplemen
         .expect("Failed to construct the builder API");
         let mut app: App<SimpleBuilderSource<TYPES>, hotshot_builder_api::builder::Error> =
             App::with_state(source);
-        app.register_module("api", builder_api)
+        app.register_module("block_info", builder_api)
             .expect("Failed to register the builder API");
 
         async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
@@ -139,7 +147,10 @@ where
 
     /// Spawn a task building blocks, configured with given options
     #[allow(clippy::missing_panics_doc)] // ony panics on 16-bit platforms
-    pub fn run(&self, num_storage_nodes: usize, options: RandomBuilderConfig) {
+    pub fn run(&self, num_storage_nodes: usize, options: RandomBuilderConfig)
+    where
+        <TYPES as NodeType>::InstanceState: Default,
+    {
         let blocks = self.blocks.clone();
         let (priv_key, pub_key) = (self.priv_key.clone(), self.pub_key.clone());
         async_spawn(async move {
@@ -165,7 +176,8 @@ where
                     num_storage_nodes,
                     pub_key.clone(),
                     priv_key.clone(),
-                );
+                )
+                .await;
 
                 if let Some((hash, _)) = blocks.write().await.push(
                     metadata.block_hash.clone(),
@@ -199,7 +211,8 @@ impl<TYPES: NodeType> ReadState for RandomBuilderSource<TYPES> {
 impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn get_available_blocks(
         &self,
-        _for_parent: &BuilderCommitment,
+        _for_parent: &VidCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
@@ -216,6 +229,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
@@ -232,6 +246,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
@@ -257,6 +272,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
 pub fn run_random_builder<TYPES>(url: Url, num_storage_nodes: usize, options: RandomBuilderConfig)
 where
     TYPES: NodeType<Transaction = TestTransaction>,
+    <TYPES as NodeType>::InstanceState: Default,
 {
     let (pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([1; 32], 0);
     let source = RandomBuilderSource::new(pub_key, priv_key);
@@ -268,7 +284,7 @@ where
         )
         .expect("Failed to construct the builder API");
     let mut app: App<RandomBuilderSource<TYPES>, Error> = App::with_state(source);
-    app.register_module::<Error, Version01>("api", builder_api)
+    app.register_module::<Error, Version01>("block_info", builder_api)
         .expect("Failed to register the builder API");
 
     async_spawn(app.serve(url, STATIC_VER_0_1));
@@ -302,10 +318,14 @@ impl<TYPES: NodeType> ReadState for SimpleBuilderSource<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
+impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES>
+where
+    <TYPES as NodeType>::InstanceState: Default,
+{
     async fn get_available_blocks(
         &self,
-        _for_parent: &BuilderCommitment,
+        _for_parent: &VidCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
@@ -328,12 +348,23 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
                 })
             })
             .await;
+
+        if transactions.is_empty() {
+            // We don't want to return an empty block, as we will end up driving consensus to
+            // produce empty blocks extremely quickly. Instead, we return no blocks, so that
+            // consensus will keep asking for blocks until either we have something non-trivial to
+            // propose, or a timeout, in which case consensus will finally propose an empty block
+            // anyways.
+            return Ok(vec![]);
+        }
+
         let (metadata, payload, header_input) = build_block(
             transactions,
             self.num_storage_nodes,
             self.pub_key.clone(),
             self.priv_key.clone(),
-        );
+        )
+        .await;
 
         self.blocks.write().await.insert(
             metadata.block_hash.clone(),
@@ -350,6 +381,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
@@ -378,6 +410,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
+        _view_number: u64,
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
@@ -392,7 +425,10 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
 }
 
 impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
-    pub async fn run(self, url: Url) {
+    pub async fn run(self, url: Url)
+    where
+        <TYPES as NodeType>::InstanceState: Default,
+    {
         let builder_api = hotshot_builder_api::builder::define_api::<
             SimpleBuilderSource<TYPES>,
             TYPES,
@@ -400,7 +436,7 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
         >(&Options::default())
         .expect("Failed to construct the builder API");
         let mut app: App<SimpleBuilderSource<TYPES>, Error> = App::with_state(self);
-        app.register_module::<Error, Version01>("api", builder_api)
+        app.register_module::<Error, Version01>("block_info", builder_api)
             .expect("Failed to register the builder API");
 
         async_spawn(app.serve(url, STATIC_VER_0_1));
@@ -450,7 +486,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                         }
                         EventType::DAProposal { proposal, .. } => {
                             let payload = TYPES::BlockPayload::from_bytes(
-                                proposal.data.encoded_transactions.into_iter(),
+                                &proposal.data.encoded_transactions,
                                 &proposal.data.metadata,
                             );
                             let now = Instant::now();
@@ -512,7 +548,7 @@ pub async fn make_simple_builder<TYPES: NodeType>(
 }
 
 /// Helper function to construct all builder data structures from a list of transactions
-fn build_block<TYPES: NodeType>(
+async fn build_block<TYPES: NodeType>(
     transactions: Vec<TYPES::Transaction>,
     num_storage_nodes: usize,
     pub_key: TYPES::BuilderSignatureKey,
@@ -521,22 +557,23 @@ fn build_block<TYPES: NodeType>(
     AvailableBlockInfo<TYPES>,
     AvailableBlockData<TYPES>,
     AvailableBlockHeaderInput<TYPES>,
-) {
-    let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(transactions)
-        .expect("failed to build block payload from transactions");
+)
+where
+    <TYPES as NodeType>::InstanceState: Default,
+{
+    let (block_payload, metadata) =
+        TYPES::BlockPayload::from_transactions(transactions, &Default::default())
+            .expect("failed to build block payload from transactions");
 
     let commitment = block_payload.builder_commitment(&metadata);
 
-    let (vid_commitment, precompute_data) = precompute_vid_commitment(
-        &block_payload.encode().unwrap().collect(),
-        num_storage_nodes,
-    );
+    let (vid_commitment, precompute_data) =
+        precompute_vid_commitment(&block_payload.encode().unwrap(), num_storage_nodes);
 
     // Get block size from the encoded payload
     let block_size = block_payload
         .encode()
         .expect("failed to encode block")
-        .collect::<Vec<u8>>()
         .len() as u64;
 
     let signature_over_block_info =
@@ -552,7 +589,7 @@ fn build_block<TYPES: NodeType>(
             .expect("Failed to sign block vid commitment");
 
     let signature_over_fee_info =
-        TYPES::BuilderSignatureKey::sign_fee(&priv_key, 123_u64, &commitment, &vid_commitment)
+        TYPES::BuilderSignatureKey::sign_fee(&priv_key, 123_u64, &metadata, &vid_commitment)
             .expect("Failed to sign fee info");
 
     let block = AvailableBlockData {

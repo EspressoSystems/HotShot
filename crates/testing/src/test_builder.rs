@@ -1,11 +1,9 @@
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use hotshot::traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation};
+use hotshot::traits::{NetworkReliability, TestableNodeImplementation};
 use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
-use hotshot_orchestrator::config::ValidatorConfigFile;
 use hotshot_types::{
-    traits::{election::Membership, node_implementation::NodeType},
-    ExecutionType, HotShotConfig, ValidatorConfig,
+    traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
 
@@ -30,10 +28,8 @@ pub struct TimingData {
     pub round_start_delay: u64,
     /// Delay after init before starting consensus, in milliseconds
     pub start_delay: u64,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// Delay before sending through the secondary network in CombinedNetworks
@@ -44,7 +40,7 @@ pub struct TimingData {
 
 /// metadata describing a test
 #[derive(Clone, Debug)]
-pub struct TestMetadata {
+pub struct TestDescription {
     /// Total number of staked nodes in the test
     pub num_nodes_with_stake: usize,
     /// Total number of non-staked nodes in the test
@@ -68,8 +64,6 @@ pub struct TestMetadata {
     pub txn_description: TxnTaskDescription,
     /// completion task
     pub completion_task_description: CompletionTaskDescription,
-    /// Minimum transactions required for a block
-    pub min_transactions: usize,
     /// timing data
     pub timing_data: TimingData,
     /// unrelabile networking metadata
@@ -85,8 +79,7 @@ impl Default for TimingData {
             timeout_ratio: (11, 10),
             round_start_delay: 100,
             start_delay: 100,
-            propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::from_millis(1000),
+            builder_timeout: Duration::from_millis(500),
             data_request_delay: Duration::from_millis(200),
             secondary_network_delay: Duration::from_millis(1000),
             view_sync_timeout: Duration::from_millis(2000),
@@ -94,7 +87,7 @@ impl Default for TimingData {
     }
 }
 
-impl TestMetadata {
+impl TestDescription {
     /// the default metadata for a stress test
     #[must_use]
     #[allow(clippy::redundant_field_names)]
@@ -102,7 +95,7 @@ impl TestMetadata {
         let num_nodes_with_stake = 100;
         let num_nodes_without_stake = 0;
 
-        TestMetadata {
+        TestDescription {
             num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake: num_nodes_with_stake,
             num_nodes_without_stake: num_nodes_without_stake,
@@ -123,22 +116,22 @@ impl TestMetadata {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     }
 
     /// the default metadata for multiple rounds
     #[must_use]
     #[allow(clippy::redundant_field_names)]
-    pub fn default_multiple_rounds() -> TestMetadata {
+    pub fn default_multiple_rounds() -> TestDescription {
         let num_nodes_with_stake = 10;
         let num_nodes_without_stake = 0;
-        TestMetadata {
+        TestDescription {
             // TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             num_bootstrap_nodes: num_nodes_with_stake,
-            num_nodes_with_stake: num_nodes_with_stake,
-            num_nodes_without_stake: num_nodes_without_stake,
+            num_nodes_with_stake,
+            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 20,
@@ -154,17 +147,17 @@ impl TestMetadata {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     }
 
     /// Default setting with 20 nodes and 8 views of successful views.
     #[must_use]
     #[allow(clippy::redundant_field_names)]
-    pub fn default_more_nodes() -> TestMetadata {
+    pub fn default_more_nodes() -> TestDescription {
         let num_nodes_with_stake = 20;
         let num_nodes_without_stake = 0;
-        TestMetadata {
+        TestDescription {
             num_nodes_with_stake: num_nodes_with_stake,
             num_nodes_without_stake: num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -189,12 +182,12 @@ impl TestMetadata {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestMetadata::default()
+            ..TestDescription::default()
         }
     }
 }
 
-impl Default for TestMetadata {
+impl Default for TestDescription {
     /// by default, just a single round
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
@@ -202,9 +195,8 @@ impl Default for TestMetadata {
         let num_nodes_without_stake = 0;
         Self {
             timing_data: TimingData::default(),
-            min_transactions: 0,
-            num_nodes_with_stake: num_nodes_with_stake,
-            num_nodes_without_stake: num_nodes_without_stake,
+            num_nodes_with_stake,
+            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             skip_late: false,
             num_bootstrap_nodes: num_nodes_with_stake,
@@ -228,26 +220,22 @@ impl Default for TestMetadata {
     }
 }
 
-impl TestMetadata {
-    /// turn a description of a test (e.g. a [`TestMetadata`]) into
+impl TestDescription {
+    /// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
     #[must_use]
     pub fn gen_launcher<
         TYPES: NodeType<InstanceState = TestInstanceState>,
-        I: TestableNodeImplementation<TYPES, CommitteeElectionConfig = TYPES::ElectionConfigType>,
+        I: TestableNodeImplementation<TYPES>,
     >(
         self,
         node_id: u64,
-    ) -> TestLauncher<TYPES, I>
-    where
-        I: NodeImplementation<TYPES>,
-    {
-        let TestMetadata {
+    ) -> TestLauncher<TYPES, I> {
+        let TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
-            min_transactions,
             timing_data,
             da_staked_committee_size,
             da_non_staked_committee_size,
@@ -255,52 +243,58 @@ impl TestMetadata {
             ..
         } = self.clone();
 
+        let mut known_da_nodes = Vec::new();
+
         // We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
         let known_nodes_with_stake = (0..num_nodes_with_stake)
             .map(|node_id_| {
                 let cur_validator_config: ValidatorConfig<TYPES::SignatureKey> =
-                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id_ as u64, 1);
+                    ValidatorConfig::generated_from_seed_indexed(
+                        [0u8; 32],
+                        node_id_ as u64,
+                        1,
+                        node_id_ < da_staked_committee_size,
+                    );
+
+                // Add the node to the known DA nodes based on the index (for tests)
+                if node_id_ < da_staked_committee_size {
+                    known_da_nodes.push(cur_validator_config.get_public_config());
+                }
+
                 cur_validator_config.get_public_config()
             })
             .collect();
         // But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
-        let mut my_own_validator_config =
-            ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
-        if node_id == 0 {
-            my_own_validator_config = ValidatorConfig::from(ValidatorConfigFile::from_file(
-                "config/ValidatorConfigFile.toml",
-            ));
-        }
+        let my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
+            [0u8; 32],
+            node_id,
+            1,
+            // This is the config for node 0
+            0 < da_staked_committee_size,
+        );
         // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             // TODO this doesn't exist anymore
             execution_type: ExecutionType::Incremental,
+            start_threshold: (1, 1),
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
             // Currently making this zero for simplicity
+            known_da_nodes,
             num_nodes_without_stake: 0,
             num_bootstrap: num_bootstrap_nodes,
-            min_transactions,
-            max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes_with_stake,
             known_nodes_without_stake: vec![],
             my_own_validator_config,
             da_staked_committee_size,
             da_non_staked_committee_size,
-            fixed_leader_for_gpuvid: 0,
+            fixed_leader_for_gpuvid: 1,
             next_view_timeout: 500,
             view_sync_timeout: Duration::from_millis(250),
             timeout_ratio: (11, 10),
             round_start_delay: 25,
             start_delay: 1,
-            // TODO do we use these fields??
-            propose_min_round_time: Duration::from_millis(0),
-            propose_max_round_time: Duration::from_millis(1000),
+            builder_timeout: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
-            // TODO what's the difference between this and the second config?
-            election_config: Some(TYPES::Membership::default_election_config(
-                num_nodes_with_stake as u64,
-                0,
-            )),
             // Placeholder until we spin up the builder
             builder_url: Url::parse("http://localhost:9999").expect("Valid URL"),
         };
@@ -309,21 +303,19 @@ impl TestMetadata {
             timeout_ratio,
             round_start_delay,
             start_delay,
-            propose_min_round_time,
-            propose_max_round_time,
+            builder_timeout,
             data_request_delay,
             secondary_network_delay,
             view_sync_timeout,
         } = timing_data;
         let mod_config =
             // TODO this should really be using the timing config struct
-            |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
+            |a: &mut HotShotConfig<TYPES::SignatureKey>| {
                 a.next_view_timeout = next_view_timeout;
                 a.timeout_ratio = timeout_ratio;
                 a.round_start_delay = round_start_delay;
                 a.start_delay = start_delay;
-                a.propose_min_round_time = propose_min_round_time;
-                a.propose_max_round_time = propose_max_round_time;
+                a.builder_timeout = builder_timeout;
                 a.data_request_delay = data_request_delay;
                 a.view_sync_timeout = view_sync_timeout;
             };

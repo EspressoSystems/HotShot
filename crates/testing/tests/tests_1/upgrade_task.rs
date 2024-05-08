@@ -1,12 +1,13 @@
+// TODO: Remove after integration of dependency-tasks
+#![allow(unused_imports)]
+
 use std::time::Duration;
 
-use hotshot::{
-    tasks::{inject_consensus_polls, task_state::CreateTaskState},
-    types::SystemContextHandle,
-};
+use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
-    block_types::TestTransaction,
+    block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
 };
 use hotshot_macros::test_scripts;
 use hotshot_task_impls::{
@@ -25,6 +26,7 @@ use hotshot_types::{
 };
 use vbs::version::Version;
 
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
@@ -39,6 +41,7 @@ async fn test_consensus_task_upgrade() {
 
     let handle = build_system_handle(1).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -58,7 +61,7 @@ async fn test_consensus_task_upgrade() {
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
@@ -148,18 +151,12 @@ async fn test_consensus_task_upgrade() {
 
     let script = vec![view_1, view_2, view_3, view_4, view_5];
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle)
-    .await;
-
-    inject_consensus_polls(&consensus_state).await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     run_test_script(script, consensus_state).await;
 }
 
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(
     async_executor_impl = "tokio",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -167,13 +164,16 @@ async fn test_consensus_task_upgrade() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Test that we correctly form and include an `UpgradeCertificate` when receiving votes.
 async fn test_upgrade_and_consensus_task() {
+    use std::sync::Arc;
+
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle(3).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     let other_handles = futures::future::join_all((0..=9).map(build_system_handle)).await;
 
@@ -196,7 +196,7 @@ async fn test_upgrade_and_consensus_task() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -220,14 +220,9 @@ async fn test_upgrade_and_consensus_task() {
 
     let upgrade_votes = other_handles
         .iter()
-        .map(|h| views[1].create_upgrade_vote(upgrade_data.clone(), &h.0));
+        .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let mut upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
@@ -236,8 +231,6 @@ async fn test_upgrade_and_consensus_task() {
     .await;
 
     upgrade_state.should_vote = |_| true;
-
-    inject_consensus_polls(&consensus_state).await;
 
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
@@ -248,17 +241,22 @@ async fn test_upgrade_and_consensus_task() {
             DACertificateRecv(dacs[0].clone()),
         ],
         upgrade_vote_recvs,
-        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         vec![
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             DACertificateRecv(dacs[1].clone()),
+            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+        ],
+        vec![
+            VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
                 proposals[2].data.block_header.builder_commitment.clone(),
-                (),
-                ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                TestMetadata,
+                ViewNumber::new(3),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
-            QCFormed(either::Either::Left(proposals[1].data.justify_qc.clone())),
+            QCFormed(either::Either::Left(proposals[2].data.justify_qc.clone())),
         ],
     ];
 
@@ -281,6 +279,7 @@ async fn test_upgrade_and_consensus_task() {
                 output_asserts: vec![
                     exact::<TestTypes>(ViewChange(ViewNumber::new(2))),
                     quorum_proposal_validated::<TestTypes>(),
+                    quorum_vote_send(),
                 ],
                 task_state_asserts: vec![],
             },
@@ -316,6 +315,7 @@ async fn test_upgrade_and_consensus_task() {
     test_scripts![inputs, consensus_script, upgrade_script];
 }
 
+#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(
     async_executor_impl = "tokio",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -335,6 +335,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
 
     let handle = build_system_handle(6).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -355,7 +356,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     let mut leaders = Vec::new();
     let mut views = Vec::new();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -414,12 +415,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         views.push(view.clone());
     }
 
-    let consensus_state = ConsensusTaskState::<
-        TestTypes,
-        MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
-    >::create_from(&handle)
-    .await;
+    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let mut upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
@@ -428,8 +424,6 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     .await;
 
     upgrade_state.should_vote = |_| true;
-
-    inject_consensus_polls(&consensus_state).await;
 
     let inputs = vec![
         vec![
@@ -444,9 +438,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             SendPayloadCommitmentAndMetadata(
                 vids[1].0[0].data.payload_commitment,
                 proposals[1].data.block_header.builder_commitment.clone(),
-                (),
+                TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         vec![
@@ -455,9 +450,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
                 proposals[2].data.block_header.builder_commitment.clone(),
-                (),
+                TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
@@ -467,9 +463,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             SendPayloadCommitmentAndMetadata(
                 vids[3].0[0].data.payload_commitment,
                 proposals[3].data.block_header.builder_commitment.clone(),
-                (),
+                TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
@@ -479,20 +476,23 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             SendPayloadCommitmentAndMetadata(
                 vids[4].0[0].data.payload_commitment,
                 proposals[4].data.block_header.builder_commitment.clone(),
-                (),
+                TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
         vec![
             DACertificateRecv(dacs[5].clone()),
+            VIDShareRecv(get_vid_share(&vids[5].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[5].0[0].data.payload_commitment,
                 proposals[5].data.block_header.builder_commitment.clone(),
-                (),
+                TestMetadata,
                 ViewNumber::new(6),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
@@ -502,9 +502,10 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             SendPayloadCommitmentAndMetadata(
                 vids[6].0[0].data.payload_commitment,
                 proposals[6].data.block_header.builder_commitment.clone(),
-                (),
+                TestMetadata,
                 ViewNumber::new(7),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),
         ],

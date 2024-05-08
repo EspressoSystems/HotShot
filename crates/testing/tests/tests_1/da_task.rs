@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
-    block_types::TestTransaction,
+    block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
+    state_types::TestInstanceState,
 };
 use hotshot_task_impls::{da::DATaskState, events::HotShotEvent::*};
 use hotshot_testing::{
@@ -27,17 +30,18 @@ async fn test_da_task() {
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions = Arc::from(TestTransaction::encode(&transactions).unwrap());
     let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -69,10 +73,11 @@ async fn test_da_task() {
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
             BlockRecv(
-                encoded_transactions.clone(),
-                (),
+                encoded_transactions,
+                TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
                 precompute,
             ),
         ],
@@ -107,17 +112,18 @@ async fn test_da_task_storage_failure() {
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.get_storage().write().await.should_return_err = true;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction(vec![0])];
-    let encoded_transactions = TestTransaction::encode(transactions.clone()).unwrap();
+    let encoded_transactions = Arc::from(TestTransaction::encode(&transactions).unwrap());
     let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
         handle.hotshot.memberships.quorum_membership.total_nodes(),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone());
+    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -149,10 +155,11 @@ async fn test_da_task_storage_failure() {
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
             BlockRecv(
-                encoded_transactions.clone(),
-                (),
+                encoded_transactions,
+                TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
                 precompute,
             ),
         ],

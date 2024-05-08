@@ -16,7 +16,6 @@ use hotshot_types::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -109,13 +108,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
 
-                // stop polling for the received proposal
-                self.da_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForProposal(
-                        *proposal.data.view_number,
-                    ))
-                    .await;
-
                 if self.cur_view != TYPES::Time::genesis() && view < self.cur_view - 1 {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;
@@ -178,7 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     );
                     return None;
                 }
-                let txns = proposal.data.encoded_transactions.clone();
+                let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let num_nodes = self.quorum_membership.total_nodes();
                 let payload_commitment =
                     spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
@@ -207,14 +199,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
                 // contains strictly more information.
-                consensus.validated_state_map.entry(view).or_insert(View {
-                    view_inner: ViewInner::DA { payload_commitment },
-                });
+                if !consensus.validated_state_map().contains_key(&view) {
+                    consensus.update_validated_state_map(
+                        view,
+                        View {
+                            view_inner: ViewInner::DA { payload_commitment },
+                        },
+                    );
+                }
 
                 // Record the payload we have promised to make available.
                 consensus
                     .saved_payloads
-                    .insert(view, proposal.data.encoded_transactions.clone());
+                    .insert(view, Arc::clone(&proposal.data.encoded_transactions));
             }
             HotShotEvent::DAVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.get_view_number());
@@ -231,7 +228,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     debug!("Starting vote handle for view {:?}", vote.get_view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
-                        membership: self.da_membership.clone(),
+                        membership: Arc::clone(&self.da_membership),
                         view: vote.get_view_number(),
                         id: self.id,
                     };
@@ -245,7 +242,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(event.clone(), &event_stream)
+                        .handle_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -266,47 +263,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 self.cur_view = view;
 
-                // Inject view info into network
-                let is_da = self
-                    .da_membership
-                    .get_whole_committee(self.cur_view + 1)
-                    .contains(&self.public_key);
-
-                if is_da {
-                    debug!("Polling for DA proposals for view {}", *self.cur_view + 1);
-                    self.da_network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(
-                            *self.cur_view + 1,
-                        ))
-                        .await;
-                }
-                if self.da_membership.get_leader(self.cur_view + 3) == self.public_key {
-                    debug!("Polling for transactions for view {}", *self.cur_view + 3);
-                    self.da_network
-                        .inject_consensus_info(ConsensusIntentEvent::PollForTransactions(
-                            *self.cur_view + 3,
-                        ))
-                        .await;
-                }
-
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.da_membership.get_leader(self.cur_view + 1) != self.public_key {
                     return None;
                 }
                 debug!("Polling for DA votes for view {}", *self.cur_view + 1);
 
-                // Start polling for DA votes for the "next view"
-                self.da_network
-                    .inject_consensus_info(ConsensusIntentEvent::PollForVotes(*self.cur_view + 1))
-                    .await;
-
                 return None;
             }
             HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee, _vid_precomp) => {
                 let view = *view;
-                self.da_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForTransactions(*view))
-                    .await;
 
                 // quick hash the encoded txns with sha256
                 let encoded_transactions_hash = Sha256::digest(encoded_transactions);
@@ -320,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 };
 
                 let data: DAProposal<TYPES> = DAProposal {
-                    encoded_transactions: encoded_transactions.clone(),
+                    encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number: view,
@@ -340,12 +306,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     &event_stream,
                 )
                 .await;
-            }
-
-            HotShotEvent::Timeout(view) => {
-                self.da_network
-                    .inject_consensus_info(ConsensusIntentEvent::CancelPollForVotes(**view))
-                    .await;
             }
 
             HotShotEvent::Shutdown => {

@@ -42,7 +42,7 @@ do
                     sleep 1m
 
                     # start orchestrator
-                    just async_std example orchestrator-webserver -- --config_file ./crates/orchestrator/run-config.toml \
+                    just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                                     --orchestrator_url http://0.0.0.0:4444 \
                                                                     --webserver_url ${webserver_url} \
                                                                     --da_webserver_url ${da_webserver_url} \

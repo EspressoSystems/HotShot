@@ -34,7 +34,8 @@ jobs:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
-      - run: rustup toolchain install stable --profile minimal
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
@@ -52,9 +53,49 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          export AZTEC_SRS_PATH="$PWD/data/aztec20/kzg10-aztec20-srs-1048584.bin"
-          ./scripts/download_srs_aztec.sh
           just ${{ matrix.just_variants }} ${{ matrix.test_suites }}
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
+  test-dependency-tasks:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+        test_suites:
+          - test-ci-1
+          # - test-ci-2
+          # - test-ci-3
+          # - test-ci-4
+          # - test-ci-5
+          - test-ci-rest
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: "build-and-test"
+          prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} ${{ matrix.test_suites }} --features dependency-tasks
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
@@ -71,7 +112,8 @@ jobs:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
-      - run: rustup toolchain install stable --profile minimal
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
@@ -89,9 +131,8 @@ jobs:
 
       - name: Test examples
         run: |
-          export AZTEC_SRS_PATH="$PWD/data/aztec20/kzg10-aztec20-srs-1048584.bin"
-          ./scripts/download_srs_aztec.sh
-          just ${{ matrix.just_variants }} example all-webserver -- --config_file ./crates/orchestrator/run-config.toml
+          just ${{ matrix.just_variants }} example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml
+        timeout-minutes: 20
 
   build-release:
     strategy:
@@ -105,7 +146,8 @@ jobs:
       - uses: actions/checkout@v4
         name: Checkout Repository
 
-      - run: rustup toolchain install stable --profile minimal
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
 
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
@@ -133,11 +175,7 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-combined
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release/examples/webserver
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release/examples/validator-webserver
+            target/${{ matrix.just_variants }}/release/examples/orchestrator
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
 
@@ -175,11 +213,7 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-combined
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-webserver
-            target/${{ matrix.just_variants }}/release/examples/multi-webserver
-            target/${{ matrix.just_variants }}/release/examples/webserver
-            target/${{ matrix.just_variants }}/release/examples/orchestrator-webserver
-            target/${{ matrix.just_variants }}/release/examples/validator-webserver
+            target/${{ matrix.just_variants }}/release/examples/orchestrator
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
 
@@ -234,25 +268,11 @@ jobs:
           images: ghcr.io/espressosystems/hotshot/validator-combined
           flavor: suffix=-${{ matrix.just_variants }}
 
-      - name: Generate webserver docker metadata
+      - name: Generate orchestrator docker metadata
         uses: docker/metadata-action@v5
-        id: webserver
+        id: orchestrator
         with:
-          images: ghcr.io/espressosystems/hotshot/webserver
-          flavor: suffix=-${{ matrix.just_variants }}
-
-      - name: Generate orchestrator-webserver docker metadata
-        uses: docker/metadata-action@v5
-        id: orchestrator-webserver
-        with:
-          images: ghcr.io/espressosystems/hotshot/orchestrator-webserver
-          flavor: suffix=-${{ matrix.just_variants }}
-
-      - name: Generate validator-webserver docker metadata
-        uses: docker/metadata-action@v5
-        id: validator-webserver
-        with:
-          images: ghcr.io/espressosystems/hotshot/validator-webserver
+          images: ghcr.io/espressosystems/hotshot/orchestrator
           flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate cdn-broker docker metadata
@@ -297,43 +317,15 @@ jobs:
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
-      - name: Build and push webserver docker
+      - name: Build and push orchestrator docker
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: ./docker/webserver.Dockerfile
+          file: ./docker/orchestrator.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.webserver.outputs.tags }}
-          labels: ${{ steps.webserver.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
-
-      - name: Build and push orchestrator-webserver docker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./
-          file: ./docker/orchestrator-webserver.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.orchestrator-webserver.outputs.tags }}
-          labels: ${{ steps.orchestrator-webserver.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
-
-      - name: Build and push validator-webserver docker
-        uses: docker/build-push-action@v5
-        with:
-          context: ./
-          file: ./docker/validator-webserver.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.validator-webserver.outputs.tags }}
-          labels: ${{ steps.validator-webserver.outputs.labels }}
+          tags: ${{ steps.orchestrator.outputs.tags }}
+          labels: ${{ steps.orchestrator.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |

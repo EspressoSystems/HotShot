@@ -5,7 +5,7 @@ edition = { workspace = true }
 name = "hotshot-examples"
 readme = "README.md"
 version = { workspace = true }
-rust-version = "1.65.0"
+rust-version = { workspace = true }
 
 [features]
 default = ["docs", "doc-images", "hotshot-testing"]
@@ -21,7 +21,12 @@ hotshot-testing = ["hotshot/hotshot-testing"]
 randomized-leader-election = []
 fixed-leader-election = []
 
-# libp2p
+# Common
+[[example]]
+name = "orchestrator"
+path = "orchestrator.rs"
+
+# Libp2p
 [[example]]
 name = "validator-libp2p"
 path = "libp2p/validator.rs"
@@ -31,39 +36,10 @@ name = "multi-validator-libp2p"
 path = "libp2p/multi-validator.rs"
 
 [[example]]
-name = "orchestrator-libp2p"
-path = "libp2p/orchestrator.rs"
-
-[[example]]
 name = "all-libp2p"
 path = "libp2p/all.rs"
 
-# webserver
-[[example]]
-name = "webserver"
-path = "webserver/webserver.rs"
-
-[[example]]
-name = "orchestrator-webserver"
-path = "webserver/orchestrator.rs"
-
-[[example]]
-name = "validator-webserver"
-path = "webserver/validator.rs"
-
-[[example]]
-name = "multi-validator-webserver"
-path = "webserver/multi-validator.rs"
-
-[[example]]
-name = "multi-webserver"
-path = "webserver/multi-webserver.rs"
-
-[[example]]
-name = "all-webserver"
-path = "webserver/all.rs"
-
-# combined
+# Combined
 [[example]]
 name = "all-combined"
 path = "combined/all.rs"
@@ -113,7 +89,6 @@ custom_debug = { workspace = true }
 dashmap = "5"
 either = { workspace = true }
 futures = { workspace = true }
-hotshot-web-server = { version = "0.5.36", path = "../web_server", default-features = false }
 hotshot-orchestrator = { version = "0.5.36", path = "../orchestrator", default-features = false }
 hotshot-types = { path = "../types" }
 hotshot-testing = { path = "../testing" }

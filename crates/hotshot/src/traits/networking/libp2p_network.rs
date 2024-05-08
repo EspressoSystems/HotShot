@@ -39,9 +39,10 @@ use hotshot_types::{
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
+        election::Membership,
         network::{
-            self, ConnectedNetwork, ConsensusIntentEvent, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, ResponseMessage,
+            self, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
+            ResponseMessage,
         },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -268,7 +269,7 @@ where
                         .build()
                         .unwrap()
                 };
-                let bootstrap_addrs_ref = bootstrap_addrs.clone();
+                let bootstrap_addrs_ref = Arc::clone(&bootstrap_addrs);
                 let keys = all_keys.clone();
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
@@ -294,7 +295,7 @@ where
                             }
                         },
                     );
-                    (net.clone(), net)
+                    (Arc::clone(&net), net)
                 })
             }
         })
@@ -345,7 +346,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
     /// # Panics
     /// If we are unable to calculate the replication factor
     pub async fn from_config<TYPES: NodeType>(
-        mut config: NetworkConfig<K, TYPES::ElectionConfigType>,
+        mut config: NetworkConfig<K>,
         bind_address: SocketAddr,
         pub_key: &K,
         priv_key: &K::PrivateKey,
@@ -401,10 +402,12 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         let mut da_keys = BTreeSet::new();
 
         // Make a node DA if it is under the staked committee size
-        for (i, node) in config.config.known_nodes_with_stake.into_iter().enumerate() {
-            if i < config.config.da_staked_committee_size {
-                da_keys.insert(K::get_public_key(&node.stake_table_entry));
-            }
+        for node in config.config.known_da_nodes {
+            da_keys.insert(K::get_public_key(&node.stake_table_entry));
+        }
+
+        // Insert all known nodes into the set of all keys
+        for node in config.config.known_nodes_with_stake {
             all_keys.insert(K::get_public_key(&node.stake_table_entry));
         }
 
@@ -538,9 +541,9 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
         _: Ver,
     ) {
-        let handle = self.inner.handle.clone();
+        let handle = Arc::clone(&self.inner.handle);
         let dht_timeout = self.inner.dht_timeout;
-        let latest_seen_view = self.inner.latest_seen_view.clone();
+        let latest_seen_view = Arc::clone(&self.inner.latest_seen_view);
 
         // deals with handling lookup queue. should be infallible
         async_spawn(async move {
@@ -569,15 +572,15 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
     /// Initiates connection to the outside world
     fn spawn_connect<VER: 'static + StaticVersionType>(&mut self, id: usize, bind_version: VER) {
         let pk = self.inner.pk.clone();
-        let bootstrap_ref = self.inner.bootstrap_addrs.clone();
-        let handle = self.inner.handle.clone();
-        let is_bootstrapped = self.inner.is_bootstrapped.clone();
+        let bootstrap_ref = Arc::clone(&self.inner.bootstrap_addrs);
+        let handle = Arc::clone(&self.inner.handle);
+        let is_bootstrapped = Arc::clone(&self.inner.is_bootstrapped);
         let node_type = self.inner.handle.config().node_type;
-        let metrics_connected_peers = self.inner.clone();
+        let metrics_connected_peers = Arc::clone(&self.inner);
         let is_da = self.inner.is_da;
 
         async_spawn({
-            let is_ready = self.inner.is_ready.clone();
+            let is_ready = Arc::clone(&self.inner.is_ready);
             async move {
                 let bs_addrs = bootstrap_ref.read().await.clone();
 
@@ -719,7 +722,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         mut network_rx: NetworkNodeReceiver,
     ) {
         let handle = self.clone();
-        let is_bootstrapped = self.inner.is_bootstrapped.clone();
+        let is_bootstrapped = Arc::clone(&self.inner.is_bootstrapped);
         async_spawn(async move {
             let Some(mut kill_switch) = network_rx.take_kill_switch() else {
                 tracing::error!(
@@ -843,7 +846,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         bind_version: VER,
     ) -> Option<mpsc::Receiver<(M, network::ResponseChannel<M>)>> {
         let mut internal_rx = self.inner.requests_rx.lock().await.take()?;
-        let handle = self.inner.handle.clone();
+        let handle = Arc::clone(&self.inner.handle);
         let (mut tx, rx) = mpsc::channel(100);
         async_spawn(async move {
             while let Some((request, chan)) = internal_rx.next().await {
@@ -928,7 +931,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         {
             let metrics = self.inner.metrics.clone();
             if let Some(ref config) = &self.inner.reliability_config {
-                let handle = self.inner.handle.clone();
+                let handle = Arc::clone(&self.inner.handle);
 
                 let serialized_msg =
                     Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
@@ -936,7 +939,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                     serialized_msg,
                     Arc::new(move |msg: Vec<u8>| {
                         let topic_2 = topic.clone();
-                        let handle_2 = handle.clone();
+                        let handle_2 = Arc::clone(&handle);
                         let metrics_2 = metrics.clone();
                         boxed_sync(async move {
                             match handle_2.gossip_no_serialize(topic_2, msg).await {
@@ -1043,14 +1046,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         {
             let metrics = self.inner.metrics.clone();
             if let Some(ref config) = &self.inner.reliability_config {
-                let handle = self.inner.handle.clone();
+                let handle = Arc::clone(&self.inner.handle);
 
                 let serialized_msg =
                     Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
                 let fut = config.clone().chaos_send_msg(
                     serialized_msg,
                     Arc::new(move |msg: Vec<u8>| {
-                        let handle_2 = handle.clone();
+                        let handle_2 = Arc::clone(&handle);
                         let metrics_2 = metrics.clone();
                         boxed_sync(async move {
                             match handle_2.direct_request_no_serialize(pid, msg).await {
@@ -1110,24 +1113,17 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .await
     }
 
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<K>) {
-        match event {
-            ConsensusIntentEvent::PollFutureLeader(future_view, future_leader) => {
-                let _ = self
-                    .queue_node_lookup(ViewNumber::new(future_view), future_leader)
-                    .await
-                    .map_err(|err| warn!("failed to process node lookup request: {}", err));
-            }
+    /// handles view update
+    async fn update_view<'a, TYPES>(&'a self, view: u64, membership: &TYPES::Membership)
+    where
+        TYPES: NodeType<SignatureKey = K> + 'a,
+    {
+        let future_view = <TYPES as NodeType>::Time::new(view) + LOOK_AHEAD;
+        let future_leader = membership.get_leader(future_view);
 
-            ConsensusIntentEvent::PollForProposal(new_view) => {
-                if new_view > self.inner.latest_seen_view.load(Ordering::Relaxed) {
-                    self.inner
-                        .latest_seen_view
-                        .store(new_view, Ordering::Relaxed);
-                }
-            }
-
-            _ => {}
-        }
+        let _ = self
+            .queue_node_lookup(ViewNumber::new(*future_view), future_leader)
+            .await
+            .map_err(|err| tracing::warn!("failed to process node lookup request: {err}"));
     }
 }

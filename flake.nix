@@ -42,18 +42,13 @@
           "llvm-tools-preview"
         ];
         fenixStable = fenix.packages.${system}.combine [
-          ( fenix.packages.${system}.stable.withComponents [
-              "cargo"
-              "clippy"
-              "rust-src"
-              "rustc"
-              "llvm-tools-preview"
-            ]
-          )
-          ( fenix.packages.${system}.latest.withComponents [
-              "rustfmt"
-            ]
-          )
+          (fenix.packages.${system}.latest.withComponents [
+            "rustfmt"
+          ])
+          (fenix.packages.${system}.fromToolchainFile {
+            dir = ./.;
+            sha256 = "sha256-opUgs6ckUQCyDxcB9Wy51pqhd0MPGHUVbwRKKPGiwZU=";
+          })
         ];
         # needed for compiling static binary
         fenixMusl = with fenix.packages.${system};
@@ -169,7 +164,7 @@
         # # programmatically generate output packages based on what exists in the workspace
         # pkgsAndChecksAttrSet = pkgs.lib.foldAttrs (n: a: pkgs.lib.recursiveUpdate n a) { } pkgsAndChecksList;
 
-        buildDeps = with pkgs;
+        buildDepsSimple = with pkgs;
           [
             cargo-vet
             curl.out
@@ -179,11 +174,9 @@
             nixpkgs-fmt
             git-chglog
             protobuf
-            capnproto
             python3
             zlib.dev
             zlib.out
-            fenix.packages.${system}.rust-analyzer
             just
             pkg-config
             openssl.dev
@@ -194,18 +187,21 @@
             pkgs.libiconv
             darwin.apple_sdk.frameworks.SystemConfiguration
           ];
+
+        buildDeps = buildDepsSimple ++ [ fenix.packages.${system}.rust-analyzer ];
       in {
         devShell = pkgs.mkShell {
           inherit CARGO_TARGET_DIR;
           buildInputs = [ fenixStable ] ++ buildDeps;
-          shellHook = ''
-            export ROOT_DIR=$(dirname "$(realpath ./flake.nix)")
-            export AZTEC_SRS_PATH="$ROOT_DIR/data/aztec20/kzg10-aztec20-srs-1048584.bin"
-            ./scripts/download_srs_aztec.sh
-          '';
         };
 
         devShells = {
+          # A simple shell without rust-analyzer
+          simpleShell = pkgs.mkShell {
+            inherit CARGO_TARGET_DIR;
+            buildInputs = [ fenixStable ] ++ buildDepsSimple;
+          };
+
           # usage: check correctness
           correctnessShell = pkgs.mkShell {
             inherit CARGO_TARGET_DIR;

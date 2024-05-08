@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     block_contents::{BlockHeader, TestableBlock, Transaction},
-    election::ElectionConfig,
     network::{
         AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
     },
@@ -59,13 +58,6 @@ pub trait NodeImplementation<TYPES: NodeType>:
 #[allow(clippy::type_complexity)]
 #[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
-    /// Election config for the DA committee
-    type CommitteeElectionConfig;
-
-    /// Generates a committee-specific election
-    fn committee_election_config_generator(
-    ) -> Box<dyn Fn(u64, u64) -> Self::CommitteeElectionConfig + 'static>;
-
     /// Creates random transaction if possible
     /// otherwise panics
     /// `padding` is the bytes of padding to add to the transaction
@@ -108,18 +100,6 @@ where
     I::QuorumNetwork: TestableNetworkingImplementation<TYPES>,
     I::CommitteeNetwork: TestableNetworkingImplementation<TYPES>,
 {
-    type CommitteeElectionConfig = TYPES::ElectionConfigType;
-
-    fn committee_election_config_generator(
-    ) -> Box<dyn Fn(u64, u64) -> Self::CommitteeElectionConfig + 'static> {
-        Box::new(|num_nodes_with_stake, num_nodes_without_stake| {
-            <TYPES as NodeType>::Membership::default_election_config(
-                num_nodes_with_stake,
-                num_nodes_without_stake,
-            )
-        })
-    }
-
     fn state_create_random_transaction(
         state: Option<&TYPES::ValidatedState>,
         rng: &mut dyn rand::RngCore,
@@ -221,15 +201,13 @@ pub trait NodeType:
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
-    type BlockPayload: BlockPayload<Transaction = Self::Transaction>;
+    type BlockPayload: BlockPayload<Instance = Self::InstanceState, Transaction = Self::Transaction>;
     /// The signature key that this hotshot setup is using.
     type SignatureKey: SignatureKey;
     /// The transaction type that this hotshot setup is using.
     ///
     /// This should be equal to `BlockPayload::Transaction`
     type Transaction: Transaction;
-    /// The election config type that this hotshot setup is using.
-    type ElectionConfigType: ElectionConfig;
 
     /// The instance-level state type that this hotshot setup is using.
     type InstanceState: InstanceState;

@@ -32,9 +32,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
-        network::{
-            ConnectedNetwork, ConsensusIntentEvent, ResponseChannel, ResponseMessage, ViewMessage,
-        },
+        network::{ConnectedNetwork, ResponseChannel, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
     },
     BoxSyncFuture,
@@ -167,7 +165,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
-            let primary_fail_counter = self.primary_fail_counter.clone();
+            let primary_fail_counter = Arc::clone(&self.primary_fail_counter);
             self.delayed_tasks
                 .write()
                 .await
@@ -468,19 +466,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         self.secondary().queue_node_lookup(view_number, pk).await
     }
 
-    async fn inject_consensus_info(&self, event: ConsensusIntentEvent<TYPES::SignatureKey>) {
-        <PushCdnNetwork<_> as ConnectedNetwork<
-            Message<TYPES>,
-            TYPES::SignatureKey,
-        >>::inject_consensus_info(self.primary(), event.clone())
-        .await;
-
-        <Libp2pNetwork<_, _> as ConnectedNetwork<Message<TYPES>,TYPES::SignatureKey>>::
-            inject_consensus_info(self.secondary(), event).await;
-    }
-
-    fn update_view(&self, view: u64) {
-        let delayed_map = self.delayed_tasks.clone();
+    async fn update_view<'a, T>(&'a self, view: u64, membership: &T::Membership)
+    where
+        T: NodeType<SignatureKey = TYPES::SignatureKey> + 'a,
+    {
+        let delayed_map = Arc::clone(&self.delayed_tasks);
         async_spawn(async move {
             let mut cancel_tasks = Vec::new();
             {
@@ -500,9 +490,13 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             }
             join_all(cancel_tasks).await;
         });
+
         // View changed, let's start primary again
         self.primary_down.store(false, Ordering::Relaxed);
         self.primary_fail_counter.store(0, Ordering::Relaxed);
+
+        // Run `update_view` logic for the libp2p network
+        self.networks.1.update_view::<T>(view, membership).await;
     }
 
     fn is_primary_down(&self) -> bool {

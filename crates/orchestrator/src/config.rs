@@ -10,8 +10,7 @@ use std::{
 
 use clap::ValueEnum;
 use hotshot_types::{
-    traits::{election::ElectionConfig, signature_key::SignatureKey},
-    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    traits::signature_key::SignatureKey, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use libp2p::{Multiaddr, PeerId};
 use serde_inline_default::serde_inline_default;
@@ -47,10 +46,8 @@ pub struct Libp2pConfig {
     pub mesh_n: usize,
     /// timeout before starting the next view
     pub next_view_timeout: u64,
-    /// minimum time to wait for a view
-    pub propose_min_round_time: Duration,
-    /// maximum time to wait for a view
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// time node has been running
     pub online_time: u64,
     /// number of transactions per view
@@ -157,21 +154,26 @@ impl Default for RandomBuilderConfig {
 /// a network configuration
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(bound(deserialize = ""))]
-pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
+pub struct NetworkConfig<KEY: SignatureKey> {
     /// number of views to run
     pub rounds: usize,
+    /// whether DA membership is determined by index.
+    /// if true, the first k nodes to register form the DA committee
+    /// if false, DA membership is requested by the nodes
+    pub indexed_da: bool,
     /// number of transactions per view
     pub transactions_per_round: usize,
+    /// password to have the orchestrator start the network,
+    /// regardless of the number of nodes connected.
+    pub manual_start_password: Option<String>,
     /// number of bootstrap nodes
     pub num_bootrap: usize,
     /// timeout before starting the next view
     pub next_view_timeout: u64,
     /// timeout before starting next view sync round
     pub view_sync_timeout: Duration,
-    /// minimum time to wait for a view
-    pub propose_min_round_time: Duration,
-    /// maximum time to wait for a view
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// global index of node (for testing purposes a uid)
@@ -184,12 +186,10 @@ pub struct NetworkConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub start_delay_seconds: u64,
     /// name of the key type (for debugging)
     pub key_type_name: String,
-    /// election config type (for debugging)
-    pub election_config_type_name: String,
     /// the libp2p config
     pub libp2p_config: Option<Libp2pConfig>,
     /// the hotshot config
-    pub config: HotShotConfig<KEY, ELECTIONCONFIG>,
+    pub config: HotShotConfig<KEY>,
     /// the webserver config
     pub web_server_config: Option<WebServerConfig>,
     /// the data availability web server config
@@ -214,7 +214,7 @@ pub enum NetworkConfigSource {
     File,
 }
 
-impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
+impl<K: SignatureKey> NetworkConfig<K> {
     /// Asynchronously retrieves a `NetworkConfig` either from a file or from an orchestrator.
     ///
     /// This function takes an `OrchestratorClient`, an optional file path, and Libp2p-specific parameters.
@@ -245,7 +245,7 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
         file: Option<String>,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
-    ) -> anyhow::Result<(NetworkConfig<K, E>, NetworkConfigSource)> {
+    ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
         if let Some(file) = file {
             info!("Retrieving config from the file");
             // if we pass in file, try there first
@@ -281,11 +281,14 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
     }
 
     /// Get a temporary node index for generating a validator config
-    pub async fn generate_init_validator_config(client: &OrchestratorClient) -> ValidatorConfig<K> {
+    pub async fn generate_init_validator_config(
+        client: &OrchestratorClient,
+        is_da: bool,
+    ) -> ValidatorConfig<K> {
         // This cur_node_index is only used for key pair generation, it's not bound with the node,
         // lather the node with the generated key pair will get a new node_index from orchestrator.
         let cur_node_index = client.get_node_index_for_init_validator_config().await;
-        ValidatorConfig::generated_from_seed_indexed([0u8; 32], cur_node_index.into(), 1)
+        ValidatorConfig::generated_from_seed_indexed([0u8; 32], cur_node_index.into(), 1, is_da)
     }
 
     /// Asynchronously retrieves a `NetworkConfig` from an orchestrator.
@@ -295,40 +298,24 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
     /// If we are unable to get the configuration from the orchestrator
     pub async fn get_complete_config(
         client: &OrchestratorClient,
-        file: Option<String>,
         my_own_validator_config: ValidatorConfig<K>,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
-    ) -> anyhow::Result<(NetworkConfig<K, E>, NetworkConfigSource)> {
-        let (mut run_config, source) =
-            Self::from_file_or_orchestrator(client, file, libp2p_address, libp2p_public_key)
-                .await?;
-        let node_index = run_config.node_index;
-
-        // Assign my_own_validator_config to the run_config if not loading from file
-        match source {
-            NetworkConfigSource::Orchestrator => {
-                run_config.config.my_own_validator_config = my_own_validator_config;
-            }
-            NetworkConfigSource::File => {
-                // do nothing, my_own_validator_config has already been loaded from file
-            }
-        }
-
-        // one more round of orchestrator here to get peer's public key/config
-        let updated_config: NetworkConfig<K, E> = client
-            .post_and_wait_all_public_keys::<K, E>(
-                run_config.node_index,
-                run_config
-                    .config
-                    .my_own_validator_config
-                    .get_public_config(),
+    ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
+        // get the configuration from the orchestrator
+        let run_config: NetworkConfig<K> = client
+            .post_and_wait_all_public_keys::<K>(
+                my_own_validator_config,
+                libp2p_address,
+                libp2p_public_key,
             )
             .await;
-        run_config.config.known_nodes_with_stake = updated_config.config.known_nodes_with_stake;
 
-        info!("Retrieved config; our node index is {node_index}.");
-        Ok((run_config, source))
+        info!(
+            "Retrieved config; our node index is {}. DA committee member: {}",
+            run_config.node_index, run_config.config.my_own_validator_config.is_da
+        );
+        Ok((run_config, NetworkConfigSource::Orchestrator))
     }
 
     /// Loads a `NetworkConfig` from a file.
@@ -424,19 +411,20 @@ impl<K: SignatureKey, E: ElectionConfig> NetworkConfig<K, E> {
     }
 }
 
-impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
+impl<K: SignatureKey> Default for NetworkConfig<K> {
     fn default() -> Self {
         Self {
             rounds: ORCHESTRATOR_DEFAULT_NUM_ROUNDS,
+            indexed_da: true,
             transactions_per_round: ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND,
             node_index: 0,
             seed: [0u8; 32],
             transaction_size: ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE,
+            manual_start_password: None,
             libp2p_config: None,
             config: HotShotConfigFile::default().into(),
             start_delay_seconds: 60,
             key_type_name: std::any::type_name::<K>().to_string(),
-            election_config_type_name: std::any::type_name::<E>().to_string(),
             web_server_config: None,
             da_web_server_config: None,
             cdn_marshal_address: None,
@@ -444,8 +432,7 @@ impl<K: SignatureKey, E: ElectionConfig> Default for NetworkConfig<K, E> {
             next_view_timeout: 10,
             view_sync_timeout: Duration::from_secs(2),
             num_bootrap: 5,
-            propose_min_round_time: Duration::from_secs(0),
-            propose_max_round_time: Duration::from_secs(10),
+            builder_timeout: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(2500),
             commit_sha: String::new(),
             builder: BuilderType::default(),
@@ -462,9 +449,16 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// number of views to run
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_NUM_ROUNDS)]
     pub rounds: usize,
+    /// number of views to run
+    #[serde(default)]
+    pub indexed_da: bool,
     /// number of transactions per view
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND)]
     pub transactions_per_round: usize,
+    /// password to have the orchestrator start the network,
+    /// regardless of the number of nodes connected.
+    #[serde(default)]
+    pub manual_start_password: Option<String>,
     /// global index of node (for testing purposes a uid)
     #[serde(default)]
     pub node_index: u64,
@@ -503,17 +497,18 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     pub random_builder: Option<RandomBuilderConfig>,
 }
 
-impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkConfig<K, E> {
+impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
     fn from(val: NetworkConfigFile<K>) -> Self {
         NetworkConfig {
             rounds: val.rounds,
+            indexed_da: val.indexed_da,
             transactions_per_round: val.transactions_per_round,
             node_index: 0,
             num_bootrap: val.config.num_bootstrap,
+            manual_start_password: val.manual_start_password,
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
-            propose_max_round_time: val.config.propose_max_round_time,
-            propose_min_round_time: val.config.propose_min_round_time,
+            builder_timeout: val.config.builder_timeout,
             data_request_delay: val.config.data_request_delay,
             seed: val.seed,
             transaction_size: val.transaction_size,
@@ -529,15 +524,13 @@ impl<K: SignatureKey, E: ElectionConfig> From<NetworkConfigFile<K>> for NetworkC
                 mesh_outbound_min: libp2p_config.mesh_outbound_min,
                 mesh_n: libp2p_config.mesh_n,
                 next_view_timeout: val.config.next_view_timeout,
-                propose_min_round_time: val.config.propose_min_round_time,
-                propose_max_round_time: val.config.propose_max_round_time,
+                builder_timeout: val.config.builder_timeout,
                 online_time: libp2p_config.online_time,
                 num_txn_per_round: val.transactions_per_round,
                 server_mode: libp2p_config.server_mode,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
-            election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
             cdn_marshal_address: val.cdn_marshal_address,
             web_server_config: val.web_server_config,
@@ -559,6 +552,9 @@ fn default_builder_url() -> Url {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfigFile<KEY: SignatureKey> {
+    /// The proportion of nodes required before the orchestrator issues the ready signal,
+    /// expressed as (numerator, denominator)
+    pub start_threshold: (u64, u64),
     /// Total number of staked nodes in the network
     pub num_nodes_with_stake: NonZeroUsize,
     /// Total number of non-staked nodes in the network
@@ -570,6 +566,9 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     /// The known nodes' public key and stake value
     pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
     #[serde(skip)]
+    /// The known DA nodes' public key and stake values
+    pub known_da_nodes: Vec<PeerConfig<KEY>>,
+    #[serde(skip)]
     /// The known non-staking nodes'
     pub known_nodes_without_stake: Vec<KEY>,
     /// Number of staking committee nodes
@@ -578,10 +577,6 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub non_staked_committee_nodes: usize,
     /// Number of fixed leaders for GPU VID
     pub fixed_leader_for_gpuvid: usize,
-    /// Maximum transactions per block
-    pub max_transactions: NonZeroUsize,
-    /// Minimum transactions per block
-    pub min_transactions: usize,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// Duration for view sync round timeout
@@ -594,10 +589,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub start_delay: u64,
     /// Number of network bootstrap nodes
     pub num_bootstrap: usize,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// Builder API base URL
@@ -615,6 +608,8 @@ pub struct ValidatorConfigFile {
     pub node_id: u64,
     // The validator's stake, commented for now
     // pub stake_value: u64,
+    /// Whether or not we are DA
+    pub is_da: bool,
 }
 
 impl ValidatorConfigFile {
@@ -657,14 +652,14 @@ impl ValidatorConfigFile {
     }
 }
 
-impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY, E> {
+impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
     fn from(val: HotShotConfigFile<KEY>) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
+            start_threshold: val.start_threshold,
             num_nodes_with_stake: val.num_nodes_with_stake,
             num_nodes_without_stake: val.num_nodes_without_stake,
-            max_transactions: val.max_transactions,
-            min_transactions: val.min_transactions,
+            known_da_nodes: val.known_da_nodes,
             known_nodes_with_stake: val.known_nodes_with_stake,
             known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
@@ -677,10 +672,8 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<HotShotConfigFile<KEY>> for HotS
             round_start_delay: val.round_start_delay,
             start_delay: val.start_delay,
             num_bootstrap: val.num_bootstrap,
-            propose_min_round_time: val.propose_min_round_time,
-            propose_max_round_time: val.propose_max_round_time,
+            builder_timeout: val.builder_timeout,
             data_request_delay: val.data_request_delay,
-            election_config: None,
             builder_url: val.builder_url,
         }
     }
@@ -697,12 +690,12 @@ pub const ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS: u64 = 60;
 impl<K: SignatureKey> From<ValidatorConfigFile> for ValidatorConfig<K> {
     fn from(val: ValidatorConfigFile) -> Self {
         // here stake_value is set to 1, since we don't input stake_value from ValidatorConfigFile for now
-        ValidatorConfig::generated_from_seed_indexed(val.seed, val.node_id, 1)
+        ValidatorConfig::generated_from_seed_indexed(val.seed, val.node_id, 1, val.is_da)
     }
 }
-impl<KEY: SignatureKey, E: ElectionConfig> From<ValidatorConfigFile> for HotShotConfig<KEY, E> {
+impl<KEY: SignatureKey> From<ValidatorConfigFile> for HotShotConfig<KEY> {
     fn from(value: ValidatorConfigFile) -> Self {
-        let mut config: HotShotConfig<KEY, E> = HotShotConfigFile::default().into();
+        let mut config: HotShotConfig<KEY> = HotShotConfigFile::default().into();
         config.my_own_validator_config = value.into();
         config
     }
@@ -710,32 +703,45 @@ impl<KEY: SignatureKey, E: ElectionConfig> From<ValidatorConfigFile> for HotShot
 
 impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
     fn default() -> Self {
+        // The default number of nodes is 5
+        let staked_committee_nodes: usize = 5;
+
+        // Aggregate the DA nodes
+        let mut known_da_nodes = Vec::new();
+
         let gen_known_nodes_with_stake = (0..10)
             .map(|node_id| {
-                let cur_validator_config: ValidatorConfig<KEY> =
-                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1);
+                let mut cur_validator_config: ValidatorConfig<KEY> =
+                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, false);
+
+                // Add to DA nodes based on index
+                if node_id < staked_committee_nodes as u64 {
+                    known_da_nodes.push(cur_validator_config.get_public_config());
+                    cur_validator_config.is_da = true;
+                }
+
                 cur_validator_config.get_public_config()
             })
             .collect();
+
         Self {
             num_nodes_with_stake: NonZeroUsize::new(10).unwrap(),
+            start_threshold: (1, 1),
             num_nodes_without_stake: 0,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             known_nodes_without_stake: vec![],
-            staked_committee_nodes: 5,
+            staked_committee_nodes,
+            known_da_nodes,
             non_staked_committee_nodes: 0,
-            fixed_leader_for_gpuvid: 0,
-            max_transactions: NonZeroUsize::new(100).unwrap(),
-            min_transactions: 1,
+            fixed_leader_for_gpuvid: 1,
             next_view_timeout: 10000,
             view_sync_timeout: Duration::from_millis(1000),
             timeout_ratio: (11, 10),
             round_start_delay: 1,
             start_delay: 1,
             num_bootstrap: 5,
-            propose_min_round_time: Duration::from_secs(0),
-            propose_max_round_time: Duration::from_secs(10),
+            builder_timeout: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(200),
             builder_url: default_builder_url(),
         }

@@ -6,27 +6,27 @@ use std::{path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
-    connection::protocols::Tcp,
-    def::RunDef,
+    connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
+    def::{ConnectionDef, RunDef},
     discovery::{Embedded, Redis},
 };
 #[cfg(feature = "hotshot-testing")]
-use cdn_broker::{Broker, Config, ConfigBuilder as BrokerConfigBuilder};
+use cdn_broker::{Broker, Config as BrokerConfig};
 pub use cdn_client::reexports::crypto::signature::KeyPair;
 use cdn_client::{
     reexports::{
         connection::protocols::Quic,
         crypto::signature::{Serializable, SignatureScheme},
-        message::{Broadcast, Direct, Message as PushCdnMessage, Topic},
+        message::{Broadcast, Direct, Message as PushCdnMessage},
     },
-    Client, ConfigBuilder as ClientConfigBuilder,
+    Client, Config as ClientConfig,
 };
 #[cfg(feature = "hotshot-testing")]
-use cdn_marshal::{ConfigBuilder as MarshalConfigBuilder, Marshal};
+use cdn_marshal::{Config as MarshalConfig, Marshal};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -37,7 +37,7 @@ use hotshot_types::{
     data::ViewNumber,
     message::Message,
     traits::{
-        network::{ConnectedNetwork, ConsensusIntentEvent, PushCdnNetworkError},
+        network::{ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -94,38 +94,51 @@ impl<T: SignatureKey> Serializable for WrappedSignatureKey<T> {
     }
 }
 
-/// The testing run definition for the Push CDN.
-/// Uses the real protocols, but with an embedded discovery client.
-pub struct TestingDef<TYPES: NodeType> {
-    /// Phantom data to hold the type
-    pd: PhantomData<TYPES>,
-}
-
-impl<TYPES: NodeType> RunDef for TestingDef<TYPES> {
-    type BrokerScheme = WrappedSignatureKey<TYPES::SignatureKey>;
-    type BrokerProtocol = Tcp;
-
-    type UserScheme = WrappedSignatureKey<TYPES::SignatureKey>;
-    type UserProtocol = Quic;
-
-    type DiscoveryClientType = Embedded;
-}
-
 /// The production run definition for the Push CDN.
 /// Uses the real protocols and a Redis discovery client.
-pub struct ProductionDef<TYPES: NodeType> {
-    /// Phantom data to hold the type
-    pd: PhantomData<TYPES>,
+pub struct ProductionDef<TYPES: NodeType>(PhantomData<TYPES>);
+impl<TYPES: NodeType> RunDef for ProductionDef<TYPES> {
+    type User = UserDef<TYPES>;
+    type Broker = BrokerDef<TYPES>;
+    type DiscoveryClientType = Redis;
 }
 
-impl<TYPES: NodeType> RunDef for ProductionDef<TYPES> {
-    type BrokerScheme = WrappedSignatureKey<TYPES::SignatureKey>;
-    type BrokerProtocol = Tcp;
+/// The user definition for the Push CDN.
+/// Uses the Quic protocol and untrusted middleware.
+pub struct UserDef<TYPES: NodeType>(PhantomData<TYPES>);
+impl<TYPES: NodeType> ConnectionDef for UserDef<TYPES> {
+    type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
+    type Protocol = Quic;
+    type Middleware = UntrustedMiddleware;
+}
 
-    type UserScheme = WrappedSignatureKey<TYPES::SignatureKey>;
-    type UserProtocol = Quic;
+/// The broker definition for the Push CDN.
+/// Uses the TCP protocol and trusted middleware.
+pub struct BrokerDef<TYPES: NodeType>(PhantomData<TYPES>);
+impl<TYPES: NodeType> ConnectionDef for BrokerDef<TYPES> {
+    type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
+    type Protocol = Tcp;
+    type Middleware = TrustedMiddleware;
+}
 
-    type DiscoveryClientType = Redis;
+/// The client definition for the Push CDN. Uses the Quic
+/// protocol and no middleware. Differs from the user
+/// definition in that is on the client-side.
+#[derive(Clone)]
+pub struct ClientDef<TYPES: NodeType>(PhantomData<TYPES>);
+impl<TYPES: NodeType> ConnectionDef for ClientDef<TYPES> {
+    type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
+    type Protocol = Quic;
+    type Middleware = NoMiddleware;
+}
+
+/// The testing run definition for the Push CDN.
+/// Uses the real protocols, but with an embedded discovery client.
+pub struct TestingDef<TYPES: NodeType>(PhantomData<TYPES>);
+impl<TYPES: NodeType> RunDef for TestingDef<TYPES> {
+    type User = UserDef<TYPES>;
+    type Broker = BrokerDef<TYPES>;
+    type DiscoveryClientType = Embedded;
 }
 
 /// A communication channel to the Push CDN, which is a collection of brokers and a marshal
@@ -134,10 +147,19 @@ impl<TYPES: NodeType> RunDef for ProductionDef<TYPES> {
 /// Is generic over both the type of key and the network protocol.
 pub struct PushCdnNetwork<TYPES: NodeType> {
     /// The underlying client
-    client: Client<WrappedSignatureKey<TYPES::SignatureKey>, Quic>,
+    client: Client<ClientDef<TYPES>>,
     /// Whether or not the underlying network is supposed to be paused
     #[cfg(feature = "hotshot-testing")]
     is_paused: Arc<AtomicBool>,
+}
+
+/// The enum for the topics we can subscribe to in the Push CDN
+#[repr(u8)]
+pub enum Topic {
+    /// The global topic
+    Global = 0,
+    /// The DA topic
+    DA = 1,
 }
 
 impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
@@ -149,21 +171,16 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// If we fail to build the config
     pub fn new(
         marshal_endpoint: String,
-        topics: Vec<String>,
+        topics: Vec<Topic>,
         keypair: KeyPair<WrappedSignatureKey<TYPES::SignatureKey>>,
     ) -> anyhow::Result<Self> {
-        // Transform topics to our internal representation
-        let mut computed_topics: Vec<Topic> = Vec::new();
-        for topic in topics {
-            computed_topics.push(topic.try_into()?);
-        }
-
         // Build config
-        let config = ClientConfigBuilder::default()
-            .endpoint(marshal_endpoint)
-            .subscribed_topics(computed_topics)
-            .keypair(keypair)
-            .build()?;
+        let config = ClientConfig {
+            endpoint: marshal_endpoint,
+            subscribed_topics: topics.into_iter().map(|t| t as u8).collect(),
+            keypair,
+            use_local_authority: true,
+        };
 
         // Create the client from the config
         let client = Client::new(config);
@@ -206,7 +223,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         // TODO: check if we need to print this error
         if self
             .client
-            .send_broadcast_message(vec![topic], serialized_message)
+            .send_broadcast_message(vec![topic as u8], serialized_message)
             .await
             .is_err()
         {
@@ -248,35 +265,59 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
             .to_string_lossy()
             .into_owned();
 
+        // Pick some unused public ports
+        let public_address_1 = format!(
+            "127.0.0.1:{}",
+            portpicker::pick_unused_port().expect("could not find an open port")
+        );
+        let public_address_2 = format!(
+            "127.0.0.1:{}",
+            portpicker::pick_unused_port().expect("could not find an open port")
+        );
+
         // 2 brokers
-        for _ in 0..2 {
+        for i in 0..2 {
             // Get the ports to bind to
             let private_port = portpicker::pick_unused_port().expect("could not find an open port");
-            let public_port = portpicker::pick_unused_port().expect("could not find an open port");
 
             // Extrapolate addresses
             let private_address = format!("127.0.0.1:{private_port}");
-            let public_address = format!("127.0.0.1:{public_port}");
+            let (public_address, other_public_address) = if i == 0 {
+                (public_address_1.clone(), public_address_2.clone())
+            } else {
+                (public_address_2.clone(), public_address_1.clone())
+            };
 
-            let config: Config<WrappedSignatureKey<TYPES::SignatureKey>> =
-                BrokerConfigBuilder::default()
-                    .discovery_endpoint(discovery_endpoint.clone())
-                    .keypair(KeyPair {
-                        public_key: WrappedSignatureKey(broker_public_key.clone()),
-                        private_key: broker_private_key.clone(),
-                    })
-                    .metrics_enabled(false)
-                    .private_bind_address(private_address.clone())
-                    .public_bind_address(public_address.clone())
-                    .private_advertise_address(private_address)
-                    .public_advertise_address(public_address)
-                    .build()
-                    .expect("failed to build broker config");
+            // Calculate the broker identifiers
+            let broker_identifier = format!("{public_address}/{public_address}");
+            let other_broker_identifier = format!("{other_public_address}/{other_public_address}");
+
+            // Configure the broker
+            let config: BrokerConfig<TestingDef<TYPES>> = BrokerConfig {
+                public_advertise_endpoint: public_address.clone(),
+                public_bind_endpoint: public_address,
+                private_advertise_endpoint: private_address.clone(),
+                private_bind_endpoint: private_address,
+                metrics_bind_endpoint: None,
+                keypair: KeyPair {
+                    public_key: WrappedSignatureKey(broker_public_key.clone()),
+                    private_key: broker_private_key.clone(),
+                },
+                discovery_endpoint: discovery_endpoint.clone(),
+                ca_cert_path: None,
+                ca_key_path: None,
+            };
 
             // Create and spawn the broker
             async_spawn(async move {
                 let broker: Broker<TestingDef<TYPES>> =
                     Broker::new(config).await.expect("broker failed to start");
+
+                // If we are the first broker by identifier, we need to sleep a bit
+                // for discovery to happen first
+                if other_broker_identifier > broker_identifier {
+                    async_sleep(Duration::from_secs(2)).await;
+                }
 
                 // Error if we stopped unexpectedly
                 if let Err(err) = broker.start().await {
@@ -290,12 +331,13 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
         // Configure the marshal
         let marshal_endpoint = format!("127.0.0.1:{marshal_port}");
-        let marshal_config = MarshalConfigBuilder::default()
-            .bind_address(marshal_endpoint.clone())
-            .metrics_enabled(false)
-            .discovery_endpoint(discovery_endpoint)
-            .build()
-            .expect("failed to build marshal config");
+        let marshal_config = MarshalConfig {
+            bind_endpoint: marshal_endpoint.clone(),
+            discovery_endpoint,
+            metrics_bind_endpoint: None,
+            ca_cert_path: None,
+            ca_key_path: None,
+        };
 
         // Spawn the marshal
         async_spawn(async move {
@@ -323,21 +365,21 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
                     // Calculate if we're DA or not
                     let topics = if node_id < da_committee_size as u64 {
-                        vec![Topic::DA, Topic::Global]
+                        vec![Topic::DA as u8, Topic::Global as u8]
                     } else {
-                        vec![Topic::Global]
+                        vec![Topic::Global as u8]
                     };
 
                     // Configure our client
-                    let client_config = ClientConfigBuilder::default()
-                        .keypair(KeyPair {
+                    let client_config: ClientConfig<ClientDef<TYPES>> = ClientConfig {
+                        keypair: KeyPair {
                             public_key: WrappedSignatureKey(public_key),
                             private_key,
-                        })
-                        .subscribed_topics(topics)
-                        .endpoint(marshal_endpoint)
-                        .build()
-                        .expect("failed to build client config");
+                        },
+                        subscribed_topics: topics,
+                        endpoint: marshal_endpoint,
+                        use_local_authority: true,
+                    };
 
                     // Create our client
                     let client = Arc::new(PushCdnNetwork {
@@ -346,7 +388,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                         is_paused: Arc::from(AtomicBool::new(false)),
                     });
 
-                    (client.clone(), client)
+                    (Arc::clone(&client), client)
                 })
             }
         })
@@ -521,7 +563,4 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
     }
-
-    /// We don't need to poll.
-    async fn inject_consensus_info(&self, _event: ConsensusIntentEvent<TYPES::SignatureKey>) {}
 }

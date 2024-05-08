@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::{bail, Context};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
@@ -12,19 +13,20 @@ use hotshot_builder_api::block_info::{
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
+    data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
-        block_contents::{BlockHeader, BuilderFee},
+        block_contents::{precompute_vid_commitment, BuilderFee},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
         BlockPayload,
     },
-    utils::BuilderCommitment,
+    utils::ViewInner,
+    vid::VidCommitment,
 };
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -74,6 +76,8 @@ pub struct TransactionTaskState<
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// InstanceState
+    pub instance_state: Arc<TYPES::InstanceState>,
     /// This state's ID
     pub id: u64,
 }
@@ -86,7 +90,7 @@ impl<
     > TransactionTaskState<TYPES, I, A, Ver>
 {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -123,6 +127,7 @@ impl<
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
+                let block_view = if make_block { view } else { view + 1 };
 
                 if let Some(BuilderResponses {
                     block_data,
@@ -131,14 +136,14 @@ impl<
                 }) = self.wait_for_block().await
                 {
                     // send the sequenced transactions to VID and DA tasks
-                    let block_view = if make_block { view } else { view + 1 };
                     let encoded_transactions = match block_data.block_payload.encode() {
-                        Ok(encoded) => encoded.into_iter().collect::<Vec<u8>>(),
+                        Ok(encoded) => encoded,
                         Err(e) => {
                             error!("Failed to encode the block payload: {:?}.", e);
                             return None;
                         }
                     };
+
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
                             encoded_transactions,
@@ -146,6 +151,7 @@ impl<
                             block_view,
                             BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
+                                fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },
                             block_header.vid_precompute_data,
@@ -154,7 +160,53 @@ impl<
                     )
                     .await;
                 } else {
-                    error!("Failed to get a block from the builder");
+                    // If we couldn't get a block, send an empty block
+                    warn!(
+                        "Failed to get a block for view {:?}, proposing empty block",
+                        view
+                    );
+
+                    // Increment the metric for number of empty blocks proposed
+                    self.consensus
+                        .write()
+                        .await
+                        .metrics
+                        .number_of_empty_blocks_proposed
+                        .add(1);
+
+                    // Calculate the builder fee for the empty block
+                    let Some(builder_fee) = null_block::builder_fee(
+                        self.membership.total_nodes(),
+                        self.instance_state.as_ref(),
+                    ) else {
+                        error!("Failed to get builder fee");
+                        return None;
+                    };
+
+                    // Create an empty block payload and metadata
+                    let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
+                        vec![],
+                        &self.instance_state,
+                    ) else {
+                        error!("Failed to create empty block payload");
+                        return None;
+                    };
+
+                    let (_, precompute_data) =
+                        precompute_vid_commitment(&[], self.membership.total_nodes());
+
+                    // Broadcast the empty block
+                    broadcast_event(
+                        Arc::new(HotShotEvent::BlockRecv(
+                            vec![].into(),
+                            metadata,
+                            block_view,
+                            builder_fee,
+                            precompute_data,
+                        )),
+                        &event_stream,
+                    )
+                    .await;
                 };
 
                 return None;
@@ -168,7 +220,7 @@ impl<
     }
 
     /// Get last known builder commitment from consensus.
-    async fn latest_known_builder_commitment(&self) -> BuilderCommitment {
+    async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
         let consensus = self.consensus.read().await;
 
         let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
@@ -177,203 +229,175 @@ impl<
         while prev_view != TYPES::Time::genesis() {
             if let Some(commitment) =
                 consensus
-                    .validated_state_map
+                    .validated_state_map()
                     .get(&prev_view)
                     .and_then(|view| match view.view_inner {
                         // For a view for which we have a Leaf stored
-                        hotshot_types::utils::ViewInner::Leaf { leaf, .. } => consensus
-                            .saved_leaves
+                        ViewInner::DA { payload_commitment } => Some(payload_commitment),
+                        ViewInner::Leaf { leaf, .. } => consensus
+                            .saved_leaves()
                             .get(&leaf)
-                            .map(Leaf::get_block_header)
-                            .map(BlockHeader::builder_commitment), // and return it's commitment
-                        _ => None,
+                            .map(Leaf::get_payload_commitment),
+                        ViewInner::Failed => None,
                     })
             {
-                return commitment;
+                return (prev_view, commitment);
             }
             prev_view = prev_view - 1;
         }
 
         // If not found, return commitment for last decided block
-        consensus
-            .get_decided_leaf()
-            .get_block_header()
-            .builder_commitment()
+        (
+            prev_view,
+            consensus.get_decided_leaf().get_payload_commitment(),
+        )
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction Handling Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "wait_for_block", level = "error")]
     async fn wait_for_block(&self) -> Option<BuilderResponses<TYPES>> {
         let task_start_time = Instant::now();
 
         // Find commitment to the block we want to build upon
-        let parent_commitment = self.latest_known_builder_commitment().await;
-
-        let mut latest_block: Option<BuilderResponses<TYPES>> = None;
-        let mut first_iteration = true;
-        while task_start_time.elapsed() < self.api.propose_max_round_time()
-            && latest_block.as_ref().map_or(true, |builder_response| {
-                builder_response
-                    .block_data
-                    .block_payload
-                    .num_transactions(&builder_response.block_data.metadata)
-                    < self.api.min_transactions()
-            })
-        {
-            // Sleep if this isn't the first iteration
-            if first_iteration {
-                first_iteration = false;
-            } else {
-                async_sleep(Duration::from_millis(100)).await;
+        let (view_num, parent_comm) = self.latest_known_vid_commitment().await;
+        let parent_comm_sig = match <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
+            &self.private_key,
+            parent_comm.as_ref(),
+        ) {
+            Ok(sig) => sig,
+            Err(err) => {
+                error!(%err, "Failed to sign block hash");
+                return None;
             }
+        };
 
-            let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
-                &self.private_key,
-                parent_commitment.as_ref(),
-            ) else {
-                error!("Failed to sign block hash");
-                continue;
-            };
-
-            let mut available_blocks = match self
-                .builder_client
-                .get_available_blocks(
-                    parent_commitment.clone(),
-                    self.public_key.clone(),
-                    &request_signature,
-                )
-                .await
+        while task_start_time.elapsed() < self.api.builder_timeout() {
+            match async_compatibility_layer::art::async_timeout(
+                self.api
+                    .builder_timeout()
+                    .saturating_sub(task_start_time.elapsed()),
+                self.get_block_from_builder(parent_comm, view_num, &parent_comm_sig),
+            )
+            .await
             {
-                Ok(blocks) => blocks,
-                Err(err) => {
-                    error!(%err, "Couldn't get available blocks");
+                // We got a block
+                Ok(Ok(block)) => {
+                    return Some(block);
+                }
+
+                // We failed to get a block
+                Ok(Err(err)) => {
+                    tracing::warn!(%err, "Couldn't get a block");
+                    // pause a bit
+                    async_sleep(Duration::from_millis(100)).await;
                     continue;
                 }
-            };
 
-            available_blocks.sort_by_key(|block_info| block_info.offered_fee);
-
-            let Some(block_info) = available_blocks.pop() else {
-                continue;
-            };
-
-            // Verify signature over chosen block instead of
-            // verifying the signature over all the blocks received from builder
-            let combined_message_bytes = {
-                let mut combined_response_bytes: Vec<u8> = Vec::new();
-                combined_response_bytes
-                    .extend_from_slice(block_info.block_size.to_be_bytes().as_ref());
-                combined_response_bytes
-                    .extend_from_slice(block_info.offered_fee.to_be_bytes().as_ref());
-                combined_response_bytes.extend_from_slice(block_info.block_hash.as_ref());
-                combined_response_bytes
-            };
-            if !block_info
-                .sender
-                .validate_builder_signature(&block_info.signature, &combined_message_bytes)
-            {
-                error!("Failed to verify available block info response message signature");
-                continue;
-            }
-
-            // Don't try to re-claim the same block if builder advertises it again
-            if latest_block.as_ref().map_or(false, |builder_response| {
-                builder_response
-                    .block_data
-                    .block_payload
-                    .builder_commitment(&builder_response.block_data.metadata)
-                    == block_info.block_hash
-            }) {
-                continue;
-            }
-
-            let Ok(request_signature) = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
-                &self.private_key,
-                block_info.block_hash.as_ref(),
-            ) else {
-                error!("Failed to sign block hash");
-                continue;
-            };
-
-            let (block, header_input) = futures::join! {
-                self.builder_client.claim_block(block_info.block_hash.clone(), self.public_key.clone(), &request_signature),
-                self.builder_client.claim_block_header_input(block_info.block_hash.clone(), self.public_key.clone(), &request_signature)
-            };
-
-            let block_data = match block {
-                Ok(block_data) => {
-                    // verify the signature over the message, construct the builder commitment
-                    let builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(&block_data.metadata);
-                    if !block_data.sender.validate_builder_signature(
-                        &block_data.signature,
-                        builder_commitment.as_ref(),
-                    ) {
-                        error!("Failed to verify available block data response message signature");
-                        continue;
-                    }
-                    block_data
-                }
+                // We timed out while getting available blocks
                 Err(err) => {
-                    error!(%err, "Failed to claim block");
-                    continue;
+                    error!(%err, "Timeout while getting available blocks");
+                    return None;
                 }
-            };
-
-            let header_input = match header_input {
-                Ok(header_input) => {
-                    // first verify the message signature and later verify the fee_signature
-                    if !header_input.sender.validate_builder_signature(
-                        &header_input.message_signature,
-                        header_input.vid_commitment.as_ref(),
-                    ) {
-                        error!("Failed to verify available block header input data response message signature");
-                        continue;
-                    }
-
-                    let offered_fee = block_info.offered_fee;
-                    let builder_commitment = block_data
-                        .block_payload
-                        .builder_commitment(&block_data.metadata);
-                    let vid_commitment = header_input.vid_commitment;
-                    let combined_response_bytes = {
-                        let mut combined_response_bytes: Vec<u8> = Vec::new();
-                        combined_response_bytes
-                            .extend_from_slice(offered_fee.to_be_bytes().as_ref());
-                        combined_response_bytes.extend_from_slice(builder_commitment.as_ref());
-                        combined_response_bytes.extend_from_slice(vid_commitment.as_ref());
-                        combined_response_bytes
-                    };
-                    // verify the signature over the message
-                    if !header_input.sender.validate_builder_signature(
-                        &header_input.fee_signature,
-                        combined_response_bytes.as_ref(),
-                    ) {
-                        error!("Failed to verify fee signature");
-                        continue;
-                    }
-                    header_input
-                }
-                Err(err) => {
-                    error!(%err, "Failed to claim block");
-                    continue;
-                }
-            };
-
-            let num_txns = block_data
-                .block_payload
-                .num_transactions(&block_data.metadata);
-
-            latest_block = Some(BuilderResponses {
-                blocks_initial_info: block_info,
-                block_data,
-                block_header: header_input,
-            });
-            if num_txns >= self.api.min_transactions() {
-                return latest_block;
             }
         }
-        latest_block
+
+        tracing::warn!("could not get a block from the builder in time");
+        None
+    }
+
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "get_block_from_builder", level = "error")]
+    async fn get_block_from_builder(
+        &self,
+        parent_comm: VidCommitment,
+        view_number: TYPES::Time,
+        parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> anyhow::Result<BuilderResponses<TYPES>> {
+        let available_blocks = self
+            .builder_client
+            .get_available_blocks(
+                parent_comm,
+                view_number.get_u64(),
+                self.public_key.clone(),
+                parent_comm_sig,
+            )
+            .await
+            .context("getting available blocks")?;
+        tracing::debug!("Got available blocks: {available_blocks:?}");
+
+        let block_info = available_blocks
+            .into_iter()
+            .max_by(|l, r| {
+                // We want the block with the highest fee per byte of data we're going to have to
+                // process, thus our comparision function is:
+                //      (l.offered_fee / l.block_size) < (r.offered_fee / r.block_size)
+                // To avoid floating point math (which doesn't even have an `Ord` impl) we multiply
+                // through by the denominators to get
+                //      l.offered_fee * r.block_size < r.offered_fee * l.block_size
+                // We cast up to u128 to avoid overflow.
+                (u128::from(l.offered_fee) * u128::from(r.block_size))
+                    .cmp(&(u128::from(r.offered_fee) * u128::from(l.block_size)))
+            })
+            .context("no available blocks")?;
+        tracing::debug!("Selected block: {block_info:?}");
+
+        // Verify signature over chosen block.
+        if !block_info.sender.validate_block_info_signature(
+            &block_info.signature,
+            block_info.block_size,
+            block_info.offered_fee,
+            &block_info.block_hash,
+        ) {
+            bail!("Failed to verify available block info response message signature");
+        }
+
+        let request_signature = <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
+            &self.private_key,
+            block_info.block_hash.as_ref(),
+        )
+        .context("signing block hash")?;
+
+        let (block, header_input) = futures::join! {
+            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature),
+            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature)
+        };
+
+        let block_data = block.context("claiming block data")?;
+
+        // verify the signature over the message, construct the builder commitment
+        let builder_commitment = block_data
+            .block_payload
+            .builder_commitment(&block_data.metadata);
+        if !block_data
+            .sender
+            .validate_builder_signature(&block_data.signature, builder_commitment.as_ref())
+        {
+            bail!("Failed to verify available block data response message signature");
+        }
+
+        let header_input = header_input.context("claiming header input")?;
+
+        // first verify the message signature and later verify the fee_signature
+        if !header_input.sender.validate_builder_signature(
+            &header_input.message_signature,
+            header_input.vid_commitment.as_ref(),
+        ) {
+            bail!("Failed to verify available block header input data response message signature");
+        }
+
+        // verify the signature over the message
+        if !header_input.sender.validate_fee_signature(
+            &header_input.fee_signature,
+            block_info.offered_fee,
+            &block_data.metadata,
+            &header_input.vid_commitment,
+        ) {
+            bail!("Failed to verify fee signature");
+        }
+
+        Ok(BuilderResponses {
+            blocks_initial_info: block_info,
+            block_data,
+            block_header: header_input,
+        })
     }
 }
 

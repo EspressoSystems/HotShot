@@ -5,9 +5,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use committable::Commitment;
+use anyhow::{ensure, Result};
+use committable::{Commitment, Committable};
 use displaydoc::Display;
-use tracing::error;
+use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
@@ -15,7 +16,8 @@ use crate::{
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, ViewSyncFinalizeCertificate2,
+        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     traits::{
         block_contents::BuilderFee,
@@ -41,21 +43,21 @@ pub type VidShares<TYPES> = BTreeMap<
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
 pub struct Consensus<TYPES: NodeType> {
-    /// Immutable instance-level state.
-    pub instance_state: TYPES::InstanceState,
-
     /// The validated states that are currently loaded in memory.
-    pub validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+    validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
 
     /// All the VID shares we've received for current and future views.
-    pub vid_shares: VidShares<TYPES>,
+    vid_shares: VidShares<TYPES>,
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
-    pub saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+    saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
 
     /// View number that is currently on.
-    pub cur_view: TYPES::Time,
+    cur_view: TYPES::Time,
+
+    /// View we proposed in last.  To prevent duplicate proposals
+    pub last_proposed_view: TYPES::Time,
 
     /// last view had a successful decide event
     pub last_decided_view: TYPES::Time,
@@ -63,21 +65,32 @@ pub struct Consensus<TYPES: NodeType> {
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    pub saved_leaves: CommitmentMap<Leaf<TYPES>>,
+    saved_leaves: CommitmentMap<Leaf<TYPES>>,
 
     /// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    pub saved_payloads: BTreeMap<TYPES::Time, Vec<u8>>,
+    pub saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<TYPES>,
+    high_qc: QuorumCertificate<TYPES>,
 
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
+
+    /// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    pub dontuse_formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// most recent decided upgrade certificate
+    pub dontuse_decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -103,6 +116,8 @@ pub struct ConsensusMetricsValue {
     pub outstanding_transactions_memory_size: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
+    /// The number of empty blocks that have been proposed
+    pub number_of_empty_blocks_proposed: Box<dyn Counter>,
 }
 
 /// The wrapper with a string name for the networking metrics
@@ -239,6 +254,8 @@ impl ConsensusMetricsValue {
             outstanding_transactions_memory_size: metrics
                 .create_gauge(String::from("outstanding_transactions_memory_size"), None),
             number_of_timeouts: metrics.create_counter(String::from("number_of_timeouts"), None),
+            number_of_empty_blocks_proposed: metrics
+                .create_counter(String::from("number_of_empty_blocks_proposed"), None),
         }
     }
 }
@@ -250,12 +267,113 @@ impl Default for ConsensusMetricsValue {
 }
 
 impl<TYPES: NodeType> Consensus<TYPES> {
-    /// Update the current view.
-    pub fn update_view(&mut self, view_number: TYPES::Time) {
-        self.cur_view = view_number;
+    /// Constructor.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+        cur_view: TYPES::Time,
+        last_decided_view: TYPES::Time,
+        saved_leaves: CommitmentMap<Leaf<TYPES>>,
+        saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
+        locked_view: TYPES::Time,
+        high_qc: QuorumCertificate<TYPES>,
+        metrics: Arc<ConsensusMetricsValue>,
+    ) -> Self {
+        Consensus {
+            validated_state_map,
+            vid_shares: BTreeMap::new(),
+            saved_da_certs: HashMap::new(),
+            cur_view,
+            last_decided_view,
+            last_proposed_view: last_decided_view,
+            saved_leaves,
+            saved_payloads,
+            locked_view,
+            high_qc,
+            metrics,
+            dontuse_decided_upgrade_cert: None,
+            dontuse_formed_upgrade_certificate: None,
+        }
     }
 
-    /// gather information from the parent chain of leafs
+    /// Get the current view.
+    pub fn cur_view(&self) -> TYPES::Time {
+        self.cur_view
+    }
+
+    /// Get the high QC.
+    pub fn high_qc(&self) -> &QuorumCertificate<TYPES> {
+        &self.high_qc
+    }
+
+    /// Get the validated state map.
+    pub fn validated_state_map(&self) -> &BTreeMap<TYPES::Time, View<TYPES>> {
+        &self.validated_state_map
+    }
+
+    /// Get the saved leaves.
+    pub fn saved_leaves(&self) -> &CommitmentMap<Leaf<TYPES>> {
+        &self.saved_leaves
+    }
+
+    /// Get the vid shares.
+    pub fn vid_shares(&self) -> &VidShares<TYPES> {
+        &self.vid_shares
+    }
+
+    /// Get the saved DA certs.
+    pub fn saved_da_certs(&self) -> &HashMap<TYPES::Time, DACertificate<TYPES>> {
+        &self.saved_da_certs
+    }
+
+    /// Update the current view.
+    /// # Errors
+    /// Can return an error when the new view_number is not higher than the existing view number.
+    pub fn update_view(&mut self, view_number: TYPES::Time) -> Result<()> {
+        ensure!(view_number > self.cur_view);
+        self.cur_view = view_number;
+        Ok(())
+    }
+
+    /// Update the validated state map with a new view_number/view combo.
+    pub fn update_validated_state_map(&mut self, view_number: TYPES::Time, view: View<TYPES>) {
+        self.validated_state_map.insert(view_number, view);
+    }
+
+    /// Update the saved leaves with a new leaf.
+    pub fn update_saved_leaves(&mut self, leaf: Leaf<TYPES>) {
+        self.saved_leaves.insert(leaf.commit(), leaf);
+    }
+
+    /// Update the high QC if given a newer one.
+    /// # Errors
+    /// Can return an error when the provided high_qc is not newer than the existing entry.
+    pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
+        ensure!(high_qc.view_number > self.high_qc.view_number);
+        debug!("Updating high QC");
+        self.high_qc = high_qc;
+
+        Ok(())
+    }
+
+    /// Add a new entry to the vid_shares map.
+    pub fn update_vid_shares(
+        &mut self,
+        view_number: TYPES::Time,
+        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    ) {
+        self.vid_shares
+            .entry(view_number)
+            .or_default()
+            .insert(disperse.data.recipient_key.clone(), disperse);
+    }
+
+    /// Add a new entry to the da_certs map.
+    pub fn update_saved_da_certs(&mut self, view_number: TYPES::Time, cert: DACertificate<TYPES>) {
+        self.saved_da_certs.insert(view_number, cert);
+    }
+
+    /// gather information from the parent chain of leaves
     /// # Errors
     /// If the leaf or its ancestors are not found in storage
     pub fn visit_leaf_ancestors<F>(
@@ -406,6 +524,8 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
     /// Builder fee data
     pub fee: BuilderFee<TYPES>,
+    /// View number this block is for
+    pub block_view: TYPES::Time,
 }
 
 /// Helper type to hold the optional secondary information required to propose.

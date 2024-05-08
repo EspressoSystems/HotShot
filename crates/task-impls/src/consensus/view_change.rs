@@ -9,12 +9,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
-    constants::LOOK_AHEAD,
-    traits::{
-        election::Membership,
-        network::{ConnectedNetwork, ConsensusIntentEvent},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    },
+    traits::node_implementation::{ConsensusTime, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -25,22 +20,25 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 
+/// Constant which tells [`update_view`] to send a view change event when called.
+pub(crate) const SEND_VIEW_CHANGE_EVENT: bool = true;
+
+/// Constant which tells [`update_view`] to not send a view change event when called.
+pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
+
 /// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
 /// `timeout_task` which are updated during the operation of the function.
 ///
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    public_key: TYPES::SignatureKey,
+pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    quorum_membership: Arc<TYPES::Membership>,
-    quorum_network: Arc<I::QuorumNetwork>,
     timeout: u64,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,
     timeout_task: &mut Option<JoinHandle<()>>,
+    send_view_change_event: bool,
 ) -> Result<()> {
     ensure!(
         new_view > *cur_view,
@@ -62,37 +60,12 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     *cur_view = new_view;
 
-    // Poll the future leader for lookahead
-    let lookahead_view = new_view + LOOK_AHEAD;
-    if quorum_membership.get_leader(lookahead_view) != public_key {
-        quorum_network
-            .inject_consensus_info(ConsensusIntentEvent::PollFutureLeader(
-                *lookahead_view,
-                quorum_membership.get_leader(lookahead_view),
-            ))
-            .await;
-    }
-
     // The next view is just the current view + 1
     let next_view = *cur_view + 1;
 
-    // Start polling for proposals for the new view
-    quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForProposal(*next_view))
-        .await;
-
-    quorum_network
-        .inject_consensus_info(ConsensusIntentEvent::PollForDAC(*next_view))
-        .await;
-
-    if quorum_membership.get_leader(next_view) == public_key {
-        debug!("Polling for quorum votes for view {}", **cur_view);
-        quorum_network
-            .inject_consensus_info(ConsensusIntentEvent::PollForVotes(**cur_view))
-            .await;
+    if send_view_change_event {
+        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
     }
-
-    broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
 
     // Spawn a timeout task if we did actually update view
     *timeout_task = Some(async_spawn({
@@ -126,7 +99,10 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         );
     }
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-    consensus.update_view(new_view);
+    if let Err(e) = consensus.update_view(new_view) {
+        tracing::trace!("{e:?}");
+    }
+    tracing::trace!("View updated successfully");
 
     Ok(())
 }

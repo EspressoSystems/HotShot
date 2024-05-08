@@ -8,19 +8,26 @@ use std::{
     fmt::{Debug, Display},
     future::Future,
     hash::Hash,
+    sync::Arc,
 };
 
 use committable::{Commitment, Committable};
 use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::signature_key::BuilderSignatureKey;
 use crate::{
     data::Leaf,
-    traits::{node_implementation::NodeType, ValidatedState},
+    traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
     utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidSchemeType},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
 };
+
+/// Trait for structures that need to be unambiguously encoded as bytes.
+pub trait EncodeBytes {
+    /// Encode `&self`
+    fn encode(&self) -> Arc<[u8]>;
+}
 
 /// Abstraction over any type of transaction. Used by [`BlockPayload`].
 pub trait Transaction:
@@ -42,16 +49,20 @@ pub trait BlockPayload:
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync + Serialize + DeserializeOwned;
 
+    /// The type of the instance-level state this state is associated with
+    type Instance: InstanceState;
     /// The type of the transitions we are applying
     type Transaction: Transaction;
-
     /// Data created during block building which feeds into the block header
-    type Metadata: Clone + Debug + DeserializeOwned + Eq + Hash + Send + Sync + Serialize;
-
-    /// Encoded payload.
-    type Encode<'a>: 'a + Iterator<Item = u8> + Send
-    where
-        Self: 'a;
+    type Metadata: Clone
+        + Debug
+        + DeserializeOwned
+        + Eq
+        + Hash
+        + Send
+        + Sync
+        + Serialize
+        + EncodeBytes;
 
     /// Build a payload and associated metadata with the transactions.
     ///
@@ -59,15 +70,12 @@ pub trait BlockPayload:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
+        instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
-    ///
-    /// `I` may be, but not necessarily is, the `Encode` type directly from `fn encode`.
-    fn from_bytes<I>(encoded_transactions: I, metadata: &Self::Metadata) -> Self
-    where
-        I: Iterator<Item = u8>;
+    fn from_bytes(encoded_transactions: &[u8], metadata: &Self::Metadata) -> Self;
 
     /// Build the genesis payload and metadata.
     fn genesis() -> (Self, Self::Metadata);
@@ -76,7 +84,7 @@ pub trait BlockPayload:
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    fn encode(&self) -> Result<Self::Encode<'_>, Self::Error>;
+    fn encode(&self) -> Result<Arc<[u8]>, Self::Error>;
 
     /// List of transaction commitments.
     fn transaction_commitments(
@@ -119,10 +127,11 @@ pub trait TestableBlock: BlockPayload + Debug {
 #[must_use]
 #[allow(clippy::panic)]
 pub fn vid_commitment(
-    encoded_transactions: &Vec<u8>,
+    encoded_transactions: &[u8],
     num_storage_nodes: usize,
 ) -> <VidSchemeType as VidScheme>::Commit {
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}", encoded_transactions.len()))
+    let encoded_tx_len = encoded_transactions.len();
+    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
 }
 
 /// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
@@ -131,13 +140,14 @@ pub fn vid_commitment(
 #[must_use]
 #[allow(clippy::panic)]
 pub fn precompute_vid_commitment(
-    encoded_transactions: &Vec<u8>,
+    encoded_transactions: &[u8],
     num_storage_nodes: usize,
 ) -> (
     <VidSchemeType as VidScheme>::Commit,
     <VidSchemeType as Precomputable>::PrecomputeData,
 ) {
-    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{}) error: {err}", encoded_transactions.len()))
+    let encoded_tx_len = encoded_transactions.len();
+    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.
@@ -146,12 +156,14 @@ pub fn precompute_vid_commitment(
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
 pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// Information about builder fee for proposed block
 pub struct BuilderFee<TYPES: NodeType> {
     /// Proposed fee amount
     pub fee_amount: u64,
-    /// Signature over fee amount
+    /// Account authorizing the fee.
+    pub fee_account: TYPES::BuilderSignatureKey,
+    /// Signature over fee amount by `fee_account`.
     pub fee_signature: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
 }
 
@@ -159,8 +171,12 @@ pub struct BuilderFee<TYPES: NodeType> {
 pub trait BlockHeader<TYPES: NodeType>:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
 {
+    /// Error type for this type of block header
+    type Error: Error + Debug + Send + Sync;
+
     /// Build a header with the parent validate state, instance-level state, parent leaf, payload
     /// commitment, and metadata.
+    #[allow(clippy::too_many_arguments)]
     fn new(
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
@@ -169,7 +185,8 @@ pub trait BlockHeader<TYPES: NodeType>:
         builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         builder_fee: BuilderFee<TYPES>,
-    ) -> impl Future<Output = Self> + Send;
+        vid_common: VidCommon,
+    ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
     /// Build the genesis header, payload, and metadata.
     fn genesis(

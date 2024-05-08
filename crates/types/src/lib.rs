@@ -5,7 +5,7 @@ use bincode::Options;
 use displaydoc::Display;
 use light_client::StateVerKey;
 use tracing::error;
-use traits::{election::ElectionConfig, signature_key::SignatureKey};
+use traits::signature_key::SignatureKey;
 use url::Url;
 
 use crate::utils::bincode_opts;
@@ -68,12 +68,19 @@ pub struct ValidatorConfig<KEY: SignatureKey> {
     pub stake_value: u64,
     /// the validator's key pairs for state signing/verification
     pub state_key_pair: light_client::StateKeyPair,
+    /// Whether or not this validator is DA
+    pub is_da: bool,
 }
 
 impl<KEY: SignatureKey> ValidatorConfig<KEY> {
-    /// generate validator config from input seed, index and stake value
+    /// generate validator config from input seed, index, stake value, and whether it's DA
     #[must_use]
-    pub fn generated_from_seed_indexed(seed: [u8; 32], index: u64, stake_value: u64) -> Self {
+    pub fn generated_from_seed_indexed(
+        seed: [u8; 32],
+        index: u64,
+        stake_value: u64,
+        is_da: bool,
+    ) -> Self {
         let (public_key, private_key) = KEY::generated_from_seed_indexed(seed, index);
         let state_key_pairs = light_client::StateKeyPair::generate_from_seed_indexed(seed, index);
         Self {
@@ -81,6 +88,7 @@ impl<KEY: SignatureKey> ValidatorConfig<KEY> {
             private_key,
             stake_value,
             state_key_pair: state_key_pairs,
+            is_da,
         }
     }
 
@@ -95,11 +103,11 @@ impl<KEY: SignatureKey> ValidatorConfig<KEY> {
 
 impl<KEY: SignatureKey> Default for ValidatorConfig<KEY> {
     fn default() -> Self {
-        Self::generated_from_seed_indexed([0u8; 32], 0, 1)
+        Self::generated_from_seed_indexed([0u8; 32], 0, 1, true)
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// structure of peers' config, including public key, stake value, and state key.
 pub struct PeerConfig<KEY: SignatureKey> {
@@ -147,20 +155,21 @@ impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
 /// Holds configuration for a `HotShot`
 #[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
-pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
+pub struct HotShotConfig<KEY: SignatureKey> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
+    /// The proportion of nodes required before the orchestrator issues the ready signal,
+    /// expressed as (numerator, denominator)
+    pub start_threshold: (u64, u64),
     /// Total number of nodes in the network
     // Earlier it was total_nodes
     pub num_nodes_with_stake: NonZeroUsize,
     /// Number of nodes without stake
     pub num_nodes_without_stake: usize,
-    /// Minimum transactions per block
-    pub min_transactions: usize,
-    /// Maximum transactions per block
-    pub max_transactions: NonZeroUsize,
     /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
     pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
+    /// All public keys known to be DA nodes
+    pub known_da_nodes: Vec<PeerConfig<KEY>>,
     /// List of known non-staking nodes' public keys
     pub known_nodes_without_stake: Vec<KEY>,
     /// My own validator config, including my public key, private key, stake value, serving as private parameter
@@ -183,14 +192,10 @@ pub struct HotShotConfig<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig> {
     pub start_delay: u64,
     /// Number of network bootstrap nodes
     pub num_bootstrap: usize,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
+    /// The maximum amount of time a leader can wait to get a block from a builder
+    pub builder_timeout: Duration,
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
-    /// the election configuration
-    pub election_config: Option<ELECTIONCONFIG>,
     /// Builder API base URL
     pub builder_url: Url,
 }

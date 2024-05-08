@@ -91,7 +91,7 @@ where
 /// - Initialize network nodes
 /// - Kill network nodes
 /// - A test assertion fails
-pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G: Clone, FutG>(
+pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G, FutG>(
     run_test: F,
     client_handler: G,
     num_nodes: usize,
@@ -101,7 +101,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G: C
     FutF: Future<Output = ()>,
     FutG: Future<Output = Result<(), NetworkNodeHandleError>> + 'static + Send + Sync,
     F: FnOnce(Vec<HandleWithState<S>>, Duration) -> FutF,
-    G: Fn(NetworkEvent, HandleWithState<S>) -> FutG + 'static + Send + Sync,
+    G: Fn(NetworkEvent, HandleWithState<S>) -> FutG + 'static + Send + Sync + Clone,
 {
     setup_logging();
     setup_backtrace();
@@ -212,7 +212,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
         info!("listen addr for {} is {:?}", i, addr);
         bootstrap_addrs.push((node.peer_id(), addr));
         connecting_futs.push({
-            let node = node.clone();
+            let node = Arc::clone(&node);
             async move {
                 node.begin_bootstrap().await?;
                 node.lookup_pid(PeerId::random()).await
@@ -220,7 +220,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
             .boxed_local()
         });
         let node_with_state = HandleWithState {
-            handle: node.clone(),
+            handle: Arc::clone(&node),
             state: Arc::default(),
         };
         handles.push((node_with_state, rx));
@@ -248,7 +248,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
 
         let node = Arc::new(node);
         connecting_futs.push({
-            let node = node.clone();
+            let node = Arc::clone(&node);
             async move {
                 node.begin_bootstrap().await?;
                 node.lookup_pid(PeerId::random()).await
@@ -256,7 +256,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
             .boxed_local()
         });
         let node_with_state = HandleWithState {
-            handle: node.clone(),
+            handle: Arc::clone(&node),
             state: Arc::default(),
         };
         handles.push((node_with_state, rx));

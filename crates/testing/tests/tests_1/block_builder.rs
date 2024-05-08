@@ -23,13 +23,23 @@ async fn test_random_block_builder() {
     use std::time::Instant;
 
     use hotshot_builder_api::block_info::AvailableBlockData;
+    use hotshot_example_types::block_types::TestMetadata;
     use hotshot_orchestrator::config::RandomBuilderConfig;
-    use hotshot_types::utils::BuilderCommitment;
+    use hotshot_types::traits::block_contents::vid_commitment;
 
     let port = portpicker::pick_unused_port().expect("Could not find an open port");
     let api_url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
 
-    run_random_builder::<TestTypes>(api_url.clone(), 1, RandomBuilderConfig::default());
+    run_random_builder::<TestTypes>(
+        api_url.clone(),
+        1,
+        RandomBuilderConfig {
+            // Essentially removes delays so that builder doesn't slow
+            // down the test
+            blocks_per_second: u32::MAX,
+            ..Default::default()
+        },
+    );
     let builder_started = Instant::now();
 
     let client: BuilderClient<TestTypes, Version01> = BuilderClient::new(api_url);
@@ -39,11 +49,17 @@ async fn test_random_block_builder() {
         <TestTypes as NodeType>::SignatureKey::generated_from_seed_indexed([0_u8; 32], 0);
     let signature = <TestTypes as NodeType>::SignatureKey::sign(&private_key, &[0_u8; 32])
         .expect("Failed to create dummy signature");
+    let dummy_view_number = 0u64;
 
     let mut blocks = loop {
         // Test getting blocks
         let blocks = client
-            .get_available_blocks(BuilderCommitment::from_bytes(&vec![]), pub_key, &signature)
+            .get_available_blocks(
+                vid_commitment(&[], 1),
+                dummy_view_number,
+                pub_key,
+                &signature,
+            )
             .await
             .expect("Failed to get available blocks");
 
@@ -60,7 +76,12 @@ async fn test_random_block_builder() {
     };
 
     let _: AvailableBlockData<TestTypes> = client
-        .claim_block(blocks.pop().unwrap().block_hash, pub_key, &signature)
+        .claim_block(
+            blocks.pop().unwrap().block_hash,
+            dummy_view_number,
+            pub_key,
+            &signature,
+        )
         .await
         .expect("Failed to claim block");
 
@@ -68,9 +89,14 @@ async fn test_random_block_builder() {
     let commitment_for_non_existent_block = TestBlockPayload {
         transactions: vec![TestTransaction(vec![0; 1])],
     }
-    .builder_commitment(&());
+    .builder_commitment(&TestMetadata);
     let result = client
-        .claim_block(commitment_for_non_existent_block, pub_key, &signature)
+        .claim_block(
+            commitment_for_non_existent_block,
+            dummy_view_number,
+            pub_key,
+            &signature,
+        )
         .await;
     assert!(matches!(result, Err(BuilderClientError::NotFound)));
 }

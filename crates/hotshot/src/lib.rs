@@ -33,9 +33,9 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
-    event::EventType,
+    event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{
@@ -58,7 +58,7 @@ use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
 #[cfg(feature = "dependency-tasks")]
-use crate::tasks::{add_quorum_proposal_task, add_quorum_vote_task};
+use crate::tasks::{add_quorum_proposal_recv_task, add_quorum_proposal_task, add_quorum_vote_task};
 use crate::{
     tasks::{
         add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
@@ -113,7 +113,6 @@ pub struct Memberships<TYPES: NodeType> {
 }
 
 /// Holds the state needed to participate in `HotShot` consensus
-#[derive(Clone)]
 pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
@@ -122,7 +121,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    pub config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub config: HotShotConfig<TYPES::SignatureKey>,
 
     /// Networks used by the instance of hotshot
     pub networks: Arc<Networks<TYPES, I>>,
@@ -131,17 +130,31 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub memberships: Arc<Memberships<TYPES>>,
 
     /// the metrics that the implementor is using.
-    _metrics: Arc<ConsensusMetricsValue>,
+    metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 
+    /// Immutable instance state
+    instance_state: Arc<TYPES::InstanceState>,
+
     /// The network version
     version: Arc<RwLock<Version>>,
 
-    // global_registry: GlobalRegistry,
+    /// The view to enter when first starting consensus
+    start_view: TYPES::Time,
+
     /// Access to the output event stream.
+    #[deprecated(
+        note = "please use the `get_event_stream` method on `SystemContextHandle` instead. This field will be made private in a future release of HotShot"
+    )]
     pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+
+    /// External event stream for communication with the application.
+    pub(crate) external_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+
+    /// Anchored leaf provided by the initializer.
+    anchored_leaf: Leaf<TYPES>,
 
     /// access to the internal event stream, in case we need to, say, shut something down
     #[allow(clippy::type_complexity)]
@@ -156,8 +169,32 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the internal storage for consensus datum.
     pub storage: Arc<RwLock<I::Storage>>,
 }
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPES, I> {
+    #![allow(deprecated)]
+    fn clone(&self) -> Self {
+        Self {
+            public_key: self.public_key.clone(),
+            private_key: self.private_key.clone(),
+            config: self.config.clone(),
+            networks: Arc::clone(&self.networks),
+            memberships: Arc::clone(&self.memberships),
+            metrics: Arc::clone(&self.metrics),
+            consensus: Arc::clone(&self.consensus),
+            instance_state: Arc::clone(&self.instance_state),
+            version: Arc::clone(&self.version),
+            start_view: self.start_view,
+            output_event_stream: self.output_event_stream.clone(),
+            external_event_stream: self.external_event_stream.clone(),
+            anchored_leaf: self.anchored_leaf.clone(),
+            internal_event_stream: self.internal_event_stream.clone(),
+            id: self.id,
+            storage: Arc::clone(&self.storage),
+        }
+    }
+}
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
+    #![allow(deprecated)]
     /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
@@ -168,7 +205,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
@@ -180,6 +217,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
+
+        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
+        let (mut external_tx, mut external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+
+        // Allow overflow on the channel, otherwise sending to it may block.
+        external_rx.set_overflow(true);
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.
@@ -197,8 +240,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
-                    state: validated_state,
-                    delta: initializer.state_delta,
+                    state: Arc::clone(&validated_state),
+                    delta: initializer.state_delta.clone(),
                 },
             },
         );
@@ -209,44 +252,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let mut saved_leaves = HashMap::new();
         let mut saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+
         for leaf in initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         if let Some(payload) = anchored_leaf.get_block_payload() {
-            let encoded_txns: Vec<u8> = match payload.encode() {
-                // TODO (Keyao) [VALIDATED_STATE] - Avoid collect/copy on the encoded transaction bytes.
-                // <https://github.com/EspressoSystems/HotShot/issues/2115>
-                Ok(encoded) => encoded.into_iter().collect(),
+            let encoded_txns = match payload.encode() {
+                Ok(encoded) => encoded,
                 Err(e) => {
                     return Err(HotShotError::BlockError { source: e });
                 }
             };
 
-            saved_payloads.insert(anchored_leaf.get_view_number(), encoded_txns);
+            saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(&encoded_txns));
         }
 
-        let start_view = initializer.start_view;
-
-        let consensus = Consensus {
-            instance_state,
+        let consensus = Consensus::new(
             validated_state_map,
-            vid_shares: BTreeMap::new(),
-            cur_view: start_view,
-            last_decided_view: anchored_leaf.get_view_number(),
+            anchored_leaf.get_view_number(),
+            anchored_leaf.get_view_number(),
             saved_leaves,
             saved_payloads,
-            saved_da_certs: HashMap::new(),
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            locked_view: anchored_leaf.get_view_number(),
-            high_qc: initializer.high_qc,
-            metrics: consensus_metrics.clone(),
-        };
+            anchored_leaf.get_view_number(),
+            initializer.high_qc,
+            Arc::clone(&consensus_metrics),
+        );
+
         let consensus = Arc::new(RwLock::new(consensus));
         let version = Arc::new(RwLock::new(BASE_VERSION));
-
-        let (internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
-        let (mut external_tx, external_rx) = broadcast(EVENT_CHANNEL_SIZE);
 
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
@@ -255,15 +290,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
             consensus,
+            instance_state: Arc::new(instance_state),
             public_key,
             private_key,
             config,
             version,
+            start_view: initializer.start_view,
             networks: Arc::new(networks),
             memberships: Arc::new(memberships),
-            _metrics: consensus_metrics.clone(),
+            metrics: Arc::clone(&consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
-            output_event_stream: (external_tx, external_rx.deactivate()),
+            output_event_stream: (external_tx.clone(), external_rx.clone().deactivate()),
+            external_event_stream: (external_tx, external_rx.deactivate()),
+            anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
         });
 
@@ -276,18 +315,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
         debug!("Starting Consensus");
+        let consensus = self.consensus.read().await;
         self.internal_event_stream
             .0
-            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(0))))
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
             .await
             .expect("Genesis Broadcast failed");
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
-                QuorumCertificate::genesis(),
+                consensus.high_qc().clone(),
             ))))
             .await
             .expect("Genesis Broadcast failed");
+
+        {
+            // Some applications seem to expect a leaf decide event for the genesis leaf,
+            // which contains only that leaf and nothing else.
+            if self.anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+                let (validated_state, state_delta) =
+                    TYPES::ValidatedState::genesis(&self.instance_state);
+                broadcast_event(
+                    Event {
+                        view_number: self.anchored_leaf.get_view_number(),
+                        event: EventType::Decide {
+                            leaf_chain: Arc::new(vec![LeafInfo::new(
+                                self.anchored_leaf.clone(),
+                                Arc::new(validated_state),
+                                Some(Arc::new(state_delta)),
+                                None,
+                            )]),
+                            qc: Arc::new(QuorumCertificate::genesis(self.instance_state.as_ref())),
+                            block_size: None,
+                        },
+                    },
+                    &self.external_event_stream.0,
+                )
+                .await;
+            }
+        }
     }
 
     /// Emit an external event
@@ -295,7 +361,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
-        broadcast_event(event, &self.output_event_stream.0).await;
+        broadcast_event(event, &self.external_event_stream.0).await;
     }
 
     /// Publishes a transaction asynchronously to the network.
@@ -311,7 +377,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         trace!("Adding transaction to our own queue");
 
         let api = self.clone();
-        let view_number = api.consensus.read().await.cur_view;
+        let view_number = api.consensus.read().await.cur_view();
 
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
@@ -352,7 +418,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
-        self.consensus.clone()
+        Arc::clone(&self.consensus)
+    }
+
+    /// Returns a copy of the instance state
+    pub fn get_instance_state(&self) -> Arc<TYPES::InstanceState> {
+        Arc::clone(&self.instance_state)
     }
 
     /// Returns a copy of the last decided leaf
@@ -379,7 +450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
-        self.consensus.read().await.get_decided_state().clone()
+        Arc::clone(&self.consensus.read().await.get_decided_state())
     }
 
     /// Get the validated state from a given `view`.
@@ -411,7 +482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Memberships<TYPES>,
         networks: Networks<TYPES, I>,
         initializer: HotShotInitializer<TYPES>,
@@ -437,7 +508,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage,
         )
         .await?;
-        let handle = hotshot.clone().run_tasks().await;
+        let handle = Arc::clone(&hotshot).run_tasks().await;
         let (tx, rx) = hotshot.internal_event_stream.clone();
 
         Ok((handle, tx, rx.activate()))
@@ -464,11 +535,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         // ED Need to set first first number to 1, or properly trigger the change upon start
         let registry = Arc::new(TaskRegistry::default());
 
-        let output_event_stream = self.output_event_stream.clone();
+        let output_event_stream = self.external_event_stream.clone();
         let internal_event_stream = self.internal_event_stream.clone();
 
-        let quorum_network = self.networks.quorum_network.clone();
-        let da_network = self.networks.da_network.clone();
+        let quorum_network = Arc::clone(&self.networks.quorum_network);
+        let da_network = Arc::clone(&self.networks.da_network);
         let quorum_membership = self.memberships.quorum_membership.clone();
         let da_membership = self.memberships.da_membership.clone();
         let vid_membership = self.memberships.vid_membership.clone();
@@ -477,26 +548,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let (event_tx, event_rx) = internal_event_stream.clone();
 
         let handle = SystemContextHandle {
-            registry: registry.clone(),
+            registry: Arc::clone(&registry),
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
-            storage: self.storage.clone(),
+            storage: Arc::clone(&self.storage),
         };
 
-        add_network_message_task(registry.clone(), event_tx.clone(), quorum_network.clone()).await;
-        add_network_message_task(registry.clone(), event_tx.clone(), da_network.clone()).await;
+        add_network_message_task(
+            Arc::clone(&registry),
+            event_tx.clone(),
+            Arc::clone(&quorum_network),
+        )
+        .await;
+        add_network_message_task(
+            Arc::clone(&registry),
+            event_tx.clone(),
+            Arc::clone(&da_network),
+        )
+        .await;
 
         if let Some(request_rx) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await {
             add_response_task(
-                registry.clone(),
+                Arc::clone(&registry),
                 event_rx.activate_cloned(),
                 request_rx,
                 &handle,
             )
             .await;
             add_request_network_task(
-                registry.clone(),
+                Arc::clone(&registry),
                 event_tx.clone(),
                 event_rx.activate_cloned(),
                 &handle,
@@ -505,92 +586,92 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         }
 
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(&quorum_network),
             quorum_membership.clone(),
             network::quorum_filter,
-            handle.get_storage().clone(),
+            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(&quorum_network),
             quorum_membership,
             network::upgrade_filter,
-            handle.get_storage().clone(),
+            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            da_network.clone(),
+            Arc::clone(&da_network),
             da_membership,
             network::committee_filter,
-            handle.get_storage().clone(),
+            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(&quorum_network),
             view_sync_membership,
             network::view_sync_filter,
-            handle.get_storage().clone(),
+            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
-            quorum_network.clone(),
+            Arc::clone(&quorum_network),
             vid_membership,
             network::vid_filter,
-            handle.get_storage().clone(),
+            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_consensus_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_da_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_vid_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_transaction_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_view_sync_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_upgrade_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
@@ -598,7 +679,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_proposal_task(
-            registry.clone(),
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
@@ -606,7 +687,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_vote_task(
-            registry.clone(),
+            Arc::clone(&registry),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            &handle,
+        )
+        .await;
+        #[cfg(feature = "dependency-tasks")]
+        add_quorum_proposal_recv_task(
+            Arc::clone(&registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
@@ -624,25 +713,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
         self.hotshot.config.num_nodes_with_stake
     }
 
-    fn propose_min_round_time(&self) -> Duration {
-        self.hotshot.config.propose_min_round_time
-    }
-
-    fn propose_max_round_time(&self) -> Duration {
-        self.hotshot.config.propose_max_round_time
-    }
-
-    fn max_transactions(&self) -> NonZeroUsize {
-        self.hotshot.config.max_transactions
-    }
-
-    fn min_transactions(&self) -> usize {
-        self.hotshot.config.min_transactions
+    fn builder_timeout(&self) -> Duration {
+        self.hotshot.config.builder_timeout
     }
 
     async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
-        broadcast_event(event, &self.hotshot.output_event_stream.0).await;
+        broadcast_event(event, &self.hotshot.external_event_stream.0).await;
     }
 
     fn public_key(&self) -> &TYPES::SignatureKey {
@@ -694,13 +771,13 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
         Ok(Self {
             inner: Leaf::genesis(&instance_state),
-            instance_state,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::genesis(),
+            high_qc: QuorumCertificate::genesis(&instance_state),
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
+            instance_state,
         })
     }
 
