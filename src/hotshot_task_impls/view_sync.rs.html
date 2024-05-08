@@ -849,6 +849,10 @@
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
@@ -1321,9 +1325,13 @@
                 }
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.get_leader(view_number);
                 <span class="macro">error!</span>(
-                    <span class="string">"Num timeouts tracked since last view change is {}. View {} timed out"</span>,
-                    <span class="self">self</span>.num_timeouts_tracked, <span class="kw-2">*</span>view_number
+                    %leader,
+                    leader_mnemonic = cdn_proto::mnemonic(<span class="kw-2">&amp;</span>leader),
+                    view_number = <span class="kw-2">*</span>view_number,
+                    num_timeouts_tracked = <span class="self">self</span>.num_timeouts_tracked,
+                    <span class="string">"view timed out"</span>,
                 );
 
                 <span class="kw">if </span><span class="self">self</span>.num_timeouts_tracked &gt;= <span class="number">3 </span>{
