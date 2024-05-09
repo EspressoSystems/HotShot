@@ -86,6 +86,7 @@ typenum = "1"
 memoize = { version = "0.4", features = ["full"] }
 vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
+url = { version = "2.5.0", features = ["serde"] }
 
 libp2p = { package = "libp2p", version = "0.53", features = [
   "macros",
@@ -131,10 +132,10 @@ anyhow = "1"
 
 
 # Push CDN imports
-cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.2" }
-cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.2" }
-cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.2" }
-cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.2" }
+cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.5" }
+cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.5" }
+cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.5" }
+cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.5" }
 
 ### Profiles
 ###
