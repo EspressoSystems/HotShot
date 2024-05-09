@@ -1198,7 +1198,6 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         },
     );
     consensus.update_saved_leaves(proposed_leaf.clone());
-   
 
     if let Err(e) = storage
         .write()
