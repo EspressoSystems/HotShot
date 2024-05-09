@@ -964,11 +964,13 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
-            if let Err(e) = task_state.publish_proposal(new_view, event_stream.clone()).await {
+            if let Err(e) = task_state
+                .publish_proposal(new_view, event_stream.clone())
+                .await
+            {
                 error!("Failed to propose; error = {e:?}");
             };
-        } 
-
+        }
     }
 
     #[allow(clippy::cast_precision_loss)]
