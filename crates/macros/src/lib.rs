@@ -321,7 +321,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
     use async_compatibility_layer::art::async_timeout;
     use hotshot_task::task::{Task, TaskRegistry, TaskState};
     use hotshot_types::{
-        events::HotShotEvent,
+        hotshot_event::HotShotEvent,
         traits::node_implementation::NodeType
     };
     use std::sync::Arc;
