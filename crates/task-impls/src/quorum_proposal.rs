@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -29,7 +30,9 @@ use tracing::{debug, error, instrument, warn};
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
 use crate::{
-    consensus::helpers::publish_proposal_if_able, events::HotShotEvent, helpers::cancel_task,
+    consensus::helpers::{get_parent_leaf_and_state, publish_proposal_if_able},
+    events::HotShotEvent,
+    helpers::cancel_task,
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -52,6 +55,9 @@ enum ProposalDependency {
 
     /// For the `ProposeNow` event.
     ProposeNow,
+
+    /// For the `VIDShareValidated` event.
+    VIDShare,
 }
 
 /// Handler for the proposal dependency
@@ -72,11 +78,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     instance_state: Arc<TYPES::InstanceState>,
 
     /// Output events to application
-    #[allow(dead_code)]
     output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// Membership for Timeout votes/certs
-    #[allow(dead_code)]
     timeout_membership: Arc<TYPES::Membership>,
 
     /// Membership for Quorum Certs/votes
@@ -89,15 +93,28 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// View timeout from config.
-    #[allow(dead_code)]
     timeout: u64,
 
     /// Round start delay from config, in milliseconds.
     round_start_delay: u64,
 
     /// The node's id
-    #[allow(dead_code)]
     id: u64,
+}
+
+impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
+    async fn publish_proposal(&self) -> Result<()> {
+        let (parent_leaf, state) = get_parent_leaf_and_state(
+            self.latest_proposed_view,
+            self.view_number,
+            self.quorum_membership,
+            self.public_key,
+            Arc::clone(&self.consensus),
+        )
+        .await?;
+
+        Ok(())
+    }
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
@@ -107,9 +124,9 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
-        let mut _quorum_certificate = None;
-        let mut _timeout_certificate = None;
-        let mut _view_sync_finalize_cert = None;
+        let mut quorum_certificate = None;
+        let mut timeout_certificate = None;
+        let mut view_sync_finalize_cert = None;
         for event in res.iter().flatten().flatten() {
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
@@ -139,27 +156,27 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 }
                 HotShotEvent::QCFormed(cert) => match cert {
                     either::Right(timeout) => {
-                        _timeout_certificate = Some(timeout.clone());
+                        timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
-                        _quorum_certificate = Some(qc.clone());
+                        quorum_certificate = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert.clone());
+                    view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::ProposeNow(_, pdd) => {
                     commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
                     match &pdd.secondary_proposal_information {
-                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) => {
-                            _quorum_certificate = Some(quorum_certificate.clone());
+                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, cert) => {
+                            quorum_certificate = Some(cert.clone());
                             payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
                         },
                         hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
-                            _timeout_certificate = Some(tc.clone());
+                            timeout_certificate = Some(tc.clone());
                         }
                         hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) => {
-                            _view_sync_finalize_cert = Some(vsc.clone());
+                            view_sync_finalize_cert = Some(vsc.clone());
                         },
                     }
                 }
@@ -172,26 +189,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 "Somehow completed the proposal dependency task without a commitment and metadata"
             );
             return;
-        }
-
-        if let Err(e) = publish_proposal_if_able(
-            self.latest_proposed_view,
-            self.view_number,
-            self.sender,
-            self.quorum_membership,
-            self.public_key,
-            self.private_key,
-            Arc::clone(&self.consensus),
-            self.round_start_delay,
-            None,
-            None,
-            commit_and_metadata,
-            None,
-            Arc::clone(&self.instance_state),
-        )
-        .await
-        {
-            error!(?e, "Failed to publish proposal");
         }
     }
 }
@@ -272,7 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                     ProposalDependency::TimeoutCert => {
                         if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
-                            timeout.view_number
+                            timeout.view_number + 1
                         } else {
                             return false;
                         }
@@ -311,6 +308,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     ProposalDependency::ProposeNow => {
                         if let HotShotEvent::ProposeNow(view, _) = event {
                             *view
+                        } else {
+                            return false;
+                        }
+                    }
+                    ProposalDependency::VIDShare => {
+                        if let HotShotEvent::VIDShareValidated(vid_share) = event {
+                            vid_share.data.view_number
                         } else {
                             return false;
                         }
@@ -365,8 +369,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let mut propose_now_dependency = self.create_event_dependency(
             ProposalDependency::ProposeNow,
             view_number,
-            event_receiver,
+            event_receiver.clone(),
         );
+
+        let mut vid_share_dependency =
+            self.create_event_dependency(ProposalDependency::VIDShare, view_number, event_receiver);
 
         match event.as_ref() {
             HotShotEvent::ProposeNow(..) => {
@@ -388,6 +395,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 view_sync_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::VIDShareValidated(_) => {
+                vid_share_dependency.mark_as_completed(event);
             }
             _ => {}
         };
@@ -413,8 +423,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         AndDependency::from_deps(vec![OrDependency::from_deps(vec![
             AndDependency::from_deps(vec![AndDependency::from_deps(vec![propose_now_dependency])]),
             AndDependency::from_deps(vec![
+                // To propose we must *always* have a VIDShare and a PayloadCommitmentAndMetadata.
                 OrDependency::from_deps(vec![AndDependency::from_deps(vec![
                     payload_commitment_dependency,
+                    vid_share_dependency,
                 ])]),
                 OrDependency::from_deps(secondary_deps),
             ]),
@@ -611,6 +623,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
             }
+            HotShotEvent::VIDShareValidated(vid_share) => self.create_dependency_task_if_new(
+                vid_share.data.view_number,
+                event_receiver,
+                event_sender,
+                Arc::clone(&event),
+            ),
             _ => {}
         }
     }
@@ -630,6 +648,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::QuorumProposalSend(..)
+                | HotShotEvent::VIDShareValidated(_)
                 | HotShotEvent::Shutdown,
         )
     }
