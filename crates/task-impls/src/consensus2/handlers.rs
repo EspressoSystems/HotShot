@@ -3,8 +3,10 @@ use std::{sync::Arc, time::Duration};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use hotshot_task::{broadcast_event, cancel_task};
 use hotshot_types::{
     event::{Event, EventType},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
@@ -15,15 +17,10 @@ use hotshot_types::{
 };
 use tracing::debug;
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-    vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},
-};
+use crate::vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent};
 
 use super::Consensus2TaskState;
 
-/// Handle a `QuorumVoteRecv` event.
 pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     vote: &QuorumVote<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
@@ -72,7 +69,6 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     Ok(())
 }
 
-/// Handle a `TimeoutVoteRecv` event.
 pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     vote: &TimeoutVote<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
@@ -122,7 +118,6 @@ pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementat
     Ok(())
 }
 
-/// Handle a `ViewChange` event.
 pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     new_view_number: TYPES::Time,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -161,23 +156,6 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
         }
     }));
 
-    let consensus = task_state.consensus.read().await;
-    consensus
-        .metrics
-        .current_view
-        .set(usize::try_from(task_state.cur_view.get_u64()).unwrap());
-
-    // Do the comparison before the subtraction to avoid potential overflow, since
-    // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    if usize::try_from(task_state.cur_view.get_u64()).unwrap()
-        > usize::try_from(task_state.last_decided_view.get_u64()).unwrap()
-    {
-        consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.get_u64()).unwrap()
-                - usize::try_from(task_state.last_decided_view.get_u64()).unwrap(),
-        );
-    }
-
     broadcast_event(
         Event {
             view_number: old_view_number,
@@ -191,7 +169,6 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     Ok(())
 }
 
-/// Handle a `Timeout` event.
 pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     view_number: TYPES::Time,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -240,14 +217,6 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         &task_state.output_event_stream,
     )
     .await;
-
-    task_state
-        .consensus
-        .read()
-        .await
-        .metrics
-        .number_of_timeouts
-        .add(1);
 
     Ok(())
 }
