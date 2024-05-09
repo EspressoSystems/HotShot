@@ -224,7 +224,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         signature,
         _pd: PhantomData,
     };
-    error!(
+    debug!(
         "Sending null proposal for view {:?}",
         proposed_leaf.get_view_number(),
     );
@@ -667,7 +667,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     let Some((parent_leaf, _parent_state)) = parent else {
-        error!(
+        warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.get_data().leaf_commit
         );
@@ -702,7 +702,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
             )
             .await
         {
-            error!("Couldn't store undecided state.  Error: {:?}", e);
+            warn!("Couldn't store undecided state.  Error: {:?}", e);
         }
 
         // If we are missing the parent from storage, the safety check will fail.  But we can
@@ -728,7 +728,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
 
                 let qc = high_qc.clone();
                 if should_propose {
-                    error!(
+                    debug!(
                         "Attempting to publish proposal after voting for liveness; now in view: {}",
                         *new_view
                     );
@@ -755,9 +755,9 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
                         .or_default()
                         .push(create_and_send_proposal_handle);
                 }
+            } else {
+                warn!(?high_qc, ?proposal.data, ?locked_view, "Failed liveneess check; cannot find parent either.");
             }
-
-            error!(?high_qc, ?proposal.data, ?locked_view, "Failed liveneess check; cannot find parent either.");
 
             return Ok(current_proposal);
         }
@@ -960,7 +960,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         task_state.current_proposal = Some(proposal.clone());
         task_state.spawn_vote_task(view, event_stream.clone());
         if should_propose {
-            error!(
+            debug!(
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
@@ -968,7 +968,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                 .publish_proposal(new_view, event_stream.clone())
                 .await
             {
-                error!("Failed to propose; error = {e:?}");
+                debug!("Failed to propose; error = {e:?}");
             };
         }
     }
@@ -1092,7 +1092,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
                 && Some(proposal.block_header.payload_commitment())
                     != null_block::commitment(quorum_membership.total_nodes())
             {
-                error!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
+                info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
                 return false;
             }
         }
@@ -1123,7 +1123,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     };
     let (Some(parent_state), _) = read_consnesus.get_state_and_delta(parent.get_view_number())
     else {
-        error!("Parent state not found! Consensus internally inconsistent");
+        warn!("Parent state not found! Consensus internally inconsistent");
         return false;
     };
     drop(read_consnesus);
@@ -1136,7 +1136,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         )
         .await
     else {
-        error!("Block header doesn't extend the proposal!");
+        warn!("Block header doesn't extend the proposal!");
         return false;
     };
 
@@ -1146,7 +1146,6 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
     if proposed_leaf.get_parent_commitment() != parent_commitment {
-        error!("parent not equal leaf parent");
         return false;
     }
 
@@ -1158,7 +1157,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         message = if cert.is_valid_cert(vote_info.2.as_ref()) {
             // Validate the block payload commitment for non-genesis DAC.
             if cert.get_data().payload_commit != proposal.block_header.payload_commitment() {
-                error!(
+                warn!(
                     "Block payload commitment does not equal da cert payload commitment. View = {}",
                     *view
                 );
@@ -1214,13 +1213,13 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     #[cfg(not(feature = "dependency-tasks"))]
     {
         if let GeneralConsensusMessage::Vote(vote) = message {
-            error!(
+            debug!(
                 "Sending vote to next quorum leader {:?}",
                 vote.get_view_number() + 1
             );
             // Add to the storage that we have received the VID disperse for a specific view
             if let Err(e) = storage.write().await.append_vid(&vid_share).await {
-                error!(
+                warn!(
                     "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
                     e
                 );
@@ -1229,7 +1228,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
             broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &vote_info.3).await;
             return true;
         }
-        error!(
+        debug!(
             "Received VID share, but couldn't find DAC cert for view {:?}",
             *proposal.get_view_number(),
         );

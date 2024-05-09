@@ -283,7 +283,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         match event.as_ref() {
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                error!("proposal recv view: {:?}", proposal.data.get_view_number());
+                debug!("proposal recv view: {:?}", proposal.data.get_view_number());
                 match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
                     .await
                 {
@@ -293,16 +293,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         self.spawn_vote_task(view, event_stream);
                     }
                     Ok(None) => {}
-                    Err(e) => error!("Failed to propose {e:#}"),
+                    Err(e) => debug!("Failed to propose {e:#}"),
                 }
             }
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                error!("proposal validated view: {:?}", proposal.get_view_number());
+                debug!("proposal validated view: {:?}", proposal.get_view_number());
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), self).await
                 {
-                    error!("Failed to handle QuorumProposalValidated event {e:#}");
+                    warn!("Failed to handle QuorumProposalValidated event {e:#}");
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
@@ -403,7 +403,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 either::Right(qc) => {
                     self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
 
-                    error!(
+                    debug!(
                         "Attempting to publish proposal after forming a TC for view {}",
                         *qc.view_number
                     );
@@ -412,7 +412,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         .publish_proposal(qc.view_number + 1, event_stream)
                         .await
                     {
-                        error!("Failed to propose; error = {e:?}");
+                        debug!("Failed to propose; error = {e:?}");
                     };
                 }
                 either::Left(qc) => {
@@ -423,7 +423,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
                         tracing::error!("{e:?}");
                     }
-                    error!(
+                    debug!(
                         "Attempting to publish proposal after forming a QC for view {}",
                         *qc.view_number
                     );
@@ -432,7 +432,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         .publish_proposal(qc.view_number + 1, event_stream)
                         .await
                     {
-                        error!("Failed to propose; error = {e:?}");
+                        debug!("Failed to propose; error = {e:?}");
                     };
                 }
             },
@@ -451,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             }
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::DACertificateRecv(cert) => {
-                error!("DAC Received for view {}!", *cert.view_number);
+                debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
 
                 self.consensus
@@ -470,7 +470,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             HotShotEvent::VIDShareRecv(disperse) => {
                 let view = disperse.data.get_view_number();
 
-                error!(
+                debug!(
                     "VID disperse received for view: {:?} in consensus task",
                     view
                 );
@@ -675,13 +675,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if self.quorum_membership.get_leader(view) == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
-                    error!(
+                    debug!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
 
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
-                        error!("Failed to propose; error = {e:?}");
+                        debug!("Failed to propose; error = {e:?}");
                     };
                 }
             }
@@ -698,12 +698,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         == proposal.get_view_number();
 
                 if should_propose {
-                    error!(
+                    debug!(
                         "Attempting to publish proposal after voting; now in view: {}",
                         *new_view
                     );
                     if let Err(e) = self.publish_proposal(new_view, event_stream.clone()).await {
-                        error!("failed to propose e = {:?}", e);
+                        debug!("failed to propose e = {:?}", e);
                     }
                 }
                 if proposal.get_view_number() <= vote.get_view_number() {
