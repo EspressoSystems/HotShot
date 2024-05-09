@@ -6,7 +6,7 @@ use async_lock::RwLock;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
-    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    message::{DAConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
@@ -272,7 +272,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Transform a response into a `HotShotEvent`
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
-            SequencingMessage::DA(DaConsensusMessage::VidDisperseMsg(prop)) => {
+            SequencingMessage::DA(DAConsensusMessage::VidDisperseMsg(prop)) => {
                 HotShotEvent::VIDShareRecv(prop)
             }
             _ => return,

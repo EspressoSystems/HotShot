@@ -9,7 +9,7 @@ use hotshot_types::{
     data::{VidDisperse, VidDisperseShare},
     event::HotShotAction,
     message::{
-        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
+        DAConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
         SequencingMessage,
     },
     traits::{
@@ -152,16 +152,16 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             }
                         },
                         SequencingMessage::DA(da_message) => match da_message {
-                            DaConsensusMessage::DAProposal(proposal) => {
+                            DAConsensusMessage::DAProposal(proposal) => {
                                 HotShotEvent::DAProposalRecv(proposal, sender)
                             }
-                            DaConsensusMessage::DAVote(vote) => {
+                            DAConsensusMessage::DAVote(vote) => {
                                 HotShotEvent::DAVoteRecv(vote.clone())
                             }
-                            DaConsensusMessage::DACertificate(cert) => {
+                            DAConsensusMessage::DACertificate(cert) => {
                                 HotShotEvent::DACertificateRecv(cert)
                             }
-                            DaConsensusMessage::VidDisperseMsg(proposal) => {
+                            DAConsensusMessage::VidDisperseMsg(proposal) => {
                                 HotShotEvent::VIDShareRecv(proposal)
                             }
                         },
@@ -298,7 +298,7 @@ impl<
                     (
                         sender,
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::DA(
-                            DaConsensusMessage::DAProposal(proposal),
+                            DAConsensusMessage::DAProposal(proposal),
                         )),
                         TransmitType::DACommitteeBroadcast,
                     )
@@ -308,7 +308,7 @@ impl<
                     (
                         vote.get_signing_key(),
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::DA(
-                            DaConsensusMessage::DAVote(vote.clone()),
+                            DAConsensusMessage::DAVote(vote.clone()),
                         )),
                         TransmitType::Direct(membership.get_leader(vote.get_view_number())),
                     )
@@ -319,7 +319,7 @@ impl<
                     (
                         sender,
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::DA(
-                            DaConsensusMessage::DACertificate(certificate),
+                            DAConsensusMessage::DACertificate(certificate),
                         )),
                         TransmitType::Broadcast,
                     )
@@ -482,8 +482,8 @@ impl<
                     Message {
                         sender: sender.clone(),
                         kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::DA(
-                            DaConsensusMessage::VidDisperseMsg(proposal),
-                        )), // TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                            DAConsensusMessage::VidDisperseMsg(proposal),
+                        )), // TODO not a DAConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
                     },
                 )
             })
