@@ -295,7 +295,7 @@
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>jf_primitives::{errors::PrimitivesError, vid::VidScheme};
-<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
 
 <span class="kw">use </span><span class="kw">super</span>::EncodeBytes;
@@ -442,7 +442,7 @@
     + Debug
     + Hash
     + Serialize
-    + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;
+    + DeserializeOwned
     + PartialEq
     + Eq
     + PartialOrd
