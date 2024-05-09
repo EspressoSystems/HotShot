@@ -136,6 +136,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             transaction_size: self.bench_results.transaction_size_in_bytes,
             rounds: self.config.rounds,
             leader_election_type: OrchestratorState::<KEY>::get_election_type(),
+            partial_results: self.bench_results.partial_results.clone(),
             avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: self.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: self.bench_results.maximum_latency_in_sec,
@@ -489,7 +490,15 @@ where
             }
         }
         self.nodes_post_results += 1;
+        if self.bench_results.partial_results == "Unset"
+            && self.nodes_post_results >= (self.config.config.num_nodes_with_stake.get() as u64 / 2)
+        {
+            self.bench_results.partial_results = "Partial".to_string();
+            self.bench_results.printout();
+            self.output_to_csv();
+        }
         if self.nodes_post_results >= (self.config.config.num_nodes_with_stake.get() as u64) {
+            self.bench_results.partial_results = "Complete".to_string();
             self.bench_results.printout();
             self.output_to_csv();
         }

@@ -22,6 +22,8 @@ pub struct OrchestratorClient {
 /// Struct describing a benchmark result
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct BenchResults {
+    /// Whether it's partial collected results
+    pub partial_results: String,
     /// The average latency of the transactions
     pub avg_latency_in_sec: i64,
     /// The number of transactions that were latency measured
@@ -48,7 +50,11 @@ impl BenchResults {
     /// printout the results of one example run
     pub fn printout(&self) {
         println!("=====================");
-        println!("Benchmark results:");
+        if self.partial_results == "Partial" {
+            println!("Partial Benchmark results:");
+        } else {
+            println!("Complete Benchmark results:");
+        }
         println!(
             "Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds",
             self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec
@@ -88,6 +94,8 @@ pub struct BenchResultsDownloadConfig {
     pub leader_election_type: String,
 
     // Results starting here
+    /// Whether the results are partially collected
+    pub partial_results: String,
     /// The average latency of the transactions
     pub avg_latency_in_sec: i64,
     /// The minimum latency of the transactions

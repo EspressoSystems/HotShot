@@ -102,3 +102,7 @@ commit_sha,total_nodes,da_committee_size,transactions_per_round,transaction_size
 nginx_script_test,10,5,1,1000016,20,hotshot::traits::election::static_committee::StaticElectionConfig,36,6,83,1317668,112,85,19,0
 commit_sha,total_nodes,da_committee_size,transactions_per_round,transaction_size,rounds,leader_election_type,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
 test50nodes,50,5,1,1000016,20,hotshot::traits::election::static_committee::StaticElectionConfig,26,6,58,2372919,140,60,19,0
+commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
+cdn_no_gpu,10,5,1,1,1000016,50,fixed-leader-election,Partial,19,1,63,4859452,311,64,50,0
+commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
+cdn_no_gpu,10,5,1,1,1000016,50,fixed-leader-election,Complete,14,1,58,4929903,281,57,50,0

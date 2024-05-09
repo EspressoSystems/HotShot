@@ -563,6 +563,7 @@ pub trait RunDA<
             let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
             BenchResults {
+                partial_results: "Unset".to_string(),
                 avg_latency_in_sec,
                 num_latency,
                 minimum_latency_in_sec: minimum_latency,

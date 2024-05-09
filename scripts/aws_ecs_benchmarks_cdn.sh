@@ -58,7 +58,7 @@ do
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
-                            rounds=50
+                            rounds=100
 
                             # start orchestrator
                             just async_std example_fixed_leader orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
@@ -75,7 +75,7 @@ do
 
                             # start validators
                             ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
-                            sleep $(( ($rounds + $total_nodes) * $transactions_per_round * 2 ))
+                            sleep $(( ($rounds + $total_nodes) * $transactions_per_round * 5 ))
 
                             # kill them
                             ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
