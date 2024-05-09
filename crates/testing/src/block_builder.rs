@@ -325,9 +325,10 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
                             // We want transactions that are either unclaimed, or claimed long ago
                             // and thus probably not included, or they would've been decided on
                             // already and removed from the queue
-                            txn.claimed
-                                .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
-                                .unwrap_or(true)
+                            // txn.claimed
+                            //     .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
+                            //     .unwrap_or(true)
+                            true
                         })
                         .cloned()
                         .map(|txn| txn.transaction)
