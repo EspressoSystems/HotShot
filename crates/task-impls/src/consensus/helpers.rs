@@ -957,21 +957,18 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         if new_decide_reached {
             task_state.cancel_tasks(new_anchor_view).await;
         }
+        task_state.current_proposal = Some(proposal.clone());
+        task_state.spawn_vote_task(view, event_stream.clone());
         if should_propose {
             error!(
                 "Attempting to publish proposal after voting; now in view: {}",
                 *new_view
             );
-            task_state.vote_and_publish_proposal(
-                proposal.get_view_number(),
-                new_view,
-                proposal.clone(),
-                event_stream.clone(),
-            );
-        } else {
-            task_state.current_proposal = Some(proposal.clone());
-            task_state.spawn_vote_task(view, event_stream.clone());
-        }
+            if let Err(e) = task_state.publish_proposal(new_view, event_stream.clone()).await {
+                error!("Failed to propose; error = {e:?}");
+            };
+        } 
+
     }
 
     #[allow(clippy::cast_precision_loss)]
