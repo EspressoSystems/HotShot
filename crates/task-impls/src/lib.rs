@@ -5,6 +5,7 @@
 pub mod consensus;
 
 /// The task which implements the core state logic of consensus.
+#[cfg(feature = "dependency-tasks")]
 pub mod consensus2;
 
 /// The task which handles the logic for the quorum vote.
