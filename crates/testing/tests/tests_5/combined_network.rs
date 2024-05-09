@@ -70,7 +70,7 @@ async fn test_combined_network_cdn_crash() {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(320),
+                duration: Duration::from_secs(400),
             },
         ),
         ..TestDescription::default_multiple_rounds()

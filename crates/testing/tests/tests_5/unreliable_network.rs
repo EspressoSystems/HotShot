@@ -25,7 +25,7 @@ async fn libp2p_network_sync() {
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::new(360, 0),
+                duration: Duration::from_secs(560),
             },
         ),
         unreliable_network: Some(Box::new(SynchronousNetwork {
@@ -184,7 +184,7 @@ async fn test_memory_network_partially_sync() {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(240),
+                duration: Duration::from_secs(560),
             },
         ),
         timing_data: TimingData {
