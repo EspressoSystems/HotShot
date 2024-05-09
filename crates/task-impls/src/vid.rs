@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
+    data::VidDisperseShare,
     message::Proposal,
     traits::{
         consensus_api::ConsensusApi,
@@ -70,10 +71,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     *view_number,
                 )
                 .await;
+                let payload_commitment = vid_disperse.payload_commitment;
+                let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
+                let mut consensus = self.consensus.write().await;
+                for share in shares {
+                    if let Some(disperse) = share.to_proposal(&self.private_key) {
+                        consensus.update_vid_shares(*view_number, disperse);
+                    }
+                }
+
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(
                     Arc::new(HotShotEvent::SendPayloadCommitmentAndMetadata(
-                        vid_disperse.payload_commitment,
+                        payload_commitment,
                         builder_commitment,
                         metadata.clone(),
                         *view_number,
