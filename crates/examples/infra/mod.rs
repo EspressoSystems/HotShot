@@ -331,7 +331,7 @@ pub trait RunDA<
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMNET,
-        CommitteeNetwork = DANET,
+        DANetwork = DANET,
         Storage = TestStorage<TYPES>,
     >,
 > where
@@ -602,7 +602,7 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             QuorumNetwork = PushCdnNetwork<TYPES>,
-            CommitteeNetwork = PushCdnNetwork<TYPES>,
+            DANetwork = PushCdnNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
@@ -688,7 +688,7 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-            CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+            DANetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
         >,
     >
@@ -786,7 +786,7 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             QuorumNetwork = CombinedNetworks<TYPES>,
-            CommitteeNetwork = CombinedNetworks<TYPES>,
+            DANetwork = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
         >,
     > RunDA<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDARun<TYPES>
@@ -874,7 +874,7 @@ pub async fn main_entry_point<
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
-        CommitteeNetwork = DACHANNEL,
+        DANetwork = DACHANNEL,
         Storage = TestStorage<TYPES>,
     >,
     RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,

@@ -70,24 +70,24 @@ pub type StaticMembership = StaticCommittee<TestTypes>;
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for PushCdnImpl {
     type QuorumNetwork = PushCdnNetwork<TYPES>;
-    type CommitteeNetwork = PushCdnNetwork<TYPES>;
+    type DANetwork = PushCdnNetwork<TYPES>;
     type Storage = TestStorage<TYPES>;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for MemoryImpl {
     type QuorumNetwork = MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>;
-    type CommitteeNetwork = MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>;
+    type DANetwork = MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for CombinedImpl {
     type QuorumNetwork = CombinedNetworks<TYPES>;
-    type CommitteeNetwork = CombinedNetworks<TYPES>;
+    type DANetwork = CombinedNetworks<TYPES>;
     type Storage = TestStorage<TYPES>;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>;
-    type CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>;
+    type DANetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
 }

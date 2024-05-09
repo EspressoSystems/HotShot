@@ -64,7 +64,7 @@ pub type QuorumNetwork = MemoryNetwork<Message<Test>, <Test as NodeType>::Signat
 
 impl NodeImplementation<Test> for TestImpl {
     type QuorumNetwork = QuorumNetwork;
-    type CommitteeNetwork = DANetwork;
+    type DANetwork = DANetwork;
     type Storage = TestStorage<Test>;
 }
 

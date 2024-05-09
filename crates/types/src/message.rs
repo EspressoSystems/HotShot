@@ -184,7 +184,7 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to the sequencing consensus protocol for the DA committee.
-pub enum CommitteeConsensusMessage<TYPES: NodeType> {
+pub enum DaConsensusMessage<TYPES: NodeType> {
     /// Proposal for data availability committee
     DAProposal(Proposal<TYPES, DAProposal<TYPES>>),
 
@@ -197,7 +197,7 @@ pub enum CommitteeConsensusMessage<TYPES: NodeType> {
     /// Initiate VID dispersal.
     ///
     /// Like [`DAProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
-    /// TODO this variant should not be a [`CommitteeConsensusMessage`] because <https://github.com/EspressoSystems/HotShot/issues/1696>
+    /// TODO this variant should not be a [`DaConsensusMessage`] because <https://github.com/EspressoSystems/HotShot/issues/1696>
     VidDisperseMsg(Proposal<TYPES, VidDisperseShare<TYPES>>),
 }
 
@@ -209,7 +209,7 @@ pub enum SequencingMessage<TYPES: NodeType> {
     General(GeneralConsensusMessage<TYPES>),
 
     /// Messages related to the sequencing consensus protocol for the DA committee.
-    Committee(CommitteeConsensusMessage<TYPES>),
+    DA(DaConsensusMessage<TYPES>),
 }
 
 impl<TYPES: NodeType> SequencingMessage<TYPES> {
@@ -249,20 +249,16 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::UpgradeVote(message) => message.get_view_number(),
                 }
             }
-            SequencingMessage::Committee(committee_message) => {
-                match committee_message {
-                    CommitteeConsensusMessage::DAProposal(p) => {
+            SequencingMessage::DA(da_message) => {
+                match da_message {
+                    DaConsensusMessage::DAProposal(p) => {
                         // view of leader in the leaf when proposal
                         // this should match replica upon receipt
                         p.data.get_view_number()
                     }
-                    CommitteeConsensusMessage::DAVote(vote_message) => {
-                        vote_message.get_view_number()
-                    }
-                    CommitteeConsensusMessage::DACertificate(cert) => cert.view_number,
-                    CommitteeConsensusMessage::VidDisperseMsg(disperse) => {
-                        disperse.data.get_view_number()
-                    }
+                    DaConsensusMessage::DAVote(vote_message) => vote_message.get_view_number(),
+                    DaConsensusMessage::DACertificate(cert) => cert.view_number,
+                    DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.get_view_number(),
                 }
             }
         }
@@ -291,11 +287,11 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                 GeneralConsensusMessage::UpgradeProposal(_) => MessagePurpose::UpgradeProposal,
                 GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::UpgradeVote,
             },
-            SequencingMessage::Committee(committee_message) => match committee_message {
-                CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
-                CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
-                CommitteeConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
-                CommitteeConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
+            SequencingMessage::DA(da_message) => match da_message {
+                DaConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
+                DaConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                DaConsensusMessage::DACertificate(_) => MessagePurpose::DAC,
+                DaConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
             },
         }
     }

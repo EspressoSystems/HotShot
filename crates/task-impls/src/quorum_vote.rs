@@ -226,7 +226,7 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for DA committee
-    pub committee_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DANetwork>,
 
     /// Membership for Quorum certs/votes.
     pub quorum_membership: Arc<TYPES::Membership>,

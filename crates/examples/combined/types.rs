@@ -22,7 +22,7 @@ pub type ViewSyncNetwork = CombinedNetworks<TestTypes>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
     type QuorumNetwork = QuorumNetwork;
-    type CommitteeNetwork = DANetwork;
+    type DANetwork = DANetwork;
     type Storage = TestStorage<TestTypes>;
 }
 /// convenience type alias

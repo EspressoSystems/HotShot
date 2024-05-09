@@ -21,7 +21,7 @@ pub type QuorumNetwork = Libp2pNetwork<Message<TestTypes>, <TestTypes as NodeTyp
 
 impl NodeImplementation<TestTypes> for NodeImpl {
     type QuorumNetwork = QuorumNetwork;
-    type CommitteeNetwork = DANetwork;
+    type DANetwork = DANetwork;
     type Storage = TestStorage<TestTypes>;
 }
 /// convenience type alias

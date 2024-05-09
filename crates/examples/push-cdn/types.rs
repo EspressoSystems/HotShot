@@ -18,7 +18,7 @@ pub type QuorumNetwork = PushCdnNetwork<TestTypes>;
 pub type ViewSyncNetwork = PushCdnNetwork<TestTypes>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
-    type CommitteeNetwork = DANetwork;
+    type DANetwork = DANetwork;
     type QuorumNetwork = QuorumNetwork;
     type Storage = TestStorage<TestTypes>;
 }

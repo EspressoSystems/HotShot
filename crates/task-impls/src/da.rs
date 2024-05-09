@@ -63,7 +63,7 @@ pub struct DATaskState<
     pub quorum_membership: Arc<TYPES::Membership>,
 
     /// Network for DA
-    pub da_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DANetwork>,
 
     /// The current vote collection task, if there is one.
     pub vote_collector: RwLock<VoteCollectorOption<TYPES, DAVote<TYPES>, DACertificate<TYPES>>>,
@@ -218,7 +218,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.get_view_number();
                 if self.da_membership.get_leader(view) != self.public_key {
-                    error!("We are not the committee leader for view {} are we leader for next view? {}", *view, self.da_membership.get_leader(view + 1) == self.public_key);
+                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.get_leader(view + 1) == self.public_key);
                     return None;
                 }
                 let mut collector = self.vote_collector.write().await;

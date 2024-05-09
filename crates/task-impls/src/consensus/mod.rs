@@ -89,7 +89,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for DA committee
-    pub committee_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DANetwork>,
 
     /// Membership for Timeout votes/certs
     pub timeout_membership: Arc<TYPES::Membership>,
@@ -98,7 +98,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_membership: Arc<TYPES::Membership>,
 
     /// Membership for DA committee Votes/certs
-    pub committee_membership: Arc<TYPES::Membership>,
+    pub da_membership: Arc<TYPES::Membership>,
 
     /// Current Vote collection task, with it's view.
     pub vote_collector:
@@ -179,7 +179,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 .validate(&disperse.signature, payload_commitment.as_ref())
         {
             let mut validated = false;
-            for da_member in self.committee_membership.get_staked_committee(view) {
+            for da_member in self.da_membership.get_staked_committee(view) {
                 if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
                     validated = true;
                     break;
@@ -255,7 +255,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let consensus = Arc::clone(&self.consensus);
         let storage = Arc::clone(&self.storage);
         let quorum_mem = Arc::clone(&self.quorum_membership);
-        let committee_mem = Arc::clone(&self.committee_membership);
+        let da_mem = Arc::clone(&self.da_membership);
         let instance_state = Arc::clone(&self.instance_state);
         let handle = async_spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
@@ -266,7 +266,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 storage,
                 quorum_mem,
                 instance_state,
-                (priv_key, upgrade, committee_mem, event_stream),
+                (priv_key, upgrade, da_mem, event_stream),
             )
             .await;
         });
@@ -292,7 +292,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let consensus = Arc::clone(&self.consensus);
         let storage = Arc::clone(&self.storage);
         let quorum_mem = Arc::clone(&self.quorum_membership);
-        let committee_mem = Arc::clone(&self.committee_membership);
+        let da_mem = Arc::clone(&self.da_membership);
         let instance_state = Arc::clone(&self.instance_state);
         let commitment_and_metadata = self.payload_commitment_and_metadata.clone();
         let cur_view = self.cur_view;
@@ -310,7 +310,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 storage,
                 Arc::clone(&quorum_mem),
                 Arc::clone(&instance_state),
-                (priv_key.clone(), upgrade, committee_mem, event_stream),
+                (priv_key.clone(), upgrade, da_mem, event_stream),
             )
             .await;
             if let Some(upgrade_cert) = decided_upgrade_cert {
