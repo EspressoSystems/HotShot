@@ -7,6 +7,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use either::Either;
 use hotshot_task::{
+    cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
@@ -14,6 +15,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     event::Event,
+    hotshot_event::HotShotEvent,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -27,13 +29,9 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 
+use crate::consensus::helpers::get_parent_leaf_and_state;
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
-use crate::{
-    consensus::helpers::{get_parent_leaf_and_state, publish_proposal_if_able},
-    events::HotShotEvent,
-    helpers::cancel_task,
-};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -107,8 +105,8 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         let (parent_leaf, state) = get_parent_leaf_and_state(
             self.latest_proposed_view,
             self.view_number,
-            self.quorum_membership,
-            self.public_key,
+            Arc::clone(&self.quorum_membership),
+            self.public_key.clone(),
             Arc::clone(&self.consensus),
         )
         .await?;

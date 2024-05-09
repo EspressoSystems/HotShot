@@ -20,6 +20,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
+    hotshot_event::HotShotEvent,
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -46,9 +47,10 @@ use crate::quorum_proposal::QuorumProposalTaskState;
 use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    events::HotShotEvent,
-    helpers::{broadcast_event, AnyhowTracing},
+    helpers::AnyhowTracing,
 };
+
+use hotshot_task::broadcast_event;
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -683,16 +685,19 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
             ),
         );
 
-        consensus_write.update_validated_state_map(
-            view,
-            View {
-                view_inner: ViewInner::Leaf {
-                    leaf: leaf.commit(),
-                    state,
-                    delta: None,
+        consensus_write
+            .update_validated_state_map(
+                view,
+                View {
+                    view_inner: ViewInner::Leaf {
+                        leaf: leaf.commit(),
+                        state,
+                        delta: None,
+                    },
                 },
-            },
-        );
+                &event_stream,
+            )
+            .await;
 
         consensus_write.update_saved_leaves(leaf.clone());
 
@@ -1033,7 +1038,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
 /// TEMPORARY TYPE: Dummy type for sending the vote.
 #[cfg(feature = "dependency-tasks")]
-type TemporaryVoteInfo<TYPES> = PhantomData<TYPES>;
+type TemporaryVoteInfo<TYPES> = Sender<Arc<HotShotEvent<TYPES>>>;
 
 /// TEMPORARY TYPE: Private key, latest decided upgrade certificate, committee membership, and
 /// event stream, for sending the vote.
@@ -1184,16 +1189,39 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     }
 
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-    consensus.update_validated_state_map(
-        cur_view,
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: proposed_leaf.commit(),
-                state: Arc::clone(&state),
-                delta: Some(Arc::clone(&delta)),
-            },
-        },
-    );
+    #[cfg(not(feature = "dependency-tasks"))]
+    {
+        consensus
+            .update_validated_state_map(
+                cur_view,
+                View {
+                    view_inner: ViewInner::Leaf {
+                        leaf: proposed_leaf.commit(),
+                        state: Arc::clone(&state),
+                        delta: Some(Arc::clone(&delta)),
+                    },
+                },
+                &vote_info.3,
+            )
+            .await;
+    }
+
+    #[cfg(feature = "dependency-tasks")]
+    {
+        consensus
+            .update_validated_state_map(
+                cur_view,
+                View {
+                    view_inner: ViewInner::Leaf {
+                        leaf: proposed_leaf.commit(),
+                        state: Arc::clone(&state),
+                        delta: Some(Arc::clone(&delta)),
+                    },
+                },
+                &vote_info,
+            )
+            .await;
+    }
 
     if let Err(e) = storage
         .write()

@@ -6,7 +6,7 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
+use hotshot_task_impls::quorum_proposal::QuorumProposalTaskState;
 use hotshot_testing::{
     predicates::event::quorum_proposal_send,
     script::{run_test_script, TestScriptStage},
@@ -18,6 +18,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, ProposalDependencyData},
     data::null_block,
     data::{VidDisperseShare, ViewChangeEvidence, ViewNumber},
+    hotshot_event::HotShotEvent::*,
     message::Proposal,
     simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
     simple_vote::ViewSyncFinalizeData,
@@ -160,16 +161,19 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     // First, insert a parent view whose leaf commitment will be returned in the lower function
     // call.
-    consensus.update_validated_state_map(
-        ViewNumber::new(2),
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: leaves[1].get_parent_commitment(),
-                state: TestValidatedState::default().into(),
-                delta: None,
+    consensus
+        .update_validated_state_map(
+            ViewNumber::new(2),
+            View {
+                view_inner: ViewInner::Leaf {
+                    leaf: leaves[1].get_parent_commitment(),
+                    state: TestValidatedState::default().into(),
+                    delta: None,
+                },
             },
-        },
-    );
+            handle.get_internal_event_stream_sender(),
+        )
+        .await;
 
     // Match an entry into the saved leaves for the parent commitment, returning the generated leaf
     // for this call.

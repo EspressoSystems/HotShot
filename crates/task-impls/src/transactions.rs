@@ -10,11 +10,15 @@ use async_lock::RwLock;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
 };
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
     consensus::Consensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     traits::{
         block_contents::BuilderFee,
         consensus_api::ConsensusApi,
@@ -29,11 +33,7 @@ use hotshot_types::{
 use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
 
-use crate::{
-    builder::BuilderClient,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::builder::BuilderClient;
 
 /// Builder Provided Responses
 pub struct BuilderResponses<TYPES: NodeType> {

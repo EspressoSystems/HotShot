@@ -6,15 +6,16 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{da::DATaskState, events::HotShotEvent::*};
+use hotshot_task_impls::da::DATaskState;
 use hotshot_testing::{
-    predicates::event::exact,
+    predicates::event::{exact, validated_state_update},
     script::{run_test_script, TestScriptStage},
     task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
+    hotshot_event::HotShotEvent::*,
     simple_vote::DAData,
     traits::{
         block_contents::vid_commitment, election::Membership, node_implementation::ConsensusTime,
@@ -89,6 +90,7 @@ async fn test_da_task() {
         outputs: vec![
             exact(DAProposalValidated(proposals[1].clone(), leaders[1])),
             exact(DAVoteSend(votes[1].clone())),
+            validated_state_update(),
         ],
         asserts: vec![],
     };

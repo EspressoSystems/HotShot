@@ -5,14 +5,12 @@ use async_lock::RwLock;
 use hotshot::{tasks::add_network_message_task, traits::implementations::MemoryNetwork};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task::task::{Task, TaskRegistry};
-use hotshot_task_impls::{
-    events::HotShotEvent,
-    network::{self, NetworkEventTaskState},
-};
+use hotshot_task_impls::network::{self, NetworkEventTaskState};
 use hotshot_testing::{test_builder::TestDescription, view_generator::TestViewGenerator};
 use hotshot_types::{
     constants::BASE_VERSION,
     data::ViewNumber,
+    hotshot_event::HotShotEvent,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},

@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use async_broadcast::{SendError, Sender};
 #[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn_blocking, JoinHandle};
+use async_std::task::spawn_blocking;
 use hotshot_types::{
     data::VidDisperse,
     traits::{election::Membership, node_implementation::NodeType},
@@ -10,34 +9,8 @@ use hotshot_types::{
 };
 use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
 #[cfg(async_executor_impl = "tokio")]
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::spawn_blocking;
 
-/// Cancel a task
-pub async fn cancel_task<T>(task: JoinHandle<T>) {
-    #[cfg(async_executor_impl = "async-std")]
-    task.cancel().await;
-    #[cfg(async_executor_impl = "tokio")]
-    task.abort();
-}
-
-/// Helper function to send events and log errors
-pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Sender<E>) {
-    match sender.broadcast_direct(event).await {
-        Ok(None) => (),
-        Ok(Some(overflowed)) => {
-            tracing::error!(
-                "Event sender queue overflow, Oldest event removed form queue: {:?}",
-                overflowed
-            );
-        }
-        Err(SendError(e)) => {
-            tracing::warn!(
-                "Event: {:?}\n Sending failed, event stream probably shutdown",
-                e
-            );
-        }
-    }
-}
 /// Calculate the vid disperse information from the payload given a view and membership
 ///
 /// # Panics

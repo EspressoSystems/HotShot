@@ -8,8 +8,8 @@ edition = { workspace = true }
 
 [dependencies]
 
-futures = "0.3"
-async-broadcast = "0.7"
+futures = { workspace = true }
+async-broadcast = { workspace = true }
 tracing = { workspace = true }
 async-compatibility-layer = { workspace = true }
 

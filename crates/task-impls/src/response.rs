@@ -10,6 +10,7 @@ use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
+    hotshot_event::HotShotEvent,
     message::{
         CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
     },
@@ -25,7 +26,7 @@ use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
+use crate::helpers::calculate_vid_disperse;
 
 /// Type alias for consensus state wrapped in a lock.
 type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
