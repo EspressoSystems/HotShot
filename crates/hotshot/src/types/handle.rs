@@ -5,6 +5,7 @@ use std::sync::Arc;
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use futures::Stream;
+use hotshot_task::task::TaskRegistry;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     boxed_sync,
@@ -34,6 +35,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
         Sender<Arc<HotShotEvent<TYPES>>>,
         InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     ),
+    /// registry for controlling tasks
+    pub(crate) registry: Arc<TaskRegistry>,
+
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,
 
@@ -139,12 +143,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         Self: 'b,
     {
         boxed_sync(async move {
+            self.hotshot.networks.shut_down_networks().await;
+            // this is required because `SystemContextHandle` holds an inactive receiver and
+            // `broadcast_direct` below can wait indefinitely
+            self.internal_event_stream.0.set_await_active(false);
             let _ = self
                 .internal_event_stream
                 .0
-                .broadcast(Arc::new(HotShotEvent::Shutdown))
+                .broadcast_direct(Arc::new(HotShotEvent::Shutdown))
                 .await;
-            self.hotshot.networks.shut_down_networks().await;
+            self.registry.shutdown().await;
         })
     }
 
