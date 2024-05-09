@@ -503,8 +503,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
 
                     let mut consensus = self.consensus.write().await;
-                    if consensus.update_high_qc(qc.clone()).is_err() {
-                        tracing::trace!("High QC with an equal or higher view exists.");
+                    if let Err(e) = consensus.update_high_qc(qc.clone()) {
+                        tracing::trace!("{e:?}");
                     }
 
                     drop(consensus);

@@ -345,7 +345,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing view number.
     pub fn update_view(&mut self, view_number: TYPES::Time) -> Result<()> {
-        ensure!(view_number > self.cur_view);
+        ensure!(
+            view_number > self.cur_view,
+            "New view isn't newer than the current view."
+        );
         self.cur_view = view_number;
         Ok(())
     }
@@ -355,7 +358,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     pub fn update_last_proposed_view(&mut self, view_number: TYPES::Time) -> Result<()> {
-        ensure!(view_number > self.last_proposed_view);
+        ensure!(
+            view_number > self.last_proposed_view,
+            "New view isn't newer than the previously proposed view."
+        );
         self.last_proposed_view = view_number;
         Ok(())
     }
@@ -365,7 +371,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing decided view number.
     pub fn update_last_decided_view(&mut self, view_number: TYPES::Time) -> Result<()> {
-        ensure!(view_number > self.last_decided_view);
+        ensure!(
+            view_number > self.last_decided_view,
+            "New view isn't newer than the previously decided view."
+        );
         self.last_decided_view = view_number;
         Ok(())
     }
@@ -375,7 +384,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing locked view number.
     pub fn update_locked_view(&mut self, view_number: TYPES::Time) -> Result<()> {
-        ensure!(view_number > self.locked_view);
+        ensure!(
+            view_number > self.locked_view,
+            "New view isn't newer than the previously locked view."
+        );
         self.locked_view = view_number;
         Ok(())
     }
@@ -399,7 +411,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         view_number: TYPES::Time,
         encoded_transaction: Arc<[u8]>,
     ) -> Result<()> {
-        ensure!(!self.saved_payloads.contains_key(&view_number));
+        ensure!(
+            !self.saved_payloads.contains_key(&view_number),
+            "Payload with the same view already exists."
+        );
         self.saved_payloads.insert(view_number, encoded_transaction);
         Ok(())
     }
@@ -408,7 +423,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
-        ensure!(high_qc.view_number > self.high_qc.view_number);
+        ensure!(
+            high_qc.view_number > self.high_qc.view_number,
+            "High QC with an equal or higher view exists."
+        );
         debug!("Updating high QC");
         self.high_qc = high_qc;
 
