@@ -354,7 +354,6 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -692,7 +691,6 @@
                 | HotShotEvent::DAVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown
                 | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
-                | HotShotEvent::Timeout(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::DAProposalValidated(<span class="kw">_</span>, <span class="kw">_</span>)
         )

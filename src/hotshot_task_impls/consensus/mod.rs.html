@@ -771,89 +771,6 @@
 <a href="#769" id="769">769</a>
 <a href="#770" id="770">770</a>
 <a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1129,90 +1046,6 @@
         <span class="self">self</span>.spawned_tasks.entry(view).or_default().push(handle);
     }
 
-    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-    </span><span class="doccomment">/// Tries to vote then Publishes a proposal
-    </span><span class="kw">fn </span>vote_and_publish_proposal(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        vote_view: TYPES::Time,
-        propose_view: TYPES::Time,
-        proposal: QuorumProposal&lt;TYPES&gt;,
-        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) {
-        <span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::publish_proposal_from_commitment_and_metadata;
-
-        <span class="kw">use </span><span class="self">self</span>::helpers::publish_proposal_from_upgrade_cert;
-
-        <span class="kw">let </span>upgrade = <span class="self">self</span>.decided_upgrade_cert.clone();
-        <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
-        <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
-        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
-        <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
-        <span class="kw">let </span>quorum_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
-        <span class="kw">let </span>committee_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.committee_membership);
-        <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
-        <span class="kw">let </span>commitment_and_metadata = <span class="self">self</span>.payload_commitment_and_metadata.clone();
-        <span class="kw">let </span>cur_view = <span class="self">self</span>.cur_view;
-        <span class="kw">let </span>sender = event_stream.clone();
-        <span class="kw">let </span>decided_upgrade_cert = <span class="self">self</span>.decided_upgrade_cert.clone();
-        <span class="kw">let </span>delay = <span class="self">self</span>.round_start_delay;
-        <span class="kw">let </span>formed_upgrade_certificate = <span class="self">self</span>.formed_upgrade_certificate.clone();
-        <span class="kw">let </span>proposal_cert = <span class="self">self</span>.proposal_cert.clone();
-        <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
-            update_state_and_vote_if_able::&lt;TYPES, I&gt;(
-                vote_view,
-                proposal,
-                pub_key.clone(),
-                Arc::clone(<span class="kw-2">&amp;</span>consensus),
-                storage,
-                Arc::clone(<span class="kw-2">&amp;</span>quorum_mem),
-                Arc::clone(<span class="kw-2">&amp;</span>instance_state),
-                (priv_key.clone(), upgrade, committee_mem, event_stream),
-            )
-            .<span class="kw">await</span>;
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = decided_upgrade_cert {
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = publish_proposal_from_upgrade_cert(
-                    cur_view,
-                    propose_view,
-                    sender,
-                    quorum_mem,
-                    pub_key,
-                    priv_key,
-                    consensus,
-                    upgrade_cert,
-                    delay,
-                    instance_state,
-                )
-                .<span class="kw">await
-                </span>{
-                    <span class="macro">debug!</span>(<span class="string">"Couldn't propose with Error: {}"</span>, e);
-                }
-            } <span class="kw">else if let </span><span class="prelude-val">Err</span>(e) = publish_proposal_from_commitment_and_metadata(
-                cur_view,
-                propose_view,
-                sender,
-                quorum_mem,
-                pub_key,
-                priv_key,
-                consensus,
-                delay,
-                formed_upgrade_certificate,
-                decided_upgrade_cert,
-                commitment_and_metadata,
-                proposal_cert,
-                instance_state,
-            )
-            .<span class="kw">await
-            </span>{
-                <span class="macro">debug!</span>(<span class="string">"Couldn't propose with Error: {}"</span>, e);
-            }
-        });
-
-        <span class="self">self</span>.spawned_tasks
-            .entry(propose_view)
-            .or_default()
-            .push(handle);
-    }
-
     <span class="doccomment">/// Handles a consensus event received on the event stream
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
@@ -1223,6 +1056,7 @@
         <span class="kw">match </span>event.as_ref() {
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.get_view_number());
                 <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), <span class="self">self</span>)
                     .<span class="kw">await
                 </span>{
@@ -1237,6 +1071,7 @@
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
+                <span class="macro">debug!</span>(<span class="string">"proposal validated view: {:?}"</span>, proposal.get_view_number());
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), <span class="self">self</span>).<span class="kw">await
                 </span>{
@@ -1358,12 +1193,9 @@
                         <span class="macro">error!</span>(<span class="string">"Failed to store High QC of QC we formed. Error: {:?}"</span>, e);
                     }
 
-                    <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_high_qc(qc.clone()) {
-                        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.consensus.write().<span class="kw">await</span>.update_high_qc(qc.clone()) {
+                        <span class="macro">tracing::error!</span>(<span class="string">"{e:?}"</span>);
                     }
-
-                    drop(consensus);
                     <span class="macro">debug!</span>(
                         <span class="string">"Attempting to publish proposal after forming a QC for view {}"</span>,
                         <span class="kw-2">*</span>qc.view_number
@@ -1439,7 +1271,7 @@
                 <span class="kw">if </span>disperse.data.recipient_key != <span class="self">self</span>.public_key {
                     <span class="kw">return</span>;
                 }
-                <span class="self">self</span>.spawn_vote_task(view, event_stream);
+                <span class="self">self</span>.spawn_vote_task(view, event_stream.clone());
             }
             HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="kw">let </span>new_view = <span class="kw-2">*</span>new_view;
@@ -1574,7 +1406,7 @@
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().get_view_number() + <span class="number">1 </span>== view
                 {
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
-                        <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+                        <span class="macro">error!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                     };
                 }
 
@@ -1643,7 +1475,9 @@
                         <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
                         <span class="kw-2">*</span>new_view
                     );
-                    <span class="kw">let _ </span>= <span class="self">self</span>.publish_proposal(new_view, event_stream.clone()).<span class="kw">await</span>;
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(new_view, event_stream.clone()).<span class="kw">await </span>{
+                        <span class="macro">debug!</span>(<span class="string">"failed to propose e = {:?}"</span>, e);
+                    }
                 }
                 <span class="kw">if </span>proposal.get_view_number() &lt;= vote.get_view_number() {
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;

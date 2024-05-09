@@ -1234,6 +1234,9 @@
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
 <a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1331,19 +1334,19 @@
     // passes.
 
     // Liveness check.
-    </span><span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
-    <span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; consensus.locked_view;
+    </span><span class="kw">let </span>read_consensus = consensus.read().<span class="kw">await</span>;
+    <span class="kw">let </span>liveness_check = justify_qc.get_view_number() &gt; read_consensus.locked_view;
 
     <span class="comment">// Safety check.
     // Check if proposal extends from the locked leaf.
-    </span><span class="kw">let </span>outcome = consensus.visit_leaf_ancestors(
+    </span><span class="kw">let </span>outcome = read_consensus.visit_leaf_ancestors(
         justify_qc.get_view_number(),
-        Terminator::Inclusive(consensus.locked_view),
+        Terminator::Inclusive(read_consensus.locked_view),
         <span class="bool-val">false</span>,
         |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
             <span class="comment">// if leaf view no == locked view no then we're done, report success by
             // returning true
-            </span>leaf.get_view_number() != consensus.locked_view
+            </span>leaf.get_view_number() != read_consensus.locked_view
         },
     );
     <span class="kw">let </span>safety_check = outcome.is_ok();
@@ -1360,7 +1363,7 @@
             .<span class="kw">await</span>;
         }
 
-        <span class="macro">format!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus.high_qc(), proposal.data.clone(), consensus.locked_view)
+        <span class="macro">format!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view)
     });
 
     <span class="comment">// We accept the proposal, notify the application layer
@@ -1385,10 +1388,6 @@
         <span class="kw-2">&amp;</span>event_stream,
     )
     .<span class="kw">await</span>;
-
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-
-    consensus.update_saved_leaves(proposed_leaf);
 
     <span class="prelude-val">Ok</span>(())
 }
@@ -1849,7 +1848,7 @@
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
-        <span class="kw">let </span>consensus = task_state.consensus.write().<span class="kw">await</span>;
+        <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
         consensus.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view);
     }
@@ -1969,7 +1968,7 @@
                 <span class="kw">let </span>qc = high_qc.clone();
                 <span class="kw">if </span>should_propose {
                     <span class="macro">debug!</span>(
-                        <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
+                        <span class="string">"Attempting to publish proposal after voting for liveness; now in view: {}"</span>,
                         <span class="kw-2">*</span>new_view
                     );
                     <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
@@ -1995,9 +1994,9 @@
                         .or_default()
                         .push(create_and_send_proposal_handle);
                 }
+            } <span class="kw">else </span>{
+                <span class="macro">warn!</span>(<span class="question-mark">?</span>high_qc, <span class="question-mark">?</span>proposal.data, <span class="question-mark">?</span>locked_view, <span class="string">"Failed liveneess check; cannot find parent either."</span>);
             }
-
-            <span class="macro">warn!</span>(<span class="question-mark">?</span>high_qc, <span class="question-mark">?</span>proposal.data, <span class="question-mark">?</span>locked_view, <span class="string">"Failed liveneess check; cannot find parent either."</span>);
 
             <span class="kw">return </span><span class="prelude-val">Ok</span>(current_proposal);
         }
@@ -2042,7 +2041,7 @@
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>consensus = task_state.consensus.upgradable_read().<span class="kw">await</span>;
+    <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>view = proposal.get_view_number();
     <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span>{
@@ -2163,6 +2162,7 @@
             <span class="macro">debug!</span>(<span class="string">"view publish error {e}"</span>);
         }
     }
+    drop(consensus);
 
     <span class="kw">let </span>included_txns_set: HashSet&lt;<span class="kw">_</span>&gt; = <span class="kw">if </span>new_decide_reached {
         included_txns
@@ -2170,7 +2170,7 @@
         HashSet::new()
     };
 
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus = task_state.consensus.write().<span class="kw">await</span>;
     <span class="kw">if </span>new_commit_reached {
         consensus.locked_view = new_locked_view;
     }
@@ -2181,16 +2181,42 @@
         consensus.dontuse_decided_upgrade_cert = decided_upgrade_cert;
     }
 
+    drop(consensus);
+
+    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+    </span>{
+        <span class="kw">let </span>new_view = task_state.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
+        <span class="comment">// In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
+        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+        </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view)
+            == task_state.public_key
+            &amp;&amp; task_state.consensus.read().<span class="kw">await</span>.high_qc().view_number
+                == task_state.current_proposal.clone().unwrap().view_number;
+
+        <span class="kw">if </span>new_decide_reached {
+            task_state.cancel_tasks(new_anchor_view).<span class="kw">await</span>;
+        }
+        task_state.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
+        task_state.spawn_vote_task(view, event_stream.clone());
+        <span class="kw">if </span>should_propose {
+            <span class="macro">debug!</span>(
+                <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
+                <span class="kw-2">*</span>new_view
+            );
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
+                .publish_proposal(new_view, event_stream.clone())
+                .<span class="kw">await
+            </span>{
+                <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
+            };
+        }
+    }
+
     <span class="attr">#[allow(clippy::cast_precision_loss)]
     </span><span class="kw">if </span>new_decide_reached {
-        broadcast_event(
-            Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
-            <span class="kw-2">&amp;</span>event_stream,
-        )
-        .<span class="kw">await</span>;
         <span class="kw">let </span>decide_sent = broadcast_event(
             Event {
-                view_number: consensus.last_decided_view,
+                view_number: task_state.consensus.read().<span class="kw">await</span>.last_decided_view,
                 event: EventType::Decide {
                     leaf_chain: Arc::new(leaf_views),
                     qc: Arc::new(new_decide_qc.unwrap()),
@@ -2199,6 +2225,8 @@
             },
             <span class="kw-2">&amp;</span>task_state.output_event_stream,
         );
+        <span class="kw">let </span><span class="kw-2">mut </span>consensus = task_state.consensus.write().<span class="kw">await</span>;
+
         <span class="kw">let </span>old_anchor_view = consensus.last_decided_view;
         consensus.collect_garbage(old_anchor_view, new_anchor_view);
         consensus.last_decided_view = new_anchor_view;
@@ -2228,40 +2256,15 @@
             .add_point(cur_number_of_views_per_decide_event <span class="kw">as </span>f64);
 
         <span class="macro">debug!</span>(<span class="string">"Sending Decide for view {:?}"</span>, consensus.last_decided_view);
+        drop(consensus);
         <span class="macro">debug!</span>(<span class="string">"Decided txns len {:?}"</span>, included_txns_set.len());
         decide_sent.<span class="kw">await</span>;
+        broadcast_event(
+            Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
+            <span class="kw-2">&amp;</span>event_stream,
+        )
+        .<span class="kw">await</span>;
         <span class="macro">debug!</span>(<span class="string">"decide send succeeded"</span>);
-    }
-
-    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-    </span>{
-        <span class="kw">let </span>new_view = task_state.current_proposal.clone().unwrap().view_number + <span class="number">1</span>;
-        <span class="comment">// In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
-        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-        </span><span class="kw">let </span>should_propose = task_state.quorum_membership.get_leader(new_view)
-            == task_state.public_key
-            &amp;&amp; consensus.high_qc().view_number
-                == task_state.current_proposal.clone().unwrap().view_number;
-
-        drop(consensus);
-        <span class="kw">if </span>new_decide_reached {
-            task_state.cancel_tasks(new_anchor_view).<span class="kw">await</span>;
-        }
-        <span class="kw">if </span>should_propose {
-            <span class="macro">debug!</span>(
-                <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
-                <span class="kw-2">*</span>new_view
-            );
-            task_state.vote_and_publish_proposal(
-                proposal.get_view_number(),
-                new_view,
-                proposal.clone(),
-                event_stream,
-            );
-        } <span class="kw">else </span>{
-            task_state.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
-            task_state.spawn_vote_task(view, event_stream);
-        }
     }
 
     <span class="prelude-val">Ok</span>(())
@@ -2307,9 +2310,9 @@
         <span class="kw">return </span><span class="bool-val">false</span>;
     }
 
-    <span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
+    <span class="kw">let </span>read_consnesus = consensus.read().<span class="kw">await</span>;
     <span class="comment">// Only vote if you has seen the VID share for this view
-    </span><span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares().get(<span class="kw-2">&amp;</span>proposal.view_number) <span class="kw">else </span>{
+    </span><span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = read_consnesus.vid_shares().get(<span class="kw-2">&amp;</span>proposal.view_number) <span class="kw">else </span>{
         <span class="macro">debug!</span>(
             <span class="string">"We have not seen the VID share for this view {:?} yet, so we cannot vote."</span>,
             proposal.view_number
@@ -2336,31 +2339,33 @@
 
     <span class="comment">// Only vote if you have the DA cert
     // ED Need to update the view number this is stored under?
-    </span><span class="kw">let </span><span class="prelude-val">Some</span>(cert) = consensus.saved_da_certs().get(<span class="kw-2">&amp;</span>cur_view) <span class="kw">else </span>{
+    </span><span class="kw">let </span><span class="prelude-val">Some</span>(cert) = read_consnesus.saved_da_certs().get(<span class="kw-2">&amp;</span>cur_view).cloned() <span class="kw">else </span>{
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
 
     <span class="kw">let </span>view = cert.view_number;
     <span class="comment">// TODO: do some of this logic without the vote token check, only do that when voting.
     </span><span class="kw">let </span>justify_qc = proposal.justify_qc.clone();
-    <span class="kw">let </span>parent = consensus
+    <span class="kw">let </span>parent = read_consnesus
         .saved_leaves()
         .get(<span class="kw-2">&amp;</span>justify_qc.get_data().leaf_commit)
         .cloned();
 
     <span class="comment">// Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     </span><span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
-        <span class="macro">warn!</span>(
+        <span class="macro">error!</span>(
             <span class="string">"Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}"</span>,
             justify_qc.get_data().leaf_commit,
             proposal.view_number,
         );
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
-    <span class="kw">let </span>(<span class="prelude-val">Some</span>(parent_state), <span class="kw">_</span>) = consensus.get_state_and_delta(parent.get_view_number()) <span class="kw">else </span>{
+    <span class="kw">let </span>(<span class="prelude-val">Some</span>(parent_state), <span class="kw">_</span>) = read_consnesus.get_state_and_delta(parent.get_view_number())
+    <span class="kw">else </span>{
         <span class="macro">warn!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
+    drop(read_consnesus);
     <span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
         .validate_and_apply_header(
             instance_state.as_ref(),
@@ -2391,7 +2396,7 @@
         </span>message = <span class="kw">if </span>cert.is_valid_cert(vote_info.<span class="number">2</span>.as_ref()) {
             <span class="comment">// Validate the block payload commitment for non-genesis DAC.
             </span><span class="kw">if </span>cert.get_data().payload_commit != proposal.block_header.payload_commitment() {
-                <span class="macro">error!</span>(
+                <span class="macro">warn!</span>(
                     <span class="string">"Block payload commitment does not equal da cert payload commitment. View = {}"</span>,
                     <span class="kw-2">*</span>view
                 );
@@ -2418,8 +2423,7 @@
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
     }
-
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus = consensus.write().<span class="kw">await</span>;
     consensus.update_validated_state_map(
         cur_view,
         View {
@@ -2430,6 +2434,7 @@
             },
         },
     );
+    consensus.update_saved_leaves(proposed_leaf.clone());
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = storage
         .write()
@@ -2440,8 +2445,9 @@
         )
         .<span class="kw">await
     </span>{
-        <span class="macro">warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
+        <span class="macro">error!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
     }
+    drop(consensus);
 
     <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span>{
@@ -2452,7 +2458,7 @@
             </span>);
             <span class="comment">// Add to the storage that we have received the VID disperse for a specific view
             </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = storage.write().<span class="kw">await</span>.append_vid(<span class="kw-2">&amp;</span>vid_share).<span class="kw">await </span>{
-                <span class="macro">error!</span>(
+                <span class="macro">warn!</span>(
                     <span class="string">"Failed to store VID Disperse Proposal with error {:?}, aborting vote"</span>,
                     e
                 );
