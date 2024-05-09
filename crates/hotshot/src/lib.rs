@@ -36,7 +36,7 @@ use hotshot_types::{
     constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
     data::Leaf,
     event::{EventType, LeafInfo},
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     message::{DataMessage, Message, MessageKind},
     simple_certificate::QuorumCertificate,
     traits::{

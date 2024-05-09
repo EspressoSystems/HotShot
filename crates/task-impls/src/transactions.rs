@@ -18,7 +18,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     traits::{
         block_contents::BuilderFee,
         consensus_api::ConsensusApi,

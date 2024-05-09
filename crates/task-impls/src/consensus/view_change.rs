@@ -9,7 +9,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     traits::node_implementation::{ConsensusTime, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]

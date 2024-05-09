@@ -11,7 +11,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::ViewNumber, events::HotShotEvent::*, traits::node_implementation::ConsensusTime,
+    data::ViewNumber, hotshot_event::HotShotEvent::*, traits::node_implementation::ConsensusTime,
 };
 
 #[cfg(test)]

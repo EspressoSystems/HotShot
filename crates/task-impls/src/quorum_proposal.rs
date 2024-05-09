@@ -14,7 +14,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     event::Event,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     traits::{
         block_contents::BlockHeader,
         election::Membership,

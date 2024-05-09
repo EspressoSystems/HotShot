@@ -25,7 +25,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::{Version01, VERSION_0_1},
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     message::{Message, Messages},
     traits::{
         network::ConnectedNetwork,

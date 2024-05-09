@@ -10,7 +10,7 @@ use hotshot_testing::{test_builder::TestDescription, view_generator::TestViewGen
 use hotshot_types::{
     constants::BASE_VERSION,
     data::ViewNumber,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},

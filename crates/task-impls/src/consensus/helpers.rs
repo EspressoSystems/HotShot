@@ -20,7 +20,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::UpgradeCertificate,
     traits::{

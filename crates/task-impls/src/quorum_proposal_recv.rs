@@ -15,7 +15,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{QuorumProposal, ViewChangeEvidence},
     event::Event,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     simple_certificate::UpgradeCertificate,
     traits::{
         node_implementation::{NodeImplementation, NodeType},

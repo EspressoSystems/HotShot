@@ -3,7 +3,7 @@ use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::quorum_vote::QuorumVoteTaskState;
 use hotshot_testing::task_helpers::get_vid_share;
-use hotshot_types::events::HotShotEvent::*;
+use hotshot_types::hotshot_event::HotShotEvent::*;
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 
 #[cfg(test)]

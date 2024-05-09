@@ -4,7 +4,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     data::null_block,
-    events::{HotShotEvent, HotShotEvent::*},
+    hotshot_event::{HotShotEvent, HotShotEvent::*},
     traits::{block_contents::BlockHeader, node_implementation::NodeType},
 };
 

@@ -4,7 +4,7 @@ use async_broadcast::broadcast;
 use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::{
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     traits::node_implementation::NodeType,
 };
 

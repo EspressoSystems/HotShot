@@ -16,7 +16,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
     event::Event,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     message::GeneralConsensusMessage,
     simple_vote::{QuorumData, QuorumVote},
     traits::{

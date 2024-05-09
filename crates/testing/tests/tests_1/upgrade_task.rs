@@ -19,7 +19,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
-    events::HotShotEvent::*,
+    hotshot_event::HotShotEvent::*,
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
 };

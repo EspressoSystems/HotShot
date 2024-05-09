@@ -10,7 +10,7 @@ use hotshot_task_impls::vid::VIDTaskState;
 use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
 use hotshot_types::{
     data::{null_block, DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,

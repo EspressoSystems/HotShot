@@ -2,7 +2,7 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 use hotshot_task::task::{Task, TaskState, TestTaskState};
 use hotshot_types::{
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     traits::node_implementation::{NodeType, TestableNodeImplementation},
 };
 use snafu::Snafu;

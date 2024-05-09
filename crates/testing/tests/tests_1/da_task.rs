@@ -15,7 +15,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
-    events::HotShotEvent::*,
+    hotshot_event::HotShotEvent::*,
     simple_vote::DAData,
     traits::{
         block_contents::vid_commitment, election::Membership, node_implementation::ConsensusTime,
