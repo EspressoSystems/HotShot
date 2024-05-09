@@ -80,12 +80,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     ) -> Option<Self::Output> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let sender = task.clone_sender();
-                let state = task.state_mut();
+                let state = task.state();
                 let prop_view = proposal.get_view_number();
                 if prop_view >= state.view {
                     state
-                        .spawn_requests(prop_view, sender, Ver::instance())
+                        .spawn_requests(prop_view, task.clone_sender(), Ver::instance())
                         .await;
                 }
                 None
@@ -128,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
 {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(
-        &mut self,
+        &self,
         view: TYPES::Time,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         bind_version: Ver,
@@ -156,7 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
-        &mut self,
+        &self,
         request: RequestKind<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
@@ -222,7 +221,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Wait the delay, then try to complete the request.  Iterates over peers
     /// until the request is completed, or the data is no longer needed.
     async fn run<Ver: StaticVersionType + 'static>(
-        mut self,
+        self,
         request: RequestKind<TYPES>,
         signature: Signature<TYPES>,
     ) {
@@ -240,7 +239,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
 
     /// Handle sending a VID Share request, runs the loop until the data exists
     async fn do_vid<Ver: StaticVersionType + 'static>(
-        &mut self,
+        &self,
         req: VidRequest<TYPES>,
         signature: Signature<TYPES>,
     ) {
