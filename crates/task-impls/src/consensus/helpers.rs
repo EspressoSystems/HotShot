@@ -1101,7 +1101,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
 
     // Only vote if you have the DA cert
     // ED Need to update the view number this is stored under?
-    let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view) else {
+    let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view).cloned() else {
         return false;
     };
 
@@ -1127,6 +1127,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         error!("Parent state not found! Consensus internally inconsistent");
         return false;
     };
+    drop(read_consnesus);
     let Ok((validated_state, state_delta)) = parent_state
         .validate_and_apply_header(
             instance_state.as_ref(),
@@ -1185,7 +1186,6 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
             return false;
         };
     }
-    drop(read_consnesus);
     let mut consensus = consensus.write().await;
     consensus.update_validated_state_map(
         cur_view,

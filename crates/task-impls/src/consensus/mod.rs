@@ -583,11 +583,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     return;
                 }
                 self.spawn_vote_task(view, event_stream.clone());
-                if self.quorum_membership.get_leader(view) == self.public_key {
-                    if let Err(e) = self.publish_proposal(view, event_stream).await {
-                        error!("Failed to propose; error = {e:?}");
-                    };
-                }
             }
             HotShotEvent::ViewChange(new_view) => {
                 let new_view = *new_view;
@@ -764,13 +759,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if self.quorum_membership.get_leader(view) == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
-                    debug!(
+                    error!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
                         *certificate.view_number
                     );
 
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
-                        debug!("Failed to propose; error = {e:?}");
+                        error!("Failed to propose; error = {e:?}");
                     };
                 }
             }
@@ -787,11 +782,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         == proposal.get_view_number();
 
                 if should_propose {
-                    debug!(
+                    error!(
                         "Attempting to publish proposal after voting; now in view: {}",
                         *new_view
                     );
-                    let _ = self.publish_proposal(new_view, event_stream.clone()).await;
+                    if let Err(e) = self.publish_proposal(new_view, event_stream.clone()).await {
+                        error!("failed to propose e = {:?}", e);
+                    }
                 }
                 if proposal.get_view_number() <= vote.get_view_number() {
                     self.current_proposal = None;
