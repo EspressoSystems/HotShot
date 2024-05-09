@@ -314,6 +314,7 @@ impl<
                 parent_comm_sig,
             )
             .await
+            .inspect_err(|err| tracing::error!("Error getting av blocks: {}", err))
             .context("getting available blocks")?;
         tracing::debug!("Got available blocks: {available_blocks:?}");
 
@@ -354,7 +355,9 @@ impl<
             self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature)
         };
 
-        let block_data = block.context("claiming block data")?;
+        let block_data = block
+            .inspect_err(|err| tracing::error!("Error claiming block: {}", err))
+            .context("claiming block data")?;
 
         // verify the signature over the message, construct the builder commitment
         let builder_commitment = block_data
@@ -367,7 +370,9 @@ impl<
             bail!("Failed to verify available block data response message signature");
         }
 
-        let header_input = header_input.context("claiming header input")?;
+        let header_input = header_input
+            .inspect_err(|err| tracing::error!("Error claiming block header: {}", err))
+            .context("claiming header input")?;
 
         // first verify the message signature and later verify the fee_signature
         if !header_input.sender.validate_builder_signature(

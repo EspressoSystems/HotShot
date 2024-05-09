@@ -177,7 +177,7 @@ where
                         header_input: Some(header_input),
                     },
                 ) {
-                    tracing::warn!("Block {} evicted", hash);
+                    tracing::error!("Block {} evicted", hash);
                 };
                 async_sleep(time_per_block.saturating_sub(start.elapsed())).await;
             }
@@ -308,6 +308,7 @@ impl<TYPES: NodeType> ReadState for SimpleBuilderSource<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
+    #[tracing::instrument(skip_all, name = "get available blocks")]
     async fn get_available_blocks(
         &self,
         _for_parent: &VidCommitment,
@@ -336,6 +337,12 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
             .await;
 
         if transactions.is_empty() {
+            tracing::error!(
+                "No unclaimed transactions, total txns: {}",
+                self.transactions
+                    .read(|txns| Box::pin(async { txns.len() }))
+                    .await
+            );
             // We don't want to return an empty block, as we will end up driving consensus to
             // produce empty blocks extremely quickly. Instead, we return no blocks, so that
             // consensus will keep asking for blocks until either we have something non-trivial to
@@ -364,6 +371,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
         Ok(vec![metadata])
     }
 
+    #[tracing::instrument(skip_all, name = "claim block")]
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
@@ -373,8 +381,14 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
         let payload = {
             let mut blocks = self.blocks.write().await;
-            let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
-            entry.payload.take().ok_or(BuildError::Missing)?
+            let entry = blocks.get_mut(block_hash).ok_or_else(|| {
+                tracing::error!("Couldn't find entry when claiming block");
+                BuildError::NotFound
+            })?;
+            entry.payload.take().ok_or_else(|| {
+                tracing::error!("Block missing in entry!");
+                BuildError::Missing
+            })?
         };
 
         let now = Instant::now();
@@ -383,16 +397,20 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
             .block_payload
             .transaction_commitments(&payload.metadata);
 
+        let mut tx_num = 0;
         let mut transactions = self.transactions.write().await;
         for txn_hash in claimed_transactions {
             if let Some(txn) = transactions.get_mut(&txn_hash) {
+                tx_num += 1;
                 txn.claimed = Some(now);
             }
         }
+        tracing::error!("Block of {} txns claimed", tx_num);
 
         Ok(payload)
     }
 
+    #[tracing::instrument(skip_all, name = "claim block header input")]
     async fn claim_block_header_input(
         &self,
         block_hash: &BuilderCommitment,
@@ -401,8 +419,14 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES> {
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
         let mut blocks = self.blocks.write().await;
-        let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
-        entry.header_input.take().ok_or(BuildError::Missing)
+        let entry = blocks.get_mut(block_hash).ok_or_else(|| {
+            tracing::error!("Couldn't find entry when claiming header");
+            BuildError::NotFound
+        })?;
+        entry.header_input.take().ok_or_else(|| {
+            tracing::error!("Header missing in entry");
+            BuildError::Missing
+        })
     }
 
     async fn get_builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
@@ -455,6 +479,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                     Some(evt) => match evt.event {
                         EventType::Decide { leaf_chain, .. } => {
                             let mut queue = self.transactions.write().await;
+                            let mut tx_num = 0;
                             for leaf_info in leaf_chain.iter() {
                                 if let Some(ref payload) = leaf_info.leaf.get_block_payload() {
                                     for txn in payload.transaction_commitments(
@@ -462,9 +487,11 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                                     ) {
                                         self.decided_transactions.put(txn, ());
                                         queue.remove(&txn);
+                                        tx_num += 1;
                                     }
                                 }
                             }
+                            tracing::error!("GCd {} transactions", tx_num);
                             self.blocks.write().await.clear();
                         }
                         EventType::DAProposal { proposal, .. } => {
@@ -475,18 +502,27 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                             let now = Instant::now();
 
                             let mut queue = self.transactions.write().await;
+
+                            let mut tx_num = 0;
                             for commitment in
                                 payload.transaction_commitments(&proposal.data.metadata)
                             {
                                 if let Some(txn) = queue.get_mut(&commitment) {
                                     txn.claimed = Some(now);
+                                    tx_num += 1;
                                 }
                             }
+                            tracing::error!(
+                                "Marked {} txns as claimed because of DA proposal",
+                                tx_num
+                            );
                         }
                         EventType::Transactions { transactions } => {
                             let mut queue = self.transactions.write().await;
+                            let mut tx_num = 0;
                             for transaction in transactions {
                                 if !self.decided_transactions.contains(&transaction.commit()) {
+                                    tx_num += 1;
                                     queue.insert(
                                         transaction.commit(),
                                         SubmittedTransaction {
@@ -496,6 +532,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                                     );
                                 }
                             }
+                            tracing::error!("Enqueued {} transactions", tx_num);
                         }
                         _ => {}
                     },
