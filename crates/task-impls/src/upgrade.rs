@@ -5,7 +5,7 @@ use async_lock::RwLock;
 use hotshot_task::{broadcast_event, task::TaskState};
 use hotshot_types::{
     event::{Event, EventType},
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{

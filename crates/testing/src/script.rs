@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
-use hotshot_types::{events::HotShotEvent, traits::node_implementation::NodeType};
+use hotshot_types::{hotshot_event::HotShotEvent, traits::node_implementation::NodeType};
 
 use crate::predicates::{Predicate, PredicateResult};
 

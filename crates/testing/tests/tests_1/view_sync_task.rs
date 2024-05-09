@@ -2,7 +2,7 @@ use hotshot::tasks::task_state::CreateTaskState;
 use hotshot::types::SystemContextHandle;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_types::{
-    data::ViewNumber, events::HotShotEvent, traits::node_implementation::ConsensusTime,
+    data::ViewNumber, hotshot_event::HotShotEvent, traits::node_implementation::ConsensusTime,
 };
 use std::collections::HashMap;
 

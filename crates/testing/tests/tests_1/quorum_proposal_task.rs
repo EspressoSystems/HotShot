@@ -18,7 +18,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, ProposalDependencyData},
     data::null_block,
     data::{VidDisperseShare, ViewChangeEvidence, ViewNumber},
-    events::HotShotEvent::*,
+    hotshot_event::HotShotEvent::*,
     message::Proposal,
     simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
     simple_vote::ViewSyncFinalizeData,

@@ -14,7 +14,7 @@ pub mod constants;
 pub mod data;
 pub mod error;
 pub mod event;
-pub mod events;
+pub mod hotshot_event;
 pub mod light_client;
 pub mod message;
 pub mod qc;

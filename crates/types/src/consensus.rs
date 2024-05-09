@@ -16,7 +16,7 @@ pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperseShare},
     error::HotShotError,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,

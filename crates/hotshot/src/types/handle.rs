@@ -11,7 +11,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
     error::HotShotError,
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     traits::{election::Membership, node_implementation::NodeType},
     BoxSyncFuture,
 };

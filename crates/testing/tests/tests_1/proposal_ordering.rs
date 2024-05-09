@@ -20,7 +20,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
-    events::HotShotEvent::*,
+    hotshot_event::HotShotEvent::*,
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
 };

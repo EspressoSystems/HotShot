@@ -17,7 +17,7 @@ use hotshot_example_types::{
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
-    events::HotShotEvent,
+    hotshot_event::HotShotEvent,
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},

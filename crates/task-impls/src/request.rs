@@ -13,7 +13,7 @@ use async_lock::RwLock;
 use hotshot_task::{broadcast_event, task::TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,

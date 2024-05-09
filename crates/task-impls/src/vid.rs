@@ -9,7 +9,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     message::Proposal,
     traits::{
         consensus_api::ConsensusApi,

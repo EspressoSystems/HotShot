@@ -23,7 +23,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{ViewChangeEvidence, ViewNumber},
-    events::HotShotEvent::*,
+    hotshot_event::HotShotEvent::*,
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,

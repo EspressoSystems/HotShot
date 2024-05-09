@@ -12,7 +12,7 @@ use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
     event::{Event, EventType},
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     message::Proposal,
     simple_certificate::DACertificate,
     simple_vote::{DAData, DAVote},

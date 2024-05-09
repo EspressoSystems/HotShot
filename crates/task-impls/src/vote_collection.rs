@@ -8,7 +8,7 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
-    events::{HotShotEvent, HotShotTaskCompleted},
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
