@@ -310,7 +310,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                     ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
-                            proposal.view_number
+                            proposal.view_number + 1
                         } else {
                             return false;
                         }
