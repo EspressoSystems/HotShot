@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use async_broadcast::Sender;
@@ -59,8 +59,8 @@ pub struct NetworkRequestState<
     pub _phantom: PhantomData<fn(&Ver)>,
     /// The node's id
     pub id: u64,
-    /// Vector of shutdown flags for delayed requesters
-    pub shutdown_flags: Vec<Arc<AtomicI8>>,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub shutdown_flag: Arc<AtomicBool>,
 }
 
 /// Alias for a signature
@@ -98,7 +98,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
                 None
             }
             HotShotEvent::Shutdown => {
-                task.state().shutdown_delayed_requesters();
+                task.state().set_shutdown_flag();
                 Some(HotShotTaskCompleted)
             }
             _ => None,
@@ -119,7 +119,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 
     async fn shutdown(&mut self) {
-        self.shutdown_delayed_requesters();
+        self.set_shutdown_flag();
     }
 }
 
@@ -176,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             sender,
             delay: self.delay,
             recipients,
-            received_shutdown: Arc::new(AtomicI8::new(0i8)),
+            shutdown_flag: Arc::clone(&self.shutdown_flag),
         };
         let Ok(data) = Serializer::<Ver>::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
@@ -188,23 +188,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
-        self.shutdown_flags
-            .push(Arc::clone(&requester.received_shutdown));
         async_spawn(requester.run::<Ver>(request, signature));
-        self.clean_shutdown_flags();
     }
 
     /// Signals delayed requesters to finish
-    fn shutdown_delayed_requesters(&self) {
-        self.shutdown_flags
-            .iter()
-            .for_each(|f| f.store(1i8, Ordering::Relaxed));
-    }
-
-    /// Removes flags from the vector that are related to already finished tasks
-    fn clean_shutdown_flags(&mut self) {
-        self.shutdown_flags
-            .retain(|f| f.load(Ordering::Relaxed) != -1i8);
+    fn set_shutdown_flag(&self) {
+        self.shutdown_flag.store(true, Ordering::Relaxed);
     }
 }
 
@@ -222,8 +211,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     delay: Duration,
     /// The peers we will request in a random order
     recipients: Vec<TYPES::SignatureKey>,
-    /// Signals whether shutdown has been received
-    received_shutdown: Arc<AtomicI8>,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    shutdown_flag: Arc<AtomicBool>,
 }
 
 /// Wrapper for the info in a VID request
@@ -247,8 +236,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             }
             RequestKind::DAProposal(..) => {}
         }
-        // Signal the requester task has finished
-        self.received_shutdown.store(-1i8, Ordering::Relaxed);
     }
 
     /// Handle sending a VID Share request, runs the loop until the data exists
@@ -299,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        self.received_shutdown.load(Ordering::Relaxed) == 1i8
+        self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
             || state.cur_view() > view
     }
