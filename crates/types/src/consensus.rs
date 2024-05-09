@@ -6,14 +6,17 @@ use std::{
 };
 
 use anyhow::{ensure, Result};
+use async_broadcast::Sender;
 use committable::{Commitment, Committable};
 use displaydoc::Display;
+use hotshot_task::broadcast_event;
 use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperseShare},
     error::HotShotError,
+    hotshot_event::HotShotEvent,
     message::Proposal,
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -336,7 +339,17 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the validated state map with a new view_number/view combo.
-    pub fn update_validated_state_map(&mut self, view_number: TYPES::Time, view: View<TYPES>) {
+    pub async fn update_validated_state_map(
+        &mut self,
+        view_number: TYPES::Time,
+        view: View<TYPES>,
+        sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) {
+        broadcast_event(
+            HotShotEvent::ValidatedStateUpdate(view_number, view.clone()).into(),
+            sender,
+        )
+        .await;
         self.validated_state_map.insert(view_number, view);
     }
 

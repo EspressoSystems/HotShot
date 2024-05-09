@@ -1,8 +1,10 @@
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 use hotshot_task::task::{Task, TaskState, TestTaskState};
-use hotshot_task_impls::events::HotShotEvent;
-use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
+use hotshot_types::{
+    hotshot_event::HotShotEvent,
+    traits::node_implementation::{NodeType, TestableNodeImplementation},
+};
 use snafu::Snafu;
 
 use crate::{test_runner::HotShotTaskCompleted, GlobalTestEvent};

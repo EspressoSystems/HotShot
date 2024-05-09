@@ -1,15 +1,13 @@
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::update_state_and_vote_if_able;
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use committable::Committable;
 use hotshot_task::{
+    broadcast_event, cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::{Task, TaskState},
@@ -18,6 +16,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
     event::Event,
+    hotshot_event::HotShotEvent,
     message::GeneralConsensusMessage,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
@@ -159,7 +158,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                 Arc::clone(&self.storage),
                 self.quorum_membership,
                 self.instance_state,
-                PhantomData,
+                self.sender.clone(),
             )
             .await;
         }

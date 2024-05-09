@@ -3,8 +3,12 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 use async_broadcast::Sender;
 use async_trait::async_trait;
 use either::Either::{self, Left, Right};
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
+    hotshot_event::{HotShotEvent, HotShotTaskCompleted},
     simple_certificate::{
         DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -17,11 +21,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
 use tracing::{debug, error};
-
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 
 /// Task state for collecting votes of one type and emitting a certificate
 pub struct VoteCollectionTaskState<

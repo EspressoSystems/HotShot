@@ -8,10 +8,11 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
+use hotshot_task_impls::consensus::ConsensusTaskState;
 use hotshot_testing::{
     predicates::event::{
-        exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
+        exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send,
+        timeout_vote_send, validated_state_update,
     },
     script::{run_test_script, TestScriptStage},
     task_helpers::{
@@ -22,6 +23,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{ViewChangeEvidence, ViewNumber},
+    hotshot_event::HotShotEvent::*,
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
@@ -77,6 +79,7 @@ async fn test_consensus_task() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
+            validated_state_update(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -120,7 +123,6 @@ async fn test_consensus_task() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
     use hotshot::tasks::task_state::CreateTaskState;
-    use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
@@ -161,6 +163,7 @@ async fn test_consensus_vote() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
+            validated_state_update(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -209,6 +212,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
+            validated_state_update(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -228,6 +232,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
             quorum_proposal_validated(),
+            validated_state_update(),
             exact(QuorumVoteSend(votes[1].clone())),
         ],
         asserts: vec![],
@@ -322,6 +327,7 @@ async fn test_view_sync_finalize_propose() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
+            validated_state_update(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
@@ -448,14 +454,18 @@ async fn test_view_sync_finalize_vote() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
+            validated_state_update(),
         ],
         asserts: vec![],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![timeout_vote_send(), timeout_vote_send()],
+        outputs: vec![
+            exact(QuorumVoteSend(votes[0].clone())),
+            timeout_vote_send(),
+            timeout_vote_send(),
+        ],
         // Times out, so we now have a delayed view
         asserts: vec![],
     };
@@ -480,7 +490,11 @@ async fn test_view_sync_finalize_vote() {
             // Multiple timeouts in a row, so we call for a view sync
             ViewSyncFinalizeCertificate2Recv(cert),
         ],
-        outputs: vec![quorum_proposal_validated(), quorum_vote_send()],
+        outputs: vec![
+            quorum_proposal_validated(),
+            validated_state_update(),
+            quorum_vote_send(),
+        ],
         asserts: vec![],
     };
 
@@ -545,6 +559,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
+            validated_state_update(),
             exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],

@@ -7,11 +7,15 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::future::join_all;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::{
+    broadcast_event, cancel_task,
+    task::{Task, TaskState},
+};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{QuorumProposal, ViewChangeEvidence},
     event::Event,
+    hotshot_event::HotShotEvent,
     simple_certificate::UpgradeCertificate,
     traits::{
         node_implementation::{NodeImplementation, NodeType},
@@ -23,11 +27,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 
-use crate::{
-    consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+use crate::consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv};
 
 /// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.

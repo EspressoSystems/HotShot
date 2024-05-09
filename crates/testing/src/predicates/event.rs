@@ -2,9 +2,9 @@ use std::{collections::HashSet, sync::Arc};
 
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_task_impls::events::{HotShotEvent, HotShotEvent::*};
 use hotshot_types::{
     data::null_block,
+    hotshot_event::{HotShotEvent, HotShotEvent::*},
     traits::{block_contents::BlockHeader, node_implementation::NodeType},
 };
 
@@ -240,5 +240,15 @@ where
     let info = "TimeoutVoteSend".to_string();
     let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), TimeoutVoteSend(..)));
+    Box::new(EventPredicate { check, info })
+}
+
+pub fn validated_state_update<TYPES>() -> Box<EventPredicate<TYPES>>
+where
+    TYPES: NodeType,
+{
+    let info = "ValidatedStateUpdate".to_string();
+    let check: EventCallback<TYPES> =
+        Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), ValidatedStateUpdate(..)));
     Box::new(EventPredicate { check, info })
 }
