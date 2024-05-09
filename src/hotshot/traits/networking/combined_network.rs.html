@@ -792,7 +792,7 @@
     <span class="kw">async fn </span>request_data&lt;T: NodeType, VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         request: Message&lt;TYPES&gt;,
-        recipient: TYPES::SignatureKey,
+        recipient: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;T&gt;, NetworkError&gt; {
         <span class="self">self</span>.secondary()

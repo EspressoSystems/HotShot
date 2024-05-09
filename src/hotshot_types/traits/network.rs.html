@@ -981,7 +981,7 @@
     </span><span class="kw">async fn </span>request_data&lt;TYPES: NodeType, VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _request: M,
-        _recipient: K,
+        _recipient: <span class="kw-2">&amp;</span>K,
         _bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;TYPES&gt;, NetworkError&gt; {
         <span class="prelude-val">Err</span>(NetworkError::UnimplementedFeature)

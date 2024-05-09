@@ -299,7 +299,29 @@
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
+<span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
@@ -359,6 +381,8 @@
     </span><span class="kw">pub </span>_phantom: PhantomData&lt;<span class="kw">fn</span>(<span class="kw-2">&amp;</span>Ver)&gt;,
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
+    </span><span class="kw">pub </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
 }
 
 <span class="doccomment">/// Alias for a signature
@@ -394,7 +418,10 @@
                 }
                 <span class="prelude-val">None
             </span>}
-            HotShotEvent::Shutdown =&gt; <span class="prelude-val">Some</span>(HotShotTaskCompleted),
+            HotShotEvent::Shutdown =&gt; {
+                task.state().set_shutdown_flag();
+                <span class="prelude-val">Some</span>(HotShotTaskCompleted)
+            }
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
@@ -410,6 +437,10 @@
                 | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )
+    }
+
+    <span class="kw">async fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.set_shutdown_flag();
     }
 }
 
@@ -466,6 +497,7 @@
             sender,
             delay: <span class="self">self</span>.delay,
             recipients,
+            shutdown_flag: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag),
         };
         <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = Serializer::&lt;Ver&gt;::serialize(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
             <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize request!"</span>);
@@ -478,6 +510,11 @@
         };
         <span class="macro">debug!</span>(<span class="string">"Requesting data: {:?}"</span>, request);
         async_spawn(requester.run::&lt;Ver&gt;(request, signature));
+    }
+
+    <span class="doccomment">/// Signals delayed requesters to finish
+    </span><span class="kw">fn </span>set_shutdown_flag(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.shutdown_flag.store(<span class="bool-val">true</span>, Ordering::Relaxed);
     }
 }
 
@@ -495,6 +532,8 @@
     </span>delay: Duration,
     <span class="doccomment">/// The peers we will request in a random order
     </span>recipients: Vec&lt;TYPES::SignatureKey&gt;,
+    <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
+    </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
 }
 
 <span class="doccomment">/// Wrapper for the info in a VID request
@@ -504,7 +543,7 @@
     <span class="doccomment">/// Wait the delay, then try to complete the request.  Iterates over peers
     /// until the request is completed, or the data is no longer needed.
     </span><span class="kw">async fn </span>run&lt;Ver: StaticVersionType + <span class="lifetime">'static</span>&gt;(
-        <span class="kw-2">mut </span><span class="self">self</span>,
+        <span class="self">self</span>,
         request: RequestKind&lt;TYPES&gt;,
         signature: Signature&lt;TYPES&gt;,
     ) {
@@ -522,18 +561,19 @@
 
     <span class="doccomment">/// Handle sending a VID Share request, runs the loop until the data exists
     </span><span class="kw">async fn </span>do_vid&lt;Ver: StaticVersionType + <span class="lifetime">'static</span>&gt;(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         req: VidRequest&lt;TYPES&gt;,
         signature: Signature&lt;TYPES&gt;,
     ) {
         <span class="kw">let </span>message = make_vid(<span class="kw-2">&amp;</span>req, signature);
+        <span class="kw">let </span><span class="kw-2">mut </span>recipients_it = <span class="self">self</span>.recipients.iter().cycle();
 
-        <span class="kw">while </span>!<span class="self">self</span>.recipients.is_empty() &amp;&amp; !<span class="self">self</span>.cancel_vid(<span class="kw-2">&amp;</span>req).<span class="kw">await </span>{
+        <span class="kw">while </span>!<span class="self">self</span>.cancel_vid(<span class="kw-2">&amp;</span>req).<span class="kw">await </span>{
             <span class="kw">match </span>async_timeout(
                 REQUEST_TIMEOUT,
                 <span class="self">self</span>.network.request_data::&lt;TYPES, Ver&gt;(
                     message.clone(),
-                    <span class="self">self</span>.recipients.pop().unwrap(),
+                    recipients_it.next().unwrap(),
                     Ver::instance(),
                 ),
             )
@@ -567,7 +607,9 @@
     </span><span class="kw">async fn </span>cancel_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>VidRequest&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">let </span>view = req.<span class="number">0</span>;
         <span class="kw">let </span>state = <span class="self">self</span>.state.read().<span class="kw">await</span>;
-        state.vid_shares().contains_key(<span class="kw-2">&amp;</span>view) &amp;&amp; state.cur_view() &gt; view
+        <span class="self">self</span>.shutdown_flag.load(Ordering::Relaxed)
+            || state.vid_shares().contains_key(<span class="kw-2">&amp;</span>view)
+            || state.cur_view() &gt; view
     }
 
     <span class="doccomment">/// Transform a response into a `HotShotEvent`

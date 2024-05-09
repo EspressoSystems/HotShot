@@ -53,16 +53,17 @@
        <span class="where">where VER: 'async_trait + StaticVersionType + 'static,
              Self: 'async_trait,
              'life0: 'async_trait</span> { ... }
-<span class="item-spacer"></span>    fn <a href="#method.request_data" class="fn">request_data</a>&lt;'life0, 'async_trait, TYPES, VER&gt;(
+<span class="item-spacer"></span>    fn <a href="#method.request_data" class="fn">request_data</a>&lt;'life0, 'life1, 'async_trait, TYPES, VER&gt;(
         &amp;'life0 self,
         _request: M,
-        _recipient: K,
+        _recipient: <a class="primitive" href="https://doc.rust-lang.org/1.78.0/std/primitive.reference.html">&amp;'life1 K</a>,
         _bind_version: VER
     ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.78.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.78.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.78.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.78.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="enum.ResponseMessage.html" title="enum hotshot_types::traits::network::ResponseMessage">ResponseMessage</a>&lt;TYPES&gt;, <a class="enum" href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError">NetworkError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.78.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where TYPES: 'async_trait + <a class="trait" href="../node_implementation/trait.NodeType.html" title="trait hotshot_types::traits::node_implementation::NodeType">NodeType</a>,
              VER: 'async_trait + StaticVersionType + 'static,
              Self: 'async_trait,
-             'life0: 'async_trait</span> { ... }
+             'life0: 'async_trait,
+             'life1: 'async_trait</span> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.spawn_request_receiver_task" class="fn">spawn_request_receiver_task</a>&lt;'life0, 'async_trait, VER&gt;(
         &amp;'life0 self,
         _bind_version: VER
@@ -148,16 +149,17 @@ blocking</p>
     Self: 'async_trait,
     'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>send messages with vid shares to its recipients
 blocking</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.request_data" class="method"><a class="src rightside" href="../../../src/hotshot_types/traits/network.rs.html#316-323">source</a><h4 class="code-header">fn <a href="#method.request_data" class="fn">request_data</a>&lt;'life0, 'async_trait, TYPES, VER&gt;(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.request_data" class="method"><a class="src rightside" href="../../../src/hotshot_types/traits/network.rs.html#316-323">source</a><h4 class="code-header">fn <a href="#method.request_data" class="fn">request_data</a>&lt;'life0, 'life1, 'async_trait, TYPES, VER&gt;(
     &amp;'life0 self,
     _request: M,
-    _recipient: K,
+    _recipient: <a class="primitive" href="https://doc.rust-lang.org/1.78.0/std/primitive.reference.html">&amp;'life1 K</a>,
     _bind_version: VER
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.78.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.78.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.78.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.78.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="enum.ResponseMessage.html" title="enum hotshot_types::traits::network::ResponseMessage">ResponseMessage</a>&lt;TYPES&gt;, <a class="enum" href="enum.NetworkError.html" title="enum hotshot_types::traits::network::NetworkError">NetworkError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.78.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
     TYPES: 'async_trait + <a class="trait" href="../node_implementation/trait.NodeType.html" title="trait hotshot_types::traits::node_implementation::NodeType">NodeType</a>,
     VER: 'async_trait + StaticVersionType + 'static,
     Self: 'async_trait,
-    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Ask request the network for some data.  Returns the request ID for that data,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Ask request the network for some data.  Returns the request ID for that data,
 The ID returned can be used for cancelling the request</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.spawn_request_receiver_task" class="method"><a class="src rightside" href="../../../src/hotshot_types/traits/network.rs.html#331-336">source</a><h4 class="code-header">fn <a href="#method.spawn_request_receiver_task" class="fn">spawn_request_receiver_task</a>&lt;'life0, 'async_trait, VER&gt;(
     &amp;'life0 self,
