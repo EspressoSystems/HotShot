@@ -185,7 +185,10 @@ type VoteMap2<COMMITMENT, PK, SIG> = HashMap<COMMITMENT, (U256, BTreeMap<PK, (SI
 
 /// Payload for the `HotShotEvents::VoteNow` event type. The proposal and leaf are
 /// obtained via a `QuorumProposalValidated` event being processed.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, serde::Serialize, serde::Deserialize)]
+// #[cfg_attr(feature = "rewind", derive(serde::Serialize, serde::Deserialize))]
+// #[cfg_attr(feature = "rewind", serde(bound(deserialize = "")))]
+#[serde(bound(deserialize = ""))]
 pub struct VoteDependencyData<TYPES: NodeType> {
     /// The quorum proposal (not necessarily valid).
     pub quorum_proposal: QuorumProposal<TYPES>,

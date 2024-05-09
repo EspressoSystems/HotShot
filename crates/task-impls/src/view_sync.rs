@@ -41,6 +41,7 @@ use crate::{
     },
 };
 #[derive(PartialEq, PartialOrd, Clone, Debug, Eq, Hash)]
+#[cfg_attr(feature = "rewind", derive(serde::Serialize, serde::Deserialize))]
 /// Phases of view sync
 pub enum ViewSyncPhase {
     /// No phase; before the protocol has begun

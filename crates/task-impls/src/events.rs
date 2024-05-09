@@ -28,6 +28,8 @@ pub struct HotShotTaskCompleted;
 
 /// All of the possible events that can be passed between Sequecning `HotShot` tasks
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[cfg_attr(feature = "rewind", derive(serde::Serialize, serde::Deserialize))]
+#[serde(bound(deserialize = ""))]
 #[allow(clippy::large_enum_variant)]
 pub enum HotShotEvent<TYPES: NodeType> {
     /// Shutdown the task
@@ -152,4 +154,78 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
+}
+
+impl<TYPES: NodeType> std::fmt::Display for HotShotEvent<TYPES> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HotShotEvent::Shutdown => write!(f, "Shutdown"),
+            HotShotEvent::QuorumProposalRecv(_, _) => write!(f, "QuorumProposalRecv"),
+            HotShotEvent::QuorumVoteRecv(_) => write!(f, "QuorumVoteRecv"),
+            HotShotEvent::TimeoutVoteRecv(_) => write!(f, "TimeoutVoteRecv"),
+            HotShotEvent::TimeoutVoteSend(_) => write!(f, "TimeoutVoteSend"),
+            HotShotEvent::DAProposalRecv(_, _) => write!(f, "DAProposalRecv"),
+            HotShotEvent::DAProposalValidated(_, _) => write!(f, "DAProposalValidated"),
+            HotShotEvent::DAVoteRecv(_) => write!(f, "DAVoteRecv"),
+            HotShotEvent::DACertificateRecv(_) => write!(f, "DACertificateRecv"),
+            HotShotEvent::DACertificateValidated(_) => write!(f, "DACertificateValidated"),
+            HotShotEvent::QuorumProposalSend(_, _) => write!(f, "QuorumProposalSend"),
+            HotShotEvent::QuorumVoteSend(_) => write!(f, "QuorumVoteSend"),
+            HotShotEvent::QuorumVoteDependenciesValidated(_) => {
+                write!(f, "QuorumVoteDependenciesValidated")
+            }
+            HotShotEvent::QuorumProposalValidated(_, _) => write!(f, "QuorumProposalValidated"),
+            HotShotEvent::DAProposalSend(_, _) => write!(f, "DAProposalSend"),
+            HotShotEvent::DAVoteSend(_) => write!(f, "DAVoteSend"),
+            HotShotEvent::QCFormed(_) => write!(f, "QCFormed"),
+            HotShotEvent::DACSend(_, _) => write!(f, "DACSend"),
+            HotShotEvent::ViewChange(_) => write!(f, "ViewChange"),
+            HotShotEvent::ViewSyncTimeout(_, _, _) => write!(f, "ViewSyncTimeout"),
+            HotShotEvent::ViewSyncPreCommitVoteRecv(_) => write!(f, "ViewSyncPreCommitVoteRecv"),
+            HotShotEvent::ViewSyncCommitVoteRecv(_) => write!(f, "ViewSyncCommitVoteRecv"),
+            HotShotEvent::ViewSyncFinalizeVoteRecv(_) => write!(f, "ViewSyncFinalizeVoteRecv"),
+            HotShotEvent::ViewSyncPreCommitVoteSend(_) => write!(f, "ViewSyncPreCommitVoteSend"),
+            HotShotEvent::ViewSyncCommitVoteSend(_) => write!(f, "ViewSyncCommitVoteSend"),
+            HotShotEvent::ViewSyncFinalizeVoteSend(_) => write!(f, "ViewSyncFinalizeVoteSend"),
+            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_) => {
+                write!(f, "ViewSyncPreCommitCertificate2Recv")
+            }
+            HotShotEvent::ViewSyncCommitCertificate2Recv(_) => {
+                write!(f, "ViewSyncCommitCertificate2Recv")
+            }
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+                write!(f, "ViewSyncFinalizeCertificate2Recv")
+            }
+            HotShotEvent::ViewSyncPreCommitCertificate2Send(_, _) => {
+                write!(f, "ViewSyncPreCommitCertificate2Send")
+            }
+            HotShotEvent::ViewSyncCommitCertificate2Send(_, _) => {
+                write!(f, "ViewSyncCommitCertificate2Send")
+            }
+            HotShotEvent::ViewSyncFinalizeCertificate2Send(_, _) => {
+                write!(f, "ViewSyncFinalizeCertificate2Send")
+            }
+            HotShotEvent::ViewSyncTrigger(_) => write!(f, "ViewSyncTrigger"),
+            HotShotEvent::Timeout(_) => write!(f, "Timeout"),
+            HotShotEvent::TransactionsRecv(_) => write!(f, "TransactionsRecv"),
+            HotShotEvent::TransactionSend(_, _) => write!(f, "TransactionSend"),
+            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, _, _) => {
+                write!(f, "SendPayloadCommitmentAndMetadata")
+            }
+            HotShotEvent::BlockRecv(_, _, _, _) => write!(f, "BlockRecv"),
+            HotShotEvent::BlockReady(_, _) => write!(f, "BlockReady"),
+            HotShotEvent::LeafDecided(_) => write!(f, "LeafDecided"),
+            HotShotEvent::VidDisperseSend(_, _) => write!(f, "VidDisperseSend"),
+            HotShotEvent::VIDShareRecv(_) => write!(f, "VIDShareRecv"),
+            HotShotEvent::VIDShareValidated(_) => write!(f, "VIDShareValidated"),
+            HotShotEvent::UpgradeProposalRecv(_, _) => write!(f, "UpgradeProposalRecv"),
+            HotShotEvent::UpgradeProposalSend(_, _) => write!(f, "UpgradeProposalSend"),
+            HotShotEvent::UpgradeVoteRecv(_) => write!(f, "UpgradeVoteRecv"),
+            HotShotEvent::UpgradeVoteSend(_) => write!(f, "UpgradeVoteSend"),
+            HotShotEvent::UpgradeCertificateFormed(_) => write!(f, "UpgradeCertificateFormed"),
+            HotShotEvent::VersionUpgrade(_) => write!(f, "VersionUpgrade"),
+            HotShotEvent::ProposeNow(_, _) => write!(f, "ProposeNow"),
+            HotShotEvent::VoteNow(_, _) => write!(f, "VoteNow"),
+        }
+    }
 }

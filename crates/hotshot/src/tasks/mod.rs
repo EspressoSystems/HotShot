@@ -128,14 +128,14 @@ pub async fn add_network_event_task<
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     storage: Arc<RwLock<S>>,
 ) {
-    let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
+    let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState::new(
         channel,
-        view: TYPES::Time::genesis(),
-        version: VERSION_0_1,
+        TYPES::Time::genesis(),
+        VERSION_0_1,
         membership,
         filter,
         storage,
-    };
+    );
     let task = Task::new(tx, rx, Arc::clone(&task_reg), network_state);
     task_reg.run_task(task).await;
 }

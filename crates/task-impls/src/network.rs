@@ -1,8 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, io::Write, sync::Arc};
 
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
+#[cfg(feature = "rewind")]
+use chrono::{DateTime, Utc};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
@@ -16,6 +18,7 @@ use hotshot_types::{
         election::Membership,
         network::{ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
+        rewindable::Rewindable,
         storage::Storage,
     },
     vote::{HasViewNumber, Vote},
@@ -212,6 +215,10 @@ pub struct NetworkEventTaskState<
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
+
+    /// Every message seen by this task.
+    #[cfg(feature = "rewind")]
+    message_storage: Vec<(DateTime<Utc>, HotShotEvent<TYPES>)>,
 }
 
 impl<
@@ -257,6 +264,42 @@ impl<
         S: Storage<TYPES> + 'static,
     > NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
+    /// Makes a new instance of the NetworkEventTaskState, setting a dfault empty vec value
+    /// for `message_storage` when the `rewind` feature is enabled.
+    pub fn new(
+        channel: Arc<COMMCHANNEL>,
+        view: TYPES::Time,
+        version: Version,
+        membership: TYPES::Membership,
+        filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
+        storage: Arc<RwLock<S>>,
+    ) -> Self {
+        #[cfg(feature = "rewind")]
+        {
+            Self {
+                channel,
+                view,
+                version,
+                membership,
+                filter,
+                storage,
+                message_storage: Vec::new(),
+            }
+        }
+
+        #[cfg(not(feature = "rewind"))]
+        {
+            Self {
+                channel,
+                view,
+                version,
+                membership,
+                filter,
+                storage,
+            }
+        }
+    }
+
     /// Handle the given event.
     ///
     /// Returns the completion status.
@@ -267,6 +310,13 @@ impl<
         event: Arc<HotShotEvent<TYPES>>,
         membership: &TYPES::Membership,
     ) -> Option<HotShotTaskCompleted> {
+        #[cfg(feature = "rewind")]
+        {
+            if let Err(e) = self.store_message(Utc::now(), (*event).clone()) {
+                tracing::trace!("Failed to write message {e:?}");
+            }
+        }
+
         let mut maybe_action = None;
         let (sender, message_kind, transmit): (_, _, TransmitType<TYPES>) =
             match event.as_ref().clone() {
@@ -537,5 +587,40 @@ impl<
         } else {
             Ok(())
         }
+    }
+}
+
+#[cfg(feature = "rewind")]
+impl<
+        TYPES: NodeType,
+        COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        S: Storage<TYPES> + 'static,
+    > Rewindable for NetworkEventTaskState<TYPES, COMMCHANNEL, S>
+{
+    type Message = HotShotEvent<TYPES>;
+    fn store_message(
+        &mut self,
+        timestamp: DateTime<Utc>,
+        message: Self::Message,
+    ) -> anyhow::Result<()> {
+        self.message_storage.push((timestamp, message));
+        Ok(())
+    }
+
+    fn write_stored_messages(&mut self) -> anyhow::Result<()> {
+        // Sort by the date first to make scanning easier.
+        self.message_storage.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let encoded = bincode::serialize(
+            &self
+                .message_storage
+                .iter()
+                .map(|(date, message)| (date.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(), message))
+                .collect::<Vec<(String, &Self::Message)>>(),
+        )?;
+        let mut output = std::fs::File::create("output.bin")?;
+        output.write_all(&encoded)?;
+
+        Ok(())
     }
 }

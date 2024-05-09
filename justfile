@@ -35,6 +35,9 @@ async := "async-std"
 build:
   cargo build --workspace --examples --bins --tests --lib --benches
 
+build_rewind:
+  cargo build --workspace --examples --bins --tests --lib --benches --features "rewind"
+
 build_release *ARGS:
   cargo build --profile=release {{ARGS}}
 

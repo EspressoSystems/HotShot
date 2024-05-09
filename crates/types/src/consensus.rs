@@ -514,7 +514,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
 /// Alias for the block payload commitment and the associated metadata. The primary data
 /// needed in order to submit a proposal.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(bound(deserialize = ""))]
 pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Vid Commitment
     pub commitment: VidCommitment,
@@ -529,7 +530,8 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
 }
 
 /// Helper type to hold the optional secondary information required to propose.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(bound(deserialize = ""))]
 pub enum SecondaryProposalInformation<TYPES: NodeType> {
     /// The quorum proposal and certificate needed to propose.
     QuorumProposalAndCertificate(QuorumProposal<TYPES>, QuorumCertificate<TYPES>),
@@ -540,7 +542,10 @@ pub enum SecondaryProposalInformation<TYPES: NodeType> {
 }
 
 /// Dependency data required to submit a proposal
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, serde::Serialize, serde::Deserialize)]
+// #[cfg_attr(feature = "rewind", derive(serde::Serialize, serde::Deserialize))]
+// #[cfg_attr(feature = "rewind", serde(bound(deserialize = "")))]
+#[serde(bound(deserialize = ""))]
 pub struct ProposalDependencyData<TYPES: NodeType> {
     /// The primary data in a proposal.
     pub commitment_and_metadata: CommitmentAndMetadata<TYPES>,
