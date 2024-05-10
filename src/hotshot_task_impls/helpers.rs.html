@@ -82,20 +82,6 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::{SendError, Sender};
@@ -136,7 +122,9 @@
         }
     }
 }
-<span class="doccomment">/// Calculate the vid disperse information from the payload given a view and membership
+
+<span class="doccomment">/// Calculate the vid disperse information from the payload given a view and membership,
+/// optionally using precompute data from builder
 ///
 /// # Panics
 /// Panics if the VID calculation fails, this should not happen.
@@ -145,37 +133,21 @@
     txns: Arc&lt;[u8]&gt;,
     membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
     view: TYPES::Time,
+    precompute_data: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
 ) -&gt; VidDisperse&lt;TYPES&gt; {
     <span class="kw">let </span>num_nodes = membership.total_nodes();
-    <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
-        vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID precompute disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
-    })
-    .<span class="kw">await</span>;
-    <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-    </span><span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
-    </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
 
-    VidDisperse::from_membership(view, vid_disperse, membership.as_ref())
-}
-
-<span class="doccomment">/// Calculate the vid disperse information from the payload given a view and membership, and precompute data from builder
-///
-/// # Panics
-/// Panics if the VID calculation fails, this should not happen.
-</span><span class="attr">#[allow(clippy::panic)]
-</span><span class="kw">pub async fn </span>calculate_vid_disperse_using_precompute_data&lt;TYPES: NodeType&gt;(
-    txns: Arc&lt;[u8]&gt;,
-    membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
-    view: TYPES::Time,
-    pre_compute_data: VidPrecomputeData,
-) -&gt; VidDisperse&lt;TYPES&gt; {
-    <span class="kw">let </span>num_nodes = membership.total_nodes();
     <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
-        vid_scheme(num_nodes).disperse_precompute(<span class="kw-2">&amp;</span>txns, <span class="kw-2">&amp;</span>pre_compute_data).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID precompute disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
-    })
-    .<span class="kw">await</span>;
+        precompute_data
+            .map_or_else(
+                || vid_scheme(num_nodes).disperse(Arc::clone(<span class="kw-2">&amp;</span>txns)),
+                |data| vid_scheme(num_nodes).disperse_precompute(Arc::clone(<span class="kw-2">&amp;</span>txns), <span class="kw-2">&amp;</span>data)
+            )
+            .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
+    }).<span class="kw">await</span>;
     <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-    </span><span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
+    </span><span class="comment">// Tokio's JoinHandle's `Output` is `Result&lt;T, JoinError&gt;`, while in async-std it's just `T`
+    // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
     </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
 
     VidDisperse::from_membership(view, vid_disperse, membership.as_ref())

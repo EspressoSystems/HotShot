@@ -205,6 +205,7 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::Receiver;
@@ -341,7 +342,8 @@
         <span class="kw">if </span>!contained {
             <span class="kw">let </span>txns = consensus.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>;
             <span class="kw">let </span>vid =
-                calculate_vid_disperse(Arc::clone(txns), <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum), view).<span class="kw">await</span>;
+                calculate_vid_disperse(Arc::clone(txns), <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum), view, <span class="prelude-val">None</span>)
+                    .<span class="kw">await</span>;
             <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);
             <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
             <span class="kw">for </span>share <span class="kw">in </span>shares {

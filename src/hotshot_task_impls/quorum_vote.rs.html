@@ -544,12 +544,12 @@
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::update_state_and_vote_if_able;
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+</span><span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -577,12 +577,16 @@
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>jf_vid::VidScheme;
-<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, instrument, trace, warn};
+
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::update_state_and_vote_if_able;
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 
 <span class="doccomment">/// Vote dependency types.
 </span><span class="attr">#[derive(Debug, PartialEq)]

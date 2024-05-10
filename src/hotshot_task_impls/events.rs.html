@@ -155,6 +155,7 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>either::Either;
@@ -172,7 +173,7 @@
     },
     traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
     utils::BuilderCommitment,
-    vid::VidCommitment,
+    vid::{VidCommitment, VidPrecomputeData},
     vote::VoteDependencyData,
 };
 <span class="kw">use </span>vbs::version::Version;
@@ -278,6 +279,7 @@
         &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         TYPES::Time,
         BuilderFee&lt;TYPES&gt;,
+        VidPrecomputeData,
     ),
     <span class="doccomment">/// Event when the transactions task has a block formed
     </span>BlockReady(VidDisperse&lt;TYPES&gt;, TYPES::Time),

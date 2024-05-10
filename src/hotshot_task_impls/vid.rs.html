@@ -188,6 +188,13 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -251,7 +258,13 @@
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) =&gt; {
+            HotShotEvent::BlockRecv(
+                encoded_transactions,
+                metadata,
+                view_number,
+                fee,
+                precompute_data,
+            ) =&gt; {
                 <span class="kw">let </span>payload =
                     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_bytes(encoded_transactions, metadata);
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
@@ -259,6 +272,7 @@
                     Arc::clone(encoded_transactions),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
+                    <span class="prelude-val">Some</span>(precompute_data.clone()),
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment;
@@ -367,7 +381,7 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
+                | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::BlockReady(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
         )

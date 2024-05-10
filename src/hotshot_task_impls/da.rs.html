@@ -631,7 +631,7 @@
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee) =&gt; {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee, _vid_precomp) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
 
                 <span class="comment">// quick hash the encoded txns with sha256
@@ -694,7 +694,7 @@
             HotShotEvent::DAProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::DAVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
+                | HotShotEvent::BlockRecv(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::DAProposalValidated(<span class="kw">_</span>, <span class="kw">_</span>)
         )

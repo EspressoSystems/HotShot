@@ -431,6 +431,11 @@
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -449,7 +454,7 @@
     data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
-        block_contents::BuilderFee,
+        block_contents::{precompute_vid_commitment, BuilderFee},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -587,6 +592,7 @@
                                 fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },
+                            block_header.vid_precompute_data,
                         )),
                         <span class="kw-2">&amp;</span>event_stream,
                     )
@@ -624,6 +630,9 @@
                         <span class="kw">return </span><span class="prelude-val">None</span>;
                     };
 
+                    <span class="kw">let </span>(<span class="kw">_</span>, precompute_data) =
+                        precompute_vid_commitment(<span class="kw-2">&amp;</span>[], <span class="self">self</span>.membership.total_nodes());
+
                     <span class="comment">// Broadcast the empty block
                     </span>broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
@@ -631,6 +640,7 @@
                             metadata,
                             block_view,
                             builder_fee,
+                            precompute_data,
                         )),
                         <span class="kw-2">&amp;</span>event_stream,
                     )
