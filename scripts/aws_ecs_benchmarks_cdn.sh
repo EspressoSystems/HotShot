@@ -10,10 +10,10 @@ cdn_marshal_address="$ip":9000
 keydb_address=redis://"$ip":6379
 
 # build to get the bin in advance, uncomment the following if built first time
-# just async_std example validator-push-cdn -- http://localhost:4444 &
-# # remember to sleep enough time if it's built first time
-# sleep 5m
-# for pid in $(ps -ef | grep "validator-push-cdn" | awk '{print $2}'); do sudo kill -9 $pid; done
+just async_std example validator-push-cdn -- http://localhost:4444 &
+# remember to sleep enough time if it's built first time
+sleep 5m
+for pid in $(ps -ef | grep "validator-push-cdn" | awk '{print $2}'); do sudo kill -9 $pid; done
 
 # docker build and push
 docker build . -f ./docker/validator-cdn.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
@@ -59,11 +59,11 @@ do
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10 50 100
+            for transactions_per_round in 1 10 50 # 100
             do
-                for transaction_size in 512 4096 1000000
+                for transaction_size in 100000 1000000 10000000 # 512 4096
                 do
-                    for fixed_leader_for_gpuvid in 1 5 10
+                    for fixed_leader_for_gpuvid in 1 5 10 50 100
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
@@ -85,9 +85,11 @@ do
                                 # start validators
                                 ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
                                 base=100
-                                mul=$(echo "l($transaction_size)/l($base)" | bc -l)
+                                mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
-                                sleep $(( ($rounds + $total_nodes) * $transactions_per_round * $mul ))
+                                sleep_time=$(( ($rounds + $total_nodes) * $mul ))
+                                echo "sleep_time: $sleep_time"
+                                sleep $sleep_time
 
                                 # kill them
                                 ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
