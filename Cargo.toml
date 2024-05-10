@@ -60,7 +60,7 @@ futures = "0.3"
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.4" }
-jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.4" }
+jf-plonk = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-relation = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.4" }
 jf-utils = { git = "https://github.com/espressosystems/jellyfish", tag = "0.4.4" }
 lazy_static = "1"
