@@ -24,7 +24,7 @@ use hotshot_types::{
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::VidScheme;
 use sha2::Digest;
 
 /// Runs a basic test where a qualified proposal occurs (i.e. not initiated by the genesis view or node 1).
