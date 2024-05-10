@@ -322,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             timeout_task: None,
             timeout: handle.hotshot.config.next_view_timeout,
-            consensus),
+            consensus,
             last_decided_view: handle.get_cur_view().await,
             id: handle.hotshot.id,
         }
