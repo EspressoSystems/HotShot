@@ -1020,7 +1020,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .number_of_views_per_decide_event
             .add_point(cur_number_of_views_per_decide_event as f64);
 
-        debug!("Sending Decide for view {:?}", consensus.last_decided_view());
+        debug!(
+            "Sending Decide for view {:?}",
+            consensus.last_decided_view()
+        );
         drop(consensus);
         debug!("Decided txns len {:?}", included_txns_set.len());
         decide_sent.await;
