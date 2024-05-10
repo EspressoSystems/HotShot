@@ -33,10 +33,12 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Config file for stake table
 </span><span class="kw">use </span>ark_ff::PrimeField;
 <span class="kw">use </span>ark_std::vec;
-<span class="kw">use </span>jf_primitives::{crhf::FixedLengthRescueCRHF, signatures::bls_over_bn254};
+<span class="kw">use </span>jf_rescue::crhf::FixedLengthRescueCRHF;
+<span class="kw">use </span>jf_signature::bls_over_bn254;
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::ToFields;
 

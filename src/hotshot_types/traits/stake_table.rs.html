@@ -220,28 +220,11 @@
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trait for stake table data structures
 
-</span><span class="kw">use </span>ark_std::{rand::SeedableRng, string::ToString, vec::Vec};
+</span><span class="kw">use </span>ark_std::{rand::SeedableRng, vec::Vec};
 <span class="kw">use </span>digest::crypto_common::rand_core::CryptoRngCore;
 <span class="kw">use </span>displaydoc::Display;
-<span class="kw">use </span>jf_plonk::errors::PlonkError;
-<span class="kw">use </span>jf_primitives::errors::PrimitivesError;
 
 <span class="doccomment">/// Snapshots of the stake table
 </span><span class="kw">pub enum </span>SnapshotVersion {
@@ -457,17 +440,4 @@
 }
 
 <span class="kw">impl </span>ark_std::error::Error <span class="kw">for </span>StakeTableError {}
-
-<span class="kw">impl </span>From&lt;StakeTableError&gt; <span class="kw">for </span>PrimitivesError {
-    <span class="kw">fn </span>from(value: StakeTableError) -&gt; <span class="self">Self </span>{
-        <span class="comment">// FIXME: (alex) should we define a PrimitivesError::General()?
-        </span><span class="self">Self</span>::ParameterError(value.to_string())
-    }
-}
-
-<span class="kw">impl </span>From&lt;StakeTableError&gt; <span class="kw">for </span>PlonkError {
-    <span class="kw">fn </span>from(value: StakeTableError) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::PrimitiveError(PrimitivesError::ParameterError(value.to_string()))
-    }
-}
 </code></pre></div></section></main></body></html>

@@ -232,7 +232,7 @@
 <span class="kw">use </span>ark_ff::PrimeField;
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>jf_primitives::signatures::schnorr;
+<span class="kw">use </span>jf_signature::schnorr;
 <span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>rand_chacha::ChaCha20Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -244,7 +244,7 @@
 </span><span class="kw">pub type </span>LightClientState = GenericLightClientState&lt;CircuitField&gt;;
 <span class="doccomment">/// Signature scheme
 </span><span class="kw">pub type </span>StateSignatureScheme =
-    jf_primitives::signatures::schnorr::SchnorrSignatureScheme&lt;ark_ed_on_bn254::EdwardsConfig&gt;;
+    jf_signature::schnorr::SchnorrSignatureScheme&lt;ark_ed_on_bn254::EdwardsConfig&gt;;
 <span class="doccomment">/// Signatures
 </span><span class="kw">pub type </span>StateSignature = schnorr::Signature&lt;Config&gt;;
 <span class="doccomment">/// Verification key for verifying state signatures

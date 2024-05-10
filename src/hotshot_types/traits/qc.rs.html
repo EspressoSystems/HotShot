@@ -104,7 +104,7 @@
 };
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>generic_array::{ArrayLength, GenericArray};
-<span class="kw">use </span>jf_primitives::{errors::PrimitivesError, signatures::AggregateableSignatureSchemes};
+<span class="kw">use </span>jf_signature::{AggregateableSignatureSchemes, SignatureError};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// Trait for validating a QC built from different signatures on the same message
@@ -144,7 +144,7 @@
         sk: <span class="kw-2">&amp;</span>A::SigningKey,
         msg: M,
         prng: <span class="kw-2">&amp;mut </span>R,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;A::Signature, PrimitivesError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;A::Signature, SignatureError&gt; {
         A::sign(pp, sk, msg, prng)
     }
 
@@ -161,7 +161,7 @@
         qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCProverParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[A::Signature],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QC, PrimitivesError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QC, SignatureError&gt;;
 
     <span class="doccomment">/// Checks an aggregated signature over some message provided as input
     /// * `qc_vp` - public parameters for validating the QC
@@ -177,7 +177,7 @@
         qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
         qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QuorumSize, PrimitivesError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QuorumSize, SignatureError&gt;;
 
     <span class="doccomment">/// Trace the list of signers given a qc.
     ///
@@ -188,6 +188,6 @@
         qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
         qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;A::VerificationKey&gt;, PrimitivesError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;A::VerificationKey&gt;, SignatureError&gt;;
 }
 </code></pre></div></section></main></body></html>

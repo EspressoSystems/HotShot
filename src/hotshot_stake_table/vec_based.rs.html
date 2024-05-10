@@ -515,17 +515,14 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A vector based stake table implementation. The commitment is the rescue hash of the list of (key, amount) pairs;
 
 </span><span class="kw">use </span>ark_std::{collections::HashMap, hash::Hash, rand::SeedableRng};
 <span class="kw">use </span>digest::crypto_common::rand_core::CryptoRngCore;
 <span class="kw">use </span>ethereum_types::{U256, U512};
 <span class="kw">use </span>hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
-<span class="kw">use </span>jf_primitives::{
-    crhf::{VariableLengthRescueCRHF, CRHF},
-    rescue::RescueParameter,
-};
+<span class="kw">use </span>jf_crhf::CRHF;
+<span class="kw">use </span>jf_rescue::{crhf::VariableLengthRescueCRHF, RescueParameter};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
@@ -903,8 +900,9 @@
     <span class="kw">use </span>ark_std::{rand::SeedableRng, vec::Vec};
     <span class="kw">use </span>ethereum_types::U256;
     <span class="kw">use </span>hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
-    <span class="kw">use </span>jf_primitives::signatures::{
-        bls_over_bn254::BLSOverBN254CurveSignatureScheme, SchnorrSignatureScheme, SignatureScheme,
+    <span class="kw">use </span>jf_signature::{
+        bls_over_bn254::BLSOverBN254CurveSignatureScheme, schnorr::SchnorrSignatureScheme,
+        SignatureScheme,
     };
 
     <span class="kw">use super</span>::{

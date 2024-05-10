@@ -318,8 +318,6 @@
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides:
 //! - an opaque constructor [`vid_scheme`] that returns a new instance of a
 //!   VID scheme.
@@ -333,20 +331,18 @@
 </span><span class="kw">use </span>std::{fmt::Debug, ops::Range};
 
 <span class="kw">use </span>ark_bn254::Bn254;
-<span class="kw">use </span>jf_primitives::{
-    pcs::{
-        prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
-        PolynomialCommitmentScheme,
+<span class="kw">use </span>jf_pcs::{
+    prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
+    PolynomialCommitmentScheme,
+};
+<span class="kw">use </span>jf_vid::{
+    advz::{
+        <span class="self">self</span>,
+        payload_prover::{LargeRangeProof, SmallRangeProof},
     },
-    vid::{
-        advz::{
-            <span class="self">self</span>,
-            payload_prover::{LargeRangeProof, SmallRangeProof},
-        },
-        payload_prover::{PayloadProver, Statement},
-        precomputable::Precomputable,
-        VidDisperse, VidResult, VidScheme,
-    },
+    payload_prover::{PayloadProver, Statement},
+    precomputable::Precomputable,
+    VidDisperse, VidResult, VidScheme,
 };
 <span class="kw">use </span>lazy_static::lazy_static;
 <span class="kw">use </span>serde::{Deserialize, Serialize};

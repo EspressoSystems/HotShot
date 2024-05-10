@@ -309,9 +309,6 @@
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementation for `BitVectorQC` that uses BLS signature + Bit vector.
 //! See more details in hotshot paper.
 
@@ -326,10 +323,7 @@
 <span class="kw">use </span>bitvec::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>generic_array::GenericArray;
-<span class="kw">use </span>jf_primitives::{
-    errors::{PrimitivesError, PrimitivesError::ParameterError},
-    signatures::AggregateableSignatureSchemes,
-};
+<span class="kw">use </span>jf_signature::{AggregateableSignatureSchemes, SignatureError};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>typenum::U32;
 
@@ -376,7 +370,7 @@
         sk: <span class="kw-2">&amp;</span>A::SigningKey,
         msg: M,
         prng: <span class="kw-2">&amp;mut </span>R,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;A::Signature, PrimitivesError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;A::Signature, SignatureError&gt; {
         A::sign(pp, sk, msg, prng)
     }
 
@@ -384,9 +378,9 @@
         qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCProverParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[A::Signature],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QC, PrimitivesError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QC, SignatureError&gt; {
         <span class="kw">if </span>signers.len() != qc_pp.stake_entries.len() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ParameterError(<span class="macro">format!</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"bit vector len {} != the number of stake entries {}"</span>,
                 signers.len(),
                 qc_pp.stake_entries.len(),
@@ -405,7 +399,7 @@
                     }
                 });
         <span class="kw">if </span>total_weight &lt; qc_pp.threshold {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ParameterError(<span class="macro">format!</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"total_weight {} less than threshold {}"</span>,
                 total_weight, qc_pp.threshold,
             )));
@@ -417,7 +411,7 @@
             }
         }
         <span class="kw">if </span>ver_keys.len() != sigs.len() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ParameterError(<span class="macro">format!</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"the number of ver_keys {} != the number of partial signatures {}"</span>,
                 ver_keys.len(),
                 sigs.len(),
@@ -432,10 +426,10 @@
         qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
         qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QuorumSize, PrimitivesError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QuorumSize, SignatureError&gt; {
         <span class="kw">let </span>(sig, signers) = qc;
         <span class="kw">if </span>signers.len() != qc_vp.stake_entries.len() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ParameterError(<span class="macro">format!</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"signers bit vector len {} != the number of stake entries {}"</span>,
                 signers.len(),
                 qc_vp.stake_entries.len(),
@@ -454,7 +448,7 @@
                     }
                 });
         <span class="kw">if </span>total_weight &lt; qc_vp.threshold {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ParameterError(<span class="macro">format!</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"total_weight {} less than threshold {}"</span>,
                 total_weight, qc_vp.threshold,
             )));
@@ -474,10 +468,10 @@
         qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;&lt;A&gt;::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
         qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;&lt;A&gt;::VerificationKey&gt;, PrimitivesError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;&lt;A&gt;::VerificationKey&gt;, SignatureError&gt; {
         <span class="kw">let </span>(_sig, signers) = qc;
         <span class="kw">if </span>signers.len() != qc_vp.stake_entries.len() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(ParameterError(<span class="macro">format!</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"signers bit vector len {} != the number of stake entries {}"</span>,
                 signers.len(),
                 qc_vp.stake_entries.len(),
@@ -499,7 +493,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>jf_primitives::signatures::{
+    <span class="kw">use </span>jf_signature::{
         bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair},
         SignatureScheme,
     };

@@ -783,7 +783,7 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>jf_primitives::vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
+<span class="kw">use </span>jf_vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
@@ -1470,7 +1470,7 @@
 <span class="kw">pub mod </span>null_block {
     <span class="attr">#![allow(missing_docs)]
 
-    </span><span class="kw">use </span>jf_primitives::vid::VidScheme;
+    </span><span class="kw">use </span>jf_vid::VidScheme;
     <span class="kw">use </span>memoize::memoize;
 
     <span class="kw">use crate</span>::{

@@ -106,7 +106,7 @@
     traits::{election::Membership, node_implementation::NodeType},
     vid::{vid_scheme, VidPrecomputeData},
 };
-<span class="kw">use </span>jf_primitives::vid::{precomputable::Precomputable, VidScheme};
+<span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidScheme};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::{spawn_blocking, JoinHandle};
 
