@@ -770,6 +770,15 @@
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
 <a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1020,6 +1029,9 @@
         <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
             <span class="kw">return</span>;
         };
+        <span class="kw">if </span>proposal.get_view_number() != view {
+            <span class="kw">return</span>;
+        }
         <span class="kw">let </span>upgrade = <span class="self">self</span>.decided_upgrade_cert.clone();
         <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
         <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
@@ -1267,6 +1279,12 @@
                     .<span class="kw">await
                     </span>.update_vid_shares(view, disperse.clone());
                 <span class="kw">if </span>disperse.data.recipient_key != <span class="self">self</span>.public_key {
+                    <span class="kw">return</span>;
+                }
+                <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
+                    <span class="kw">return</span>;
+                };
+                <span class="kw">if </span>proposal.get_view_number() != view {
                     <span class="kw">return</span>;
                 }
                 <span class="self">self</span>.spawn_vote_task(view, event_stream.clone());
