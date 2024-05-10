@@ -21,6 +21,7 @@ use crate::vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVot
 
 use super::Consensus2TaskState;
 
+/// Handle a `QuorumVoteRecv` event.
 pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     vote: &QuorumVote<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
@@ -69,6 +70,7 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     Ok(())
 }
 
+/// Handle a `TimeoutVoteRecv` event.
 pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     vote: &TimeoutVote<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
@@ -118,6 +120,7 @@ pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementat
     Ok(())
 }
 
+/// Handle a `ViewChange` event.
 pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     new_view_number: TYPES::Time,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -186,6 +189,7 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     Ok(())
 }
 
+/// Handle a `Timeout` event.
 pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     view_number: TYPES::Time,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
