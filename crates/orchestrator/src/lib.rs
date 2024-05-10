@@ -498,7 +498,8 @@ where
             self.output_to_csv();
         }
         if self.bench_results.partial_results != "Complete"
-            && self.nodes_post_results >= (self.config.config.num_nodes_with_stake.get() as u64) {
+            && self.nodes_post_results >= (self.config.config.num_nodes_with_stake.get() as u64)
+        {
             self.bench_results.partial_results = "Complete".to_string();
             self.bench_results.printout();
             self.output_to_csv();
