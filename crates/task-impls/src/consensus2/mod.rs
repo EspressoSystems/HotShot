@@ -125,6 +125,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Consensus2TaskState<TYPES, I
                     tracing::debug!("New decided view is not newer than ours");
                 } else {
                     self.last_decided_view = *view_number;
+                    if let Err(e) = self
+                        .consensus
+                        .write()
+                        .await
+                        .update_last_decided_view(*view_number)
+                    {
+                        tracing::trace!("{e:?}");
+                    }
                 }
             }
             _ => {}
