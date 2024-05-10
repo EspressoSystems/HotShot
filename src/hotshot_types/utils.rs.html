@@ -205,6 +205,9 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
 </span><span class="kw">use </span>std::{ops::Deref, sync::Arc};
@@ -219,6 +222,7 @@
 };
 <span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>digest::OutputSizeUser;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha2::Digest;
 <span class="kw">use </span>tagged_base64::tagged;
 <span class="kw">use </span>typenum::Unsigned;
@@ -230,7 +234,8 @@
 };
 
 <span class="doccomment">/// A view's state
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Deserialize, Serialize)]
+#[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub enum </span>ViewInner&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// A pending view with an available block but not leaf proposal yet.
     ///
@@ -340,7 +345,8 @@
 }
 
 <span class="doccomment">/// This exists so we can perform state transitions mutably
-</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="attr">#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub struct </span>View&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view data. Wrapped in a struct so we can mutate
     </span><span class="kw">pub </span>view_inner: ViewInner&lt;TYPES&gt;,
