@@ -339,7 +339,7 @@
             .get(<span class="kw-2">&amp;</span>view)
             .is_some_and(|m| m.contains_key(key));
         <span class="kw">if </span>!contained {
-            <span class="kw">let </span>txns = consensus.saved_payloads.get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>;
+            <span class="kw">let </span>txns = consensus.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>;
             <span class="kw">let </span>vid =
                 calculate_vid_disperse(Arc::clone(txns), <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum), view).<span class="kw">await</span>;
             <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);

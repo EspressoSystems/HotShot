@@ -1549,7 +1549,7 @@
         }
         <span class="kw">let </span>consensus_lock = context.hotshot.get_consensus();
         <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
-        <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
+        <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().get_u64()).unwrap();
         <span class="comment">// `failed_num_views` could include uncommitted views
         </span><span class="kw">let </span>failed_num_views = total_num_views - num_successful_commits;
         <span class="comment">// When posting to the orchestrator, note that the total number of views also include un-finalized views.
