@@ -498,6 +498,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }
+                let Some(proposal) = self.current_proposal.clone() else {
+                    return;
+                };
+                if proposal.get_view_number() != view {
+                    return;
+                }
                 self.spawn_vote_task(view, event_stream.clone());
             }
             HotShotEvent::ViewChange(new_view) => {
