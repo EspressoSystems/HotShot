@@ -8,15 +8,14 @@ use either::Either;
 use hotshot_task::{
     cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
-    dependency_task::{DependencyTask, HandleDepOutput},
+    dependency_task::DependencyTask,
     task::{Task, TaskState},
 };
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::Consensus,
     event::Event,
     hotshot_event::HotShotEvent,
     traits::{
-        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -26,175 +25,14 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, instrument, warn};
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
-use crate::consensus::helpers::publish_proposal_if_able;
 
-/// Proposal dependency types. These types represent events that precipitate a proposal.
-#[derive(PartialEq, Debug)]
-enum ProposalDependency {
-    /// For the `SendPayloadCommitmentAndMetadata` event.
-    PayloadAndMetadata,
+use self::dependency_handle::{ProposalDependency, ProposalDependencyHandle};
 
-    /// For the `QCFormed` event.
-    QC,
-
-    /// For the `ViewSyncFinalizeCertificate2Recv` event.
-    ViewSyncCert,
-
-    /// For the `QCFormed` event timeout branch.
-    TimeoutCert,
-
-    /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
-    Proposal,
-
-    /// For the `ProposeNow` event.
-    ProposeNow,
-}
-
-/// Handler for the proposal dependency
-struct ProposalDependencyHandle<TYPES: NodeType> {
-    /// Latest view number that has been proposed for.
-    latest_proposed_view: TYPES::Time,
-
-    /// The view number to propose for.
-    view_number: TYPES::Time,
-
-    /// The event sender.
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-
-    /// Reference to consensus. The replica will require a write lock on this.
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
-
-    /// Immutable instance state
-    instance_state: Arc<TYPES::InstanceState>,
-
-    /// Output events to application
-    #[allow(dead_code)]
-    output_event_stream: async_broadcast::Sender<Event<TYPES>>,
-
-    /// Membership for Timeout votes/certs
-    #[allow(dead_code)]
-    timeout_membership: Arc<TYPES::Membership>,
-
-    /// Membership for Quorum Certs/votes
-    quorum_membership: Arc<TYPES::Membership>,
-
-    /// Our public key
-    public_key: TYPES::SignatureKey,
-
-    /// Our Private Key
-    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-
-    /// View timeout from config.
-    #[allow(dead_code)]
-    timeout: u64,
-
-    /// Round start delay from config, in milliseconds.
-    round_start_delay: u64,
-
-    /// The node's id
-    #[allow(dead_code)]
-    id: u64,
-}
-
-impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
-    type Output = Vec<Vec<Vec<Arc<HotShotEvent<TYPES>>>>>;
-
-    #[allow(clippy::no_effect_underscore_binding)]
-    async fn handle_dep_result(self, res: Self::Output) {
-        let mut payload_commitment = None;
-        let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
-        let mut _quorum_certificate = None;
-        let mut _timeout_certificate = None;
-        let mut _view_sync_finalize_cert = None;
-        for event in res.iter().flatten().flatten() {
-            match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                    let proposal_payload_comm = proposal.block_header.payload_commitment();
-                    if let Some(comm) = payload_commitment {
-                        if proposal_payload_comm != comm {
-                            return;
-                        }
-                    } else {
-                        payload_commitment = Some(proposal_payload_comm);
-                    }
-                }
-                HotShotEvent::SendPayloadCommitmentAndMetadata(
-                    payload_commitment,
-                    builder_commitment,
-                    metadata,
-                    view,
-                    fee,
-                ) => {
-                    commit_and_metadata = Some(CommitmentAndMetadata {
-                        commitment: *payload_commitment,
-                        builder_commitment: builder_commitment.clone(),
-                        metadata: metadata.clone(),
-                        fee: fee.clone(),
-                        block_view: *view,
-                    });
-                }
-                HotShotEvent::QCFormed(cert) => match cert {
-                    either::Right(timeout) => {
-                        _timeout_certificate = Some(timeout.clone());
-                    }
-                    either::Left(qc) => {
-                        _quorum_certificate = Some(qc.clone());
-                    }
-                },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
-                    _view_sync_finalize_cert = Some(cert.clone());
-                }
-                HotShotEvent::ProposeNow(_, pdd) => {
-                    commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
-                    match &pdd.secondary_proposal_information {
-                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) => {
-                            _quorum_certificate = Some(quorum_certificate.clone());
-                            payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
-                        },
-                        hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {
-                            _timeout_certificate = Some(tc.clone());
-                        }
-                        hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) => {
-                            _view_sync_finalize_cert = Some(vsc.clone());
-                        },
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        if commit_and_metadata.is_none() {
-            error!(
-                "Somehow completed the proposal dependency task without a commitment and metadata"
-            );
-            return;
-        }
-
-        if let Err(e) = publish_proposal_if_able(
-            self.latest_proposed_view,
-            self.view_number,
-            self.sender,
-            self.quorum_membership,
-            self.public_key,
-            self.private_key,
-            Arc::clone(&self.consensus),
-            self.round_start_delay,
-            None,
-            None,
-            commit_and_metadata,
-            None,
-            Arc::clone(&self.instance_state),
-        )
-        .await
-        {
-            error!(?e, "Failed to publish proposal");
-        }
-    }
-}
+mod dependency_handle;
 
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
