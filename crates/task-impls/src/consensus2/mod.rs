@@ -28,6 +28,7 @@ use self::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
 
+/// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
 /// Event handlers for use in the `handle` method.
@@ -101,12 +102,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Consensus2TaskState<TYPES, I
     ) {
         match event.as_ref() {
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                if let Err(e) = handle_quorum_vote_recv(vote, event.clone(), &sender, self).await {
+                if let Err(e) =
+                    handle_quorum_vote_recv(vote, Arc::clone(&event), &sender, self).await
+                {
                     tracing::debug!("Failed to handle QuorumVoteRecv event; error = {e}");
                 }
             }
             HotShotEvent::TimeoutVoteRecv(ref vote) => {
-                if let Err(e) = handle_timeout_vote_recv(vote, event.clone(), &sender, self).await {
+                if let Err(e) =
+                    handle_timeout_vote_recv(vote, Arc::clone(&event), &sender, self).await
+                {
                     tracing::debug!("Failed to handle TimeoutVoteRecv event; error = {e}");
                 }
             }
