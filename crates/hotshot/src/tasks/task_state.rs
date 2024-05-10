@@ -305,6 +305,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for Consensus2TaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Consensus2TaskState<TYPES, I> {
+        let consensus = handle.hotshot.get_consensus();
         Consensus2TaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -321,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             timeout_task: None,
             timeout: handle.hotshot.config.next_view_timeout,
-            metrics: handle.hotshot.metrics(),
+            consensus),
             last_decided_view: handle.get_cur_view().await,
             id: handle.hotshot.id,
         }

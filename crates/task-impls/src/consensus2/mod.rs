@@ -6,7 +6,7 @@ use tracing::instrument;
 use async_lock::RwLock;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::ConsensusMetricsValue,
+    consensus::Consensus,
     event::Event,
     hotshot_event::HotShotEvent,
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
@@ -83,7 +83,7 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub timeout: u64,
 
     /// A reference to the metrics trait.
-    pub metrics: Arc<ConsensusMetricsValue>,
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
 
     /// The last decided view
     pub last_decided_view: TYPES::Time,
