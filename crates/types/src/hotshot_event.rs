@@ -158,4 +158,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /* Consensus State Update Events */
     /// A undecided view has been created and added to the validated state storage.
     ValidatedStateUpdate(TYPES::Time, View<TYPES>),
+
+    /// A new anchor view has been successfully reached by this node.
+    LastDecidedViewUpdated(TYPES::Time),
 }

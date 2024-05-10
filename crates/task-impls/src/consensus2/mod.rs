@@ -6,6 +6,7 @@ use tracing::instrument;
 use async_lock::RwLock;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::ConsensusMetricsValue,
     event::Event,
     hotshot_event::HotShotEvent,
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
@@ -81,6 +82,12 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View timeout from config.
     pub timeout: u64,
 
+    /// A reference to the metrics trait.
+    pub metrics: RwLock<ConsensusMetricsValue>,
+
+    /// The last decided view
+    pub last_decided_view: TYPES::Time,
+
     /// The node's id
     pub id: u64,
 }
@@ -113,6 +120,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Consensus2TaskState<TYPES, I
                     tracing::debug!("Failed to handle Timeout event; error = {e}");
                 }
             }
+            HotShotEvent::LastDecidedViewUpdated(view_number) => {
+                if *view_number < self.last_decided_view {
+                    tracing::debug!("New decided view is not newer than ours");
+                } else {
+                    self.last_decided_view = *view_number;
+                }
+            }
             _ => {}
         }
     }
@@ -122,6 +136,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for Consensus2Task
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
 
+    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
+        !matches!(
+            event.as_ref(),
+            HotShotEvent::QuorumVoteRecv(_)
+                | HotShotEvent::TimeoutVoteRecv(_)
+                | HotShotEvent::ViewChange(_)
+                | HotShotEvent::Timeout(_)
+                | HotShotEvent::LastDecidedViewUpdated(_)
+                | HotShotEvent::Shutdown
+        )
+    }
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
     where
         Self: Sized,
