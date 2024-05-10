@@ -81,7 +81,7 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     async fn publish_proposal(&self) -> Result<()> {
-
+        Ok(())
     }
 }
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
