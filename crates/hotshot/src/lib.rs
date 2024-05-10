@@ -310,10 +310,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(inner)
     }
 
-    pub fn metrics(&self) -> Arc<ConsensusMetricsValue> {
-        Arc::clone(&self.metrics)
-    }
-
     /// "Starts" consensus by sending a `QCFormed` event
     ///
     /// # Panics
