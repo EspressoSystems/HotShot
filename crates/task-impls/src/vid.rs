@@ -86,6 +86,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         consensus.update_vid_shares(*view_number, disperse);
                     }
                 }
+                drop(consensus);
 
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(

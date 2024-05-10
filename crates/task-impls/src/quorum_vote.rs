@@ -28,7 +28,7 @@ use hotshot_types::{
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, trace, warn};
