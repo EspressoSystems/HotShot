@@ -249,6 +249,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let Some(proposal) = self.current_proposal.clone() else {
             return;
         };
+        if proposal.get_view_number() != view {
+            return;
+        }
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
