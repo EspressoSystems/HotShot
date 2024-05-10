@@ -36,6 +36,6 @@ Use `error!` for critical issues that could lead to a permanent degradation of t
 Example, we log an error when safety and liveness are violated:
 ```rust
 if !safety_check && !liveness_check {
-    error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc, proposal.data.clone(), consensus.locked_view);
+    error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc(), proposal.data.clone(), consensus.locked_view());
 }
 ```
