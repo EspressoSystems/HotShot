@@ -156,7 +156,8 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
         }
     }));
 
-    task_state
+    let consensus = task_state.consensus.read().await;
+    consensus
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.get_u64()).unwrap());
@@ -166,7 +167,7 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     if usize::try_from(task_state.cur_view.get_u64()).unwrap()
         > usize::try_from(task_state.last_decided_view.get_u64()).unwrap()
     {
-        task_state.metrics.number_of_views_since_last_decide.set(
+        consensus.metrics.number_of_views_since_last_decide.set(
             usize::try_from(task_state.cur_view.get_u64()).unwrap()
                 - usize::try_from(task_state.last_decided_view.get_u64()).unwrap(),
         );
@@ -234,7 +235,13 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    task_state.metrics.number_of_timeouts.add(1);
+    task_state
+        .consensus
+        .read()
+        .await
+        .metrics
+        .number_of_timeouts
+        .add(1);
 
     Ok(())
 }
