@@ -83,7 +83,7 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub timeout: u64,
 
     /// A reference to the metrics trait.
-    pub metrics: RwLock<ConsensusMetricsValue>,
+    pub metrics: Arc<ConsensusMetricsValue>,
 
     /// The last decided view
     pub last_decided_view: TYPES::Time,

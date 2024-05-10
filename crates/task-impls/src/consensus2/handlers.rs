@@ -3,7 +3,6 @@ use std::{sync::Arc, time::Duration};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_std::task;
 use hotshot_task::{broadcast_event, cancel_task};
 use hotshot_types::{
     event::{Event, EventType},
@@ -157,8 +156,8 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
         }
     }));
 
-    let metrics = task_state.metrics.read().await;
-    metrics
+    task_state
+        .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.get_u64()).unwrap());
 
@@ -167,7 +166,7 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     if usize::try_from(task_state.cur_view.get_u64()).unwrap()
         > usize::try_from(task_state.last_decided_view.get_u64()).unwrap()
     {
-        metrics.number_of_views_since_last_decide.set(
+        task_state.metrics.number_of_views_since_last_decide.set(
             usize::try_from(task_state.cur_view.get_u64()).unwrap()
                 - usize::try_from(task_state.last_decided_view.get_u64()).unwrap(),
         );
@@ -235,7 +234,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    task_state.metrics.read().await.number_of_timeouts.add(1);
+    task_state.metrics.number_of_timeouts.add(1);
 
     Ok(())
 }
