@@ -266,5 +266,7 @@ pub async fn add_consensus2_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     rx: Receiver<Arc<HotShotEvent<TYPES>>>,
     handle: &SystemContextHandle<TYPES, I>,
 ) {
-    // let consensus2_task_state = Consensus2TaskState
+    let consensus2_task_state = Consensus2TaskState::create_from(handle).await;
+    let task = Task::new(tx, rx, Arc::clone(&task_reg), consensus2_task_state);
+    task_reg.run_task(task).await;
 }
