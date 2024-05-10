@@ -455,17 +455,14 @@ async fn test_view_sync_finalize_vote() {
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             validated_state_update(),
+            exact(QuorumVoteSend(votes[0].clone())),
         ],
         asserts: vec![],
     };
 
     let view_2 = TestScriptStage {
         inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![
-            exact(QuorumVoteSend(votes[0].clone())),
-            timeout_vote_send(),
-            timeout_vote_send(),
-        ],
+        outputs: vec![timeout_vote_send(), timeout_vote_send()],
         // Times out, so we now have a delayed view
         asserts: vec![],
     };
