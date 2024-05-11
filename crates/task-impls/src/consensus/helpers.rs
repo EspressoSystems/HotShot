@@ -787,20 +787,12 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     Ok(None)
 }
 
-/// TEMPORARY TYPE: Quorum proposal task state when using dependency tasks
-#[cfg(feature = "dependency-tasks")]
-type TemporaryProposalValidatedCombinedType<TYPES, I> = QuorumProposalTaskState<TYPES, I>;
-
-/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
-#[cfg(not(feature = "dependency-tasks"))]
-type TemporaryProposalValidatedCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
-
 /// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 #[allow(clippy::too_many_lines)]
 pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut TemporaryProposalValidatedCombinedType<TYPES, I>,
+    task_state: &mut ConsensusTaskState<TYPES, I>,
 ) -> Result<()> {
     let consensus = task_state.consensus.read().await;
     let view = proposal.get_view_number();

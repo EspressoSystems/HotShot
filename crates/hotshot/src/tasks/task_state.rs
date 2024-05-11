@@ -248,13 +248,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         handle: &SystemContextHandle<TYPES, I>,
     ) -> QuorumProposalTaskState<TYPES, I> {
         let consensus = handle.hotshot.get_consensus();
+        let consensus_read = consensus.read().await;
         QuorumProposalTaskState {
             latest_proposed_view: handle.get_cur_view().await,
             propose_dependencies: HashMap::new(),
             quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
             committee_network: Arc::clone(&handle.hotshot.networks.da_network),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
-            consensus,
             instance_state: handle.hotshot.get_instance_state(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -264,6 +264,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout: handle.hotshot.config.next_view_timeout,
             timeout_task: None,
             round_start_delay: handle.hotshot.config.round_start_delay,
+            high_qc: consensus_read.high_qc().clone(),
+            last_decided_view: consensus_read.last_decided_view().clone(),
+            locked_view: consensus_read.locked_view().clone(),
+            undecided_leaves: consensus_read.saved_leaves().clone(),
             id: handle.hotshot.id,
         }
     }
