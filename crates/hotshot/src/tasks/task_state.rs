@@ -6,11 +6,11 @@ use std::{
 
 use async_trait::async_trait;
 use hotshot_task_impls::{
-    builder::BuilderClient, consensus::ConsensusTaskState, da::DATaskState,
-    quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
-    quorum_vote::QuorumVoteTaskState, request::NetworkRequestState,
-    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
-    view_sync::ViewSyncTaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
+    da::DATaskState, quorum_proposal::QuorumProposalTaskState,
+    quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
+    request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
+    vid::VIDTaskState, view_sync::ViewSyncTaskState,
 };
 use hotshot_types::traits::{
     consensus_api::ConsensusApi,
@@ -295,6 +295,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             decided_upgrade_cert: None,
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.get_instance_state(),
+            id: handle.hotshot.id,
+        }
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for Consensus2TaskState<TYPES, I>
+{
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Consensus2TaskState<TYPES, I> {
+        let consensus = handle.hotshot.get_consensus();
+        Consensus2TaskState {
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            instance_state: handle.hotshot.get_instance_state(),
+            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            committee_network: Arc::clone(&handle.hotshot.networks.da_network),
+            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
+            vote_collector: None.into(),
+            timeout_vote_collector: None.into(),
+            storage: Arc::clone(&handle.storage),
+            cur_view: handle.get_cur_view().await,
+            output_event_stream: handle.hotshot.external_event_stream.0.clone(),
+            timeout_task: None,
+            timeout: handle.hotshot.config.next_view_timeout,
+            consensus,
+            last_decided_view: handle.get_cur_view().await,
             id: handle.hotshot.id,
         }
     }
