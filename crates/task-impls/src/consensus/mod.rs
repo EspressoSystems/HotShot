@@ -424,7 +424,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         error!("Failed to store High QC of QC we formed. Error: {:?}", e);
                     }
 
-                    if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
+                    if let Err(e) = self
+                        .consensus
+                        .write()
+                        .await
+                        .update_high_qc(qc.clone(), &event_stream)
+                        .await
+                    {
                         tracing::error!("{e:?}");
                     }
                     debug!(

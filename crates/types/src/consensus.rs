@@ -403,7 +403,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         broadcast_event(
-            HotShotEvent::ValidatedStateUpdate(view_number, view.clone()).into(),
+            HotShotEvent::ValidatedStateUpdated(view_number, view.clone()).into(),
             sender,
         )
         .await;

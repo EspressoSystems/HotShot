@@ -4,35 +4,37 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use committable::Commitment;
 use either::Either;
 use hotshot_task::{
-    cancel_task,
+    broadcast_event, cancel_task,
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
     task::{Task, TaskState},
 };
 use hotshot_types::{
     consensus::Consensus,
+    data::Leaf,
     event::Event,
     hotshot_event::HotShotEvent,
+    simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vote::Certificate,
+    vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, instrument, warn};
 
-#[cfg(feature = "dependency-tasks")]
-use crate::consensus::helpers::handle_quorum_proposal_validated;
-
 use self::dependency_handle::{ProposalDependency, ProposalDependencyHandle};
 
 mod dependency_handle;
+mod handlers;
+mod helpers;
 
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -81,8 +83,20 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    // /// most recent decided upgrade certificate
-    // pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    /// The map of undecided leaves. This mapping is from hash -> leaf.
+    /// This contains *only* undecided leaves.
+    pub undecided_leaves: HashMap<Commitment<Leaf<TYPES>>, Leaf<TYPES>>,
+
+    /// The most recently decided view.
+    pub last_decided_view: TYPES::Time,
+
+    /// The locked view. In chained HotStuff, this always comes after the
+    /// last decided view.
+    pub locked_view: TYPES::Time,
+
+    /// The last high qc that we've seen in this node.
+    pub high_qc: QuorumCertificate<TYPES>,
+
     /// The node's id
     pub id: u64,
 }
@@ -103,14 +117,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
                         if let HotShotEvent::QCFormed(either::Left(qc)) = event {
-                            qc.view_number + 1
+                            qc.get_view_number() + 1
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::TimeoutCert => {
                         if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
-                            timeout.view_number
+                            timeout.get_view_number() + 1
                         } else {
                             return false;
                         }
@@ -119,7 +133,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
                             event
                         {
-                            view_sync_cert.view_number
+                            view_sync_cert.get_view_number()
                         } else {
                             return false;
                         }
@@ -127,7 +141,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                     ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
-                            proposal.view_number
+                            proposal.get_view_number()
                         } else {
                             return false;
                         }
@@ -137,18 +151,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             _payload_commitment,
                             _builder_commitment,
                             _metadata,
-                            view,
+                            view_number,
                             _fee,
                         ) = event
                         {
-                            *view
+                            *view_number
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::ProposeNow => {
-                        if let HotShotEvent::ProposeNow(view, _) = event {
-                            *view
+                        if let HotShotEvent::ProposeNow(view_number, _) = event {
+                            *view_number
+                        } else {
+                            return false;
+                        }
+                    }
+                    ProposalDependency::VIDShare => {
+                        if let HotShotEvent::VIDShareValidated(vid_share) = event {
+                            vid_share.data.get_view_number()
+                        } else {
+                            return false;
+                        }
+                    }
+                    ProposalDependency::ValidatedState => {
+                        if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
+                            *view_number
+                        } else {
+                            return false;
+                        }
+                    }
+                    ProposalDependency::HighQc => {
+                        if let HotShotEvent::HighQcUpdated(qc) = event {
+                            qc.get_view_number()
                         } else {
                             return false;
                         }
@@ -203,8 +238,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let mut propose_now_dependency = self.create_event_dependency(
             ProposalDependency::ProposeNow,
             view_number,
-            event_receiver,
+            event_receiver.clone(),
         );
+
+        let mut vid_share_dependency = self.create_event_dependency(
+            ProposalDependency::VIDShare,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        let mut validated_state_update_dependency = self.create_event_dependency(
+            ProposalDependency::ValidatedState,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        let mut high_qc_updated_dependency =
+            self.create_event_dependency(ProposalDependency::HighQc, view_number, event_receiver);
 
         match event.as_ref() {
             HotShotEvent::ProposeNow(..) => {
@@ -226,6 +276,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 view_sync_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::VIDShareValidated(_) => {
+                vid_share_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::ValidatedStateUpdated(_, _) => {
+                validated_state_update_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::HighQcUpdated(_) => {
+                high_qc_updated_dependency.mark_as_completed(event);
             }
             _ => {}
         };
@@ -253,6 +312,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             AndDependency::from_deps(vec![
                 OrDependency::from_deps(vec![AndDependency::from_deps(vec![
                     payload_commitment_dependency,
+                    vid_share_dependency,
+                    validated_state_update_dependency,
+                    high_qc_updated_dependency,
                 ])]),
                 OrDependency::from_deps(secondary_deps),
             ]),
@@ -299,13 +361,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 sender: event_sender,
                 consensus: Arc::clone(&self.consensus),
                 output_event_stream: self.output_event_stream.clone(),
-                timeout_membership: Arc::clone(&self.timeout_membership),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
-                timeout: self.timeout,
                 round_start_delay: self.round_start_delay,
-                id: self.id,
                 instance_state: Arc::clone(&self.instance_state),
             },
         );
@@ -346,62 +405,60 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::ProposeNow(view, _) => {
+            HotShotEvent::ProposeNow(view_number, _) => {
                 self.create_dependency_task_if_new(
-                    *view,
+                    *view_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::QCFormed(cert) => {
-                match cert.clone() {
-                    either::Right(timeout_cert) => {
-                        let view = timeout_cert.view_number + 1;
+            HotShotEvent::QCFormed(cert) => match cert.clone() {
+                either::Right(timeout_cert) => {
+                    let view_number = timeout_cert.view_number + 1;
 
-                        self.create_dependency_task_if_new(
-                            view,
-                            event_receiver,
-                            event_sender,
-                            Arc::clone(&event),
-                        );
-                    }
-                    either::Left(qc) => {
-                        if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await
-                        {
-                            warn!("Failed to store High QC of QC we formed; error = {:?}", e);
-                        }
-
-                        let mut consensus = self.consensus.write().await;
-                        if let Err(e) = consensus.update_high_qc(qc.clone()) {
-                            tracing::trace!("{e:?}");
-                        }
-
-                        // We need to drop our handle here to make the borrow checker happy.
-                        drop(consensus);
-
-                        let view = qc.view_number + 1;
-
-                        self.create_dependency_task_if_new(
-                            view,
-                            event_receiver,
-                            event_sender,
-                            Arc::clone(&event),
-                        );
-                    }
+                    self.create_dependency_task_if_new(
+                        view_number,
+                        event_receiver,
+                        event_sender,
+                        Arc::clone(&event),
+                    );
                 }
-            }
+                either::Left(qc) => {
+                    let view_number = qc.view_number + 1;
+
+                    // Only update if the qc is from a newer view
+                    if qc.view_number <= self.high_qc.view_number {
+                        tracing::trace!(
+                            "Received a QC for a view that was not > than our current high QC"
+                        );
+                    }
+
+                    if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
+                        warn!("Failed to store High QC of QC we formed; error = {:?}", e);
+                    }
+
+                    broadcast_event(HotShotEvent::HighQcUpdated(qc).into(), &event_sender).await;
+
+                    self.create_dependency_task_if_new(
+                        view_number,
+                        event_receiver,
+                        event_sender,
+                        Arc::clone(&event),
+                    );
+                }
+            },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 _payload_commitment,
                 _builder_commitment,
                 _metadata,
-                view,
+                view_number,
                 _fee,
             ) => {
-                let view = *view;
+                let view_number = *view_number;
 
                 self.create_dependency_task_if_new(
-                    view,
+                    view_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
@@ -416,23 +473,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                let view = certificate.view_number;
+                let view_number = certificate.view_number;
 
-                self.create_dependency_task_if_new(view, event_receiver, event_sender, event);
+                self.create_dependency_task_if_new(
+                    view_number,
+                    event_receiver,
+                    event_sender,
+                    event,
+                );
             }
-            #[cfg(feature = "dependency-tasks")]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let new_view = proposal.view_number;
 
                 if !self.update_latest_proposed_view(new_view).await {
                     tracing::trace!("Failed to update latest proposed view");
                     return;
-                }
-
-                if let Err(e) =
-                    handle_quorum_proposal_validated(proposal, event_sender.clone(), self).await
-                {
-                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
 
                 self.create_dependency_task_if_new(
@@ -449,6 +504,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
             }
+            HotShotEvent::VIDShareValidated(vid_share) => {
+                let view = vid_share.data.get_view_number();
+                self.create_dependency_task_if_new(
+                    view,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(&event),
+                );
+            }
+            HotShotEvent::ValidatedStateUpdated(view_number, _) => {
+                self.create_dependency_task_if_new(
+                    *view_number,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(&event),
+                );
+            }
+            HotShotEvent::HighQcUpdated(qc) => {
+                // We treat this like any other QCFormed event.
+                let view_number = qc.get_view_number() + 1;
+                self.create_dependency_task_if_new(
+                    view_number,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(&event),
+                );
+            }
             _ => {}
         }
     }
@@ -459,7 +541,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
 {
     type Event = Arc<HotShotEvent<TYPES>>;
     type Output = ();
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
+    fn filter(&self, event: &Self::Event) -> bool {
         !matches!(
             event.as_ref(),
             HotShotEvent::QuorumProposalValidated(..)
@@ -468,7 +550,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::QuorumProposalSend(..)
-                | HotShotEvent::Shutdown,
+                | HotShotEvent::VIDShareValidated(_)
+                | HotShotEvent::ValidatedStateUpdated(..)
+                | HotShotEvent::HighQcUpdated(_)
+                | HotShotEvent::Shutdown
         )
     }
     async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>

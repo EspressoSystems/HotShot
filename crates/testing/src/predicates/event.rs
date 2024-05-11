@@ -248,7 +248,8 @@ where
     TYPES: NodeType,
 {
     let info = "ValidatedStateUpdate".to_string();
-    let check: EventCallback<TYPES> =
-        Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), ValidatedStateUpdate(..)));
+    let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
+        matches!(e.as_ref(), ValidatedStateUpdated(..))
+    });
     Box::new(EventPredicate { check, info })
 }
