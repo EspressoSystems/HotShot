@@ -15,7 +15,7 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, VidShares},
     data::Leaf,
     event::Event,
     simple_certificate::QuorumCertificate,
@@ -103,6 +103,14 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// The validated states (i.e. states that the blocks modify) that we have received so far.
     pub validated_states: BTreeMap<TYPES::Time, View<TYPES>>,
+
+    /// Saved payloads.
+    ///
+    /// Encoded transactions for every view if we got a payload for that view.
+    pub saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
+
+    /// All the VID shares we've received for current and future views.
+    pub vid_shares: VidShares<TYPES>,
 
     /// The node's id
     pub id: u64,
