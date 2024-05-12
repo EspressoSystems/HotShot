@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -22,6 +25,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::View,
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -96,6 +100,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// The last high qc that we've seen in this node.
     pub high_qc: QuorumCertificate<TYPES>,
+
+    /// The validated states (i.e. states that the blocks modify) that we have received so far.
+    pub validated_states: BTreeMap<TYPES::Time, View<TYPES>>,
 
     /// The node's id
     pub id: u64,
@@ -314,7 +321,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     payload_commitment_dependency,
                     vid_share_dependency,
                     validated_state_update_dependency,
-                    high_qc_updated_dependency,
                 ])]),
                 OrDependency::from_deps(secondary_deps),
             ]),
@@ -365,6 +371,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 private_key: self.private_key.clone(),
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
+                undecided_leaves: self.undecided_leaves.clone(),
+                last_decided_view: self.last_decided_view,
+                locked_view: self.locked_view,
+                high_qc: self.high_qc.clone(),
+                validated_states: self.validated_states.clone(),
             },
         );
         self.propose_dependencies

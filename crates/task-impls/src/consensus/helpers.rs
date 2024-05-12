@@ -38,10 +38,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
-#[cfg(not(feature = "dependency-tasks"))]
 use super::ConsensusTaskState;
-#[cfg(feature = "dependency-tasks")]
-use crate::quorum_proposal::QuorumProposalTaskState;
 #[cfg(feature = "dependency-tasks")]
 use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{

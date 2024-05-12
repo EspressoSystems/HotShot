@@ -1,10 +1,15 @@
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
-use committable::Committable;
+use committable::{Commitment, Committable};
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
@@ -15,6 +20,7 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
+    utils::View,
 };
 use tracing::{debug, error};
 
@@ -81,6 +87,23 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// Round start delay from config, in milliseconds.
     pub round_start_delay: u64,
+
+    /// The map of undecided leaves. This mapping is from hash -> leaf.
+    /// This contains *only* undecided leaves.
+    pub undecided_leaves: HashMap<Commitment<Leaf<TYPES>>, Leaf<TYPES>>,
+
+    /// The most recently decided view.
+    pub last_decided_view: TYPES::Time,
+
+    /// The locked view. In chained HotStuff, this always comes after the
+    /// last decided view.
+    pub locked_view: TYPES::Time,
+
+    /// The last high qc that we've seen in this node.
+    pub high_qc: QuorumCertificate<TYPES>,
+
+    /// The validated states (i.e. states that the blocks modify) that we have received so far.
+    pub validated_states: BTreeMap<TYPES::Time, View<TYPES>>,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
@@ -93,14 +116,8 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         high_qc: QuorumCertificate<TYPES>,
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
-        let (parent_leaf, state) = get_parent_leaf_and_state(
-            self.latest_proposed_view,
-            self.view_number,
-            Arc::clone(&self.quorum_membership),
-            self.public_key.clone(),
-            &high_qc,
-        )
-        .await?;
+        let (parent_leaf, state) =
+            get_parent_leaf_and_state(self.latest_proposed_view, self.view_number, self).await?;
 
         let proposal_certificate = view_change_evidence
             .as_ref()
