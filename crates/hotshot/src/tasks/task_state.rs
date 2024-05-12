@@ -268,6 +268,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             last_decided_view: consensus_read.last_decided_view().clone(),
             locked_view: consensus_read.locked_view().clone(),
             undecided_leaves: consensus_read.saved_leaves().clone(),
+            saved_payloads: consensus_read.saved_payloads().clone(),
+            validated_states: consensus_read.validated_state_map().clone(),
+            vid_shares: consensus_read.vid_shares().clone(),
             id: handle.hotshot.id,
         }
     }
