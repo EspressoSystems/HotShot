@@ -1,9 +1,7 @@
 #[cfg(feature = "dependency-tasks")]
-use crate::consensus::helpers::update_state_and_vote_if_able;
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+use std::marker::PhantomData;
+use std::{collections::HashMap, sync::Arc};
+
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -30,13 +28,17 @@ use hotshot_types::{
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-use jf_primitives::vid::VidScheme;
-#[cfg(feature = "dependency-tasks")]
-use std::marker::PhantomData;
-use std::{collections::HashMap, sync::Arc};
+use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, trace, warn};
+
+#[cfg(feature = "dependency-tasks")]
+use crate::consensus::helpers::update_state_and_vote_if_able;
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]

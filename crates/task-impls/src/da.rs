@@ -117,7 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .consensus
                     .read()
                     .await
-                    .saved_payloads
+                    .saved_payloads()
                     .contains_key(&view)
                 {
                     warn!("Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away", view);
@@ -209,9 +209,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 // Record the payload we have promised to make available.
-                consensus
-                    .saved_payloads
-                    .insert(view, Arc::clone(&proposal.data.encoded_transactions));
+                if let Err(e) = consensus
+                    .update_saved_payloads(view, Arc::clone(&proposal.data.encoded_transactions))
+                {
+                    tracing::trace!("{e:?}");
+                }
             }
             HotShotEvent::DAVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.get_view_number());
@@ -271,7 +273,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 return None;
             }
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee) => {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee, _vid_precomp) => {
                 let view = *view;
 
                 // quick hash the encoded txns with sha256
@@ -334,8 +336,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::DAProposalRecv(_, _)
                 | HotShotEvent::DAVoteRecv(_)
                 | HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(_, _, _, _)
-                | HotShotEvent::Timeout(_)
+                | HotShotEvent::BlockRecv(_, _, _, _, _)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::DAProposalValidated(_, _)
         )
