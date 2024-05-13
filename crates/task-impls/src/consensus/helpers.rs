@@ -856,15 +856,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                                 "Updating consensus state with decided upgrade certificate: {:?}",
                                 cert
                             );
-                            #[cfg(not(feature = "dependency-tasks"))]
-                            {
-                                task_state.decided_upgrade_cert = Some(cert.clone());
-                            }
-
-                            #[cfg(feature = "dependency-tasks")]
-                            {
-                                decided_upgrade_cert = Some(cert.clone());
-                            }
+                            task_state.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
                     // If the block payload is available for this leaf, include it in
@@ -993,17 +985,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view().get_u64()).unwrap());
-        let cur_number_of_views_per_decide_event = {
-            #[cfg(not(feature = "dependency-tasks"))]
-            {
-                *task_state.cur_view - consensus.last_decided_view().get_u64()
-            }
-
-            #[cfg(feature = "dependency-tasks")]
-            {
-                *task_state.latest_proposed_view - consensus.last_decided_view().get_u64()
-            }
-        };
+        let cur_number_of_views_per_decide_event = *task_state.cur_view - consensus.last_decided_view().get_u64()
         consensus
             .metrics
             .number_of_views_per_decide_event

@@ -3,10 +3,13 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{bail, Context, Result};
+use async_broadcast::Sender;
+use committable::Commitment;
 use hotshot_types::{
-    data::QuorumProposal,
-    event::LeafInfo,
+    data::{Leaf, QuorumProposal},
+    event::{Event, EventType, LeafInfo},
+    simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
         node_implementation::{NodeImplementation, NodeType},
@@ -14,12 +17,53 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
+use tracing::debug;
+
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 use super::QuorumProposalTaskState;
 
+/// Helper type to give names and to the output values of the leaf chain traversal operation.
+#[derive(Debug)]
+struct LeafChainTraversalOutcome<TYPES: NodeType> {
+    /// The new locked view obtained from a 2 chain starting from the proposal's parent.
+    pub new_locked_view_number: Option<TYPES::Time>,
+
+    /// The new decided view obtained from a 3 chain starting from the proposal's parent.
+    pub new_decided_view_number: Option<TYPES::Time>,
+
+    /// The qc for the decided chain.
+    pub new_decide_qc: Option<QuorumCertificate<TYPES>>,
+
+    /// The decided leaves with corresponding validated state and VID info.
+    pub leaf_views: Vec<LeafInfo<TYPES>>,
+
+    /// The decided leaves.
+    pub leaves_decided: Vec<Leaf<TYPES>>,
+
+    /// The transactions in the block payload for each leaf.
+    pub included_txns: HashSet<Commitment<<TYPES as NodeType>::Transaction>>,
+    // TODO - add upgrade cert here and fill
+}
+
+impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
+    /// The default method for this type is to set all of the returned values to `None`.
+    fn default() -> Self {
+        Self {
+            new_locked_view_number: None,
+            new_decided_view_number: None,
+            new_decide_qc: None,
+            leaf_views: Vec::new(),
+            leaves_decided: Vec::new(),
+            included_txns: HashSet::new(),
+        }
+    }
+}
+
 /// Ascends the leaf chain by traversing through the parent commitments of the proposal. We begin
 /// by obtaining the parent view, and if we are in a chain (i.e. the next view from the parent is
-/// one view newer), then we begin attempting to form the chain. From "HotStuff":
+/// one view newer), then we begin attempting to form the chain. This is a direct impl from
+/// [HotStuff](https://arxiv.org/pdf/1803.05069) section 5:
 ///
 /// > When a node b* carries a QC that refers to a direct parent, i.e., b*.justify.node = b*.parent,
 /// we say that it forms a One-Chain. Denote by b'' = b*.justify.node. Node b* forms a Two-Chain,
@@ -46,9 +90,12 @@ use super::QuorumProposalTaskState;
 async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     task_state: &mut QuorumProposalTaskState<TYPES, I>,
-) -> Result<()> {
+) -> Result<LeafChainTraversalOutcome<TYPES>> {
     let proposal_view_number = proposal.get_view_number();
     let proposal_parent_view_number = proposal.justify_qc.get_view_number();
+
+    // This is the output return type object whose members will be mutated as we traverse.
+    let mut ret = LeafChainTraversalOutcome::default();
 
     // Are these views consecutive (1-chain)
     if proposal_parent_view_number + 1 == proposal_view_number {
@@ -73,21 +120,8 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             "View {walk_start_view_number:?} is a failed view, expected a successful leaf."
         ))?;
 
-        // These are state variables to keep track of during our traversal.
-        let mut decide_reached = false;
-        let mut commit_reached = false;
-
         // The most recently seen view number (the view number of the last leaf we saw).
         let mut last_seen_view_number = walk_start_view_number;
-
-        // Store the next locked view if there will be one (don't update the internal state yet
-        // becuase some of the later ops can fail).
-        let mut new_locked_view = task_state.locked_view;
-        let mut new_decided_view = task_state.last_decided_view;
-        let mut new_decide_qc = None;
-        let mut leaf_views = Vec::new();
-        let mut leaves_decided = Vec::new();
-        let mut included_txns = HashSet::new();
 
         while let Some(leaf) = task_state.undecided_leaves.get(&next_leaf) {
             // These are all just checks to make sure we have what we need to proceed.
@@ -106,7 +140,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 }
 
                 // IMPORTANT: This is the logic from the paper, and is the most critical part of this function.
-                if !decide_reached {
+                if ret.new_decided_view_number.is_none() {
                     // Does this leaf extend the chain?
                     if last_seen_view_number == leaf.get_view_number() + 1 {
                         last_seen_view_number = leaf.get_view_number();
@@ -114,26 +148,25 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
                         // We've got a 2 chain, update the locked view.
                         if current_chain_length == 2 {
-                            commit_reached = true;
-                            new_locked_view = leaf.get_view_number();
+                            ret.new_locked_view_number = Some(leaf.get_view_number());
 
                             // The next leaf in the chain, if there is one, is decided, so this
                             // leaf's justify_qc would become the QC for the decided chain.
-                            new_decide_qc = Some(leaf.get_justify_qc().clone());
+                            ret.new_decide_qc = Some(leaf.get_justify_qc().clone());
                         } else if current_chain_length == 3 {
-                            // We've got the 3-chain, which means we can successfully decide on this.
-                            new_decided_view = leaf.get_view_number();
-                            decide_reached = true;
+                            // We've got the 3-chain, which means we can successfully decide on this leaf.
+                            ret.new_decided_view_number = Some(leaf.get_view_number());
                         }
                     } else {
-                        bail!("No new chain extension");
+                        // Bail out with empty values, but this is not necessarily an error.
+                        return Ok(LeafChainTraversalOutcome::default());
                     }
                 }
 
                 // If we got a 3-chain, we can start our state updates, garbage collection, etc
-                if decide_reached {
+                if let Some(decided_view) = ret.new_decided_view_number {
                     let mut leaf = leaf.clone();
-                    if leaf.get_view_number() == new_decided_view {
+                    if leaf.get_view_number() == decided_view {
                         // TODO - Add consensus to task_state and upgrade metrics.
                         // consensus
                         //     .metrics
@@ -171,18 +204,18 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                         .map(|prop| prop.data);
 
                     // Add our data into a new `LeafInfo`
-                    leaf_views.push(LeafInfo::new(
+                    ret.leaf_views.push(LeafInfo::new(
                         leaf.clone(),
                         Arc::clone(&state),
                         delta.clone(),
                         vid_share,
                     ));
-                    leaves_decided.push(leaf.clone());
+                    ret.leaves_decided.push(leaf.clone());
                     if let Some(ref payload) = leaf.get_block_payload() {
                         for txn in
                             payload.transaction_commitments(leaf.get_block_header().metadata())
                         {
-                            included_txns.insert(txn);
+                            ret.included_txns.insert(txn);
                         }
                     }
                 }
@@ -191,10 +224,13 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                     "Validated state and delta do not exist for the leaf for view {current_leaf_view_number:?}"
                 )
             };
+
+            // Move on to the next leaf at the end.
+            next_leaf = leaf.get_parent_commitment();
         }
     }
 
-    Ok(())
+    Ok(ret)
 }
 
 /// Handles the `QuorumProposalValidated` event.
@@ -203,9 +239,82 @@ pub(crate) async fn handle_quorum_proposal_validated<
     I: NodeImplementation<TYPES>,
 >(
     proposal: &QuorumProposal<TYPES>,
+    sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalTaskState<TYPES, I>,
 ) -> Result<()> {
-    visit_leaf_chain(proposal, task_state).await?;
+    let LeafChainTraversalOutcome {
+        new_locked_view_number,
+        new_decided_view_number,
+        new_decide_qc,
+        leaf_views,
+        leaves_decided,
+        included_txns,
+    } = visit_leaf_chain(proposal, task_state).await?;
+
+    let included_txns = if new_decided_view_number.is_some() {
+        included_txns
+    } else {
+        HashSet::new()
+    };
+
+    if let Some(locked_view_number) = new_locked_view_number {
+        // Broadcast the locked view update.
+        broadcast_event(
+            HotShotEvent::LockedViewUpdated(locked_view_number).into(),
+            sender,
+        )
+        .await;
+
+        // TODO - Update task state?
+    }
+
+    // TODO - update decided upgrade cert
+
+    if let Some(decided_view_number) = new_decided_view_number {
+        // Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
+
+        let old_decided_view = task_state.last_decided_view;
+        // TODO - collect garbage.
+
+        // Set the new decided view.
+        task_state.last_decided_view = decided_view_number;
+
+        // TODO - Metrics
+        // consensus
+        //     .metrics
+        //     .last_decided_time
+        //     .set(Utc::now().timestamp().try_into().unwrap());
+        // consensus.metrics.invalid_qc.set(0);
+        // consensus
+        //     .metrics
+        //     .last_decided_view
+        //     .set(usize::try_from(consensus.last_decided_view().get_u64()).unwrap());
+        // let cur_number_of_views_per_decide_event = *task_state.cur_view - consensus.last_decided_view().get_u64()
+        // consensus
+        //     .metrics
+        //     .number_of_views_per_decide_event
+        //     .add_point(cur_number_of_views_per_decide_event as f64);
+
+        debug!("Sending Decide for view {:?}", task_state.last_decided_view);
+
+        // First, send an update to everyone saying that we've reached a decide
+        broadcast_event(
+            Event {
+                view_number: old_decided_view,
+                event: EventType::Decide {
+                    leaf_chain: Arc::new(leaf_views),
+                    // This is never *not* none if we've reached a new decide, so this is safe to unwrap.
+                    qc: Arc::new(new_decide_qc.unwrap()),
+                    block_size: Some(included_txns.len().try_into().unwrap()),
+                },
+            },
+            &task_state.output_event_stream,
+        )
+        .await;
+
+        broadcast_event(Arc::new(HotShotEvent::LeafDecided(leaves_decided)), &sender).await;
+        debug!("Successfully sent decide event");
+    }
 
     Ok(())
 }

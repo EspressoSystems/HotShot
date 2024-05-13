@@ -158,7 +158,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A undecided view has been created and added to the validated state storage.
     ValidatedStateUpdated(TYPES::Time, View<TYPES>),
 
-    /// A new anchor view has been successfully reached by this node.
+    /// A new locked view has been created (2-chain)
+    LockedViewUpdated(TYPES::Time),
+
+    /// A new anchor view has been successfully reached by this node (3-chain).
     LastDecidedViewUpdated(TYPES::Time),
 
     /// A new high_qc has been reached by this node.
