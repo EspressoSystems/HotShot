@@ -1,3 +1,6 @@
+//! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
+//! initiate a proposal occurs.
+
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -8,13 +11,11 @@ use std::{
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::CommitmentAndMetadata,
     data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
-    event::Event,
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
@@ -73,9 +74,6 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
 
-    /// Output events to application
-    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
-
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
 
@@ -94,10 +92,6 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// The most recently decided view.
     pub last_decided_view: TYPES::Time,
-
-    /// The locked view. In chained HotStuff, this always comes after the
-    /// last decided view.
-    pub locked_view: TYPES::Time,
 
     /// The last high qc that we've seen in this node.
     pub high_qc: QuorumCertificate<TYPES>,
@@ -234,7 +228,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::ProposeNow(_, pdd) => {
                     commit_and_metadata = Some(pdd.commitment_and_metadata.clone());
                     match &pdd.secondary_proposal_information {
-                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, cert) => {
+                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, _) => {
                             payload_commitment = Some(quorum_proposal.block_header.payload_commitment());
                         },
                         hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) => {

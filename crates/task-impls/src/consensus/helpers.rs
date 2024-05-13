@@ -985,7 +985,8 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view().get_u64()).unwrap());
-        let cur_number_of_views_per_decide_event = *task_state.cur_view - consensus.last_decided_view().get_u64()
+        let cur_number_of_views_per_decide_event =
+            *task_state.cur_view - consensus.last_decided_view().get_u64();
         consensus
             .metrics
             .number_of_views_per_decide_event

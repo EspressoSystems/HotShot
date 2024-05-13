@@ -15,7 +15,7 @@ use hotshot_task::{
     task::{Task, TaskState},
 };
 use hotshot_types::{
-    consensus::{Consensus, VidShares},
+    consensus::VidShares,
     data::Leaf,
     event::Event,
     simple_certificate::QuorumCertificate,
@@ -37,10 +37,17 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 
-use self::dependency_handle::{ProposalDependency, ProposalDependencyHandle};
+use self::{
+    dependency_handle::{ProposalDependency, ProposalDependencyHandle},
+    handlers::handle_quorum_proposal_validated,
+};
 
 mod dependency_handle;
+
+/// Event handlers for [`QuorumProposalTaskState`].
 mod handlers;
+
+/// Helper functions for proposing.
 mod helpers;
 
 /// The state for the quorum proposal task.
@@ -373,7 +380,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 latest_proposed_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                output_event_stream: self.output_event_stream.clone(),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
@@ -381,7 +387,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 instance_state: Arc::clone(&self.instance_state),
                 undecided_leaves: self.undecided_leaves.clone(),
                 last_decided_view: self.last_decided_view,
-                locked_view: self.locked_view,
                 high_qc: self.high_qc.clone(),
                 validated_states: self.validated_states.clone(),
             },
@@ -503,9 +508,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let new_view = proposal.view_number;
 
+                // All nodes get the latest proposed view as a proxy of `cur_view` of olde.
                 if !self.update_latest_proposed_view(new_view).await {
                     tracing::trace!("Failed to update latest proposed view");
                     return;
+                }
+
+                // Handle the event before creating the dependency task.
+                if let Err(e) =
+                    handle_quorum_proposal_validated(proposal, &event_sender, self).await
+                {
+                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
 
                 self.create_dependency_task_if_new(
@@ -531,7 +544,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::ValidatedStateUpdated(view_number, _) => {
+            HotShotEvent::ValidatedStateUpdated(view_number, view) => {
+                // Update the internal validated state map.
+                self.validated_states.insert(*view_number, view.clone());
+
                 self.create_dependency_task_if_new(
                     *view_number,
                     event_receiver,

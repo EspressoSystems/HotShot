@@ -87,7 +87,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
-async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     task_state: &mut QuorumProposalTaskState<TYPES, I>,
 ) -> Result<LeafChainTraversalOutcome<TYPES>> {
@@ -107,7 +107,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
         // The next view is the next view we're going to traverse, it is the validated state of the
         // parent of the proposal.
-        let mut next_view = task_state
+        let next_view = task_state
             .validated_states
             .get(&proposal_parent_view_number)
             .context(format!(
@@ -249,7 +249,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         leaves_decided,
         included_txns,
-    } = visit_leaf_chain(proposal, task_state).await?;
+    } = visit_leaf_chain(proposal, task_state)?;
 
     let included_txns = if new_decided_view_number.is_some() {
         included_txns
@@ -312,7 +312,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         )
         .await;
 
-        broadcast_event(Arc::new(HotShotEvent::LeafDecided(leaves_decided)), &sender).await;
+        broadcast_event(Arc::new(HotShotEvent::LeafDecided(leaves_decided)), sender).await;
         debug!("Successfully sent decide event");
     }
 
