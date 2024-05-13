@@ -1,6 +1,6 @@
-# OptimisticDaProposalRecv
+# OptimisticDAProposalRecv
 
-![OptimisticDaProposalRecv](/docs/diagrams/images/HotShotFlow-OptimisticDaProposalRecv.drawio.png "QuorumProposalRecv")
+![OptimisticDAProposalRecv](/docs/diagrams/images/HotShotFlow-OptimisticDAProposalRecv.drawio.png "QuorumProposalRecv")
 
 ## Basic Message Validation
 * It is possible for some applications built on top of HotShot to listen for DA proposals but not vote on them (such as builders).  
