@@ -272,7 +272,7 @@
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState,
-    da::DATaskState,
+    da::DaTaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     quorum_proposal::QuorumProposalTaskState,
@@ -446,7 +446,7 @@
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
     <span class="comment">// build the da task
-    </span><span class="kw">let </span>da_state = DATaskState::create_from(handle).<span class="kw">await</span>;
+    </span><span class="kw">let </span>da_state = DaTaskState::create_from(handle).<span class="kw">await</span>;
 
     <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), da_state);
     task_reg.run_task(task).<span class="kw">await</span>;

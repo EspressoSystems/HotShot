@@ -349,10 +349,6 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -367,13 +363,13 @@
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
-    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
-        DACertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+        DaCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
         ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
     traits::{
@@ -539,20 +535,20 @@
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = <span class="string">""</span>, serialize = <span class="string">""</span>))]
 </span><span class="doccomment">/// Messages related to the sequencing consensus protocol for the DA committee.
-</span><span class="kw">pub enum </span>CommitteeConsensusMessage&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub enum </span>DaConsensusMessage&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Proposal for data availability committee
-    </span>DAProposal(Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;),
+    </span>DaProposal(Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// vote for data availability committee
-    </span>DAVote(DAVote&lt;TYPES&gt;),
+    </span>DaVote(DaVote&lt;TYPES&gt;),
 
     <span class="doccomment">/// Certificate data is available
-    </span>DACertificate(DACertificate&lt;TYPES&gt;),
+    </span>DaCertificate(DaCertificate&lt;TYPES&gt;),
 
     <span class="doccomment">/// Initiate VID dispersal.
     ///
-    /// Like [`DAProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
-    /// TODO this variant should not be a [`CommitteeConsensusMessage`] because &lt;https://github.com/EspressoSystems/HotShot/issues/1696&gt;
+    /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
+    /// TODO this variant should not be a [`DaConsensusMessage`] because &lt;https://github.com/EspressoSystems/HotShot/issues/1696&gt;
     </span>VidDisperseMsg(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
 }
 
@@ -564,7 +560,7 @@
     </span>General(GeneralConsensusMessage&lt;TYPES&gt;),
 
     <span class="doccomment">/// Messages related to the sequencing consensus protocol for the DA committee.
-    </span>Committee(CommitteeConsensusMessage&lt;TYPES&gt;),
+    </span>Da(DaConsensusMessage&lt;TYPES&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; SequencingMessage&lt;TYPES&gt; {
@@ -604,20 +600,16 @@
                     GeneralConsensusMessage::UpgradeVote(message) =&gt; message.get_view_number(),
                 }
             }
-            SequencingMessage::Committee(committee_message) =&gt; {
-                <span class="kw">match </span>committee_message {
-                    CommitteeConsensusMessage::DAProposal(p) =&gt; {
+            SequencingMessage::Da(da_message) =&gt; {
+                <span class="kw">match </span>da_message {
+                    DaConsensusMessage::DaProposal(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
                         // this should match replica upon receipt
                         </span>p.data.get_view_number()
                     }
-                    CommitteeConsensusMessage::DAVote(vote_message) =&gt; {
-                        vote_message.get_view_number()
-                    }
-                    CommitteeConsensusMessage::DACertificate(cert) =&gt; cert.view_number,
-                    CommitteeConsensusMessage::VidDisperseMsg(disperse) =&gt; {
-                        disperse.data.get_view_number()
-                    }
+                    DaConsensusMessage::DaVote(vote_message) =&gt; vote_message.get_view_number(),
+                    DaConsensusMessage::DaCertificate(cert) =&gt; cert.view_number,
+                    DaConsensusMessage::VidDisperseMsg(disperse) =&gt; disperse.data.get_view_number(),
                 }
             }
         }
@@ -646,11 +638,11 @@
                 GeneralConsensusMessage::UpgradeProposal(<span class="kw">_</span>) =&gt; MessagePurpose::UpgradeProposal,
                 GeneralConsensusMessage::UpgradeVote(<span class="kw">_</span>) =&gt; MessagePurpose::UpgradeVote,
             },
-            SequencingMessage::Committee(committee_message) =&gt; <span class="kw">match </span>committee_message {
-                CommitteeConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
-                CommitteeConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
-                CommitteeConsensusMessage::DACertificate(<span class="kw">_</span>) =&gt; MessagePurpose::DAC,
-                CommitteeConsensusMessage::VidDisperseMsg(<span class="kw">_</span>) =&gt; MessagePurpose::VidDisperse,
+            SequencingMessage::Da(da_message) =&gt; <span class="kw">match </span>da_message {
+                DaConsensusMessage::DaProposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
+                DaConsensusMessage::DaVote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
+                DaConsensusMessage::DaCertificate(<span class="kw">_</span>) =&gt; MessagePurpose::DAC,
+                DaConsensusMessage::VidDisperseMsg(<span class="kw">_</span>) =&gt; MessagePurpose::VidDisperse,
             },
         }
     }

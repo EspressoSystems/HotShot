@@ -1589,9 +1589,9 @@
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
         <span class="comment">// HACK
-        </span>committee_pks: BTreeSet&lt;K&gt;,
+        </span>quorum_public_keys: BTreeSet&lt;K&gt;,
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-        da_pks: BTreeSet&lt;K&gt;,
+        da_public_keys: BTreeSet&lt;K&gt;,
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
         <span class="comment">// Error if there were no bootstrap nodes specified
@@ -1618,8 +1618,8 @@
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         <span class="kw">let </span><span class="kw-2">mut </span>topic_map = BiHashMap::new();
-        topic_map.insert(committee_pks, QC_TOPIC.to_string());
-        topic_map.insert(da_pks, <span class="string">"DA"</span>.to_string());
+        topic_map.insert(quorum_public_keys, QC_TOPIC.to_string());
+        topic_map.insert(da_public_keys, <span class="string">"DA"</span>.to_string());
 
         <span class="kw">let </span>topic_map = RwLock::new(topic_map);
 

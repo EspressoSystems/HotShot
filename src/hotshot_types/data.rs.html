@@ -880,7 +880,7 @@
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-</span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>DaProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Encoded transactions in the block to be applied.
     </span><span class="kw">pub </span>encoded_transactions: Arc&lt;[u8]&gt;,
     <span class="doccomment">/// Metadata of the block to be applied.
@@ -904,7 +904,7 @@
 
 <span class="doccomment">/// VID dispersal data
 ///
-/// Like [`DAProposal`].
+/// Like [`DaProposal`].
 ///
 /// TODO move to vid.rs?
 </span><span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -1085,7 +1085,7 @@
     </span><span class="kw">pub </span>proposal_certificate: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DAProposal&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DaProposal&lt;TYPES&gt; {
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }

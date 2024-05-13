@@ -1339,14 +1339,14 @@
 
 <span class="doccomment">/// Defines the behavior of a "run" of the network with a given configuration
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>RunDA&lt;
+</span><span class="kw">pub trait </span>RunDa&lt;
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
     DANET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     QUORUMNET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     NODE: NodeImplementation&lt;
         TYPES,
         QuorumNetwork = QUORUMNET,
-        CommitteeNetwork = DANET,
+        DaNetwork = DANET,
         Storage = TestStorage&lt;TYPES&gt;,
     &gt;,
 &gt; <span class="kw">where
@@ -1617,10 +1617,10 @@
         NODE: NodeImplementation&lt;
             TYPES,
             QuorumNetwork = PushCdnNetwork&lt;TYPES&gt;,
-            CommitteeNetwork = PushCdnNetwork&lt;TYPES&gt;,
+            DaNetwork = PushCdnNetwork&lt;TYPES&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDA&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
+    &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
@@ -1683,7 +1683,7 @@
 <span class="comment">// Libp2p
 
 </span><span class="doccomment">/// Represents a libp2p-based run
-</span><span class="kw">pub struct </span>Libp2pDARun&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>Libp2pDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// quorum channel
@@ -1703,16 +1703,16 @@
         NODE: NodeImplementation&lt;
             TYPES,
             QuorumNetwork = Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
-            CommitteeNetwork = Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+            DaNetwork = Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
     &gt;
-    RunDA&lt;
+    RunDa&lt;
         TYPES,
         Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
         Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
         NODE,
-    &gt; <span class="kw">for </span>Libp2pDARun&lt;TYPES&gt;
+    &gt; <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
@@ -1722,7 +1722,7 @@
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
-    ) -&gt; Libp2pDARun&lt;TYPES&gt; {
+    ) -&gt; Libp2pDaRun&lt;TYPES&gt; {
         <span class="comment">// Extrapolate keys for ease of use
         </span><span class="kw">let </span>keys = config.clone().config.my_own_validator_config;
         <span class="kw">let </span>public_key = keys.public_key;
@@ -1758,7 +1758,7 @@
         <span class="comment">// Wait for the network to be ready
         </span>libp2p_network.wait_for_ready().<span class="kw">await</span>;
 
-        Libp2pDARun {
+        Libp2pDaRun {
             config,
             quorum_channel: libp2p_network.clone(),
             da_channel: libp2p_network,
@@ -1781,7 +1781,7 @@
 <span class="comment">// Combined network
 
 </span><span class="doccomment">/// Represents a combined-network-based run
-</span><span class="kw">pub struct </span>CombinedDARun&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>CombinedDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// quorum channel
@@ -1801,10 +1801,10 @@
         NODE: NodeImplementation&lt;
             TYPES,
             QuorumNetwork = CombinedNetworks&lt;TYPES&gt;,
-            CommitteeNetwork = CombinedNetworks&lt;TYPES&gt;,
+            DaNetwork = CombinedNetworks&lt;TYPES&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDA&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDARun&lt;TYPES&gt;
+    &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
@@ -1814,10 +1814,10 @@
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
-    ) -&gt; CombinedDARun&lt;TYPES&gt; {
+    ) -&gt; CombinedDaRun&lt;TYPES&gt; {
         <span class="comment">// Initialize our Libp2p network
-        </span><span class="kw">let </span>libp2p_da_run: Libp2pDARun&lt;TYPES&gt; =
-            &lt;Libp2pDARun&lt;TYPES&gt; <span class="kw">as </span>RunDA&lt;
+        </span><span class="kw">let </span>libp2p_da_run: Libp2pDaRun&lt;TYPES&gt; =
+            &lt;Libp2pDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
                 TYPES,
                 Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
                 Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
@@ -1827,7 +1827,7 @@
 
         <span class="comment">// Initialize our CDN network
         </span><span class="kw">let </span>cdn_da_run: PushCdnDaRun&lt;TYPES&gt; =
-            &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDA&lt;
+            &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
                 TYPES,
                 PushCdnNetwork&lt;TYPES&gt;,
                 PushCdnNetwork&lt;TYPES&gt;,
@@ -1854,7 +1854,7 @@
         );
 
         <span class="comment">// Return the run configuration
-        </span>CombinedDARun {
+        </span>CombinedDaRun {
             config,
             quorum_channel,
             da_channel,
@@ -1889,10 +1889,10 @@
     NODE: NodeImplementation&lt;
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
-        CommitteeNetwork = DACHANNEL,
+        DaNetwork = DACHANNEL,
         Storage = TestStorage&lt;TYPES&gt;,
     &gt;,
-    RUNDA: RunDA&lt;TYPES, DACHANNEL, QUORUMCHANNEL, NODE&gt;,
+    RUNDA: RunDa&lt;TYPES, DACHANNEL, QUORUMCHANNEL, NODE&gt;,
 &gt;(
     args: ValidatorArgs,
 ) <span class="kw">where

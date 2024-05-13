@@ -1241,9 +1241,6 @@
 <a href="#1239" id="1239">1239</a>
 <a href="#1240" id="1240">1240</a>
 <a href="#1241" id="1241">1241</a>
-<a href="#1242" id="1242">1242</a>
-<a href="#1243" id="1243">1243</a>
-<a href="#1244" id="1244">1244</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -2317,10 +2314,7 @@
     </span><span class="kw">use </span>hotshot_types::simple_vote::QuorumVote;
 
     <span class="kw">if </span>!quorum_membership.has_stake(<span class="kw-2">&amp;</span>public_key) {
-        <span class="macro">debug!</span>(
-            <span class="string">"We were not chosen for consensus committee on {:?}"</span>,
-            cur_view
-        );
+        <span class="macro">debug!</span>(<span class="string">"We were not chosen for quorum committee on {:?}"</span>, cur_view);
         <span class="kw">return </span><span class="bool-val">false</span>;
     }
 

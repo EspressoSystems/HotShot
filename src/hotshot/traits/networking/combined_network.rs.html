@@ -635,7 +635,7 @@
                 SequencingMessage::General(general_consensus_message) =&gt; {
                     <span class="macro">matches!</span>(general_consensus_message, GeneralConsensusMessage::Vote(<span class="kw">_</span>))
                 }
-                SequencingMessage::Committee(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+                SequencingMessage::Da(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
             },
             MessageKind::Data(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
         }

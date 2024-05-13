@@ -242,7 +242,7 @@
     /// Storing this state allows us to garbage collect blocks for views where a proposal is never
     /// made. This saves memory when a leader fails and subverts a DoS attack where malicious
     /// leaders repeatedly request availability for blocks that they never propose.
-    </span>DA {
+    </span>Da {
         <span class="doccomment">/// Payload commitment to the available block.
         </span>payload_commitment: VidCommitment,
     },
@@ -261,7 +261,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Clone <span class="kw">for </span>ViewInner&lt;TYPES&gt; {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::DA { payload_commitment } =&gt; <span class="self">Self</span>::DA {
+            <span class="self">Self</span>::Da { payload_commitment } =&gt; <span class="self">Self</span>::Da {
                 payload_commitment: <span class="kw-2">*</span>payload_commitment,
             },
             <span class="self">Self</span>::Leaf { leaf, state, delta } =&gt; <span class="self">Self</span>::Leaf {
@@ -328,7 +328,7 @@
     <span class="doccomment">/// return the underlying block paylod commitment if it exists
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;VidCommitment&gt; {
-        <span class="kw">if let </span><span class="self">Self</span>::DA { payload_commitment } = <span class="self">self </span>{
+        <span class="kw">if let </span><span class="self">Self</span>::Da { payload_commitment } = <span class="self">self </span>{
             <span class="prelude-val">Some</span>(<span class="kw-2">*</span>payload_commitment)
         } <span class="kw">else </span>{
             <span class="prelude-val">None

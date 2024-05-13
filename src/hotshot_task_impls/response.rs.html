@@ -203,9 +203,6 @@
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::Receiver;
@@ -218,9 +215,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
-    message::{
-        CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
-    },
+    message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseChannel, ResponseMessage},
@@ -365,12 +360,11 @@
                 <span class="kw">let </span><span class="prelude-val">Some</span>(share) = <span class="self">self</span>.get_or_calc_vid_share(view, <span class="kw-2">&amp;</span>pub_key).<span class="kw">await else </span>{
                     <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
                 };
-                <span class="kw">let </span>seq_msg =
-                    SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(share));
+                <span class="kw">let </span>seq_msg = SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(share));
                 <span class="self">self</span>.make_msg(ResponseMessage::Found(seq_msg))
             }
             <span class="comment">// TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
-            </span>RequestKind::DAProposal(_view) =&gt; <span class="self">self</span>.make_msg(ResponseMessage::NotFound),
+            </span>RequestKind::DaProposal(_view) =&gt; <span class="self">self</span>.make_msg(ResponseMessage::NotFound),
         }
     }
 

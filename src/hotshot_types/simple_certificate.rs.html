@@ -231,7 +231,7 @@
 <span class="kw">use crate</span>::{
     data::serialize_signature2,
     simple_vote::{
-        DAData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
+        DaData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
         ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
     },
     traits::{
@@ -414,8 +414,8 @@
 
 <span class="doccomment">/// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
 </span><span class="kw">pub type </span>QuorumCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, QuorumData&lt;TYPES&gt;, SuccessThreshold&gt;;
-<span class="doccomment">/// Type alias for a DA certificate over `DAData`
-</span><span class="kw">pub type </span>DACertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, DAData, SuccessThreshold&gt;;
+<span class="doccomment">/// Type alias for a DA certificate over `DaData`
+</span><span class="kw">pub type </span>DaCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, DaData, SuccessThreshold&gt;;
 <span class="doccomment">/// Type alias for a Timeout certificate over a view number
 </span><span class="kw">pub type </span>TimeoutCertificate&lt;TYPES&gt; = SimpleCertificate&lt;TYPES, TimeoutData&lt;TYPES&gt;, SuccessThreshold&gt;;
 <span class="doccomment">/// Type alias for a `ViewSyncPreCommit` certificate over a view number

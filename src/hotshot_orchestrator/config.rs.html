@@ -1322,10 +1322,10 @@
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// The known non-staking nodes'
     </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
-    <span class="doccomment">/// Number of staking committee nodes
-    </span><span class="kw">pub </span>staked_committee_nodes: usize,
-    <span class="doccomment">/// Number of non-staking committee nodes
-    </span><span class="kw">pub </span>non_staked_committee_nodes: usize,
+    <span class="doccomment">/// Number of staking DA nodes
+    </span><span class="kw">pub </span>staked_da_nodes: usize,
+    <span class="doccomment">/// Number of non-staking DA nodes
+    </span><span class="kw">pub </span>non_staked_da_nodes: usize,
     <span class="doccomment">/// Number of fixed leaders for GPU VID
     </span><span class="kw">pub </span>fixed_leader_for_gpuvid: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
@@ -1414,8 +1414,8 @@
             known_nodes_with_stake: val.known_nodes_with_stake,
             known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
-            da_staked_committee_size: val.staked_committee_nodes,
-            da_non_staked_committee_size: val.non_staked_committee_nodes,
+            da_staked_committee_size: val.staked_da_nodes,
+            da_non_staked_committee_size: val.non_staked_da_nodes,
             fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
@@ -1455,7 +1455,7 @@
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; Default <span class="kw">for </span>HotShotConfigFile&lt;KEY&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="comment">// The default number of nodes is 5
-        </span><span class="kw">let </span>staked_committee_nodes: usize = <span class="number">5</span>;
+        </span><span class="kw">let </span>staked_da_nodes: usize = <span class="number">5</span>;
 
         <span class="comment">// Aggregate the DA nodes
         </span><span class="kw">let </span><span class="kw-2">mut </span>known_da_nodes = Vec::new();
@@ -1466,7 +1466,7 @@
                     ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, <span class="bool-val">false</span>);
 
                 <span class="comment">// Add to DA nodes based on index
-                </span><span class="kw">if </span>node_id &lt; staked_committee_nodes <span class="kw">as </span>u64 {
+                </span><span class="kw">if </span>node_id &lt; staked_da_nodes <span class="kw">as </span>u64 {
                     known_da_nodes.push(cur_validator_config.get_public_config());
                     cur_validator_config.is_da = <span class="bool-val">true</span>;
                 }
@@ -1482,9 +1482,9 @@
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             known_nodes_without_stake: <span class="macro">vec!</span>[],
-            staked_committee_nodes,
+            staked_da_nodes,
             known_da_nodes,
-            non_staked_committee_nodes: <span class="number">0</span>,
+            non_staked_da_nodes: <span class="number">0</span>,
             fixed_leader_for_gpuvid: <span class="number">1</span>,
             next_view_timeout: <span class="number">10000</span>,
             view_sync_timeout: Duration::from_millis(<span class="number">1000</span>),

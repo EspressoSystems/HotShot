@@ -33,7 +33,7 @@
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>tracing::{info, instrument};
 
-<span class="kw">use </span><span class="kw">crate</span>::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
+<span class="kw">use </span><span class="kw">crate</span>::types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun};
 
 <span class="doccomment">/// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -50,6 +50,6 @@
     setup_backtrace();
     <span class="kw">let </span>args = ValidatorArgs::parse();
     <span class="macro">info!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
-    infra::main_entry_point::&lt;TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(args).<span class="kw">await</span>;
+    infra::main_entry_point::&lt;TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

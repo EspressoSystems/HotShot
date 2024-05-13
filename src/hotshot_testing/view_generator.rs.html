@@ -511,14 +511,14 @@
     state_types::TestInstanceState,
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{DAProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
+    data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DAData, DAVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
+        DaData, DaVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
         UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
@@ -535,7 +535,7 @@
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestView {
-    <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DAProposal&lt;TestTypes&gt;&gt;,
+    <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DaProposal&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposal&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>leaf: Leaf&lt;TestTypes&gt;,
     <span class="kw">pub </span>view_number: ViewNumber,
@@ -546,7 +546,7 @@
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ),
     <span class="kw">pub </span>leader_public_key: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    <span class="kw">pub </span>da_certificate: DACertificate&lt;TestTypes&gt;,
+    <span class="kw">pub </span>da_certificate: DaCertificate&lt;TestTypes&gt;,
     <span class="kw">pub </span>transactions: Vec&lt;TestTransaction&gt;,
     upgrade_data: <span class="prelude-ty">Option</span>&lt;UpgradeProposalData&lt;TestTypes&gt;&gt;,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TestTypes&gt;&gt;,
@@ -611,7 +611,7 @@
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                 .expect(<span class="string">"Failed to sign block payload"</span>);
 
-        <span class="kw">let </span>da_proposal_inner = DAProposal::&lt;TestTypes&gt; {
+        <span class="kw">let </span>da_proposal_inner = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
             metadata: TestMetadata,
             view_number: genesis_view,
@@ -817,7 +817,7 @@
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                 .expect(<span class="string">"Failed to sign block payload"</span>);
 
-        <span class="kw">let </span>da_proposal_inner = DAProposal::&lt;TestTypes&gt; {
+        <span class="kw">let </span>da_proposal_inner = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
             metadata: TestMetadata,
             view_number: next_view,
@@ -886,16 +886,16 @@
 
     <span class="kw">pub fn </span>create_da_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        data: DAData,
+        data: DaData,
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
-    ) -&gt; DAVote&lt;TestTypes&gt; {
-        DAVote::create_signed_vote(
+    ) -&gt; DaVote&lt;TestTypes&gt; {
+        DaVote::create_signed_vote(
             data,
             <span class="self">self</span>.view_number,
             handle.public_key(),
             handle.private_key(),
         )
-        .expect(<span class="string">"Failed to sign DAData"</span>)
+        .expect(<span class="string">"Failed to sign DaData"</span>)
     }
 }
 

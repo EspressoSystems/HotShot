@@ -218,7 +218,7 @@
 <span class="kw">use crate</span>::{
     data::{Leaf, QuorumProposal, VidDisperseShare},
     message::Proposal,
-    simple_certificate::{DACertificate, Threshold},
+    simple_certificate::{DaCertificate, Threshold},
     simple_vote::Voteable,
     traits::{
         election::Membership,
@@ -402,6 +402,6 @@ The votes all must be over the `Commitment` associated type.
     </span><span class="kw">pub </span>disperse_share: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// The DA certificate.
-    </span><span class="kw">pub </span>da_cert: DACertificate&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>da_cert: DaCertificate&lt;TYPES&gt;,
 }
 </code></pre></div></section></main></body></html>

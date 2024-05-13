@@ -38,22 +38,22 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">use </span><span class="kw">crate</span>::infra::Libp2pDARun;
+<span class="kw">use </span><span class="kw">crate</span>::infra::Libp2pDaRun;
 
 <span class="doccomment">/// dummy struct so we can choose types
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>NodeImpl {}
 
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>DANetwork = Libp2pNetwork&lt;Message&lt;TestTypes&gt;, &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
+</span><span class="kw">pub type </span>DaNetwork = Libp2pNetwork&lt;Message&lt;TestTypes&gt;, &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
 <span class="doccomment">/// convenience type alias
 </span><span class="kw">pub type </span>QuorumNetwork = Libp2pNetwork&lt;Message&lt;TestTypes&gt;, &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
 
 <span class="kw">impl </span>NodeImplementation&lt;TestTypes&gt; <span class="kw">for </span>NodeImpl {
     <span class="kw">type </span>QuorumNetwork = QuorumNetwork;
-    <span class="kw">type </span>CommitteeNetwork = DANetwork;
+    <span class="kw">type </span>DaNetwork = DaNetwork;
     <span class="kw">type </span>Storage = TestStorage&lt;TestTypes&gt;;
 }
 <span class="doccomment">/// convenience type alias
-</span><span class="kw">pub type </span>ThisRun = Libp2pDARun&lt;TestTypes&gt;;
+</span><span class="kw">pub type </span>ThisRun = Libp2pDaRun&lt;TestTypes&gt;;
 </code></pre></div></section></main></body></html>

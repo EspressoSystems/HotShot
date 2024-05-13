@@ -330,8 +330,8 @@
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::DACertificate,
-    simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},
+    simple_certificate::DaCertificate,
+    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -581,17 +581,17 @@
     transactions: Vec&lt;TestTransaction&gt;,
     public_key: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-) -&gt; DACertificate&lt;TestTypes&gt; {
+) -&gt; DaCertificate&lt;TestTypes&gt; {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap();
 
     <span class="kw">let </span>da_payload_commitment =
         vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes());
 
-    <span class="kw">let </span>da_data = DAData {
+    <span class="kw">let </span>da_data = DaData {
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::&lt;TestTypes, DAData, DAVote&lt;TestTypes&gt;, DACertificate&lt;TestTypes&gt;&gt;(
+    build_cert::&lt;TestTypes, DaData, DaVote&lt;TestTypes&gt;, DaCertificate&lt;TestTypes&gt;&gt;(
         da_data,
         da_membership,
         view_number,

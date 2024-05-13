@@ -756,7 +756,7 @@
     <span class="doccomment">/// broadcast the message to all
     </span>Broadcast,
     <span class="doccomment">/// broadcast to DA committee
-    </span>DACommitteeBroadcast,
+    </span>DaCommitteeBroadcast,
 }
 
 <span class="doccomment">/// Error type for networking
@@ -874,7 +874,7 @@
     <span class="doccomment">/// Request VID data by our key and the VID commitment
     </span>VID(TYPES::Time, TYPES::SignatureKey),
     <span class="doccomment">/// Request a DA proposal for a certain view
-    </span>DAProposal(TYPES::Time),
+    </span>DaProposal(TYPES::Time),
 }
 
 <span class="doccomment">/// A response for a request.  `SequencingMessage` is the same as other network messages

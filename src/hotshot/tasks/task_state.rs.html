@@ -309,7 +309,7 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task_impls::{
-    builder::BuilderClient, consensus::ConsensusTaskState, da::DATaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, da::DaTaskState,
     quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
     quorum_vote::QuorumVoteTaskState, request::NetworkRequestState,
     transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
@@ -404,12 +404,12 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>DATaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>DaTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
     <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; DATaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
-        DATaskState {
+    ) -&gt; DaTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+        DaTaskState {
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
@@ -509,10 +509,10 @@
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
-            committee_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
+            da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
+            da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
         }
     }
@@ -533,7 +533,7 @@
             latest_voted_view: handle.get_cur_view().<span class="kw">await</span>,
             vote_dependencies: HashMap::new(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
-            committee_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
+            da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
@@ -555,7 +555,7 @@
             latest_proposed_view: handle.get_cur_view().<span class="kw">await</span>,
             propose_dependencies: HashMap::new(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
-            committee_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
+            da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             consensus,
             instance_state: handle.hotshot.get_instance_state(),

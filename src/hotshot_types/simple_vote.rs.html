@@ -285,7 +285,7 @@
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a DA vote.
-</span><span class="kw">pub struct </span>DAData {
+</span><span class="kw">pub struct </span>DaData {
     <span class="doccomment">/// Commitment to a block payload
     </span><span class="kw">pub </span>payload_commit: VidCommitment,
 }
@@ -441,7 +441,7 @@
     }
 }
 
-<span class="kw">impl </span>Committable <span class="kw">for </span>DAData {
+<span class="kw">impl </span>Committable <span class="kw">for </span>DaData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         committable::RawCommitmentBuilder::new(<span class="string">"DA data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
@@ -511,7 +511,7 @@
 </span><span class="doccomment">/// Quorum vote Alias
 </span><span class="kw">pub type </span>QuorumVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, QuorumData&lt;TYPES&gt;&gt;;
 <span class="doccomment">/// DA vote type alias
-</span><span class="kw">pub type </span>DAVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, DAData&gt;;
+</span><span class="kw">pub type </span>DaVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, DaData&gt;;
 <span class="doccomment">/// Timeout Vote type alias
 </span><span class="kw">pub type </span>TimeoutVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, TimeoutData&lt;TYPES&gt;&gt;;
 <span class="doccomment">/// View Sync Commit Vote type alias

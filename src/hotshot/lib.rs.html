@@ -892,7 +892,7 @@
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Network for reaching the DA committee
-    </span><span class="kw">pub </span>da_network: Arc&lt;I::CommitteeNetwork&gt;,
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
 
     <span class="doccomment">/// Phantom for TYPES and I
     </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, I)&gt;,
@@ -1424,7 +1424,7 @@
             event_rx.activate_cloned(),
             Arc::clone(<span class="kw-2">&amp;</span>da_network),
             da_membership,
-            network::committee_filter,
+            network::da_filter,
             Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
         )
         .<span class="kw">await</span>;

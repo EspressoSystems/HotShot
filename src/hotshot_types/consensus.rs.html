@@ -649,7 +649,7 @@
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
     },
     traits::{
@@ -684,7 +684,7 @@
 
     <span class="doccomment">/// All the DA certs we've received for current and future views.
     /// view -&gt; DA cert
-    </span>saved_da_certs: HashMap&lt;TYPES::Time, DACertificate&lt;TYPES&gt;&gt;,
+    </span>saved_da_certs: HashMap&lt;TYPES::Time, DaCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number that is currently on.
     </span>cur_view: TYPES::Time,
@@ -970,7 +970,7 @@
     }
 
     <span class="doccomment">/// Get the saved DA certs.
-    </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::Time, DACertificate&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::Time, DaCertificate&lt;TYPES&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_da_certs
     }
 
@@ -1079,7 +1079,7 @@
     }
 
     <span class="doccomment">/// Add a new entry to the da_certs map.
-    </span><span class="kw">pub fn </span>update_saved_da_certs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time, cert: DACertificate&lt;TYPES&gt;) {
+    </span><span class="kw">pub fn </span>update_saved_da_certs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time, cert: DaCertificate&lt;TYPES&gt;) {
         <span class="self">self</span>.saved_da_certs.insert(view_number, cert);
     }
 

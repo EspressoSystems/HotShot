@@ -593,7 +593,7 @@
 </span><span class="kw">enum </span>VoteDependency {
     <span class="doccomment">/// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
     </span>QuorumProposal,
-    <span class="doccomment">/// For the `DACertificateRecv` event.
+    <span class="doccomment">/// For the `DaCertificateRecv` event.
     </span>Dac,
     <span class="doccomment">/// For the `VIDShareRecv` event.
     </span>Vid,
@@ -655,7 +655,7 @@
                     }
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
                 }
-                HotShotEvent::DACertificateValidated(cert) =&gt; {
+                HotShotEvent::DaCertificateValidated(cert) =&gt; {
                     <span class="kw">let </span>cert_payload_comm = cert.get_data().payload_commit;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>cert_payload_comm != comm {
@@ -776,7 +776,7 @@
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Network for DA committee
-    </span><span class="kw">pub </span>committee_network: Arc&lt;I::CommitteeNetwork&gt;,
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
 
     <span class="doccomment">/// Membership for Quorum certs/votes.
     </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -816,7 +816,7 @@
                         }
                     }
                     VoteDependency::Dac =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::DACertificateValidated(cert) = event {
+                        <span class="kw">if let </span>HotShotEvent::DaCertificateValidated(cert) = event {
                             cert.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -966,7 +966,7 @@
                     <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>event)),
                 );
             }
-            HotShotEvent::DACertificateRecv(cert) =&gt; {
+            HotShotEvent::DaCertificateRecv(cert) =&gt; {
                 <span class="kw">let </span>view = cert.view_number;
                 <span class="macro">trace!</span>(<span class="string">"Received DAC for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
@@ -985,7 +985,7 @@
                     </span>.update_saved_da_certs(view, cert.clone());
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::DACertificateValidated(cert.clone())),
+                    Arc::new(HotShotEvent::DaCertificateValidated(cert.clone())),
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
@@ -1070,7 +1070,7 @@
     <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
         !<span class="macro">matches!</span>(
             event.as_ref(),
-            HotShotEvent::DACertificateRecv(<span class="kw">_</span>)
+            HotShotEvent::DaCertificateRecv(<span class="kw">_</span>)
                 | HotShotEvent::VIDShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(<span class="kw">_</span>)
                 | HotShotEvent::VoteNow(..)

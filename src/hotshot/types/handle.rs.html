@@ -323,7 +323,7 @@
         <span class="self">self</span>.hotshot.get_consensus()
     }
 
-    <span class="doccomment">/// Block the underlying quorum (and committee) networking interfaces until node is
+    <span class="doccomment">/// Block the underlying quorum (and DA) networking interfaces until node is
     /// successfully initialized into the networks.
     </span><span class="kw">pub async fn </span>wait_for_networks_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.hotshot.networks.wait_for_networks_ready().<span class="kw">await</span>;

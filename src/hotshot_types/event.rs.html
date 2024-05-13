@@ -198,7 +198,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
-    data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate,
@@ -339,9 +339,9 @@
     },
     <span class="doccomment">/// DA proposal was received from the network
     /// or submitted to the network by us
-    </span>DAProposal {
+    </span>DaProposal {
         <span class="doccomment">/// Contents of the proposal
-        </span>proposal: Proposal&lt;TYPES, DAProposal&lt;TYPES&gt;&gt;,
+        </span>proposal: Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;,
         <span class="doccomment">/// Public key of the leader submitting the proposal
         </span>sender: TYPES::SignatureKey,
     },
@@ -372,7 +372,7 @@
     <span class="doccomment">/// DA proposal was sent
     </span>DAPropose,
     <span class="doccomment">/// DA vote was sent
-    </span>DAVote,
+    </span>DaVote,
     <span class="doccomment">/// DA certificate was sent
     </span>DACert,
     <span class="doccomment">/// VID shares were sent

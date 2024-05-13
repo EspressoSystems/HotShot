@@ -1104,7 +1104,7 @@
                             }
                             <span class="self">self</span>.blocks.write().<span class="kw">await</span>.clear();
                         }
-                        EventType::DAProposal { proposal, .. } =&gt; {
+                        EventType::DaProposal { proposal, .. } =&gt; {
                             <span class="kw">let </span>payload = TYPES::BlockPayload::from_bytes(
                                 <span class="kw-2">&amp;</span>proposal.data.encoded_transactions,
                                 <span class="kw-2">&amp;</span>proposal.data.metadata,

@@ -858,7 +858,7 @@
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Network for DA committee
-    </span><span class="kw">pub </span>committee_network: Arc&lt;I::CommitteeNetwork&gt;,
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,

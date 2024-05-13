@@ -874,7 +874,7 @@
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
     <span class="doccomment">/// Network for DA committee
-    </span><span class="kw">pub </span>committee_network: Arc&lt;I::CommitteeNetwork&gt;,
+    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
 
     <span class="doccomment">/// Membership for Timeout votes/certs
     </span><span class="kw">pub </span>timeout_membership: Arc&lt;TYPES::Membership&gt;,
@@ -883,7 +883,7 @@
     </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// Membership for DA committee Votes/certs
-    </span><span class="kw">pub </span>committee_membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>da_membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// Current Vote collection task, with it's view.
     </span><span class="kw">pub </span>vote_collector:
@@ -964,7 +964,7 @@
                 .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
         {
             <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
-            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.committee_membership.get_staked_committee(view) {
+            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.get_staked_committee(view) {
                 <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
                     validated = <span class="bool-val">true</span>;
                     <span class="kw">break</span>;
@@ -1043,7 +1043,7 @@
         <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>quorum_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
-        <span class="kw">let </span>committee_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.committee_membership);
+        <span class="kw">let </span>da_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.da_membership);
         <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
             update_state_and_vote_if_able::&lt;TYPES, I&gt;(
@@ -1054,7 +1054,7 @@
                 storage,
                 quorum_mem,
                 instance_state,
-                (priv_key, upgrade, committee_mem, event_stream),
+                (priv_key, upgrade, da_mem, event_stream),
             )
             .<span class="kw">await</span>;
         });
@@ -1238,7 +1238,7 @@
                 }
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::DACertificateRecv(cert) =&gt; {
+            </span>HotShotEvent::DaCertificateRecv(cert) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"DAC Received for view {}!"</span>, <span class="kw-2">*</span>cert.view_number);
                 <span class="kw">let </span>view = cert.view_number;
 
@@ -1543,7 +1543,7 @@
                 | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::QCFormed(<span class="kw">_</span>)
                 | HotShotEvent::UpgradeCertificateFormed(<span class="kw">_</span>)
-                | HotShotEvent::DACertificateRecv(<span class="kw">_</span>)
+                | HotShotEvent::DaCertificateRecv(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(<span class="kw">_</span>)
