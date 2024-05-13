@@ -79,7 +79,7 @@ pub struct Networks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for reaching the DA committee
-    pub da_network: Arc<I::DANetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Phantom for TYPES and I
     pub _pd: PhantomData<(TYPES, I)>,

@@ -88,7 +88,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for DA committee
-    pub da_network: Arc<I::DANetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Membership for Timeout votes/certs
     pub timeout_membership: Arc<TYPES::Membership>,
@@ -452,7 +452,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             #[cfg(not(feature = "dependency-tasks"))]
-            HotShotEvent::DACertificateRecv(cert) => {
+            HotShotEvent::DaCertificateRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
 
@@ -757,7 +757,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
                 | HotShotEvent::QuorumProposalValidated(..)
                 | HotShotEvent::QCFormed(_)
                 | HotShotEvent::UpgradeCertificateFormed(_)
-                | HotShotEvent::DACertificateRecv(_)
+                | HotShotEvent::DaCertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(_)

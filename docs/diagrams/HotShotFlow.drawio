@@ -605,7 +605,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="GRt77h7whMRAF62-NXpc" name="OptimisticDAProposalRecv">
+  <diagram id="GRt77h7whMRAF62-NXpc" name="OptimisticDaProposalRecv">
     <mxGraphModel dx="1242" dy="818" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -616,7 +616,7 @@
         <mxCell id="eLFiFEsM-5KMaCkp8ImR-1" value="&lt;b&gt;Basic Message Validation&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=bottom;align=right;verticalAlign=top;dashed=1;strokeWidth=2;fillColor=#F5F5F5;" parent="1" vertex="1">
           <mxGeometry x="40" y="410" width="470" height="630" as="geometry" />
         </mxCell>
-        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-18" value="&lt;h1 style=&quot;line-height: 100%;&quot;&gt;OptimisticDAProposalRecv&lt;/h1&gt;&lt;p style=&quot;line-height: 100%;&quot;&gt;Validates and votes on a DA proposal&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
+        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-18" value="&lt;h1 style=&quot;line-height: 100%;&quot;&gt;OptimisticDaProposalRecv&lt;/h1&gt;&lt;p style=&quot;line-height: 100%;&quot;&gt;Validates and votes on a DA proposal&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="40" y="40" width="350" height="70" as="geometry" />
         </mxCell>
         <mxCell id="4XAwg8-d-pzoQ1rgx3KM-19" value="" style="endArrow=none;html=1;rounded=0;" parent="1" edge="1">
@@ -642,7 +642,7 @@
         <mxCell id="4XAwg8-d-pzoQ1rgx3KM-24" value="&lt;b&gt;Possible Outputs&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="240" y="140" width="160" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-25" value="OptimisticDAVoteSend(vote)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="4XAwg8-d-pzoQ1rgx3KM-24" vertex="1">
+        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-25" value="OptimisticDaVoteSend(vote)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="4XAwg8-d-pzoQ1rgx3KM-24" vertex="1">
           <mxGeometry y="30" width="160" height="30" as="geometry" />
         </mxCell>
         <mxCell id="4XAwg8-d-pzoQ1rgx3KM-28" value="&lt;b&gt;Possible Spawning Tasks&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
@@ -657,7 +657,7 @@
         <mxCell id="4XAwg8-d-pzoQ1rgx3KM-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="4XAwg8-d-pzoQ1rgx3KM-34" target="4XAwg8-d-pzoQ1rgx3KM-43" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-34" value="OptimisticDAProposalRecv(proposal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
+        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-34" value="OptimisticDaProposalRecv(proposal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="40" y="320" width="220" height="60" as="geometry" />
         </mxCell>
         <mxCell id="4XAwg8-d-pzoQ1rgx3KM-53" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4XAwg8-d-pzoQ1rgx3KM-43" target="4XAwg8-d-pzoQ1rgx3KM-52" edge="1">
@@ -691,7 +691,7 @@
         <mxCell id="vJKDEQ1gt5N6olOfmioH-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4XAwg8-d-pzoQ1rgx3KM-50" target="vJKDEQ1gt5N6olOfmioH-1" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-50" value="OptimisticDAVoteSend(vote)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
+        <mxCell id="4XAwg8-d-pzoQ1rgx3KM-50" value="OptimisticDaVoteSend(vote)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="65" y="1830" width="170" height="60" as="geometry" />
         </mxCell>
         <mxCell id="-U3a0DXAcLX_lljCQsJS-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4XAwg8-d-pzoQ1rgx3KM-52" target="-U3a0DXAcLX_lljCQsJS-1" edge="1">
@@ -816,7 +816,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="FHaX-ywYdhln9MwMoQxS" name="OptimisticDACertificateRecv">
+  <diagram id="FHaX-ywYdhln9MwMoQxS" name="OptimisticDaCertificateRecv">
     <mxGraphModel dx="1242" dy="818" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -827,7 +827,7 @@
         <mxCell id="yHelPnOU9mAiEzxVV33Z-1" value="&lt;b&gt;Basic Message Validation&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=bottom;align=right;verticalAlign=top;dashed=1;strokeWidth=2;fillColor=#F5F5F5;" parent="1" vertex="1">
           <mxGeometry x="40" y="410" width="470" height="330" as="geometry" />
         </mxCell>
-        <mxCell id="yHelPnOU9mAiEzxVV33Z-2" value="&lt;h1 style=&quot;line-height: 100%;&quot;&gt;OptimisticDACertificateRecv&lt;/h1&gt;&lt;p style=&quot;line-height: 100%;&quot;&gt;Validates and stores an optimistic DA certificate&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
+        <mxCell id="yHelPnOU9mAiEzxVV33Z-2" value="&lt;h1 style=&quot;line-height: 100%;&quot;&gt;OptimisticDaCertificateRecv&lt;/h1&gt;&lt;p style=&quot;line-height: 100%;&quot;&gt;Validates and stores an optimistic DA certificate&lt;/p&gt;" style="text;html=1;strokeColor=none;fillColor=none;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="40" y="40" width="350" height="70" as="geometry" />
         </mxCell>
         <mxCell id="yHelPnOU9mAiEzxVV33Z-3" value="" style="endArrow=none;html=1;rounded=0;" parent="1" edge="1">
@@ -850,7 +850,7 @@
         <mxCell id="yHelPnOU9mAiEzxVV33Z-8" value="&lt;b&gt;Possible Outputs&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="240" y="140" width="250" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="yHelPnOU9mAiEzxVV33Z-9" value="OptimisticDACertificateValidated(certificate)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="yHelPnOU9mAiEzxVV33Z-8" vertex="1">
+        <mxCell id="yHelPnOU9mAiEzxVV33Z-9" value="OptimisticDaCertificateValidated(certificate)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="yHelPnOU9mAiEzxVV33Z-8" vertex="1">
           <mxGeometry y="30" width="250" height="30" as="geometry" />
         </mxCell>
         <mxCell id="yHelPnOU9mAiEzxVV33Z-12" value="&lt;b&gt;Possible Spawning Tasks&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
@@ -865,7 +865,7 @@
         <mxCell id="yHelPnOU9mAiEzxVV33Z-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="yHelPnOU9mAiEzxVV33Z-18" target="yHelPnOU9mAiEzxVV33Z-21" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="yHelPnOU9mAiEzxVV33Z-18" value="OptimisticDACertificatelRecv(certificate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
+        <mxCell id="yHelPnOU9mAiEzxVV33Z-18" value="OptimisticDaCertificatelRecv(certificate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="40" y="320" width="220" height="60" as="geometry" />
         </mxCell>
         <mxCell id="yHelPnOU9mAiEzxVV33Z-19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="yHelPnOU9mAiEzxVV33Z-21" target="yHelPnOU9mAiEzxVV33Z-33" edge="1">
@@ -893,7 +893,7 @@
         <mxCell id="yHelPnOU9mAiEzxVV33Z-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="yHelPnOU9mAiEzxVV33Z-28" target="yHelPnOU9mAiEzxVV33Z-47" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="yHelPnOU9mAiEzxVV33Z-28" value="OptimisticDACertificateValidated(certificate)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
+        <mxCell id="yHelPnOU9mAiEzxVV33Z-28" value="OptimisticDaCertificateValidated(certificate)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="27.5" y="1030" width="245" height="60" as="geometry" />
         </mxCell>
         <mxCell id="yHelPnOU9mAiEzxVV33Z-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="yHelPnOU9mAiEzxVV33Z-33" target="yHelPnOU9mAiEzxVV33Z-34" edge="1">
@@ -1169,7 +1169,7 @@
         <mxCell id="EE9Pe7geURXfpLOKtEPJ-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="iEkel0ebpZ4LdczcetA3-18" target="iEkel0ebpZ4LdczcetA3-21" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="iEkel0ebpZ4LdczcetA3-18" value="QuorumProposalValidated(proposal) &lt;br&gt;AND&lt;br&gt;OptimisticDACertificateValidated(certificate) AND&lt;br&gt;VIDShareValidated(share)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
+        <mxCell id="iEkel0ebpZ4LdczcetA3-18" value="QuorumProposalValidated(proposal) &lt;br&gt;AND&lt;br&gt;OptimisticDaCertificateValidated(certificate) AND&lt;br&gt;VIDShareValidated(share)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="20" y="300" width="260" height="90" as="geometry" />
         </mxCell>
         <mxCell id="iEkel0ebpZ4LdczcetA3-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="iEkel0ebpZ4LdczcetA3-21" target="iEkel0ebpZ4LdczcetA3-36" edge="1">
@@ -1453,7 +1453,7 @@
         <mxCell id="5v7T7i3LfZFiDe2J1C2G-8" value="&lt;b&gt;Possible Outputs&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="240" y="140" width="220" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="5v7T7i3LfZFiDe2J1C2G-9" value="OptimisticDAProposalSend(proposal)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="5v7T7i3LfZFiDe2J1C2G-8" vertex="1">
+        <mxCell id="5v7T7i3LfZFiDe2J1C2G-9" value="OptimisticDaProposalSend(proposal)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="5v7T7i3LfZFiDe2J1C2G-8" vertex="1">
           <mxGeometry y="30" width="220" height="30" as="geometry" />
         </mxCell>
         <mxCell id="kHzk81AKiqZc8SHJvuS1-3" value="BlockPayloadVerified(block_payload)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="5v7T7i3LfZFiDe2J1C2G-8" vertex="1">
@@ -1503,7 +1503,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="s5zCF4Dz6AhVphF9fBYM-2" value="OptimisticDAProposalSend(proposal)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
+        <mxCell id="s5zCF4Dz6AhVphF9fBYM-2" value="OptimisticDaProposalSend(proposal)" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;arcSize=50;strokeWidth=2;" parent="1" vertex="1">
           <mxGeometry x="45.940000000000005" y="740" width="208.12" height="60" as="geometry" />
         </mxCell>
         <mxCell id="s5zCF4Dz6AhVphF9fBYM-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="s5zCF4Dz6AhVphF9fBYM-4" target="5v7T7i3LfZFiDe2J1C2G-16" edge="1">

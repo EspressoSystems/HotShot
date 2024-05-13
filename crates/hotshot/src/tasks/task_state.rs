@@ -6,7 +6,7 @@ use std::{
 
 use async_trait::async_trait;
 use hotshot_task_impls::{
-    builder::BuilderClient, consensus::ConsensusTaskState, da::DATaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, da::DaTaskState,
     quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
     quorum_vote::QuorumVoteTaskState, request::NetworkRequestState,
     transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
@@ -101,12 +101,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for DATaskState<TYPES, I, SystemContextHandle<TYPES, I>>
+    for DaTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
 {
     async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
-    ) -> DATaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
-        DATaskState {
+    ) -> DaTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
+        DaTaskState {
             api: handle.clone(),
             consensus: handle.hotshot.get_consensus(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
