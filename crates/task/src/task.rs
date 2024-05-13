@@ -1,5 +1,5 @@
 use anyhow::Result;
-use async_broadcast::{Receiver, SendError, Sender};
+use async_broadcast::{Receiver, Sender};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::{
     sync::RwLock,
@@ -20,13 +20,23 @@ use tokio::{
 /// Type for mutable task state that can be used as the state for a `Task`
 pub trait TaskState: Send {
     /// Type of event sent and received by the task
-    type Event: Clone + Send + Sync + 'static;
-    /// Handle event and update state.  Return true if the task is finished
-    /// false otherwise.  The handler can access the state through `Task::state_mut`
-    async fn handle_event(self: &mut Self, event: Self::Event) -> Result<()>;
+    type Event: Clone + Send + Sync;
+    /// Handles an event, possibly mutating our state.
+    /// Returns a sequence of events to broadcast to the channel,
+    /// or an error trace in handling the message.
+    async fn handle_event(&mut self, _event: Self::Event) -> Result<Vec<Self::Event>> {
+        Ok(vec![])
+    }
 
-    /// Whether the task should break on the given event.
-    fn break_on(self: &Self, event: &Self::Event) -> bool;
+    /// Handles an event, providing direct access to the specific channel we received the event on.
+    async fn handle_event_direct(
+        &mut self,
+        event: Self::Event,
+        _sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle_event(event).await
+    }
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
@@ -35,26 +45,35 @@ pub trait TaskState: Send {
 /// This should be used as the primary building block for long running
 /// or medium running tasks (i.e. anything that can't be described as a dependency task)
 pub struct Task<S: TaskState> {
-    /// Sends events all tasks including itself
-    event_sender: Sender<S::Event>,
-    /// Receives events that are broadcast from any task, including itself
-    event_receiver: Receiver<S::Event>,
     /// The state of the task.  It is fed events from `event_sender`
     /// and mutates it state ocordingly.  Also it signals the task
     /// if it is complete/should shutdown
     state: S,
+    /// Whether an event should cause the task to return, given as a boolean predicate.
+    break_on: fn(&S::Event) -> bool,
+    /// Sends events all tasks including itself
+    sender: Sender<S::Event>,
+    /// Receives events that are broadcast from any task, including itself
+    receiver: Receiver<S::Event>,
 }
 
 impl<S: TaskState + Send + 'static> Task<S> {
     /// Create a new task
-    pub fn new(tx: Sender<S::Event>, rx: Receiver<S::Event>, state: S) -> Self {
+    pub fn new(
+        state: S,
+        break_on: fn(&S::Event) -> bool,
+        sender: Sender<S::Event>,
+        receiver: Receiver<S::Event>,
+    ) -> Self {
         Task {
-            event_sender: tx,
-            event_receiver: rx,
             state,
+            break_on,
+            sender,
+            receiver,
         }
     }
 
+    /// The state of the task, as a boxed dynamic trait object.
     fn boxed_state(self) -> Box<dyn TaskState<Event = S::Event>> {
         Box::new(self.state) as Box<dyn TaskState<Event = S::Event>>
     }
@@ -64,15 +83,31 @@ impl<S: TaskState + Send + 'static> Task<S> {
     pub fn run(mut self) -> JoinHandle<Box<dyn TaskState<Event = S::Event>>> {
         spawn(async move {
             loop {
-                match self.event_receiver.recv_direct().await {
-                    Ok(event) => {
-                        if self.state.break_on(&event) {
+                match self.receiver.recv_direct().await {
+                    Ok(input) => {
+                        if (self.break_on)(&input) {
                             break self.boxed_state();
                         }
 
-                        let _ = S::handle_event(self.state_mut(), event)
-                            .await
-                            .inspect_err(|e| tracing::info!("{e}"));
+                        match S::handle_event_direct(
+                            &mut self.state,
+                            input,
+                            &self.sender,
+                            &self.receiver,
+                        )
+                        .await
+                        {
+                            Ok(outputs) => {
+                                for output in outputs {
+                                    let _ = self.sender.broadcast_direct(output).await.inspect_err(
+                                        |e| {
+                                            tracing::error!("{e}");
+                                        },
+                                    );
+                                }
+                            }
+                            Err(e) => tracing::info!("{e}"),
+                        }
                     }
                     Err(e) => {
                         tracing::error!("Failed to receive from event stream Error: {}", e);
@@ -80,34 +115,6 @@ impl<S: TaskState + Send + 'static> Task<S> {
                 }
             }
         })
-    }
-
-    /// Create a new event `Receiver` from this Task's receiver.
-    /// The returned receiver will get all messages not yet seen by this task
-    pub fn subscribe(&self) -> Receiver<S::Event> {
-        self.event_receiver.clone()
-    }
-    /// Get a new sender handle for events
-    pub fn sender(&self) -> &Sender<S::Event> {
-        &self.event_sender
-    }
-    /// Clone the sender handle
-    pub fn clone_sender(&self) -> Sender<S::Event> {
-        self.event_sender.clone()
-    }
-    /// Broadcast a message to all listening tasks
-    /// # Errors
-    /// Errors if the broadcast fails
-    pub async fn send(&self, event: S::Event) -> Result<Option<S::Event>, SendError<S::Event>> {
-        self.event_sender.broadcast(event).await
-    }
-    /// Get a mutable reference to this tasks state
-    pub fn state_mut(&mut self) -> &mut S {
-        &mut self.state
-    }
-    /// Get an immutable reference to this tasks state
-    pub fn state(&self) -> &S {
-        &self.state
     }
 }
 
