@@ -203,13 +203,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             return false;
                         }
                     }
-                    ProposalDependency::HighQc => {
-                        if let HotShotEvent::HighQcUpdated(qc) = event {
-                            qc.get_view_number()
-                        } else {
-                            return false;
-                        }
-                    }
                 };
                 let valid = event_view == view_number;
                 if valid {
@@ -272,11 +265,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         let mut validated_state_update_dependency = self.create_event_dependency(
             ProposalDependency::ValidatedState,
             view_number,
-            event_receiver.clone(),
+            event_receiver,
         );
-
-        let mut high_qc_updated_dependency =
-            self.create_event_dependency(ProposalDependency::HighQc, view_number, event_receiver);
 
         match event.as_ref() {
             HotShotEvent::ProposeNow(..) => {
@@ -304,9 +294,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::ValidatedStateUpdated(_, _) => {
                 validated_state_update_dependency.mark_as_completed(event);
-            }
-            HotShotEvent::HighQcUpdated(_) => {
-                high_qc_updated_dependency.mark_as_completed(event);
             }
             _ => {}
         };
@@ -452,7 +439,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                     // Only update if the qc is from a newer view
                     if qc.view_number <= self.high_qc.view_number {
-                        tracing::trace!(
+                        tracing::trace!(?qc.view_number, ?self.high_qc.view_number,
                             "Received a QC for a view that was not > than our current high QC"
                         );
                     }
@@ -556,14 +543,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::HighQcUpdated(qc) => {
-                // We treat this like any other QCFormed event.
-                let view_number = qc.get_view_number() + 1;
-                self.create_dependency_task_if_new(
-                    view_number,
-                    event_receiver,
-                    event_sender,
-                    Arc::clone(&event),
-                );
+                // We don't want to explicitly initiate a proposal off of this event,
+                // we just want to store the new high_qc if it updates.
+                if self.high_qc.get_view_number() >= qc.get_view_number() {
+                    tracing::trace!("Got a qc with a smaller view number than our current high qc");
+                }
             }
             _ => {}
         }

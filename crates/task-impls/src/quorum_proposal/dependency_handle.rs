@@ -22,6 +22,7 @@ use hotshot_types::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
     utils::View,
+    vote::HasViewNumber,
 };
 use tracing::{debug, error};
 
@@ -55,9 +56,6 @@ pub(crate) enum ProposalDependency {
 
     /// For the `ValidatedStateUpdated` event.
     ValidatedState,
-
-    /// For the `HighQcUpdated` event.
-    HighQc,
 }
 
 /// Handler for the proposal dependency
@@ -183,7 +181,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
-        let mut high_qc = None;
+        let mut quorum_certificate = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         let mut vid_share = None;
@@ -218,8 +216,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     either::Right(timeout) => {
                         timeout_certificate = Some(timeout.clone());
                     }
-                    either::Left(_) => {
-                        // Handled by the high qc updated event
+                    either::Left(qc) => {
+                        quorum_certificate = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
@@ -242,9 +240,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::VIDShareValidated(share) => {
                     vid_share = Some(share.clone());
                 }
-                HotShotEvent::HighQcUpdated(qc) => {
-                    high_qc = Some(qc.clone());
-                }
                 _ => {}
             }
         }
@@ -261,10 +256,17 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
-        if high_qc.is_none() {
-            error!("Somehow completed the proposal dependency task without a high qc.");
-            return;
-        }
+        // Take the high qc from the quorum certificate, or memory, whatever is newest.
+        let high_qc = match quorum_certificate {
+            Some(qc) => {
+                if self.high_qc.get_view_number() > qc.get_view_number() {
+                    self.high_qc.clone()
+                } else {
+                    qc
+                }
+            }
+            None => self.high_qc.clone(),
+        };
 
         let proposal_cert = if let Some(view_sync_cert) = view_sync_finalize_cert {
             Some(ViewChangeEvidence::ViewSync(view_sync_cert))
@@ -276,7 +278,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             .publish_proposal(
                 commit_and_metadata.unwrap(),
                 vid_share.unwrap(),
-                high_qc.unwrap(),
+                high_qc,
                 proposal_cert,
             )
             .await
