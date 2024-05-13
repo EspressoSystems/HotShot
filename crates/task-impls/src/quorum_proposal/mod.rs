@@ -198,7 +198,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                     ProposalDependency::ValidatedState => {
                         if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
-                            *view_number
+                            *view_number + 1
                         } else {
                             return false;
                         }
@@ -344,11 +344,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     ) {
         // Don't even bother making the task if we are not entitled to propose anyay.
         if self.quorum_membership.get_leader(view_number) != self.public_key {
+            tracing::trace!("We are not the leader of the next view");
             return;
         }
 
         // Don't try to propose twice for the same view.
         if view_number <= self.latest_proposed_view {
+            tracing::trace!("We have already proposed for this view");
             return;
         }
 
@@ -536,7 +538,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 self.validated_states.insert(*view_number, view.clone());
 
                 self.create_dependency_task_if_new(
-                    *view_number,
+                    *view_number + 1,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),

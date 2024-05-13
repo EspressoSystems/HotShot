@@ -136,7 +136,7 @@ fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             if let (Some(state), delta) = leaf_state.get_state_and_delta() {
                 // Exit if we've reached the last anchor view.
                 if current_leaf_view_number == task_state.last_decided_view {
-                    bail!("We do not have a new chain extension")
+                    return Ok(LeafChainTraversalOutcome::default());
                 }
 
                 // IMPORTANT: This is the logic from the paper, and is the most critical part of this function.
