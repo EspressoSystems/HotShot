@@ -356,10 +356,12 @@ async fn test_quorum_proposal_task_view_sync() {
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut vids = Vec::new();
+    let mut leaves = Vec::new();
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
+        leaves.push(view.leaf.clone());
     }
 
     let view_sync_finalize_data = ViewSyncFinalizeData {
@@ -367,10 +369,11 @@ async fn test_quorum_proposal_task_view_sync() {
         round: ViewNumber::new(node_id),
     };
     generator.add_view_sync_finalize(view_sync_finalize_data);
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
+        leaves.push(view.leaf.clone());
     }
 
     // Get the proposal cert out for the view sync input
@@ -390,6 +393,11 @@ async fn test_quorum_proposal_task_view_sync() {
                 ViewNumber::new(2),
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
+            ),
+            VIDShareValidated(get_vid_share(&vids[1].0.clone(), handle.get_public_key())),
+            ValidatedStateUpdated(
+                ViewNumber::new(1),
+                create_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
