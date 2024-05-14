@@ -1,31 +1,32 @@
 #![cfg(feature = "dependency-tasks")]
 
-use committable::Committable;
-use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
+use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, TestValidatedState},
+    state_types::TestInstanceState,
 };
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
     predicates::event::{exact, leaf_decided, quorum_proposal_send},
     script::{run_test_script, TestScriptStage},
-    task_helpers::{build_cert, get_vid_share, key_pair_for_id},
-    task_helpers::{build_system_handle, vid_scheme_from_view_number},
+    task_helpers::{
+        build_cert, build_system_handle, get_vid_share, key_pair_for_id,
+        vid_scheme_from_view_number,
+    },
+    test_helpers::create_fake_view_with_leaf,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, ProposalDependencyData},
-    data::{null_block, Leaf, VidDisperseShare, ViewChangeEvidence, ViewNumber},
-    message::Proposal,
+    data::{null_block, Leaf, ViewChangeEvidence, ViewNumber},
     simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData, ViewSyncFinalizeVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
-    utils::{BuilderCommitment, View, ViewInner},
+    utils::BuilderCommitment,
     vid::VidSchemeType,
 };
 use jf_vid::VidScheme;
@@ -40,16 +41,6 @@ fn make_payload_commitment(
     let mut vid = vid_scheme_from_view_number::<TestTypes>(membership, view);
     let encoded_transactions = Vec::new();
     vid.commit_only(&encoded_transactions).unwrap()
-}
-
-fn create_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
-    View {
-        view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
-            state: TestValidatedState::default().into(),
-            delta: None,
-        },
-    }
 }
 
 #[cfg(test)]

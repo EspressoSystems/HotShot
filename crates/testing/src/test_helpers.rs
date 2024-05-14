@@ -1,3 +1,10 @@
+use committable::Committable;
+use hotshot_example_types::{node_types::TestTypes, state_types::TestValidatedState};
+use hotshot_types::{
+    data::Leaf,
+    utils::{View, ViewInner},
+};
+
 /// This function permutes the provided input vector `inputs`, given some order provided within the
 /// `order` vector.
 ///
@@ -13,4 +20,15 @@ where
         ordered_inputs.push(inputs[index].clone());
     }
     ordered_inputs
+}
+
+/// This function will create a fake [`View`] from a provided [`Leaf`].
+pub fn create_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
+    View {
+        view_inner: ViewInner::Leaf {
+            leaf: leaf.commit(),
+            state: TestValidatedState::default().into(),
+            delta: None,
+        },
+    }
 }

@@ -84,6 +84,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             if let (Some(state), _) = consensus_read.get_state_and_delta(leaf.get_view_number()) {
                 Some((leaf, Arc::clone(&state)))
             } else {
+                tracing::error!(?leaf, "FUCK");
                 bail!("Parent state not found! Consensus internally inconsistent");
             }
         }
@@ -98,7 +99,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             .update_high_qc(justify_qc.clone())
             .await
         {
-            bail!("Failed to store High QC not voting. Error: {:?}", e);
+            bail!("Failed to store High QC, not voting; error = {:?}", e);
         }
     }
 
