@@ -193,7 +193,7 @@ impl OrchestratorClient {
     /// # Errors
     /// If we were unable to serialize the Libp2p data
     #[allow(clippy::type_complexity)]
-    pub async fn get_config_without_peer<K: SignatureKey>(
+    pub async fn config_without_peer<K: SignatureKey>(
         &self,
         libp2p_address: Option<SocketAddr>,
         libp2p_public_key: Option<PeerId>,
@@ -253,11 +253,11 @@ impl OrchestratorClient {
     /// # Panics
     /// if unable to post
     #[instrument(skip_all, name = "orchestrator node index for validator config")]
-    pub async fn get_node_index_for_init_validator_config(&self) -> u16 {
+    pub async fn node_index_for_init_validator_config(&self) -> u16 {
         let cur_node_index = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
                 let cur_node_index: Result<u16, ClientError> = client
-                    .post("api/get_tmp_node_index")
+                    .post("api/tmp_node_index")
                     .send()
                     .await
                     .inspect_err(|err| tracing::error!("{err}"));
@@ -274,9 +274,9 @@ impl OrchestratorClient {
     ///
     /// Does not fail, retries internally until success.
     #[instrument(skip_all, name = "orchestrator config")]
-    pub async fn get_config_after_collection<K: SignatureKey>(&self) -> NetworkConfig<K> {
+    pub async fn config_after_collection<K: SignatureKey>(&self) -> NetworkConfig<K> {
         // Define the request for post-register configurations
-        let get_config_after_collection = |client: Client<ClientError, OrchestratorVersion>| {
+        let config_after_collection = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
                 let result = client
                     .post("api/post_config_after_peer_collected")
@@ -293,7 +293,7 @@ impl OrchestratorClient {
         };
 
         // Loop until successful
-        self.wait_for_fn_from_orchestrator(get_config_after_collection)
+        self.wait_for_fn_from_orchestrator(config_after_collection)
             .await
     }
 
@@ -320,8 +320,7 @@ impl OrchestratorClient {
             .expect("failed to create multiaddress")
         });
 
-        let pubkey: Vec<u8> =
-            PeerConfig::<K>::to_bytes(&validator_config.get_public_config()).clone();
+        let pubkey: Vec<u8> = PeerConfig::<K>::to_bytes(&validator_config.public_config()).clone();
         let da_requested: bool = validator_config.is_da;
 
         // Serialize our (possible) libp2p-specific data
@@ -363,7 +362,7 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
 
-        let mut network_config = self.get_config_after_collection().await;
+        let mut network_config = self.config_after_collection().await;
 
         network_config.node_index = node_index;
         network_config.config.my_own_validator_config = validator_config;

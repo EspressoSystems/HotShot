@@ -23,8 +23,8 @@ received from the 'identity' endpoint
 """
 
 # POST the latest temporary node index only for generating validator's key pair
-[route.get_tmp_node_index]
-PATH = ["get_tmp_node_index"]
+[route.tmp_node_index]
+PATH = ["tmp_node_index"]
 METHOD = "POST"
 DOC = """
 Get the latest temporary node index only for generating validator's key pair for testing in hotshot, later the generated key pairs might be bound with other node_index.
@@ -66,7 +66,7 @@ Post whether the node with node_index is ready to start the run
 """
 
 # GET whether or not to start the run
-[route.get_start]
+[route.start]
 PATH = ["start"]
 DOC = """
 Get whether the node should start the run, returns a boolean

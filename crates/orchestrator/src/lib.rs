@@ -106,7 +106,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
 
     /// get election type in use
     #[must_use]
-    pub fn get_election_type() -> String {
+    pub fn election_type() -> String {
         // leader is chosen in index order
         #[cfg(not(any(
             feature = "randomized-leader-election",
@@ -134,7 +134,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             transactions_per_round: self.config.transactions_per_round,
             transaction_size: self.bench_results.transaction_size_in_bytes,
             rounds: self.config.rounds,
-            leader_election_type: OrchestratorState::<KEY>::get_election_type(),
+            leader_election_type: OrchestratorState::<KEY>::election_type(),
             avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: self.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: self.bench_results.maximum_latency_in_sec,
@@ -176,7 +176,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// get endpoint for the next available temporary node index
     /// # Errors
     /// if unable to serve
-    fn get_tmp_node_index(&mut self) -> Result<u16, ServerError>;
+    fn tmp_node_index(&mut self) -> Result<u16, ServerError>;
     /// post endpoint for each node's public key
     /// # Errors
     /// if unable to serve
@@ -198,7 +198,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
-    fn get_start(&self) -> Result<bool, ServerError>;
+    fn start(&self) -> Result<bool, ServerError>;
     /// post endpoint for the results of the run
     /// # Errors
     /// if unable to serve
@@ -261,7 +261,7 @@ where
     }
 
     // Assumes one node do not get twice
-    fn get_tmp_node_index(&mut self) -> Result<u16, ServerError> {
+    fn tmp_node_index(&mut self) -> Result<u16, ServerError> {
         let tmp_node_index = self.tmp_latest_index;
         self.tmp_latest_index += 1;
 
@@ -374,7 +374,7 @@ where
         Ok(self.config.clone())
     }
 
-    fn get_start(&self) -> Result<bool, ServerError> {
+    fn start(&self) -> Result<bool, ServerError> {
         // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
@@ -538,8 +538,8 @@ where
         }
         .boxed()
     })?
-    .post("get_tmp_node_index", |_req, state| {
-        async move { state.get_tmp_node_index() }.boxed()
+    .post("tmp_node_index", |_req, state| {
+        async move { state.tmp_node_index() }.boxed()
     })?
     .post("post_pubkey", |req, state| {
         async move {
@@ -582,9 +582,7 @@ where
             .boxed()
         },
     )?
-    .get("get_start", |_req, state| {
-        async move { state.get_start() }.boxed()
-    })?
+    .get("start", |_req, state| async move { state.start() }.boxed())?
     .post("post_results", |req, state| {
         async move {
             let metrics: Result<BenchResults, RequestError> = req.body_json();

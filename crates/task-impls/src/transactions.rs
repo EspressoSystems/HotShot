@@ -118,12 +118,12 @@ impl<
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
                     error!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.get_leader(view) == self.public_key;
+                    make_block = self.membership.leader(view) == self.public_key;
                 }
                 self.cur_view = view;
 
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
-                if !make_block && self.membership.get_leader(self.cur_view + 1) != self.public_key {
+                if !make_block && self.membership.leader(self.cur_view + 1) != self.public_key {
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
@@ -237,7 +237,7 @@ impl<
                         ViewInner::Leaf { leaf, .. } => consensus
                             .saved_leaves()
                             .get(&leaf)
-                            .map(Leaf::get_payload_commitment),
+                            .map(Leaf::payload_commitment),
                         ViewInner::Failed => None,
                     })
             {
@@ -247,10 +247,7 @@ impl<
         }
 
         // If not found, return commitment for last decided block
-        (
-            prev_view,
-            consensus.get_decided_leaf().get_payload_commitment(),
-        )
+        (prev_view, consensus.decided_leaf().payload_commitment())
     }
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "wait_for_block", level = "error")]
@@ -275,7 +272,7 @@ impl<
                 self.api
                     .builder_timeout()
                     .saturating_sub(task_start_time.elapsed()),
-                self.get_block_from_builder(parent_comm, view_num, &parent_comm_sig),
+                self.block_from_builder(parent_comm, view_num, &parent_comm_sig),
             )
             .await
             {
@@ -304,8 +301,8 @@ impl<
         None
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "get_block_from_builder", level = "error")]
-    async fn get_block_from_builder(
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "block_from_builder", level = "error")]
+    async fn block_from_builder(
         &self,
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
@@ -313,9 +310,9 @@ impl<
     ) -> anyhow::Result<BuilderResponses<TYPES>> {
         let available_blocks = self
             .builder_client
-            .get_available_blocks(
+            .available_blocks(
                 parent_comm,
-                view_number.get_u64(),
+                view_number.u64(),
                 self.public_key.clone(),
                 parent_comm_sig,
             )
@@ -356,8 +353,8 @@ impl<
         .context("signing block hash")?;
 
         let (block, header_input) = futures::join! {
-            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature),
-            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature)
+            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
+            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
         };
 
         let block_data = block.context("claiming block data")?;
