@@ -12,15 +12,15 @@ orchestrator_url=http://"$ip":4444
 
 
 # build
-just async_std build
+just build
 sleep 30s
 
 # docker build and push
-docker build . -f ./docker/validator-webserver-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+docker build . -f ./docker/validator-webserver-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main
+docker push ghcr.io/espressosystems/hotshot/validator-webserver:main
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
 # start these two dockers in another two servers and keep them running
@@ -36,13 +36,13 @@ for config in 10,5,1,1000000,20 50,5,1,1000000,20 10,5,1,20000000,20 #100,10,1,2
 do
     set -- $config;
     # start webserver
-    just async_std example webserver -- http://0.0.0.0:9000 &
-    just async_std example webserver -- http://0.0.0.0:9001 &
+    just example webserver -- http://0.0.0.0:9000 &
+    just example webserver -- http://0.0.0.0:9001 &
     sleep 30
 
     # start orchestrator
-    #just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url http://172.31.28.184:80 --da_webserver_url http://172.31.44.172:81 --total_nodes 10 --da_committee_size 5 --transactions_per_round 1 --transaction_size 1000000 --rounds 20 --commit_sha test_orchestrator
-    just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
+    #just example orchestrator -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url http://172.31.28.184:80 --da_webserver_url http://172.31.44.172:81 --total_nodes 10 --da_committee_size 5 --transactions_per_round 1 --transaction_size 1000000 --rounds 20 --commit_sha test_orchestrator
+    just example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                     --orchestrator_url http://0.0.0.0:4444 \
                                                     --webserver_url ${webserver_url} \
                                                     --da_webserver_url ${da_webserver_url} \

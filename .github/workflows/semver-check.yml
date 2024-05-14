@@ -16,11 +16,7 @@ jobs:
   test-sequencer:
     runs-on: ubuntu-latest
     name: semver
-    strategy:
-      matrix:
-        async_runtimes:
-          - async-std
-          - tokio
+
     steps:
       - uses: actions/checkout@v4
         name: Checkout Repository
@@ -57,5 +53,5 @@ jobs:
       - name: Run cargo-semver-checks
         run: |
           cd current
-          just ${{matrix.async_runtimes}} semver --baseline-root ../baseline
+          just semver --baseline-root ../baseline
 
