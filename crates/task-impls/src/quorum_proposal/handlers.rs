@@ -274,6 +274,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
 
     // TODO - update decided upgrade cert
 
+    #[allow(clippy::cast_precision_loss)]
     if let Some(decided_view_number) = new_decided_view_number {
         // Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
 
