@@ -5,12 +5,13 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
+use futures::FutureExt;
+
 use std::{collections::HashMap, fs::OpenOptions, io, io::ErrorKind};
 
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
 use csv::Writer;
-use futures::FutureExt;
 use hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
 use libp2p::{
     identity::{

@@ -8,10 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use async_compatibility_layer::{
-    art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
-};
 use async_trait::async_trait;
 use cdn_broker::reexports::crypto::signature::KeyPair;
 use chrono::Utc;
@@ -61,6 +57,7 @@ use hotshot_types::{
 };
 use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
+use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 #[derive(Debug, Clone)]
@@ -433,7 +430,7 @@ pub trait RunDa<
         let mut num_latency = 0;
 
         info!("Sleeping for {start_delay_seconds} seconds before starting hotshot!");
-        async_sleep(Duration::from_secs(start_delay_seconds)).await;
+        sleep(Duration::from_secs(start_delay_seconds)).await;
 
         info!("Starting HotShot example!");
         let start = Instant::now();
@@ -885,8 +882,8 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::BlockPayload: TestableBlock,
     Leaf<TYPES>: TestableLeaf,
 {
-    setup_logging();
-    setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     info!("Starting validator");
 

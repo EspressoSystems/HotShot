@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use async_compatibility_layer::logging::shutdown_logging;
 use hotshot_example_types::node_types::{PushCdnImpl, TestTypes};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
@@ -8,15 +7,14 @@ use hotshot_testing::{
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::{TestDescription, TimingData},
 };
+
 use tracing::instrument;
 
 /// Push CDN network test
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn push_cdn_network() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
     let metadata = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
@@ -42,5 +40,4 @@ async fn push_cdn_network() {
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
-    shutdown_logging();
 }

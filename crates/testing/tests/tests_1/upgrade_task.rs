@@ -1,8 +1,6 @@
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
-use std::time::Duration;
-
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
@@ -24,11 +22,13 @@ use hotshot_types::{
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
 };
+use std::time::Duration;
+use tokio::time::timeout;
 use vbs::version::Version;
 
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
 async fn test_consensus_task_upgrade() {
     use hotshot_testing::{
@@ -36,8 +36,8 @@ async fn test_consensus_task_upgrade() {
         task_helpers::build_system_handle,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(1).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -157,19 +157,15 @@ async fn test_consensus_task_upgrade() {
 }
 
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// Test that we correctly form and include an `UpgradeCertificate` when receiving votes.
 async fn test_upgrade_and_consensus_task() {
     use std::sync::Arc;
 
     use hotshot_testing::task_helpers::build_system_handle;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(3).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -316,11 +312,7 @@ async fn test_upgrade_and_consensus_task() {
 }
 
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// Test that we correctly handle blank blocks between versions.
 /// Specifically, this test schedules an upgrade between views 4 and 8,
 /// and ensures that:
@@ -330,8 +322,8 @@ async fn test_upgrade_and_consensus_task() {
 async fn test_upgrade_and_consensus_task_blank_blocks() {
     use hotshot_testing::task_helpers::build_system_handle;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(6).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();

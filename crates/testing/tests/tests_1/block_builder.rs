@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use async_compatibility_layer::art::async_sleep;
+
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestTransaction},
     node_types::TestTypes,
@@ -14,11 +14,7 @@ use hotshot_types::{
 use tide_disco::Url;
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_random_block_builder() {
     use std::time::Instant;
 
@@ -26,6 +22,7 @@ async fn test_random_block_builder() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_orchestrator::config::RandomBuilderConfig;
     use hotshot_types::traits::block_contents::vid_commitment;
+    use tokio::time::sleep;
 
     let port = portpicker::pick_unused_port().expect("Could not find an open port");
     let api_url = Url::parse(format!("http://localhost:{port}").as_str()).unwrap();
@@ -68,7 +65,7 @@ async fn test_random_block_builder() {
         };
 
         // Wait for at least one block to be built
-        async_sleep(Duration::from_millis(20)).await;
+        sleep(Duration::from_millis(20)).await;
 
         if builder_started.elapsed() > Duration::from_secs(2) {
             panic!("Builder failed to provide blocks in two seconds");

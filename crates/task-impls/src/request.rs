@@ -8,7 +8,7 @@ use std::{
 };
 
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
+
 use async_lock::RwLock;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -24,6 +24,10 @@ use hotshot_types::{
 };
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
+use tokio::{
+    spawn,
+    time::{sleep, timeout},
+};
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
@@ -193,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
-        async_spawn(requester.run::<Ver>(request, signature));
+        spawn(requester.run::<Ver>(request, signature));
     }
 
     /// Signals delayed requesters to finish
@@ -233,7 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     ) {
         // Do the delay only if primary is up and then start sending
         if !self.network.is_primary_down() {
-            async_sleep(self.delay).await;
+            sleep(self.delay).await;
         }
         match request {
             RequestKind::VID(view, key) => {
@@ -253,7 +257,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         let mut recipients_it = self.recipients.iter().cycle();
 
         while !self.cancel_vid(&req).await {
-            match async_timeout(
+            match timeout(
                 REQUEST_TIMEOUT,
                 self.network.request_data::<TYPES, Ver>(
                     message.clone(),
@@ -268,7 +272,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                         ResponseMessage::Found(data) => {
                             self.handle_response_message(data).await;
                             // keep trying, but expect the map to be populated, or view to increase
-                            async_sleep(REQUEST_TIMEOUT).await;
+                            sleep(REQUEST_TIMEOUT).await;
                         }
                         ResponseMessage::NotFound => {
                             info!("Peer Responded they did not have the data");

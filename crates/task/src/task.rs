@@ -1,21 +1,14 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, SendError, Sender};
-use async_compatibility_layer::art::async_timeout;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::{
-    sync::RwLock,
-    task::{spawn, JoinHandle},
+use futures::{
+    future::{select_all, try_join_all},
+    Future,
 };
-#[cfg(async_executor_impl = "async-std")]
-use futures::future::join_all;
-#[cfg(async_executor_impl = "tokio")]
-use futures::future::try_join_all;
-use futures::{future::select_all, Future};
-#[cfg(async_executor_impl = "tokio")]
 use tokio::{
     sync::RwLock,
     task::{spawn, JoinHandle},
+    time::timeout,
 };
 use tracing::{error, warn};
 
@@ -243,7 +236,7 @@ impl<
                     futs.push(rx.recv());
                 }
                 // if let Ok((Ok(msg), id, _)) =
-                match async_timeout(Duration::from_secs(1), select_all(futs)).await {
+                match timeout(Duration::from_secs(1), select_all(futs)).await {
                     Ok((Ok(msg), id, _)) => {
                         if let Some(res) = T::handle_message(msg, id, &mut self).await {
                             self.task.state.handle_result(&res).await;
@@ -295,9 +288,6 @@ impl TaskRegistry {
     pub async fn shutdown(&self) {
         let mut handles = self.task_handles.write().await;
         while let Some(handle) = handles.pop() {
-            #[cfg(async_executor_impl = "async-std")]
-            handle.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
             handle.abort();
         }
     }
@@ -321,11 +311,7 @@ impl TaskRegistry {
     /// # Panics
     /// Panics if one of the tasks panicked
     pub async fn join_all(self) -> Vec<()> {
-        #[cfg(async_executor_impl = "async-std")]
-        let ret = join_all(self.task_handles.into_inner()).await;
-        #[cfg(async_executor_impl = "tokio")]
-        let ret = try_join_all(self.task_handles.into_inner()).await.unwrap();
-        ret
+        try_join_all(self.task_handles.into_inner()).await.unwrap()
     }
 }
 
@@ -334,9 +320,6 @@ mod tests {
     use std::{collections::HashSet, time::Duration};
 
     use async_broadcast::broadcast;
-    #[cfg(async_executor_impl = "async-std")]
-    use async_std::task::sleep;
-    #[cfg(async_executor_impl = "tokio")]
     use tokio::time::sleep;
 
     use super::*;
@@ -391,8 +374,7 @@ mod tests {
             None
         }
     }
-    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[tokio::test(flavor = "multi_thread")]
     #[allow(unused_must_use)]
     async fn it_works() {
         let reg = Arc::new(TaskRegistry::default());
@@ -415,11 +397,7 @@ mod tests {
         handle.await;
     }
 
-    #[cfg_attr(
-        async_executor_impl = "tokio",
-        tokio::test(flavor = "multi_thread", worker_threads = 10)
-    )]
-    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 10)]
     #[allow(clippy::should_panic_without_expect)]
     #[should_panic]
     async fn test_works() {
@@ -452,15 +430,8 @@ mod tests {
         let handle2 = test2.run();
         sleep(Duration::from_millis(30)).await;
         msg_tx.broadcast("done".into()).await.unwrap();
-        #[cfg(async_executor_impl = "tokio")]
-        {
-            handle.await.unwrap();
-            handle2.await.unwrap();
-        }
-        #[cfg(async_executor_impl = "async-std")]
-        {
-            handle.await;
-            handle2.await;
-        }
+
+        handle.await.unwrap();
+        handle2.await.unwrap();
     }
 }

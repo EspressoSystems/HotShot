@@ -1,6 +1,6 @@
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_catchup() {
     use std::time::Duration;
 
@@ -12,8 +12,7 @@ async fn test_catchup() {
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestDescription, TimingData},
     };
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
     let timing_data = TimingData {
         next_view_timeout: 2000,
         ..Default::default()
@@ -57,8 +56,8 @@ async fn test_catchup() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_catchup_cdn() {
     use std::time::Duration;
 
@@ -71,8 +70,7 @@ async fn test_catchup_cdn() {
         test_builder::{TestDescription, TimingData},
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
     let timing_data = TimingData {
         next_view_timeout: 2000,
         ..Default::default()
@@ -111,8 +109,8 @@ async fn test_catchup_cdn() {
 
 /// Test that one node catches up and has successful views after coming back
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_catchup_one_node() {
     use std::time::Duration;
 
@@ -124,8 +122,8 @@ async fn test_catchup_one_node() {
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestDescription, TimingData},
     };
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+
+    hotshot_types::logging::setup_logging();
     let timing_data = TimingData {
         next_view_timeout: 2000,
         ..Default::default()
@@ -166,8 +164,8 @@ async fn test_catchup_one_node() {
 
 /// Same as `test_catchup` except we start the nodes after their leadership so they join during view sync
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_catchup_in_view_sync() {
     use std::time::Duration;
 
@@ -179,8 +177,8 @@ async fn test_catchup_in_view_sync() {
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestDescription, TimingData},
     };
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+
+    hotshot_types::logging::setup_logging();
     let timing_data = TimingData {
         next_view_timeout: 2000,
         ..Default::default()
@@ -228,8 +226,8 @@ async fn test_catchup_in_view_sync() {
 // Almost the same as `test_catchup`, but with catchup nodes reloaded from anchor leaf rather than
 // initialized from genesis.
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_catchup_reload() {
     use std::time::Duration;
 
@@ -242,8 +240,7 @@ async fn test_catchup_reload() {
         test_builder::{TestDescription, TimingData},
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
     let timing_data = TimingData {
         next_view_timeout: 2000,
         ..Default::default()

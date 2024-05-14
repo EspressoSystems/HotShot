@@ -109,15 +109,10 @@ impl TestData {
         quote! {
             #[cfg(test)]
             #slow_attribute
-            #[cfg_attr(
-                async_executor_impl = "tokio",
-                tokio::test(flavor = "multi_thread")
-            )]
-            #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+            #[tokio::test(flavor = "multi_thread")]
             #[tracing::instrument]
             async fn #test_name() {
-                async_compatibility_layer::logging::setup_logging();
-                async_compatibility_layer::logging::setup_backtrace();
+                hotshot_types::logging::setup_logging();
                 (#metadata).gen_launcher::<#ty, #imply>(0).launch().run_test::<SimpleBuilderImplementation>().await;
             }
         }
@@ -319,7 +314,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
     use hotshot_testing::{predicates::Predicate, script::RECV_TIMEOUT};
     use async_broadcast::broadcast;
     use hotshot_task_impls::events::HotShotEvent;
-    use async_compatibility_layer::art::async_timeout;
+
     use hotshot_task::task::{Task, TaskRegistry, TaskState};
     use hotshot_types::traits::node_implementation::NodeType;
     use std::sync::Arc;
@@ -353,7 +348,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                         #task_names.state().handle_result(&res).await;
                     }
 
-                    while let Ok(Ok(received_output)) = async_timeout(Duration::from_millis(35), test_receiver.recv_direct()).await {
+                    while let Ok(Ok(received_output)) = timeout(Duration::from_millis(35), test_receiver.recv_direct()).await {
                         tracing::debug!("Test received: {:?}", received_output);
 
                         let output_asserts = &mut #task_expectations[stage_number].output_asserts;
@@ -381,7 +376,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                         #task_names.state().handle_result(&res).await;
                     }
 
-                    while let Ok(Ok(received_output)) = async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
+                    while let Ok(Ok(received_output)) = timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
                         tracing::debug!("Test received: {:?}", received_output);
 
                         let output_asserts = &mut #task_expectations[stage_number].output_asserts;

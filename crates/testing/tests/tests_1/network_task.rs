@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use async_compatibility_layer::art::async_timeout;
+
 use async_lock::RwLock;
 use hotshot::{tasks::add_network_message_task, traits::implementations::MemoryNetwork};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
@@ -22,12 +22,14 @@ use hotshot_types::{
 // Test that the event task sends a message, and the message task receives it
 // and emits the proper event
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 #[allow(clippy::too_many_lines)]
 async fn test_network_task() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    use tokio::time::timeout;
+
+    hotshot_types::logging::setup_logging();
+    
 
     let builder = TestDescription::default_multiple_rounds();
     let node_id = 1;
@@ -74,7 +76,7 @@ async fn test_network_task() {
     )))
     .await
     .unwrap();
-    let res = async_timeout(Duration::from_millis(100), out_rx.recv_direct())
+    let res = timeout(Duration::from_millis(100), out_rx.recv_direct())
         .await
         .expect("timed out waiting for response")
         .expect("channel closed");
@@ -85,11 +87,13 @@ async fn test_network_task() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_network_storage_fail() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    use tokio::time::timeout;
+
+    hotshot_types::logging::setup_logging();
+    
 
     let builder = TestDescription::default_multiple_rounds();
     let node_id = 1;
@@ -137,6 +141,6 @@ async fn test_network_storage_fail() {
     )))
     .await
     .unwrap();
-    let res = async_timeout(Duration::from_millis(100), out_rx.recv_direct()).await;
+    let res = timeout(Duration::from_millis(100), out_rx.recv_direct()).await;
     assert!(res.is_err());
 }

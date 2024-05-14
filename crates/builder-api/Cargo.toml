@@ -9,7 +9,6 @@ edition = "2021"
 async-trait = { workspace = true }
 clap.workspace = true
 derive_more = "0.99"
-futures = "0.3"
 hotshot-types = { path = "../types" }
 serde = { workspace = true }
 snafu = { workspace = true }
@@ -18,3 +17,4 @@ tide-disco = { workspace = true }
 toml = { workspace = true }
 committable = { workspace = true }
 vbs = { workspace = true }
+futures = "0.3"

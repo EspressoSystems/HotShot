@@ -1,11 +1,9 @@
 //! A multi-validator using both the web server libp2p
-use async_compatibility_layer::{
-    art::async_spawn,
-    logging::{setup_backtrace, setup_logging},
-};
+
 use clap::Parser;
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::{MultiValidatorArgs, ValidatorArgs};
+use tokio::spawn;
 use tracing::instrument;
 
 use crate::types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun};
@@ -17,19 +15,18 @@ pub mod types;
 #[path = "../infra/mod.rs"]
 pub mod infra;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::main(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+#[tokio::main]
 #[instrument]
 async fn main() {
-    setup_logging();
-    setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
     let args = MultiValidatorArgs::parse();
     tracing::error!("connecting to orchestrator at {:?}", args.url);
     let mut nodes = Vec::new();
     for node_index in 0..args.num_nodes {
         let args = args.clone();
 
-        let node = async_spawn(async move {
+        let node = spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs::from_multi_args(args, node_index),
             )

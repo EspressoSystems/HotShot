@@ -3,16 +3,13 @@ use std::{
     fmt::Debug,
     num::NonZeroUsize,
     str::FromStr,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
-    async_primitives::subscribable_mutex::SubscribableMutex,
-    channel::{bounded, RecvError},
-    logging::{setup_backtrace, setup_logging},
-};
 use futures::{future::join_all, Future, FutureExt};
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
@@ -22,12 +19,46 @@ use libp2p_networking::network::{
     NetworkNodeType,
 };
 use snafu::{ResultExt, Snafu};
+use tokio::{
+    select, spawn,
+    sync::{broadcast, Notify},
+    time::{sleep, timeout},
+};
 use tracing::{info, instrument, warn};
 
 #[derive(Clone, Debug)]
-pub(crate) struct HandleWithState<S: Debug + Default + Send> {
+pub(crate) struct HandleWithState {
     pub(crate) handle: Arc<NetworkNodeHandle>,
-    pub(crate) state: Arc<SubscribableMutex<S>>,
+    state: Arc<AtomicU32>,
+    state_change: Arc<Notify>,
+}
+
+impl HandleWithState {
+    pub fn load_state(&self) -> u32 {
+        self.state.load(Ordering::SeqCst)
+    }
+
+    pub fn increment_state(&self) {
+        self.state.fetch_add(1, Ordering::SeqCst);
+        self.state_change.notify_waiters();
+    }
+
+    pub fn set_state(&self, new_state: u32) {
+        self.state.store(new_state, Ordering::SeqCst);
+        self.state_change.notify_waiters();
+    }
+
+    pub fn compare_exchange_state(&self, current: u32, new: u32) -> bool {
+        self.state
+            .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
+    pub async fn wait_for_state(&self, timeout_duration: Duration) -> bool {
+        timeout(timeout_duration, self.state_change.notified())
+            .await
+            .is_ok()
+    }
 }
 
 /// Spawn a handler `F` that will be notified every time a new [`NetworkEvent`] arrives.
@@ -35,28 +66,26 @@ pub(crate) struct HandleWithState<S: Debug + Default + Send> {
 /// # Panics
 ///
 /// Will panic if a handler is already spawned
-pub fn spawn_handler<F, RET, S>(
-    handle_and_state: HandleWithState<S>,
+pub fn spawn_handler<F, RET>(
+    handle_and_state: HandleWithState,
     mut receiver: NetworkNodeReceiver,
     cb: F,
 ) -> impl Future
 where
-    F: Fn(NetworkEvent, HandleWithState<S>) -> RET + Sync + Send + 'static,
+    F: Fn(NetworkEvent, HandleWithState) -> RET + Sync + Send + 'static,
     RET: Future<Output = Result<(), NetworkNodeHandleError>> + Send + 'static,
-    S: Debug + Default + Send + Clone + 'static,
 {
-    async_spawn(async move {
+    spawn(async move {
         let Some(mut kill_switch) = receiver.take_kill_switch() else {
             tracing::error!(
                 "`spawn_handle` was called on a network handle that was already closed"
             );
             return;
         };
-        let mut next_msg = receiver.recv().boxed();
-        let mut kill_switch = kill_switch.recv().boxed();
+
         loop {
-            match futures::future::select(next_msg, kill_switch).await {
-                futures::future::Either::Left((incoming_message, other_stream)) => {
+            select! {
+                incoming_message = receiver.recv() => {
                     let incoming_message = match incoming_message {
                         Ok(msg) => msg,
                         Err(e) => {
@@ -68,13 +97,8 @@ where
                         tracing::error!(?e, "NetworkNodeHandle::spawn_handle returned an error");
                         return;
                     }
-
-                    // re-set the `kill_switch` for the next loop
-                    kill_switch = other_stream;
-                    // re-set `receiver.recv()` for the next loop
-                    next_msg = receiver.recv().boxed();
                 }
-                futures::future::Either::Right(_) => {
+                _ = kill_switch.recv() => {
                     return;
                 }
             }
@@ -91,7 +115,7 @@ where
 /// - Initialize network nodes
 /// - Kill network nodes
 /// - A test assertion fails
-pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G, FutG>(
+pub async fn test_bed<F, FutF, G, FutG>(
     run_test: F,
     client_handler: G,
     num_nodes: usize,
@@ -100,23 +124,20 @@ pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G, F
 ) where
     FutF: Future<Output = ()>,
     FutG: Future<Output = Result<(), NetworkNodeHandleError>> + 'static + Send + Sync,
-    F: FnOnce(Vec<HandleWithState<S>>, Duration) -> FutF,
-    G: Fn(NetworkEvent, HandleWithState<S>) -> FutG + 'static + Send + Sync + Clone,
+    F: FnOnce(Vec<HandleWithState>, Duration) -> FutF,
+    G: Fn(NetworkEvent, HandleWithState) -> FutG + 'static + Send + Sync + Clone,
 {
-    setup_logging();
-    setup_backtrace();
-
     let mut kill_switches = Vec::new();
     // NOTE we want this to panic if we can't spin up the swarms.
     // that amounts to a failed test.
-    let handles_and_receivers = spin_up_swarms::<S>(num_nodes, timeout, num_of_bootstrap)
+    let handles_and_receivers = spin_up_swarms(num_nodes, timeout, num_of_bootstrap)
         .await
         .unwrap();
 
     let (handles, receivers): (Vec<_>, Vec<_>) = handles_and_receivers.into_iter().unzip();
     let mut handler_futures = Vec::new();
     for (i, mut rx) in receivers.into_iter().enumerate() {
-        let (kill_tx, kill_rx) = bounded(1);
+        let (kill_tx, kill_rx) = broadcast::channel(1);
         let handle = &handles[i];
         kill_switches.push(kill_tx);
         rx.set_kill_switch(kill_rx);
@@ -131,7 +152,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G, F
         handle.handle.shutdown().await.unwrap();
     }
     for switch in kill_switches {
-        let _ = switch.send(()).await;
+        let _ = switch.send(());
     }
 
     for fut in handler_futures {
@@ -171,11 +192,11 @@ pub async fn print_connections(handles: &[Arc<NetworkNodeHandle>]) {
 /// and waits for connections to propagate to all nodes.
 #[allow(clippy::type_complexity)]
 #[instrument]
-pub async fn spin_up_swarms<S: Debug + Default + Send>(
+pub async fn spin_up_swarms(
     num_of_nodes: usize,
     timeout_len: Duration,
     num_bootstrap: usize,
-) -> Result<Vec<(HandleWithState<S>, NetworkNodeReceiver)>, TestError<S>> {
+) -> Result<Vec<(HandleWithState, NetworkNodeReceiver)>, TestError> {
     let mut handles = Vec::new();
     let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
@@ -222,6 +243,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
         let node_with_state = HandleWithState {
             handle: Arc::clone(&node),
             state: Arc::default(),
+            state_change: Arc::default(),
         };
         handles.push((node_with_state, rx));
     }
@@ -258,6 +280,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
         let node_with_state = HandleWithState {
             handle: Arc::clone(&node),
             state: Arc::default(),
+            state_change: Arc::default(),
         };
         handles.push((node_with_state, rx));
     }
@@ -299,18 +322,16 @@ pub async fn spin_up_swarms<S: Debug + Default + Send>(
             .context(HandleSnafu)?;
     }
 
-    async_sleep(Duration::from_secs(5)).await;
+    sleep(Duration::from_secs(5)).await;
 
     Ok(handles)
 }
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum TestError<S: Debug> {
-    #[snafu(display("Channel error {source:?}"))]
-    Recv {
-        source: RecvError,
-    },
+pub enum TestError {
+    #[snafu(display("Channel error: recv failed"))]
+    Recv,
     #[snafu(display(
         "Timeout while running direct message round. Timed out when {requester} dmed {requestee}"
     ))]
@@ -327,8 +348,8 @@ pub enum TestError<S: Debug> {
     ))]
     State {
         id: usize,
-        expected: S,
-        actual: S,
+        expected: u32,
+        actual: u32,
     },
     #[snafu(display("Handler error while running test. {source:?}"))]
     Handle {

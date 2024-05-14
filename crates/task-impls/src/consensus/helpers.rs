@@ -7,10 +7,8 @@ use std::{
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::Committable;
 use futures::FutureExt;
@@ -34,8 +32,7 @@ use hotshot_types::{
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use tokio::{spawn, task::JoinHandle, time::sleep};
 use tracing::{debug, error, info, warn};
 
 #[cfg(not(feature = "dependency-tasks"))]
@@ -232,7 +229,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         tracing::trace!("{e:?}");
         return;
     }
-    async_sleep(Duration::from_millis(round_start_delay)).await;
+    sleep(Duration::from_millis(round_start_delay)).await;
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalSend(
             message.clone(),
@@ -410,7 +407,7 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
         null_block::builder_fee::<TYPES>(quorum_membership.total_nodes(), instance_state.as_ref())
             .context("Failed to calculate null block fee info")?;
 
-    Ok(async_spawn(async move {
+    Ok(spawn(async move {
         create_and_send_proposal(
             public_key,
             private_key,
@@ -497,7 +494,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         "Cannot propose because our VID payload commitment and metadata is for an older view."
     );
 
-    let create_and_send_proposal_handle = async_spawn(async move {
+    let create_and_send_proposal_handle = spawn(async move {
         create_and_send_proposal(
             public_key,
             private_key,
@@ -770,7 +767,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         .spawned_tasks
         .entry(proposal.data.get_view_number())
         .or_default()
-        .push(async_spawn(
+        .push(spawn(
             validate_proposal_safety_and_liveness(
                 proposal.clone(),
                 parent_leaf,

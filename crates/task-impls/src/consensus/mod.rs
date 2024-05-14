@@ -4,10 +4,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use anyhow::Result;
 use async_broadcast::Sender;
 #[cfg(not(feature = "dependency-tasks"))]
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 #[cfg(not(feature = "dependency-tasks"))]
@@ -33,7 +30,6 @@ use hotshot_types::{
 use hotshot_types::{traits::storage::Storage, vote::Certificate};
 #[cfg(not(feature = "dependency-tasks"))]
 use jf_vid::VidScheme;
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 #[cfg(not(feature = "dependency-tasks"))]
 use tracing::info;
@@ -245,6 +241,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         view: TYPES::Time,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
+        use tokio::spawn;
+
         let Some(proposal) = self.current_proposal.clone() else {
             return;
         };
@@ -259,7 +257,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let quorum_mem = Arc::clone(&self.quorum_membership);
         let da_mem = Arc::clone(&self.da_membership);
         let instance_state = Arc::clone(&self.instance_state);
-        let handle = async_spawn(async move {
+        let handle = spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
                 view,
                 proposal,

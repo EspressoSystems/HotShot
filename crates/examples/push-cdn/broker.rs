@@ -55,8 +55,8 @@ struct Args {
     #[arg(short, long, default_value_t = 0)]
     key_seed: u64,
 }
-#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+#[tokio::main]
+
 async fn main() -> Result<()> {
     // Parse command line arguments
     let args = Args::parse();

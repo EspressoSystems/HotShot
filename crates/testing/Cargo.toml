@@ -15,14 +15,12 @@ dependency-tasks = ["hotshot/dependency-tasks"]
 [dependencies]
 automod = "1.0.14"
 async-broadcast = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { workspace = true }
 committable = { workspace = true }
 either = { workspace = true }
 ethereum-types = { workspace = true }
-futures = { workspace = true }
 hotshot = { path = "../hotshot", features = ["hotshot-testing"] }
 hotshot-example-types = { path = "../example-types" }
 hotshot-macros = { path = "../macros" }
@@ -44,9 +42,5 @@ tracing = { workspace = true }
 vbs = { workspace = true }
 lru = { workspace = true }
 tagged-base64.workspace = true
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+futures = "0.3"
 tokio = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }

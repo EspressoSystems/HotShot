@@ -1,9 +1,10 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
-use async_compatibility_layer::art::async_timeout;
+
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
+use tokio::time::timeout;
 
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
@@ -82,7 +83,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>> +
         to_task.broadcast_direct(Arc::new(event)).await.unwrap();
     }
 
-    if async_timeout(Duration::from_secs(2), futures::future::join_all(tasks))
+    if timeout(Duration::from_secs(2), futures::future::join_all(tasks))
         .await
         .is_err()
     {

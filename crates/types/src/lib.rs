@@ -15,6 +15,7 @@ pub mod data;
 pub mod error;
 pub mod event;
 pub mod light_client;
+pub mod logging;
 pub mod message;
 pub mod qc;
 pub mod signature_key;

@@ -32,8 +32,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         task_helpers::build_system_handle,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 3;
     let handle = build_system_handle(node_id).await.0;
@@ -131,11 +131,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
 }
 
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// A leader node may receive one of a couple of possible events which can trigger a proposal. This
 /// test ensures that, no matter what order these events are received in, the node will still
 /// trigger the proposal event regardless. This is to catch a regression in which

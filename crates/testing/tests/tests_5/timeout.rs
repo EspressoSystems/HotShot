@@ -1,12 +1,12 @@
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 // TODO Add memory network tests after this issue is finished:
 // https://github.com/EspressoSystems/HotShot/issues/1790
 async fn test_timeout() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{TestTypes, MemoryImpl};
+    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -14,8 +14,7 @@ async fn test_timeout() {
         spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
         test_builder::{TestDescription, TimingData},
     };
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
     let timing_data = TimingData {
         next_view_timeout: 2000,
         ..Default::default()
@@ -60,8 +59,7 @@ async fn test_timeout() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_timeout_libp2p() {
     use std::time::Duration;
@@ -75,8 +73,8 @@ async fn test_timeout_libp2p() {
         test_builder::{TestDescription, TimingData},
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+
     let timing_data = TimingData {
         next_view_timeout: 2000,
         start_delay: 2000,

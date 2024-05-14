@@ -13,14 +13,9 @@ use std::{
     },
 };
 
-use async_compatibility_layer::{
-    art::async_spawn,
-    channel::{bounded, BoundedStream, Receiver, SendError, Sender},
-};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use futures::StreamExt;
 use hotshot_types::{
     boxed_sync,
     constants::Version01,
@@ -34,6 +29,10 @@ use hotshot_types::{
 };
 use rand::Rng;
 use snafu::ResultExt;
+use tokio::{
+    spawn,
+    sync::mpsc::{channel, error::SendError, Receiver, Sender},
+};
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
@@ -114,17 +113,16 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> MemoryNetwork<M, K> {
         info!("Attaching new MemoryNetwork");
-        let (input, task_recv) = bounded(128);
-        let (task_send, output) = bounded(128);
+        let (input, mut task_recv) = channel::<Vec<u8>>(128);
+        let (task_send, output) = channel(128);
         let in_flight_message_count = AtomicUsize::new(0);
         trace!("Channels open, spawning background task");
 
-        async_spawn(
+        spawn(
             async move {
                 debug!("Starting background task");
-                let mut task_stream: BoundedStream<Vec<u8>> = task_recv.into_stream();
                 trace!("Entering processing loop");
-                while let Some(vec) = task_stream.next().await {
+                while let Some(vec) = task_recv.recv().await {
                     trace!(?vec, "Incoming message");
                     // Attempt to decode message
                     let x = Serializer::<Version01>::deserialize(&vec);
@@ -270,7 +268,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                             })
                         }),
                     );
-                    async_spawn(fut);
+                    spawn(fut);
                 }
             } else {
                 let res = node.input(vec.clone()).await;
@@ -326,7 +324,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                             })
                         }),
                     );
-                    async_spawn(fut);
+                    spawn(fut);
                 }
                 Ok(())
             } else {
@@ -365,13 +363,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
             .output
             .lock()
             .await
-            .drain_at_least_one()
+            .recv()
             .await
-            .map_err(|_x| NetworkError::ShutDown)?;
+            .ok_or(NetworkError::ShutDown)?;
         self.inner
             .in_flight_message_count
-            .fetch_sub(ret.len(), Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(ret.len());
-        Ok(ret)
+            .fetch_sub(1, Ordering::Relaxed);
+        self.inner.metrics.incoming_message_count.add(1);
+        Ok(vec![ret])
     }
 }

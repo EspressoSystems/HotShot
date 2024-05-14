@@ -16,18 +16,10 @@ use std::{
 };
 
 use anyhow::anyhow;
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
-    channel::{self, bounded, unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
-};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bimap::BiHashMap;
-use futures::{
-    channel::mpsc::{self, channel, Receiver, Sender},
-    future::{join_all, Either},
-    FutureExt, StreamExt,
-};
+use futures::future::join_all;
 use hotshot_orchestrator::config::NetworkConfig;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
@@ -66,6 +58,18 @@ use libp2p_networking::{
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
 use snafu::ResultExt;
+use tokio::{
+    select, spawn,
+    sync::{
+        broadcast,
+        mpsc::{
+            channel, error::SendError, unbounded_channel, Receiver, Sender, UnboundedReceiver,
+            UnboundedSender,
+        },
+        oneshot,
+    },
+    time::sleep,
+};
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{
     version::{StaticVersionType, Version},
@@ -116,7 +120,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// handle to control the network
     handle: Arc<NetworkNodeHandle>,
     /// Message Receiver
-    receiver: UnboundedReceiver<M>,
+    receiver: tokio::sync::Mutex<UnboundedReceiver<M>>,
     /// Receiver for Requests for Data, includes the request and the response chan
     /// Lock should only be used once to take the channel and move it into the request
     /// handler task
@@ -150,7 +154,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// if we're a member of the DA committee or not
     is_da: bool,
     /// Killswitch sender
-    kill_switch: channel::Sender<()>,
+    kill_switch: broadcast::Sender<()>,
 }
 
 /// Networking implementation that uses libp2p
@@ -434,7 +438,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
             if self.inner.is_ready.load(Ordering::Relaxed) {
                 break;
             }
-            async_sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
         }
     }
 
@@ -494,16 +498,16 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
-        let (sender, receiver) = unbounded();
+        let (sender, receiver) = unbounded_channel();
         let (requests_tx, requests_rx) = channel(100);
-        let (node_lookup_send, node_lookup_recv) = unbounded();
-        let (kill_tx, kill_rx) = bounded(1);
+        let (node_lookup_send, node_lookup_recv) = unbounded_channel();
+        let (kill_tx, kill_rx) = broadcast::channel(1);
         rx.set_kill_switch(kill_rx);
 
         let mut result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: Arc::new(network_handle),
-                receiver,
+                receiver: tokio::sync::Mutex::from(receiver),
                 requests_rx: Mutex::new(Some(requests_rx)),
                 sender: sender.clone(),
                 pk,
@@ -538,7 +542,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
     #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
     fn spawn_node_lookup<Ver: 'static + StaticVersionType>(
         &self,
-        node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
+        mut node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
         _: Ver,
     ) {
         let handle = Arc::clone(&self.inner.handle);
@@ -546,9 +550,9 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         let latest_seen_view = Arc::clone(&self.inner.latest_seen_view);
 
         // deals with handling lookup queue. should be infallible
-        async_spawn(async move {
+        spawn(async move {
             // cancels on shutdown
-            while let Ok(Some((view_number, pk))) = node_lookup_recv.recv().await {
+            while let Some(Some((view_number, pk))) = node_lookup_recv.recv().await {
                 /// defines lookahead threshold based on the constant
                 #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
@@ -579,7 +583,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         let metrics_connected_peers = Arc::clone(&self.inner);
         let is_da = self.inner.is_da;
 
-        async_spawn({
+        spawn({
             let is_ready = Arc::clone(&self.inner.is_ready);
             async move {
                 let bs_addrs = bootstrap_ref.read().await.clone();
@@ -590,7 +594,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 handle.begin_bootstrap().await?;
 
                 while !is_bootstrapped.load(Ordering::Relaxed) {
-                    async_sleep(Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(1)).await;
                     handle.begin_bootstrap().await?;
                 }
 
@@ -617,7 +621,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                     .await
                     .is_err()
                 {
-                    async_sleep(Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(1)).await;
                 }
                 info!(
                     "Node {:?} is ready, type: {:?}",
@@ -630,7 +634,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                     .await
                     .is_err()
                 {
-                    async_sleep(Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(1)).await;
                 }
                 // 10 minute timeout
                 let timeout_duration = Duration::from_secs(600);
@@ -664,26 +668,20 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         &self,
         msg: NetworkEvent,
         sender: &UnboundedSender<M>,
-        mut request_tx: Sender<(M, ResponseChannel<Response>)>,
+        request_tx: Sender<(M, ResponseChannel<Response>)>,
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
                 let result: Result<M, _> = Serializer::<Version01>::deserialize(&msg);
                 if let Ok(result) = result {
-                    sender
-                        .send(result)
-                        .await
-                        .map_err(|_| NetworkError::ChannelSend)?;
+                    sender.send(result).map_err(|_| NetworkError::ChannelSend)?;
                 }
             }
             DirectRequest(msg, _pid, chan) => {
                 let result: Result<M, _> =
                     Serializer::<Version01>::deserialize(&msg).context(FailedToSerializeSnafu);
                 if let Ok(result) = result {
-                    sender
-                        .send(result)
-                        .await
-                        .map_err(|_| NetworkError::ChannelSend)?;
+                    sender.send(result).map_err(|_| NetworkError::ChannelSend)?;
                 }
                 if self
                     .inner
@@ -723,65 +721,64 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
     ) {
         let handle = self.clone();
         let is_bootstrapped = Arc::clone(&self.inner.is_bootstrapped);
-        async_spawn(async move {
+        spawn(async move {
             let Some(mut kill_switch) = network_rx.take_kill_switch() else {
                 tracing::error!(
                     "`spawn_handle` was called on a network handle that was already closed"
                 );
                 return;
             };
-            let mut kill_switch = kill_switch.recv().boxed();
-            let mut next_msg = network_rx.recv().boxed();
 
             loop {
-                let msg_or_killed = futures::future::select(next_msg, kill_switch).await;
-                match msg_or_killed {
-                    Either::Left((Ok(message), other_stream)) => {
-                        match &message {
-                            NetworkEvent::IsBootstrapped => {
-                                is_bootstrapped.store(true, Ordering::Relaxed);
-                            }
-                            GossipMsg(raw)
-                            | DirectRequest(raw, _, _)
-                            | DirectResponse(raw, _)
-                            | NetworkEvent::ResponseRequested(Request(raw), _) => {
-                                match Version::deserialize(raw) {
-                                    Ok((VERSION_0_1, _rest)) => {
-                                        let _ = handle
-                                            .handle_recvd_events_0_1(
-                                                message,
-                                                &sender,
-                                                request_tx.clone(),
-                                            )
-                                            .await;
+                select! {
+                    message = network_rx.recv() => {
+                        match message{
+                            Ok(message) => {
+                                match &message {
+                                    NetworkEvent::IsBootstrapped => {
+                                        is_bootstrapped.store(true, Ordering::Relaxed);
                                     }
-                                    Ok((version, _)) => {
-                                        warn!(
-                                                "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                                version, message
-                                            );
-                                    }
-                                    Err(e) => {
-                                        warn!(
-                                            "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
-                                            e, message
-                                        );
+                                    GossipMsg(raw)
+                                    | DirectRequest(raw, _, _)
+                                    | DirectResponse(raw, _)
+                                    | NetworkEvent::ResponseRequested(Request(raw), _) => {
+                                        match Version::deserialize(raw) {
+                                            Ok((VERSION_0_1, _rest)) => {
+                                                let _ = handle
+                                                    .handle_recvd_events_0_1(
+                                                        message,
+                                                        &sender,
+                                                        request_tx.clone(),
+                                                    )
+                                                    .await;
+                                            }
+                                            Ok((version, _)) => {
+                                                warn!(
+                                                        "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                                        version, message
+                                                    );
+                                            }
+                                            Err(e) => {
+                                                warn!(
+                                                    "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
+                                                    e, message
+                                                );
+                                            }
+                                        }
                                     }
                                 }
+                            },
+                            Err(_) => {
+                                warn!("Network receiver shut down!");
+                                return;
                             }
                         }
-                        // re-set the `kill_switch` for the next loop
-                        kill_switch = other_stream;
-                        // re-set `receiver.recv()` for the next loop
-                        next_msg = network_rx.recv().boxed();
                     }
-                    Either::Left((Err(_), _)) => {
-                        warn!("Network receiver shut down!");
-                        return;
-                    }
-                    Either::Right(_) => {
+
+                    _ = kill_switch.recv() => {
                         warn!("Event Handler shutdown");
                         return;
+
                     }
                 }
             }
@@ -844,13 +841,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     async fn spawn_request_receiver_task<VER: 'static + StaticVersionType>(
         &self,
         bind_version: VER,
-    ) -> Option<mpsc::Receiver<(M, network::ResponseChannel<M>)>> {
+    ) -> Option<Receiver<(M, network::ResponseChannel<M>)>> {
         let mut internal_rx = self.inner.requests_rx.lock().await.take()?;
         let handle = Arc::clone(&self.inner.handle);
-        let (mut tx, rx) = mpsc::channel(100);
-        async_spawn(async move {
-            while let Some((request, chan)) = internal_rx.next().await {
-                let (response_tx, response_rx) = futures::channel::oneshot::channel();
+        let (tx, rx) = channel(100);
+        spawn(async move {
+            while let Some((request, chan)) = internal_rx.recv().await {
+                let (response_tx, response_rx) = oneshot::channel();
                 if tx
                     .try_send((request, network::ResponseChannel(response_tx)))
                     .is_err()
@@ -887,8 +884,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     {
         let closure = async move {
             let _ = self.inner.handle.shutdown().await;
-            let _ = self.inner.node_lookup_send.send(None).await;
-            let _ = self.inner.kill_switch.send(()).await;
+            let _ = self.inner.node_lookup_send.send(None);
+            let _ = self.inner.kill_switch.send(());
         };
         boxed_sync(closure)
     }
@@ -922,7 +919,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             self.inner
                 .sender
                 .send(message.clone())
-                .await
                 .map_err(|_| NetworkError::ShutDown)?;
         }
 
@@ -954,7 +950,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         })
                     }),
                 );
-                async_spawn(fut);
+                spawn(fut);
                 return Ok(());
             }
         }
@@ -1016,7 +1012,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             self.inner
                 .sender
                 .send(message)
-                .await
                 .map_err(|_x| NetworkError::ShutDown)?;
             return Ok(());
         }
@@ -1068,7 +1063,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         })
                     }),
                 );
-                async_spawn(fut);
+                spawn(fut);
                 return Ok(());
             }
         }
@@ -1093,12 +1088,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let result = self
             .inner
             .receiver
-            .drain_at_least_one()
+            .lock()
             .await
-            .map_err(|_x| NetworkError::ShutDown)?;
-        self.inner.metrics.incoming_message_count.add(result.len());
+            .recv()
+            .await
+            .ok_or(NetworkError::ShutDown)?;
+        self.inner.metrics.incoming_message_count.add(1);
 
-        Ok(result)
+        Ok(vec![result])
     }
 
     #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
@@ -1106,11 +1103,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         &self,
         view_number: ViewNumber,
         pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
-        self.inner
-            .node_lookup_send
-            .send(Some((view_number, pk)))
-            .await
+    ) -> Result<(), SendError<Option<(ViewNumber, K)>>> {
+        self.inner.node_lookup_send.send(Some((view_number, pk)))
     }
 
     /// handles view update

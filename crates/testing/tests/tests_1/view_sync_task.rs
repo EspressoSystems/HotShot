@@ -6,16 +6,16 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 use std::collections::HashMap;
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_view_sync_task() {
     use hotshot_task_impls::harness::run_harness;
     use hotshot_task_impls::view_sync::ViewSyncTaskState;
     use hotshot_testing::task_helpers::build_system_handle;
     use hotshot_types::simple_vote::ViewSyncPreCommitData;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     // Build the API for node 5.
     let handle = build_system_handle(5).await.0;

@@ -1,10 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
-use async_compatibility_layer::art::async_timeout;
+
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
+use tokio::time::timeout;
 
 use crate::predicates::{Predicate, PredicateResult};
 
@@ -127,8 +128,7 @@ pub async fn run_test_script<
         for assert in &mut stage.outputs {
             let mut result = PredicateResult::Incomplete;
 
-            while let Ok(Ok(received_output)) =
-                async_timeout(RECV_TIMEOUT, from_task.recv_direct()).await
+            while let Ok(Ok(received_output)) = timeout(RECV_TIMEOUT, from_task.recv_direct()).await
             {
                 tracing::debug!("Test received: {:?}", received_output);
 

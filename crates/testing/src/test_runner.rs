@@ -270,12 +270,12 @@ where
         task_futs.push(spinning_task.run());
         let mut error_list = vec![];
 
-        #[cfg(async_executor_impl = "async-std")]
-        {
-            let results = join_all(task_futs).await;
-            tracing::info!("test tasks joined");
-            for result in results {
-                match result {
+        let results = join_all(task_futs).await;
+
+        tracing::error!("test tasks joined");
+        for result in results {
+            match result {
+                Ok(res) => match res {
                     HotShotTaskCompleted::ShutDown => {
                         info!("Task shut down successfully");
                     }
@@ -283,31 +283,9 @@ where
                     _ => {
                         panic!("Future impl for task abstraction failed! This should never happen");
                     }
-                }
-            }
-        }
-
-        #[cfg(async_executor_impl = "tokio")]
-        {
-            let results = join_all(task_futs).await;
-
-            tracing::error!("test tasks joined");
-            for result in results {
-                match result {
-                    Ok(res) => {
-                        match res {
-                            HotShotTaskCompleted::ShutDown => {
-                                info!("Task shut down successfully");
-                            }
-                            HotShotTaskCompleted::Error(e) => error_list.push(e),
-                            _ => {
-                                panic!("Future impl for task abstraction failed! This should never happen");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Error Joining the test task {:?}", e);
-                    }
+                },
+                Err(e) => {
+                    tracing::error!("Error Joining the test task {:?}", e);
                 }
             }
         }

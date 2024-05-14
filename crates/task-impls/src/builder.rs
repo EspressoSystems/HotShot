@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use async_compatibility_layer::art::async_sleep;
 use hotshot_builder_api::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Error as BuilderApiError},
@@ -14,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use surf_disco::{client::HealthStatus, Client, Url};
 use tagged_base64::TaggedBase64;
+use tokio::time::sleep;
 use vbs::version::StaticVersionType;
 
 #[derive(Debug, Snafu, Serialize, Deserialize)]
@@ -93,7 +93,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
             ) {
                 return true;
             }
-            async_sleep(backoff).await;
+            sleep(backoff).await;
             backoff *= 2;
         }
         false

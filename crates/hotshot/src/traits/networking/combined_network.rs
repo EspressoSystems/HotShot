@@ -12,15 +12,9 @@ use std::{
     time::Duration,
 };
 
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
-    channel::UnboundedSendError,
-};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use futures::{channel::mpsc, future::join_all, join, select, FutureExt};
+use futures::future::join_all;
 use hotshot_task_impls::helpers::cancel_task;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
@@ -38,8 +32,12 @@ use hotshot_types::{
     BoxSyncFuture,
 };
 use lru::LruCache;
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use tokio::{
+    join, select, spawn,
+    sync::mpsc::{self, error::SendError},
+    time::sleep,
+};
 use tracing::{info, warn};
 use vbs::version::StaticVersionType;
 
@@ -171,8 +169,8 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 .await
                 .entry(message.kind.get_view_number().get_u64())
                 .or_default()
-                .push(async_spawn(async move {
-                    async_sleep(duration).await;
+                .push(spawn(async move {
+                    sleep(duration).await;
                     info!("Sending on secondary after delay, message possibly has not reached recipient on primary");
                     primary_fail_counter.fetch_add(1, Ordering::Relaxed);
                     secondary_future.await
@@ -427,12 +425,9 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
-        let mut primary_fut = self.primary().recv_msgs().fuse();
-        let mut secondary_fut = self.secondary().recv_msgs().fuse();
-
         let msgs = select! {
-            p = primary_fut => p?,
-            s = secondary_fut => s?,
+            p = self.primary().recv_msgs() => p?,
+            s = self.secondary().recv_msgs() => s?,
         };
 
         let mut filtered_msgs = Vec::with_capacity(msgs.len());
@@ -459,7 +454,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         &self,
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+    ) -> Result<(), SendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         self.primary()
             .queue_node_lookup(view_number, pk.clone())
             .await?;
@@ -471,7 +466,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         T: NodeType<SignatureKey = TYPES::SignatureKey> + 'a,
     {
         let delayed_map = Arc::clone(&self.delayed_tasks);
-        async_spawn(async move {
+        spawn(async move {
             let mut cancel_tasks = Vec::new();
             {
                 let mut map_lock = delayed_map.write().await;

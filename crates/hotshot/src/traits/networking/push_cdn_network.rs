@@ -5,8 +5,6 @@ use std::{collections::BTreeSet, marker::PhantomData};
 use std::{path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "hotshot-testing")]
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
@@ -47,6 +45,7 @@ use hotshot_types::{
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
+use tokio::{spawn, sync::mpsc::error::SendError, time::sleep};
 use tracing::{error, warn};
 use vbs::{
     version::{StaticVersionType, Version},
@@ -317,14 +316,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
             };
 
             // Create and spawn the broker
-            async_spawn(async move {
+            spawn(async move {
                 let broker: Broker<TestingDef<TYPES>> =
                     Broker::new(config).await.expect("broker failed to start");
 
                 // If we are the first broker by identifier, we need to sleep a bit
                 // for discovery to happen first
                 if other_broker_identifier > broker_identifier {
-                    async_sleep(Duration::from_secs(2)).await;
+                    sleep(Duration::from_secs(2)).await;
                 }
 
                 // Error if we stopped unexpectedly
@@ -348,7 +347,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         };
 
         // Spawn the marshal
-        async_spawn(async move {
+        spawn(async move {
             let marshal: Marshal<TestingDef<TYPES>> = Marshal::new(marshal_config)
                 .await
                 .expect("failed to spawn marshal");
@@ -568,7 +567,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         &self,
         _view_number: ViewNumber,
         _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+    ) -> Result<(), SendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
     }
 }

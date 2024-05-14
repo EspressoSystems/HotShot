@@ -2,8 +2,6 @@ use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::Sender;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, View},
@@ -24,7 +22,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
 
@@ -172,10 +169,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let num_nodes = self.quorum_membership.total_nodes();
-                let payload_commitment =
-                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
-                #[cfg(async_executor_impl = "tokio")]
-                let payload_commitment = payload_commitment.unwrap();
+                let payload_commitment = spawn_blocking(move || vid_commitment(&txns, num_nodes))
+                    .await
+                    .unwrap();
 
                 let view = proposal.data.get_view_number();
                 // Generate and send vote

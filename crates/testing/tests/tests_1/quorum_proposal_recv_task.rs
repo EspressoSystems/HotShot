@@ -16,11 +16,11 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 
 #[cfg(test)]
 #[cfg(feature = "dependency-tasks")]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_recv_task() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();

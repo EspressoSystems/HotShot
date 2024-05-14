@@ -2,7 +2,6 @@
 /// The types we're importing
 pub mod types;
 
-use async_compatibility_layer::art::async_spawn;
 use cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
 use cdn_marshal::Marshal;
 use hotshot::{
@@ -12,6 +11,7 @@ use hotshot::{
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
+use tokio::spawn;
 
 use crate::{
     infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
@@ -24,18 +24,16 @@ pub mod infra;
 
 use tracing::error;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+#[tokio::main]
 async fn main() {
-    use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-    setup_logging();
-    setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     // use configfile args
     let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
 
     // Start the orhcestrator
-    async_spawn(run_orchestrator::<TestTypes>(OrchestratorArgs {
+    spawn(run_orchestrator::<TestTypes>(OrchestratorArgs {
         url: orchestrator_url.clone(),
         config: config.clone(),
     }));
@@ -77,7 +75,7 @@ async fn main() {
         };
 
         // Create and spawn the broker
-        async_spawn(async move {
+        spawn(async move {
             let broker: Broker<TestingDef<TestTypes>> =
                 Broker::new(config).await.expect("broker failed to start");
 
@@ -102,7 +100,7 @@ async fn main() {
     };
 
     // Spawn the marshal
-    async_spawn(async move {
+    spawn(async move {
         let marshal: Marshal<TestingDef<TestTypes>> = Marshal::new(marshal_config)
             .await
             .expect("failed to spawn marshal");
@@ -117,7 +115,7 @@ async fn main() {
     let mut nodes = Vec::new();
     for _ in 0..(config.config.num_nodes_with_stake.get()) {
         let orchestrator_url = orchestrator_url.clone();
-        let node = async_spawn(async move {
+        let node = spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs {
                     url: orchestrator_url,

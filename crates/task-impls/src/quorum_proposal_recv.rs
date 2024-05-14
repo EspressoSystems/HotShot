@@ -4,8 +4,6 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use async_broadcast::Sender;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -19,7 +17,6 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, VoteDependencyData},
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 

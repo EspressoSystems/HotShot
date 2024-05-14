@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use async_broadcast::Sender;
-use async_compatibility_layer::art::async_sleep;
+
 use async_lock::RwLock;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
@@ -26,6 +26,7 @@ use hotshot_types::{
     utils::ViewInner,
     vid::VidCommitment,
 };
+use tokio::time::{sleep, timeout};
 use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
 
@@ -271,7 +272,7 @@ impl<
         };
 
         while task_start_time.elapsed() < self.api.builder_timeout() {
-            match async_compatibility_layer::art::async_timeout(
+            match timeout(
                 self.api
                     .builder_timeout()
                     .saturating_sub(task_start_time.elapsed()),
@@ -288,7 +289,7 @@ impl<
                 Ok(Err(err)) => {
                     tracing::warn!(%err, "Couldn't get a block");
                     // pause a bit
-                    async_sleep(Duration::from_millis(100)).await;
+                    sleep(Duration::from_millis(100)).await;
                     continue;
                 }
 

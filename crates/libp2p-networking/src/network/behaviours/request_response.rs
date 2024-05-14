@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use futures::channel::oneshot::Sender;
 use libp2p::request_response::{Message, OutboundRequestId};
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot::Sender;
 
 use crate::network::NetworkEvent;
 

@@ -1,21 +1,16 @@
 //! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
-
-use async_compatibility_layer::art::async_sleep;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::future::TimeoutError;
 use derivative::Derivative;
 use dyn_clone::DynClone;
-use futures::{
-    channel::{mpsc, oneshot},
-    Future,
+use tokio::{
+    sync::{
+        mpsc::{self, error::SendError},
+        oneshot,
+    },
+    time::{error::Elapsed as TimeoutError, sleep},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::time::error::Elapsed as TimeoutError;
 
-#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use std::{
     collections::{BTreeSet, HashMap},
     fmt::Debug,
@@ -25,9 +20,8 @@ use std::{
     time::Duration,
 };
 
-use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
-use futures::future::join_all;
+use futures::{future::join_all, Future};
 use rand::{
     distributions::{Bernoulli, Uniform},
     prelude::Distribution,
@@ -340,7 +334,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
         &self,
         _view_number: ViewNumber,
         _pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
+    ) -> Result<(), SendError<Option<(ViewNumber, K)>>> {
         Ok(())
     }
 
@@ -446,7 +440,7 @@ pub trait NetworkReliability: Debug + Sync + std::marker::Send + DynClone + 'sta
         }
         let closure = async move {
             if sample_keep {
-                async_sleep(delay).await;
+                sleep(delay).await;
                 for msg in msgs {
                     send_fn(msg).await;
                 }

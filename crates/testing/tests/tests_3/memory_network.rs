@@ -2,7 +2,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use async_compatibility_layer::logging::setup_logging;
+
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::implementations::{MasterMap, MemoryNetwork, NetworkingMetricsValue};
 use hotshot::traits::NodeImplementation;
@@ -14,6 +14,7 @@ use hotshot_example_types::{
     state_types::TestValidatedState,
 };
 use hotshot_types::constants::STATIC_VER_0_1;
+
 use hotshot_types::message::Message;
 use hotshot_types::signature_key::{BLSPubKey, BuilderKey};
 use hotshot_types::traits::network::ConnectedNetwork;
@@ -114,22 +115,20 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
 }
 
 // Spawning a single MemoryNetwork should produce no errors
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_spawn_single() {
-    setup_logging();
+    hotshot_types::logging::setup_logging();
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
     let _pub_key = get_pubkey();
 }
 
 // // Spawning a two MemoryNetworks and connecting them should produce no errors
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_spawn_double() {
-    setup_logging();
+    hotshot_types::logging::setup_logging();
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
     let _pub_key_1 = get_pubkey();
@@ -137,11 +136,10 @@ async fn memory_network_spawn_double() {
 }
 
 // Check to make sure direct queue works
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_direct_queue() {
-    setup_logging();
+    hotshot_types::logging::setup_logging();
     // Create some dummy messages
 
     // Make and connect the networking instances
@@ -202,11 +200,10 @@ async fn memory_network_direct_queue() {
 }
 
 // Check to make sure direct queue works
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_broadcast_queue() {
-    setup_logging();
+    hotshot_types::logging::setup_logging();
     // Make and connect the networking instances
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
@@ -270,12 +267,11 @@ async fn memory_network_broadcast_queue() {
     }
 }
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[allow(deprecated)]
 async fn memory_network_test_in_flight_message_count() {
-    setup_logging();
+    hotshot_types::logging::setup_logging();
 
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);

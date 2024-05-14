@@ -6,7 +6,7 @@ pub mod task_state;
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+
 use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskRegistry};
 use hotshot_task_impls::{
@@ -33,6 +33,7 @@ use hotshot_types::{
         storage::Storage,
     },
 };
+use tokio::{spawn, time::sleep};
 use tracing::error;
 
 use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
@@ -93,7 +94,7 @@ pub async fn add_network_message_task<
 
     let network = Arc::clone(&net);
     let mut state = network_state.clone();
-    let handle = async_spawn(async move {
+    let handle = spawn(async move {
         loop {
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => Messages(msgs),
@@ -106,7 +107,7 @@ pub async fn add_network_message_task<
             };
             if msgs.0.is_empty() {
                 // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                async_sleep(Duration::from_millis(100)).await;
+                sleep(Duration::from_millis(100)).await;
             } else {
                 state.handle_messages(msgs.0).await;
             }

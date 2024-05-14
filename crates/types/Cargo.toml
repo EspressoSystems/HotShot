@@ -15,7 +15,6 @@ ark-ff = { workspace = true }
 ark-serialize = { workspace = true }
 ark-srs = { version = "0.3.1" }
 ark-std = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
@@ -27,9 +26,9 @@ digest = { workspace = true, features = ["rand_core"] }
 either = { workspace = true }
 espresso-systems-common = { workspace = true }
 ethereum-types = { workspace = true }
-futures = { workspace = true }
+futures = "0.3"
 cdn-proto = { workspace = true }
-
+tracing-subscriber = "0.3"
 generic-array = { workspace = true }
 
 # TODO generic-array should not be a direct dependency
@@ -54,6 +53,7 @@ vbs = { workspace = true }
 displaydoc = { version = "0.2.3", default-features = false }
 dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.17" }
 url = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
@@ -61,12 +61,6 @@ serde_json = { workspace = true }
 [features]
 gpu-vid = ["jf-vid/gpu-vid"]
 test-srs = ["jf-vid/test-srs"]
-
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
-tokio = { workspace = true }
 
 [lints]
 workspace = true

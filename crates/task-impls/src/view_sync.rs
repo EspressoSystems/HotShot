@@ -7,10 +7,10 @@ use std::{
 };
 
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+
+use tokio::{task::spawn, time::sleep};
+
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     message::GeneralConsensusMessage,
@@ -29,7 +29,6 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber, Vote},
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -574,14 +573,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     cancel_task(timeout_task).await;
                 }
 
-                self.timeout_task = Some(async_spawn({
+                self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
                     let phase = last_seen_certificate;
                     let relay = self.relay;
                     let next_view = self.next_view;
                     let timeout = self.view_sync_timeout;
                     async move {
-                        async_sleep(timeout).await;
+                        sleep(timeout).await;
                         info!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
 
                         broadcast_event(
@@ -666,14 +665,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 if let Some(timeout_task) = self.timeout_task.take() {
                     cancel_task(timeout_task).await;
                 }
-                self.timeout_task = Some(async_spawn({
+                self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
                     let phase = last_seen_certificate;
                     let relay = self.relay;
                     let next_view = self.next_view;
                     let timeout = self.view_sync_timeout;
                     async move {
-                        async_sleep(timeout).await;
+                        sleep(timeout).await;
                         info!(
                             "Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}",
                             relay
@@ -757,13 +756,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     .await;
                 }
 
-                self.timeout_task = Some(async_spawn({
+                self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
                     let relay = self.relay;
                     let next_view = self.next_view;
                     let timeout = self.view_sync_timeout;
                     async move {
-                        async_sleep(timeout).await;
+                        sleep(timeout).await;
                         info!("Vote sending timed out in ViewSyncTrigger");
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -819,14 +818,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         }
                     }
 
-                    self.timeout_task = Some(async_spawn({
+                    self.timeout_task = Some(spawn({
                         let stream = event_stream.clone();
                         let relay = self.relay;
                         let next_view = self.next_view;
                         let timeout = self.view_sync_timeout;
                         let last_cert = last_seen_certificate.clone();
                         async move {
-                            async_sleep(timeout).await;
+                            sleep(timeout).await;
                             info!(
                                 "Vote sending timed out in ViewSyncTimeout relay = {}",
                                 relay

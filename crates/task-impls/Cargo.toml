@@ -13,7 +13,6 @@ dependency-tasks = []
 [dependencies]
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
@@ -22,7 +21,6 @@ cdn-proto = { workspace = true }
 chrono = "0.4"
 committable = { workspace = true }
 either = { workspace = true }
-futures = { workspace = true }
 hotshot-task = { path = "../task" }
 hotshot-types = { path = "../types" }
 hotshot-builder-api = { path = "../builder-api" }
@@ -37,11 +35,10 @@ tagged-base64 = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
 vbs = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
+futures = "0.3"
 tokio = { workspace = true }
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }
+
+
 
 [lints]
 workspace = true

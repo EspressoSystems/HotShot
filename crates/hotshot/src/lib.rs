@@ -21,7 +21,7 @@ use std::{
 };
 
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
+
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
@@ -54,6 +54,7 @@ use hotshot_types::{
 /// Reexport rand crate
 pub use rand;
 use tasks::{add_request_network_task, add_response_task, add_vid_task};
+use tokio::spawn;
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
@@ -382,7 +383,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         // Wrap up a message
         let message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
 
-        async_spawn(async move {
+        spawn(async move {
             let da_membership = &api.memberships.da_membership.clone();
             join! {
                 // TODO We should have a function that can return a network error if there is one

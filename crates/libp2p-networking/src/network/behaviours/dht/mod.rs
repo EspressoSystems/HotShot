@@ -2,12 +2,7 @@
 pub mod bootstrap;
 use std::{collections::HashMap, num::NonZeroUsize, time::Duration};
 
-use async_compatibility_layer::{art, channel::UnboundedSender};
 /// a local caching layer for the DHT key value pairs
-use futures::{
-    channel::{mpsc, oneshot::Sender},
-    SinkExt,
-};
 use lazy_static::lazy_static;
 use libp2p::kad::{
     /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
@@ -17,6 +12,9 @@ use libp2p::kad::{
     store::RecordStore, Behaviour as KademliaBehaviour, BootstrapError, Event as KademliaEvent,
 };
 use libp2p_identity::PeerId;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot::Sender;
+use tokio::{spawn, sync::mpsc::UnboundedSender, time::sleep};
 use tracing::{error, info, warn};
 
 /// the number of nodes required to get an answer from
@@ -195,9 +193,9 @@ impl DHTBehaviour {
             retry_count: query.retry_count,
         };
         let backoff = query.backoff.next_timeout(false);
-        art::async_spawn(async move {
-            art::async_sleep(backoff).await;
-            let _ = tx.send(req).await;
+        spawn(async move {
+            sleep(backoff).await;
+            let _ = tx.send(req);
         });
     }
 
@@ -211,9 +209,9 @@ impl DHTBehaviour {
             value: query.value,
             notify: query.notify,
         };
-        art::async_spawn(async move {
-            art::async_sleep(query.backoff.next_timeout(false)).await;
-            let _ = tx.send(req).await;
+        spawn(async move {
+            sleep(query.backoff.next_timeout(false)).await;
+            let _ = tx.send(req);
         });
     }
 
@@ -276,7 +274,7 @@ impl DHTBehaviour {
             }) = self.in_progress_get_record_queries.remove(&id)
             {
                 // if channel has been dropped, cancel request
-                if notify.is_canceled() {
+                if notify.is_closed() {
                     return;
                 }
 
@@ -333,7 +331,7 @@ impl DHTBehaviour {
     fn handle_put_query(&mut self, record_results: PutRecordResult, id: QueryId) {
         if let Some(mut query) = self.in_progress_put_record_queries.remove(&id) {
             // dropped so we handle further
-            if query.notify.is_canceled() {
+            if query.notify.is_closed() {
                 return;
             }
 
@@ -362,10 +360,8 @@ impl DHTBehaviour {
 
     /// Send that the bootsrap suceeded
     fn finsish_bootstrap(&mut self) {
-        if let Some(mut tx) = self.bootstrap_tx.clone() {
-            art::async_spawn(
-                async move { tx.send(bootstrap::InputEvent::BootstrapFinished).await },
-            );
+        if let Some(tx) = self.bootstrap_tx.clone() {
+            spawn(async move { tx.send(bootstrap::InputEvent::BootstrapFinished).await });
         }
     }
     #[allow(clippy::too_many_lines)]

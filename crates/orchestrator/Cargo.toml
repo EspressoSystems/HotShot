@@ -8,10 +8,8 @@ randomized-leader-election = []
 fixed-leader-election = []
 
 [dependencies]
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 clap.workspace = true
-futures = { workspace = true }
 libp2p = { workspace = true }
 blake3 = { workspace = true }
 hotshot-types = { path = "../types" }
@@ -28,11 +26,8 @@ vbs = { workspace = true }
 multiaddr = "0.18"
 anyhow.workspace = true
 bincode.workspace = true
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }
+futures = "0.3"
 
 [lints]
 workspace = true

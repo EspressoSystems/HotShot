@@ -13,14 +13,12 @@ webui = []
 
 [dependencies]
 anyhow = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
 custom_debug = { workspace = true }
 derive_builder = "0.20"
 either = { workspace = true }
-futures = { workspace = true }
 hotshot-types = { path = "../types" }
 libp2p-swarm-derive = { workspace = true }
 libp2p-identity = { workspace = true }
@@ -36,14 +34,10 @@ tracing = { workspace = true }
 vbs = { workspace = true }
 void = "1"
 lazy_static = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 libp2p = { workspace = true, features = ["tokio"] }
 tokio = { workspace = true }
 tokio-stream = "0.1"
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-libp2p = { workspace = true, features = ["async-std"] }
-async-std = { workspace = true }
+futures = "0.3"
 
 [lints]
 workspace = true

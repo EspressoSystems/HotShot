@@ -4,12 +4,9 @@ pub mod types;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use async_compatibility_layer::{
-    art::async_spawn,
-    logging::{setup_backtrace, setup_logging},
-};
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
+use tokio::spawn;
 use tracing::instrument;
 
 use crate::{
@@ -21,18 +18,17 @@ use crate::{
 #[path = "../infra/mod.rs"]
 pub mod infra;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::main(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+#[tokio::main]
 #[instrument]
 async fn main() {
-    setup_logging();
-    setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     // use configfile args
     let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
 
     // orchestrator
-    async_spawn(run_orchestrator::<TestTypes>(OrchestratorArgs {
+    spawn(run_orchestrator::<TestTypes>(OrchestratorArgs {
         url: orchestrator_url.clone(),
         config: config.clone(),
     }));
@@ -47,7 +43,7 @@ async fn main() {
             8000 + (u16::try_from(i).expect("failed to create advertise address")),
         );
         let orchestrator_url = orchestrator_url.clone();
-        let node = async_spawn(async move {
+        let node = spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs {
                     url: orchestrator_url,

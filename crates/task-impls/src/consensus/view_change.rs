@@ -3,16 +3,13 @@ use std::sync::Arc;
 
 use anyhow::{ensure, Result};
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
     traits::node_implementation::{ConsensusTime, NodeType},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use tokio::{spawn, task::JoinHandle, time::sleep};
 use tracing::{debug, error};
 
 use crate::{
@@ -68,13 +65,13 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     }
 
     // Spawn a timeout task if we did actually update view
-    *timeout_task = Some(async_spawn({
+    *timeout_task = Some(spawn({
         let stream = event_stream.clone();
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
         let view_number = next_view;
         async move {
-            async_sleep(Duration::from_millis(timeout)).await;
+            sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
                 Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
                 &stream,

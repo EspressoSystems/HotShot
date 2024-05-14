@@ -6,7 +6,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -35,6 +34,7 @@ use hotshot_types::{
 use lru::LruCache;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use tide_disco::{method::ReadState, App, Url};
+use tokio::{spawn, time::sleep};
 
 #[async_trait]
 pub trait TestBuilderImplementation<TYPES: NodeType>
@@ -98,7 +98,7 @@ where
         app.register_module("block_info", builder_api)
             .expect("Failed to register the builder API");
 
-        async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
+        spawn(app.serve(url.clone(), STATIC_VER_0_1));
         (Some(Box::new(task)), url)
     }
 }
@@ -153,7 +153,7 @@ where
     {
         let blocks = self.blocks.clone();
         let (priv_key, pub_key) = (self.priv_key.clone(), self.pub_key.clone());
-        async_spawn(async move {
+        spawn(async move {
             let mut rng = SmallRng::from_entropy();
             let time_per_block = Duration::from_secs(1) / options.blocks_per_second;
             loop {
@@ -189,7 +189,7 @@ where
                 ) {
                     tracing::warn!("Block {} evicted", hash);
                 };
-                async_sleep(time_per_block.saturating_sub(start.elapsed())).await;
+                sleep(time_per_block.saturating_sub(start.elapsed())).await;
             }
         });
     }
@@ -287,7 +287,7 @@ where
     app.register_module::<Error, Version01>("block_info", builder_api)
         .expect("Failed to register the builder API");
 
-    async_spawn(app.serve(url, STATIC_VER_0_1));
+    spawn(app.serve(url, STATIC_VER_0_1));
 }
 
 #[derive(Debug, Clone)]
@@ -439,7 +439,7 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
         app.register_module::<Error, Version01>("block_info", builder_api)
             .expect("Failed to register the builder API");
 
-        async_spawn(app.serve(url, STATIC_VER_0_1));
+        spawn(app.serve(url, STATIC_VER_0_1));
     }
 }
 
@@ -463,7 +463,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
         mut self: Box<Self>,
         mut stream: Box<dyn Stream<Item = Event<TYPES>> + std::marker::Unpin + Send + 'static>,
     ) {
-        async_spawn(async move {
+        spawn(async move {
             loop {
                 match stream.next().await {
                     None => {

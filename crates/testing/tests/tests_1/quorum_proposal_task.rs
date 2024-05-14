@@ -60,14 +60,14 @@ async fn insert_vid_shares_for_view(
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 1;
     let handle = build_system_handle(node_id).await.0;
@@ -118,8 +118,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
     use hotshot_types::{
@@ -127,8 +127,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         utils::{View, ViewInner},
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 3;
     let handle = build_system_handle(node_id).await.0;
@@ -206,13 +206,13 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_qc_timeout() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::{data::null_block, simple_vote::TimeoutData};
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
@@ -274,14 +274,14 @@ async fn test_quorum_proposal_task_qc_timeout() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_view_sync() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     // We need to propose as the leader for view 2, otherwise we get caught up with the special
     // case in the genesis view.
@@ -347,11 +347,11 @@ async fn test_quorum_proposal_task_view_sync() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_propose_now() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
@@ -409,11 +409,11 @@ async fn test_quorum_proposal_task_propose_now() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_propose_now_timeout() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
@@ -481,11 +481,11 @@ async fn test_quorum_proposal_task_propose_now_timeout() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_propose_now_view_sync() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
@@ -556,11 +556,11 @@ async fn test_quorum_proposal_task_propose_now_view_sync() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_quorum_proposal_task_with_incomplete_events() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     // We need to propose as the leader for view 2, otherwise we get caught up with the special
     // case in the genesis view.

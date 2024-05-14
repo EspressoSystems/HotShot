@@ -6,16 +6,11 @@
 //use crate::traits::network::TimeoutErr;
 use std::num::NonZeroU64;
 
-#[cfg(async_executor_impl = "async-std")]
-use async_std::future::TimeoutError;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-#[cfg(async_executor_impl = "tokio")]
 use tokio::time::error::Elapsed as TimeoutError;
 
 use crate::traits::{block_contents::BlockPayload, node_implementation::NodeType};
-#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 /// Error type for `HotShot`
 #[derive(Debug, Snafu)]

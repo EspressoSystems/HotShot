@@ -4,16 +4,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use async_compatibility_layer::{
-    art::{async_sleep, async_timeout, future::to},
-    channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
-};
-use futures::channel::oneshot;
 use hotshot_types::traits::network::NetworkError as HotshotNetworkError;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
+use tokio::{
+    sync::{
+        broadcast::Receiver,
+        mpsc::{error::SendError, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
+    time::{error::Elapsed, sleep, timeout},
+};
 use tracing::{debug, info, instrument};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
@@ -59,8 +62,11 @@ impl NetworkNodeReceiver {
     /// recv a network event
     /// # Errors
     /// Errors if the receiver channel is closed
-    pub async fn recv(&self) -> Result<NetworkEvent, NetworkNodeHandleError> {
-        self.receiver.recv().await.context(ReceiverEndedSnafu)
+    pub async fn recv(&mut self) -> Result<NetworkEvent, NetworkNodeHandleError> {
+        self.receiver
+            .recv()
+            .await
+            .ok_or(NetworkNodeHandleError::RecvError)
     }
     /// Add a kill switch to the receiver
     pub fn set_kill_switch(&mut self, kill_switch: Receiver<()>) {
@@ -144,7 +150,7 @@ impl NetworkNodeHandle {
     /// # Errors
     /// if the client has stopped listening for a response
     pub async fn print_routing_table(&self) -> Result<(), NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::GetRoutingTable(s);
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -167,7 +173,7 @@ impl NetworkNodeHandle {
             if start.elapsed() >= timeout {
                 return Err(NetworkNodeHandleError::ConnectTimeout);
             }
-            async_sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
             let num_connected = self.num_connected().await?;
             info!(
                 "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
@@ -225,7 +231,7 @@ impl NetworkNodeHandle {
     /// # Errors
     /// if the client has stopped listening for a response
     pub async fn lookup_pid(&self, peer_id: PeerId) -> Result<(), NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::LookupPeer(peer_id, s);
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -261,7 +267,7 @@ impl NetworkNodeHandle {
         value: &impl Serialize,
         _: VER,
     ) -> Result<(), NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::PutDHT {
             key: Serializer::<VER>::serialize(key).context(SerializationSnafu)?,
             value: Serializer::<VER>::serialize(value).context(SerializationSnafu)?,
@@ -285,7 +291,7 @@ impl NetworkNodeHandle {
         retry_count: u8,
         _: VER,
     ) -> Result<V, NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::GetDHT {
             key: Serializer::<VER>::serialize(key).context(SerializationSnafu)?,
             notify: s,
@@ -308,10 +314,10 @@ impl NetworkNodeHandle {
     pub async fn get_record_timeout<V: for<'a> Deserialize<'a>, VER: StaticVersionType>(
         &self,
         key: &impl Serialize,
-        timeout: Duration,
+        timeout_duration: Duration,
         bind_version: VER,
     ) -> Result<V, NetworkNodeHandleError> {
-        let result = async_timeout(timeout, self.get_record(key, 3, bind_version)).await;
+        let result = timeout(timeout_duration, self.get_record(key, 3, bind_version)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -328,10 +334,10 @@ impl NetworkNodeHandle {
         &self,
         key: &impl Serialize,
         value: &impl Serialize,
-        timeout: Duration,
+        timeout_duration: Duration,
         bind_version: VER,
     ) -> Result<(), NetworkNodeHandleError> {
-        let result = async_timeout(timeout, self.put_record(key, value, bind_version)).await;
+        let result = timeout(timeout_duration, self.put_record(key, value, bind_version)).await;
         match result {
             Err(e) => Err(e).context(TimeoutSnafu),
             Ok(r) => r,
@@ -342,7 +348,7 @@ impl NetworkNodeHandle {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::Subscribe(topic, Some(s));
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -352,7 +358,7 @@ impl NetworkNodeHandle {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::Unsubscribe(topic, Some(s));
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
@@ -472,7 +478,6 @@ impl NetworkNodeHandle {
         debug!("peerid {:?}\t\tsending message {:?}", self.peer_id, req);
         self.send_network
             .send(req)
-            .await
             .map_err(|_| NetworkNodeHandleError::SendError)?;
         Ok(())
     }
@@ -485,7 +490,7 @@ impl NetworkNodeHandle {
     /// If channel errors out
     /// shouldn't happen.
     pub async fn num_connected(&self) -> Result<usize, NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::GetConnectedPeerNum(s);
         self.send_request(req).await?;
         Ok(r.await.unwrap())
@@ -499,7 +504,7 @@ impl NetworkNodeHandle {
     /// If channel errors out
     /// shouldn't happen.
     pub async fn connected_pids(&self) -> Result<HashSet<PeerId>, NetworkNodeHandleError> {
-        let (s, r) = futures::channel::oneshot::channel();
+        let (s, r) = oneshot::channel();
         let req = ClientRequest::GetConnectedPeers(s);
         self.send_request(req).await?;
         Ok(r.await.unwrap())
@@ -555,7 +560,7 @@ pub enum NetworkNodeHandleError {
     /// Error waiting for connections
     TimeoutError {
         /// source of error
-        source: to::TimeoutError,
+        source: Elapsed,
     },
     /// Could not connect to the network in time
     ConnectTimeout,
@@ -572,10 +577,7 @@ pub enum NetworkNodeHandleError {
     /// The network node has been killed
     Killed,
     /// The receiver was unable to receive a new message
-    ReceiverEnded {
-        /// source of error
-        source: UnboundedRecvError,
-    },
+    ReceiverEnded,
     /// no known topic matches the hashset of keys
     NoSuchTopic,
 }

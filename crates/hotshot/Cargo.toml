@@ -26,7 +26,6 @@ fixed-leader-election = []
 [dependencies]
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bimap = "0.6"
@@ -38,7 +37,7 @@ dashmap = "5"
 derive_more = "0.99"
 either = { workspace = true }
 ethereum-types = { workspace = true }
-futures = { workspace = true }
+futures = "0.3"
 hotshot-task = { path = "../task" }
 hotshot-task-impls = { path = "../task-impls", version = "0.5.36", default-features = false }
 hotshot-types = { path = "../types" }
@@ -58,22 +57,10 @@ hotshot-orchestrator = { path = "../orchestrator" }
 blake3.workspace = true
 sha2 = { workspace = true }
 num_enum = "0.7"
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
 cdn-client = { workspace = true }
 cdn-broker = { workspace = true, features = ["global-permits"] }
 cdn-marshal = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }
-cdn-client = { workspace = true, features = ["runtime-async-std"] }
-cdn-broker = { workspace = true, features = [
-  "runtime-async-std",
-  "global-permits",
-] }
-cdn-marshal = { workspace = true, features = ["runtime-async-std", "global-permits"] }
-
 
 [dev-dependencies]
 blake3 = { workspace = true }

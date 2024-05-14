@@ -9,10 +9,6 @@ mod node;
 
 use std::{collections::HashSet, fmt::Debug, str::FromStr};
 
-use futures::channel::oneshot::{self, Sender};
-#[cfg(async_executor_impl = "async-std")]
-use libp2p::dns::async_std::Transport as DnsTransport;
-#[cfg(async_executor_impl = "tokio")]
 use libp2p::dns::tokio::Transport as DnsTransport;
 use libp2p::{
     build_multiaddr,
@@ -25,11 +21,9 @@ use libp2p::{
     Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
-#[cfg(async_executor_impl = "async-std")]
-use quic::async_std::Transport as QuicTransport;
-#[cfg(async_executor_impl = "tokio")]
 use quic::tokio::Transport as QuicTransport;
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot::{self, Sender};
 use tracing::instrument;
 
 use self::behaviours::request_response::{Request, Response};
@@ -42,8 +36,6 @@ pub use self::{
         NetworkNodeHandleError, NetworkNodeReceiver,
     },
 };
-#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
@@ -214,18 +206,8 @@ pub async fn gen_transport(identity: Keypair) -> Result<BoxedTransport, NetworkE
         QuicTransport::new(config)
     };
 
-    let dns_quic = {
-        #[cfg(async_executor_impl = "async-std")]
-        {
-            DnsTransport::system(quic_transport).await
-        }
-
-        #[cfg(async_executor_impl = "tokio")]
-        {
-            DnsTransport::system(quic_transport)
-        }
-    }
-    .map_err(|e| NetworkError::TransportLaunch { source: e })?;
+    let dns_quic = DnsTransport::system(quic_transport)
+        .map_err(|e| NetworkError::TransportLaunch { source: e })?;
 
     Ok(dns_quic
         .map(|(peer_id, connection), _| (peer_id, StreamMuxerBox::new(connection)))

@@ -1,22 +1,16 @@
 use std::sync::Arc;
 
 use async_broadcast::{SendError, Sender};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn_blocking, JoinHandle};
 use hotshot_types::{
     data::VidDisperse,
     traits::{election::Membership, node_implementation::NodeType},
     vid::{vid_scheme, VidPrecomputeData},
 };
 use jf_vid::{precomputable::Precomputable, VidScheme};
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn_blocking, JoinHandle};
 
 /// Cancel a task
 pub async fn cancel_task<T>(task: JoinHandle<T>) {
-    #[cfg(async_executor_impl = "async-std")]
-    task.cancel().await;
-    #[cfg(async_executor_impl = "tokio")]
     task.abort();
 }
 
@@ -60,11 +54,7 @@ pub async fn calculate_vid_disperse<TYPES: NodeType>(
                 |data| vid_scheme(num_nodes).disperse_precompute(Arc::clone(&txns), &data)
             )
             .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
-    }).await;
-    #[cfg(async_executor_impl = "tokio")]
-    // Tokio's JoinHandle's `Output` is `Result<T, JoinError>`, while in async-std it's just `T`
-    // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
-    let vid_disperse = vid_disperse.unwrap();
+    }).await.unwrap();
 
     VidDisperse::from_membership(view, vid_disperse, membership.as_ref())
 }

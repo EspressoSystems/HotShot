@@ -19,14 +19,14 @@ use hotshot_types::{
 };
 use jf_vid::{precomputable::Precomputable, VidScheme};
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_vid_task() {
     use hotshot_task_impls::harness::run_harness;
     use hotshot_types::message::Proposal;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     // Build the API for node 2.
     let handle = build_system_handle(2).await.0;

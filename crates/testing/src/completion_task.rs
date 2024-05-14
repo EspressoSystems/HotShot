@@ -1,15 +1,12 @@
 use std::time::Duration;
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_spawn, async_timeout};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
+
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_types::traits::node_implementation::NodeType;
 use snafu::Snafu;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use tokio::{spawn, task::JoinHandle, time::timeout};
 
 use super::GlobalTestEvent;
 use crate::test_runner::{HotShotTaskCompleted, Node};
@@ -33,8 +30,8 @@ pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES, I> {
     pub fn run(mut self) -> JoinHandle<HotShotTaskCompleted> {
-        async_spawn(async move {
-            if async_timeout(self.duration, self.wait_for_shutdown())
+        spawn(async move {
+            if timeout(self.duration, self.wait_for_shutdown())
                 .await
                 .is_err()
             {

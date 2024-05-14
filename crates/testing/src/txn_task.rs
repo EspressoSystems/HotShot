@@ -1,15 +1,12 @@
 use std::time::Duration;
 
 use async_broadcast::{Receiver, TryRecvError};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
+
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use rand::thread_rng;
 use snafu::Snafu;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use tokio::{spawn, task::JoinHandle, time::sleep};
 
 use super::GlobalTestEvent;
 use crate::test_runner::{HotShotTaskCompleted, Node};
@@ -36,10 +33,10 @@ pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
     pub fn run(mut self) -> JoinHandle<HotShotTaskCompleted> {
-        async_spawn(async move {
-            async_sleep(Duration::from_millis(100)).await;
+        spawn(async move {
+            sleep(Duration::from_millis(100)).await;
             loop {
-                async_sleep(self.duration).await;
+                sleep(self.duration).await;
                 match self.shutdown_chan.try_recv() {
                     Ok(_event) => {
                         return HotShotTaskCompleted::ShutDown;

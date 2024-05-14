@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::Sender;
-use async_compatibility_layer::art::async_spawn;
+
 use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
@@ -20,6 +20,7 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
+use tokio::spawn;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
@@ -426,7 +427,7 @@ impl<
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
         let version = self.version;
-        async_spawn(async move {
+        spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
                 storage,
@@ -491,7 +492,7 @@ impl<
 
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
-        async_spawn(async move {
+        spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
                 storage,

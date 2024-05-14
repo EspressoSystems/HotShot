@@ -31,14 +31,14 @@ use sha2::Digest;
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_consensus_task() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -116,8 +116,8 @@ async fn test_consensus_task() {
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_consensus_vote() {
     use hotshot::tasks::task_state::CreateTaskState;
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
@@ -127,8 +127,8 @@ async fn test_consensus_vote() {
         view_generator::TestViewGenerator,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -176,8 +176,8 @@ async fn test_consensus_vote() {
 /// events occur. The permutation is specified as `input_permutation` and is a vector of indices.
 #[cfg(not(feature = "dependency-tasks"))]
 async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -240,8 +240,8 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_consensus_vote_with_permuted_dac() {
     // These tests verify that a vote is indeed sent no matter when it receives a DaCertificateRecv
     // event. In particular, we want to verify that receiving events in an unexpected (but still
@@ -256,14 +256,14 @@ async fn test_consensus_vote_with_permuted_dac() {
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_view_sync_finalize_propose() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(4).await.0;
     let (priv_key, pub_key) = key_pair_for_id(4);
@@ -396,13 +396,13 @@ async fn test_view_sync_finalize_propose() {
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will indeed vote if the cert is valid and matches the correct view number.
 async fn test_view_sync_finalize_vote() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -493,13 +493,13 @@ async fn test_view_sync_finalize_vote() {
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will NOT vote when the certificate matches a different view number.
 async fn test_view_sync_finalize_vote_fail_view_number() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -600,11 +600,11 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
 #[cfg(test)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
+
 async fn test_vid_disperse_storage_failure() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot_types::logging::setup_logging();
+    
 
     let handle = build_system_handle(2).await.0;
 
