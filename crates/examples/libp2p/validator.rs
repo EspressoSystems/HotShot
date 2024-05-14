@@ -20,7 +20,7 @@ pub mod infra;
 #[instrument]
 async fn main() {
     hotshot_types::logging::setup_logging();
-    
+
     let mut args = ValidatorArgs::parse();
 
     // If we did not set the advertise address, use our local IP and port 8000

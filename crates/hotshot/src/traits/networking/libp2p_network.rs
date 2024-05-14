@@ -589,13 +589,13 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 let bs_addrs = bootstrap_ref.read().await.clone();
 
                 debug!("Finished adding bootstrap addresses.");
-                handle.add_known_peers(bs_addrs).await.unwrap();
+                handle.add_known_peers(bs_addrs).unwrap();
 
-                handle.begin_bootstrap().await?;
+                handle.begin_bootstrap()?;
 
                 while !is_bootstrapped.load(Ordering::Relaxed) {
                     sleep(Duration::from_secs(1)).await;
-                    handle.begin_bootstrap().await?;
+                    handle.begin_bootstrap()?;
                 }
 
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
@@ -664,11 +664,11 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
     }
 
     /// Handle events for Version 0.1 of the protocol.
-    async fn handle_recvd_events_0_1(
+    fn handle_recvd_events_0_1(
         &self,
         msg: NetworkEvent,
         sender: &UnboundedSender<M>,
-        request_tx: Sender<(M, ResponseChannel<Response>)>,
+        request_tx: &Sender<(M, ResponseChannel<Response>)>,
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
@@ -687,7 +687,6 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                     .inner
                     .handle
                     .direct_response(chan, &Empty { byte: 0u8 }, STATIC_VER_0_1)
-                    .await
                     .is_err()
                 {
                     error!("failed to ack!");
@@ -732,8 +731,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
             loop {
                 select! {
                     message = network_rx.recv() => {
-                        match message{
-                            Ok(message) => {
+                        if let Ok(message) = message{
                                 match &message {
                                     NetworkEvent::IsBootstrapped => {
                                         is_bootstrapped.store(true, Ordering::Relaxed);
@@ -748,9 +746,8 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                                                     .handle_recvd_events_0_1(
                                                         message,
                                                         &sender,
-                                                        request_tx.clone(),
-                                                    )
-                                                    .await;
+                                                        &request_tx.clone(),
+                                                    );
                                             }
                                             Ok((version, _)) => {
                                                 warn!(
@@ -766,12 +763,10 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                                             }
                                         }
                                     }
-                                }
-                            },
-                            Err(_) => {
-                                warn!("Network receiver shut down!");
-                                return;
                             }
+                        } else {
+                            warn!("Network receiver shut down!");
+                            return;
                         }
                     }
 
@@ -857,7 +852,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 let Ok(response) = response_rx.await else {
                     continue;
                 };
-                let _ = handle.respond_data(&response, chan, bind_version).await;
+                let _ = handle.respond_data(&response, chan, bind_version);
             }
         });
 
@@ -938,7 +933,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         let handle_2 = Arc::clone(&handle);
                         let metrics_2 = metrics.clone();
                         boxed_sync(async move {
-                            match handle_2.gossip_no_serialize(topic_2, msg).await {
+                            match handle_2.gossip_no_serialize(topic_2, msg) {
                                 Err(e) => {
                                     metrics_2.message_failed_to_send.add(1);
                                     warn!("Failed to broadcast to libp2p: {:?}", e);
@@ -955,12 +950,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         }
 
-        match self
-            .inner
-            .handle
-            .gossip(topic, &message, bind_version)
-            .await
-        {
+        match self.inner.handle.gossip(topic, &message, bind_version) {
             Ok(()) => {
                 self.inner.metrics.outgoing_broadcast_message_count.add(1);
                 Ok(())
@@ -1051,7 +1041,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                         let handle_2 = Arc::clone(&handle);
                         let metrics_2 = metrics.clone();
                         boxed_sync(async move {
-                            match handle_2.direct_request_no_serialize(pid, msg).await {
+                            match handle_2.direct_request_no_serialize(pid, msg) {
                                 Err(e) => {
                                     metrics_2.message_failed_to_send.add(1);
                                     warn!("Failed to broadcast to libp2p: {:?}", e);
@@ -1072,7 +1062,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             .inner
             .handle
             .direct_request(pid, &message, bind_version)
-            .await
         {
             Ok(()) => Ok(()),
             Err(e) => Err(e.into()),

@@ -235,7 +235,7 @@ pub async fn spin_up_swarms(
         connecting_futs.push({
             let node = Arc::clone(&node);
             async move {
-                node.begin_bootstrap().await?;
+                node.begin_bootstrap()?;
                 node.lookup_pid(PeerId::random()).await
             }
             .boxed_local()
@@ -272,7 +272,7 @@ pub async fn spin_up_swarms(
         connecting_futs.push({
             let node = Arc::clone(&node);
             async move {
-                node.begin_bootstrap().await?;
+                node.begin_bootstrap()?;
                 node.lookup_pid(PeerId::random()).await
             }
             .boxed_local()
@@ -299,7 +299,6 @@ pub async fn spin_up_swarms(
         handle
             .handle
             .add_known_peers(to_share)
-            .await
             .context(HandleSnafu)?;
     }
 

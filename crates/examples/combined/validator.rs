@@ -20,7 +20,6 @@ pub mod infra;
 #[instrument]
 async fn main() {
     hotshot_types::logging::setup_logging();
-    
 
     let mut args = ValidatorArgs::parse();
 

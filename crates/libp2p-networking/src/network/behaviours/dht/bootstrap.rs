@@ -64,7 +64,7 @@ impl DHTBootstrapTask {
                 match maybe_event {
                     Some(InputEvent::StartBootstrap) => {
                         tracing::debug!("Start bootstrap in bootstrap task");
-                        self.bootstrap().await;
+                        self.bootstrap();
                     }
                     Some(InputEvent::ShutdownBootstrap) => {
                         tracing::debug!("ShutdownBootstrap received, shutting down");
@@ -78,12 +78,12 @@ impl DHTBootstrapTask {
                 }
             } else {
                 tracing::debug!("Start bootstrap in bootstrap task after timeout");
-                self.bootstrap().await;
+                self.bootstrap();
             }
         }
     }
     /// Start bootstrap
-    async fn bootstrap(&mut self) {
+    fn bootstrap(&mut self) {
         self.in_progress = true;
         let _ = self.network_tx.send(ClientRequest::BeginBootstrap);
     }

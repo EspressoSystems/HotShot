@@ -18,7 +18,7 @@ pub mod infra;
 #[instrument]
 async fn main() {
     hotshot_types::logging::setup_logging();
-    
+
     let args = ValidatorArgs::parse();
     info!("connecting to orchestrator at {:?}", args.url);
     infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(args).await;

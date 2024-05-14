@@ -96,30 +96,32 @@ pub async fn counter_handle_network_event(
                             std::process::exit(-1);
                         }
 
-                        handle
-                            .handle
-                            .direct_response(chan, &CounterMessage::Noop, STATIC_VER_0_1)
-                            .await?;
+                        handle.handle.direct_response(
+                            chan,
+                            &CounterMessage::Noop,
+                            STATIC_VER_0_1,
+                        )?;
                     }
                     // direct message response
                     AskForCounter => {
                         let response = MyCounterIs(handle.load_state());
                         handle
                             .handle
-                            .direct_response(chan, &response, STATIC_VER_0_1)
-                            .await?;
+                            .direct_response(chan, &response, STATIC_VER_0_1)?;
                     }
                     MyCounterIs(_) => {
-                        handle
-                            .handle
-                            .direct_response(chan, &CounterMessage::Noop, STATIC_VER_0_1)
-                            .await?;
+                        handle.handle.direct_response(
+                            chan,
+                            &CounterMessage::Noop,
+                            STATIC_VER_0_1,
+                        )?;
                     }
                     Noop => {
-                        handle
-                            .handle
-                            .direct_response(chan, &CounterMessage::Noop, STATIC_VER_0_1)
-                            .await?;
+                        handle.handle.direct_response(
+                            chan,
+                            &CounterMessage::Noop,
+                            STATIC_VER_0_1,
+                        )?;
                     }
                 }
             }
@@ -154,7 +156,6 @@ async fn run_request_response_increment<'a>(
                 &CounterMessage::AskForCounter,
                 STATIC_VER_0_1,
             )
-            .await
             .context(HandleSnafu)?;
         if !requester_handle.wait_for_state(timeout).await {
             error!("timed out waiting for {requestee_pid:?} to update state");
@@ -195,15 +196,14 @@ async fn run_gossip_round(
     for handle in handles {
         // already modified, so skip msg_handle
         if handle.handle.peer_id() != msg_handle.handle.peer_id() {
-            let handle_ = handle.clone();
-            futs.spawn(async move { handle_.wait_for_state(timeout_duration).await });
+            let handle = handle.clone();
+            futs.spawn(async move { handle.wait_for_state(timeout_duration).await });
         }
     }
 
     msg_handle
         .handle
         .gossip("global".to_string(), &msg, STATIC_VER_0_1)
-        .await
         .context(HandleSnafu)?;
 
     // make sure all are ready/listening

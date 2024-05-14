@@ -19,7 +19,7 @@ pub mod infra;
 #[instrument]
 async fn main() {
     hotshot_types::logging::setup_logging();
-    
+
     let args = MultiValidatorArgs::parse();
     tracing::error!("connecting to orchestrator at {:?}", args.url);
     let mut nodes = Vec::new();

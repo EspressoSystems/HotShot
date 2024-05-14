@@ -883,7 +883,6 @@ pub async fn main_entry_point<
     Leaf<TYPES>: TestableLeaf,
 {
     hotshot_types::logging::setup_logging();
-    
 
     info!("Starting validator");
 

@@ -27,7 +27,6 @@ use tracing::error;
 #[tokio::main]
 async fn main() {
     hotshot_types::logging::setup_logging();
-    
 
     // use configfile args
     let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();

@@ -14,7 +14,7 @@ pub mod infra;
 #[instrument]
 async fn main() {
     hotshot_types::logging::setup_logging();
-    
+
     let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
     run_orchestrator::<TestTypes>(OrchestratorArgs::<TestTypes> {
         url: orchestrator_url.clone(),
