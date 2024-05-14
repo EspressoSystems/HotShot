@@ -19,9 +19,9 @@ use hotshot_types::{
 };
 use tracing::{debug, error};
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
-
-use super::helpers::get_parent_leaf_and_state;
+use crate::{
+    consensus::helpers::get_parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
+};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -83,18 +83,22 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperseShare`]
-    /// and high qc [`QuorumCertificate`], with optional [`ViewChangeEvidence`].
+    /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
+    /// with optional [`ViewChangeEvidence`].
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
         vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
-        let high_qc = self.consensus.read().await.high_qc().clone();
-        error!(?high_qc.view_number);
-        let (parent_leaf, state) =
-            get_parent_leaf_and_state(self.latest_proposed_view, self.view_number, &high_qc, self)
-                .await?;
+        let (parent_leaf, state) = get_parent_leaf_and_state(
+            self.latest_proposed_view,
+            self.view_number,
+            Arc::clone(&self.quorum_membership),
+            self.public_key.clone(),
+            Arc::clone(&self.consensus),
+        )
+        .await?;
 
         let proposal_certificate = view_change_evidence
             .as_ref()
@@ -122,13 +126,12 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
-            justify_qc: high_qc,
+            justify_qc: self.consensus.read().await.high_qc().clone(),
             proposal_certificate,
             upgrade_certificate: None,
         };
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
-        error!(?proposed_leaf, ?parent_leaf, "Leaves");
         ensure!(
             proposed_leaf.get_parent_commitment() == parent_leaf.commit(),
             "Proposed leaf parent does not equal high qc"
@@ -176,7 +179,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut view_sync_finalize_cert = None;
         let mut vid_share = None;
         for event in res.iter().flatten().flatten() {
-            tracing::error!(?event);
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -234,7 +236,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 _ => {}
             }
         }
-        tracing::error!("==========");
 
         if commit_and_metadata.is_none() {
             error!(

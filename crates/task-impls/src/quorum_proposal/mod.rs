@@ -40,9 +40,6 @@ mod dependency_handle;
 /// Event handlers for [`QuorumProposalTaskState`].
 mod handlers;
 
-/// Helper functions for proposing.
-mod helpers;
-
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Latest view number that has been proposed for.
@@ -523,14 +520,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::HighQcUpdated(qc) => {
                 // First, update the high QC.
                 if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
-                    debug!("Failed to update high qc; error = {e}");
-
-                    // We need to exit here, otherwise we'll just fail to propose anyway since this
-                    // value is not valid in some way for the view we're proposing for.
-                    return;
+                    tracing::trace!("Failed to update high qc; error = {e}");
                 }
-
-                tracing::error!("High qc is now {:?}", qc.view_number);
 
                 let view_number = qc.get_view_number() + 1;
                 self.create_dependency_task_if_new(

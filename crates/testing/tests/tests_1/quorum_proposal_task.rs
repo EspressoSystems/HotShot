@@ -56,6 +56,8 @@ fn create_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal_view_1() {
+    use hotshot_types::simple_certificate::QuorumCertificate;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -72,19 +74,28 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let mut leaders = Vec::new();
     let mut leaves = Vec::new();
     let mut vids = Vec::new();
+    let mut consensus_writer = handle.hotshot.consensus().write().await;
     for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
         vids.push(view.vid_proposal.clone());
-    }
 
-    let cert = proposals[0].data.justify_qc.clone();
+        // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
+        // to make sure they show up during tests.
+        consensus_writer
+            .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+    }
+    drop(consensus_writer);
+
+    // We must send the genesis cert here to initialize hotshot successfully.
+    let genesis_cert = QuorumCertificate::genesis(&*handle.hotshot.get_instance_state());
+    let genesis_leaf = Leaf::genesis(&*handle.hotshot.get_instance_state());
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let view = TestScriptStage {
         inputs: vec![
-            QCFormed(either::Left(cert.clone())),
+            QCFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
@@ -94,12 +105,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                     .unwrap(),
             ),
             VIDShareValidated(get_vid_share(&vids[0].0, handle.get_public_key())),
-            ValidatedStateUpdated(
-                ViewNumber::new(0),
-                create_fake_view_with_leaf(leaves[0].clone()),
-            ),
+            ValidatedStateUpdated(ViewNumber::new(0), create_fake_view_with_leaf(genesis_leaf)),
         ],
-        outputs: vec![exact(HighQcUpdated(cert.clone())), quorum_proposal_send()],
+        outputs: vec![
+            exact(HighQcUpdated(genesis_cert.clone())),
+            quorum_proposal_send(),
+        ],
         asserts: vec![],
     };
 
