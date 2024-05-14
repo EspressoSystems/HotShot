@@ -24,10 +24,15 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 
 use crate::{
-    consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
+    consensus::helpers::get_parent_leaf_and_state,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
+
+use self::handlers::handle_quorum_proposal_recv;
+
+/// Event handlers for this task.
+mod handlers;
 
 /// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.
@@ -116,7 +121,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     ) {
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
-            match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
+            match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
                 Ok(Some(current_proposal)) => {
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match get_parent_leaf_and_state(
