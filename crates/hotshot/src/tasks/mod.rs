@@ -186,7 +186,7 @@ pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &SystemContextHandle<TYPES, I>,
 ) {
     // build the da task
-    let da_state = DATaskState::create_from(handle).await;
+    let da_state = DaTaskState::create_from(handle).await;
 
     let task = Task::new(tx, rx, Arc::clone(&task_reg), da_state);
     task_reg.run_task(task).await;

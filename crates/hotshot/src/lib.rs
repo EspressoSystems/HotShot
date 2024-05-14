@@ -86,7 +86,7 @@ pub struct Networks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for reaching the DA committee
-    pub da_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Phantom for TYPES and I
     pub _pd: PhantomData<(TYPES, I)>,
@@ -618,7 +618,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_rx.activate_cloned(),
             Arc::clone(&da_network),
             da_membership,
-            network::committee_filter,
+            network::da_filter,
             Arc::clone(&handle.get_storage()),
         )
         .await;
