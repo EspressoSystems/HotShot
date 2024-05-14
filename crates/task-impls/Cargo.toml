@@ -35,7 +35,7 @@ tagged-base64 = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
 vbs = { workspace = true }
-futures = "0.3"
+futures = { workspace = true }
 tokio = { workspace = true }
 
 

@@ -26,7 +26,7 @@ digest = { workspace = true, features = ["rand_core"] }
 either = { workspace = true }
 espresso-systems-common = { workspace = true }
 ethereum-types = { workspace = true }
-futures = "0.3"
+futures = { workspace = true }
 cdn-proto = { workspace = true }
 tracing-subscriber = "0.3"
 generic-array = { workspace = true }

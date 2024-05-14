@@ -42,5 +42,5 @@ tracing = { workspace = true }
 vbs = { workspace = true }
 lru = { workspace = true }
 tagged-base64.workspace = true
-futures = "0.3"
+futures = { workspace = true }
 tokio = { workspace = true }

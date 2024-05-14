@@ -17,4 +17,4 @@ tide-disco = { workspace = true }
 toml = { workspace = true }
 committable = { workspace = true }
 vbs = { workspace = true }
-futures = "0.3"
+futures = { workspace = true }

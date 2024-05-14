@@ -37,7 +37,7 @@ dashmap = "5"
 derive_more = "0.99"
 either = { workspace = true }
 ethereum-types = { workspace = true }
-futures = "0.3"
+futures = { workspace = true }
 hotshot-task = { path = "../task" }
 hotshot-task-impls = { path = "../task-impls", version = "0.5.36", default-features = false }
 hotshot-types = { path = "../types" }
