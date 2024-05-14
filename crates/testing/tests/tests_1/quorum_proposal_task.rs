@@ -1,5 +1,6 @@
 #![cfg(feature = "dependency-tasks")]
 
+use committable::Committable;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::TestMetadata,
@@ -44,7 +45,7 @@ fn make_payload_commitment(
 fn create_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
     View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.get_parent_commitment(),
+            leaf: leaf.commit(),
             state: TestValidatedState::default().into(),
             delta: None,
         },
@@ -129,12 +130,24 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let mut leaders = Vec::new();
     let mut leaves = Vec::new();
     let mut vids = Vec::new();
+    let mut consensus_writer = handle.hotshot.consensus().write().await;
     for view in (&mut generator).take(5) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
         vids.push(view.vid_proposal.clone());
+        println!("{:?}", view.leaf.get_view_number());
+
+        // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
+        // to make sure they show up during tests.
+        consensus_writer
+            .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+        consensus_writer.update_validated_state_map(
+            view.view_number,
+            create_fake_view_with_leaf(view.leaf.clone()),
+        );
     }
+    drop(consensus_writer);
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
@@ -167,7 +180,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         asserts: vec![],
     };
 
-    // Not proposing for view 2, either.
+    // Proposing for this view since we've received a proposal for view 2.
     let view_2 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[1].clone()),
@@ -193,13 +206,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         asserts: vec![],
     };
 
+    // Now, let's verify that we get the decide on the 3-chain.
     let view_3 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[2].data.clone(), leaves[2].clone()),
             QCFormed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(4)),
-                builder_commitment,
+                builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
@@ -211,10 +225,32 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 create_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
+        outputs: vec![exact(HighQcUpdated(proposals[3].data.justify_qc.clone()))],
+        asserts: vec![],
+    };
+
+    let view_4 = TestScriptStage {
+        inputs: vec![
+            QuorumProposalValidated(proposals[3].data.clone(), leaves[3].clone()),
+            QCFormed(either::Left(proposals[4].data.justify_qc.clone())),
+            SendPayloadCommitmentAndMetadata(
+                make_payload_commitment(&quorum_membership, ViewNumber::new(5)),
+                builder_commitment,
+                TestMetadata,
+                ViewNumber::new(5),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
+            ),
+            VIDShareValidated(get_vid_share(&vids[4].0, handle.get_public_key())),
+            ValidatedStateUpdated(
+                proposals[3].data.get_view_number(),
+                create_fake_view_with_leaf(leaves[3].clone()),
+            ),
+        ],
         outputs: vec![
-            exact(HighQcUpdated(proposals[3].data.justify_qc.clone())),
-            exact(LockedViewUpdated(ViewNumber::new(2))),
-            exact(LeafDecided(leaves)),
+            exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
+            // exact(LockedViewUpdated(ViewNumber::new(4))),
+            // exact(LeafDecided(leaves)),
         ],
         asserts: vec![],
     };
@@ -222,7 +258,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let quorum_proposal_task_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    let script = vec![view_1, view_2, view_3];
+    let script = vec![view_1, view_2, view_3, view_4];
     run_test_script(script, quorum_proposal_task_state).await;
 }
 

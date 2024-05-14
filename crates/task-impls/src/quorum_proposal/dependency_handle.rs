@@ -91,6 +91,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
         let high_qc = self.consensus.read().await.high_qc().clone();
+        error!(?high_qc.view_number);
         let (parent_leaf, state) =
             get_parent_leaf_and_state(self.latest_proposed_view, self.view_number, &high_qc, self)
                 .await?;
@@ -127,6 +128,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         };
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
+        error!(?proposed_leaf, ?parent_leaf, "Leaves");
         ensure!(
             proposed_leaf.get_parent_commitment() == parent_leaf.commit(),
             "Proposed leaf parent does not equal high qc"
@@ -145,6 +147,11 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             "Sending proposal for view {:?}",
             proposed_leaf.get_view_number(),
         );
+
+        self.consensus
+            .write()
+            .await
+            .update_last_proposed_view(self.view_number)?;
         async_sleep(Duration::from_millis(self.round_start_delay)).await;
         broadcast_event(
             Arc::new(HotShotEvent::QuorumProposalSend(
@@ -169,6 +176,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
         let mut view_sync_finalize_cert = None;
         let mut vid_share = None;
         for event in res.iter().flatten().flatten() {
+            tracing::error!(?event);
             match event.as_ref() {
                 HotShotEvent::QuorumProposalValidated(proposal, _) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
@@ -226,6 +234,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 _ => {}
             }
         }
+        tracing::error!("==========");
 
         if commit_and_metadata.is_none() {
             error!(

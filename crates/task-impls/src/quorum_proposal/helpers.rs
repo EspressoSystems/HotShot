@@ -30,7 +30,7 @@ pub(crate) async fn get_parent_leaf_and_state<TYPES: NodeType>(
     );
 
     let parent_view_number = high_qc.get_view_number();
-
+    tracing::error!(?parent_view_number);
     let consensus_reader = task_state.consensus.read().await;
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
         format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
@@ -44,6 +44,8 @@ pub(crate) async fn get_parent_leaf_and_state<TYPES: NodeType>(
         .saved_leaves()
         .get(&leaf_commitment)
         .context("Failed to find high QC of parent")?;
+
+    tracing::error!(?leaf);
 
     let reached_decided = leaf.get_view_number() == consensus_reader.last_decided_view();
     let parent_leaf = leaf.clone();

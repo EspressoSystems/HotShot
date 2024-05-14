@@ -109,9 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
-                        if let HotShotEvent::QCFormed(either::Left(qc)) = event {
-                            qc.get_view_number() + 1
-                        } else if let HotShotEvent::HighQcUpdated(qc) = event {
+                        if let HotShotEvent::HighQcUpdated(qc) = event {
                             qc.get_view_number() + 1
                         } else {
                             return false;
@@ -531,6 +529,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     // value is not valid in some way for the view we're proposing for.
                     return;
                 }
+
+                tracing::error!("High qc is now {:?}", qc.view_number);
 
                 let view_number = qc.get_view_number() + 1;
                 self.create_dependency_task_if_new(
