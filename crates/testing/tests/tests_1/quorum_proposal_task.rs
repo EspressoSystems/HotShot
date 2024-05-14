@@ -9,7 +9,7 @@ use hotshot_example_types::{
 };
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
-    predicates::event::{exact, quorum_proposal_send},
+    predicates::event::{exact, leaf_decided, quorum_proposal_send},
     script::{run_test_script, TestScriptStage},
     task_helpers::{build_cert, get_vid_share, key_pair_for_id},
     task_helpers::{build_system_handle, vid_scheme_from_view_number},
@@ -136,16 +136,11 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
         vids.push(view.vid_proposal.clone());
-        println!("{:?}", view.leaf.get_view_number());
 
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
             .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
-        consensus_writer.update_validated_state_map(
-            view.view_number,
-            create_fake_view_with_leaf(view.leaf.clone()),
-        );
     }
     drop(consensus_writer);
 
@@ -200,6 +195,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
         ],
         outputs: vec![
+            exact(LockedViewUpdated(ViewNumber::new(1))),
             exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
             quorum_proposal_send(),
         ],
@@ -248,9 +244,9 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
         ],
         outputs: vec![
+            exact(LockedViewUpdated(ViewNumber::new(3))),
+            leaf_decided(),
             exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
-            // exact(LockedViewUpdated(ViewNumber::new(4))),
-            // exact(LeafDecided(leaves)),
         ],
         asserts: vec![],
     };
