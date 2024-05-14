@@ -17,10 +17,6 @@ concurrency:
 jobs:
   clippy:
     strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +41,7 @@ jobs:
 
       - name: Run clippy
         run: |
-          just ${{ matrix.just_variants }} clippy
+          just clippy
 
   fmt:
     runs-on: ubuntu-latest

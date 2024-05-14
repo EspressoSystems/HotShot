@@ -28,7 +28,7 @@ espresso-systems-common = { workspace = true }
 ethereum-types = { workspace = true }
 futures = { workspace = true }
 cdn-proto = { workspace = true }
-tracing-subscriber = "0.3"
+tracing-subscriber = { workspace = true }
 generic-array = { workspace = true }
 
 # TODO generic-array should not be a direct dependency
