@@ -387,7 +387,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             #[cfg(not(feature = "dependency-tasks"))]
-            HotShotEvent::QCFormed(cert) => match cert {
+            HotShotEvent::QcFormed(cert) => match cert {
                 either::Right(qc) => {
                     self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
 
@@ -455,7 +455,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 self.spawn_vote_task(view, event_stream);
             }
             #[cfg(not(feature = "dependency-tasks"))]
-            HotShotEvent::VIDShareRecv(disperse) => {
+            HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
 
                 debug!(
@@ -738,14 +738,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
             HotShotEvent::QuorumProposalRecv(_, _)
                 | HotShotEvent::QuorumVoteRecv(_)
                 | HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QCFormed(_)
+                | HotShotEvent::QcFormed(_)
                 | HotShotEvent::UpgradeCertificateFormed(_)
                 | HotShotEvent::DaCertificateRecv(_)
                 | HotShotEvent::ViewChange(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(_)
                 | HotShotEvent::TimeoutVoteRecv(_)
-                | HotShotEvent::VIDShareRecv(..)
+                | HotShotEvent::VidShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::QuorumVoteSend(_)
                 | HotShotEvent::QuorumProposalSend(_, _)
