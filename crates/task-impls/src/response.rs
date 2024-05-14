@@ -10,9 +10,7 @@ use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
-    message::{
-        CommitteeConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
-    },
+    message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseChannel, ResponseMessage},
@@ -128,29 +126,24 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
         let consensus = self.consensus.upgradable_read().await;
         let contained = consensus
-            .vid_shares
+            .vid_shares()
             .get(&view)
             .is_some_and(|m| m.contains_key(key));
         if !contained {
-            let txns = consensus.saved_payloads.get(&view)?;
+            let txns = consensus.saved_payloads().get(&view)?;
             let vid =
-                calculate_vid_disperse(Arc::clone(txns), &Arc::clone(&self.quorum), view).await;
+                calculate_vid_disperse(Arc::clone(txns), &Arc::clone(&self.quorum), view, None)
+                    .await;
             let shares = VidDisperseShare::from_vid_disperse(vid);
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
             for share in shares {
-                let s = share.clone();
-                let key: <TYPES as NodeType>::SignatureKey = s.recipient_key;
                 if let Some(prop) = share.to_proposal(&self.private_key) {
-                    consensus
-                        .vid_shares
-                        .entry(view)
-                        .or_default()
-                        .insert(key, prop);
+                    consensus.update_vid_shares(view, prop);
                 }
             }
-            return consensus.vid_shares.get(&view)?.get(key).cloned();
+            return consensus.vid_shares().get(&view)?.get(key).cloned();
         }
-        consensus.vid_shares.get(&view)?.get(key).cloned()
+        consensus.vid_shares().get(&view)?.get(key).cloned()
     }
 
     /// Handle the request contained in the message. Returns the response we should send
@@ -162,12 +155,11 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 let Some(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };
-                let seq_msg =
-                    SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(share));
+                let seq_msg = SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(share));
                 self.make_msg(ResponseMessage::Found(seq_msg))
             }
             // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
-            RequestKind::DAProposal(_view) => self.make_msg(ResponseMessage::NotFound),
+            RequestKind::DaProposal(_view) => self.make_msg(ResponseMessage::NotFound),
         }
     }
 

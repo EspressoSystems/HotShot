@@ -208,7 +208,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for DA committee
-    pub committee_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -535,7 +535,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
 
                         let mut consensus = self.consensus.write().await;
-                        consensus.update_high_qc_if_new(qc.clone());
+                        if let Err(e) = consensus.update_high_qc(qc.clone()) {
+                            tracing::trace!("{e:?}");
+                        }
 
                         // We need to drop our handle here to make the borrow checker happy.
                         drop(consensus);

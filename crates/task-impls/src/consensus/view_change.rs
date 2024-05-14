@@ -91,15 +91,17 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
     if usize::try_from(cur_view.get_u64()).unwrap()
-        > usize::try_from(consensus.last_decided_view.get_u64()).unwrap()
+        > usize::try_from(consensus.last_decided_view().get_u64()).unwrap()
     {
         consensus.metrics.number_of_views_since_last_decide.set(
             usize::try_from(cur_view.get_u64()).unwrap()
-                - usize::try_from(consensus.last_decided_view.get_u64()).unwrap(),
+                - usize::try_from(consensus.last_decided_view().get_u64()).unwrap(),
         );
     }
     let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-    consensus.update_view_if_new(new_view);
+    if let Err(e) = consensus.update_view(new_view) {
+        tracing::trace!("{e:?}");
+    }
     tracing::trace!("View updated successfully");
 
     Ok(())

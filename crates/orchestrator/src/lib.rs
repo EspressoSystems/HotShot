@@ -283,6 +283,10 @@ where
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<(u64, bool), ServerError> {
+        if let Some((node_index, is_da)) = self.pub_posted.get(pubkey) {
+            return Ok((*node_index, *is_da));
+        }
+
         if !self.accepting_new_keys {
             return Err(ServerError {
                 status: tide_disco::StatusCode::Forbidden,
@@ -290,10 +294,6 @@ where
                     "Network has been started manually, and is no longer registering new keys."
                         .to_string(),
             });
-        }
-
-        if let Some((node_index, is_da)) = self.pub_posted.get(pubkey) {
-            return Ok((*node_index, *is_da));
         }
 
         let node_index = self.pub_posted.len() as u64;
@@ -313,7 +313,7 @@ where
         // We add the node to the DA committee depending on either its node index or whether it requested membership.
         //
         // Since we issue `node_index` incrementally, if we are deciding DA membership by node_index
-        // we only need to check that the committee is not yet full.
+        // we only need to check that the DA committee is not yet full.
         //
         // Note: this logically simplifies to (self.config.indexed_da || da_requested) && !da_full,
         // but writing it that way makes it a little less clear to me.

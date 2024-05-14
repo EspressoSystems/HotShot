@@ -392,17 +392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-pallas"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "760ecac12a00211188c9101b63bd284b80da5abcc5d97d9d2b3803bca1f63a52"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-std",
-]
-
-[[package]]
 name = "ark-poly"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -898,7 +887,7 @@ checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -928,7 +917,7 @@ checksum = "c6fa2087f2753a7da8cc1c0dbfcf89579dd57458e36769de5ac750b4671737ca"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -1013,7 +1002,7 @@ checksum = "edf3ee19dbc0a46d740f6f0926bde8c50f02bdbc7b536842da28f6ac56513a8b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -1083,12 +1072,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cbbc9d0964165b47557570cce6c952866c2678457aca742aafc9fb771d30270"
 
 [[package]]
-name = "base16ct"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
-
-[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1146,7 +1129,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 2.0.61",
+ "syn 2.0.63",
  "which",
 ]
 
@@ -1340,7 +1323,7 @@ checksum = "d32a725bc159af97c3e629873bb9f88fb8cf8a4867175f76dc987815ea07c83b"
 [[package]]
 name = "cdn-broker"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.2#c41604361b634830b5ba874e06b997993055c25c"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1348,7 +1331,7 @@ dependencies = [
  "console-subscriber",
  "dashmap",
  "derivative",
- "jf-primitives 0.4.0-pre.0",
+ "jf-signature",
  "lazy_static",
  "local-ip-address",
  "parking_lot",
@@ -1364,12 +1347,12 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.2#c41604361b634830b5ba874e06b997993055c25c"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
- "jf-primitives 0.4.0-pre.0",
+ "jf-signature",
  "rand 0.8.5",
  "tokio",
  "tracing",
@@ -1379,12 +1362,12 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.2#c41604361b634830b5ba874e06b997993055c25c"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
- "jf-primitives 0.4.0-pre.0",
+ "jf-signature",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -1393,7 +1376,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.2#c41604361b634830b5ba874e06b997993055c25c"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -1401,11 +1384,11 @@ dependencies = [
  "capnp",
  "capnpc",
  "derivative",
- "jf-primitives 0.4.0-pre.0",
+ "jf-signature",
  "kanal",
  "lazy_static",
  "mnemonic",
- "mockall",
+ "num_enum",
  "pem",
  "prometheus",
  "quinn",
@@ -1538,7 +1521,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -1618,7 +1601,7 @@ dependencies = [
  "hex",
  "serde",
  "sha3",
- "tagged-base64 0.4.0",
+ "tagged-base64",
 ]
 
 [[package]]
@@ -1908,18 +1891,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto_kx"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "704722d1d929489c8528bb1882805700f1ba20f54325704973e786352320b1ed"
-dependencies = [
- "blake2",
- "curve25519-dalek",
- "rand_core 0.6.4",
- "serdect",
-]
-
-[[package]]
 name = "csv"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1994,7 +1965,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2038,7 +2009,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim 0.10.0",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2049,7 +2020,7 @@ checksum = "a668eda54683121533a393014d8692171709ff57a7d61f187b6e782719f8933f"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2145,7 +2116,7 @@ checksum = "67e77553c4162a157adbf834ebae5b415acbecbeafc7a74b0e886657506a7611"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2166,7 +2137,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2176,7 +2147,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "206868b8242f27cecce124c19fd88157fbd0dd334df2587f36417bafbc85097b"
 dependencies = [
  "derive_builder_core",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2257,7 +2228,7 @@ checksum = "487585f4d0c6655fe74905e2504d8ad6908e4db67f744eb140876906c2f3175d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2270,22 +2241,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "doc-comment"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
-
-[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
-
-[[package]]
-name = "downcast"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
 name = "downcast-rs"
@@ -2374,7 +2333,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -2401,11 +2360,6 @@ dependencies = [
  "libc",
  "windows-sys 0.52.0",
 ]
-
-[[package]]
-name = "espresso-systems-common"
-version = "0.4.0"
-source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4.0#5abd890f79014a86db31286e1f3a529f161e69de"
 
 [[package]]
 name = "espresso-systems-common"
@@ -2611,12 +2565,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fragile"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
-
-[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2728,7 +2676,7 @@ checksum = "87750cf4b7a4c0625b1529e4c543c2182106e4dedc60a2a6455e00d212c489ac"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -3171,15 +3119,16 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-primitives 0.4.4",
+ "jf-signature",
  "libp2p-identity",
  "libp2p-networking",
  "lru 0.12.3",
+ "num_enum",
  "portpicker",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
- "snafu 0.8.2",
+ "snafu",
  "surf-disco",
  "time 0.3.36",
  "tokio",
@@ -3199,8 +3148,8 @@ dependencies = [
  "futures",
  "hotshot-types",
  "serde",
- "snafu 0.8.2",
- "tagged-base64 0.4.0",
+ "snafu",
+ "tagged-base64",
  "tide-disco",
  "toml",
  "vbs",
@@ -3229,7 +3178,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "snafu 0.8.2",
+ "snafu",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3273,7 +3222,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
- "snafu 0.8.2",
+ "snafu",
  "surf-disco",
  "time 0.3.36",
  "tokio",
@@ -3290,7 +3239,7 @@ dependencies = [
  "derive_builder",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -3333,11 +3282,13 @@ dependencies = [
  "digest 0.10.7",
  "ethereum-types",
  "hotshot-types",
- "jf-primitives 0.4.4",
- "jf-utils 0.4.4",
+ "jf-crhf",
+ "jf-rescue",
+ "jf-signature",
+ "jf-utils",
  "rand_chacha 0.3.1",
  "serde",
- "tagged-base64 0.4.0",
+ "tagged-base64",
 ]
 
 [[package]]
@@ -3364,6 +3315,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
+ "cdn-proto",
  "chrono",
  "committable",
  "either",
@@ -3371,13 +3323,14 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "jf-primitives 0.4.4",
+ "jf-signature",
+ "jf-vid",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
- "snafu 0.8.2",
+ "snafu",
  "surf-disco",
- "tagged-base64 0.4.0",
+ "tagged-base64",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3407,15 +3360,16 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-primitives 0.4.4",
+ "jf-signature",
+ "jf-vid",
  "lru 0.12.3",
  "portpicker",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
  "sha3",
- "snafu 0.8.2",
- "tagged-base64 0.4.0",
+ "snafu",
+ "tagged-base64",
  "tide-disco",
  "tokio",
  "tracing",
@@ -3450,13 +3404,14 @@ dependencies = [
  "displaydoc",
  "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",
  "either",
- "espresso-systems-common 0.4.1",
+ "espresso-systems-common",
  "ethereum-types",
  "futures",
  "generic-array",
- "jf-plonk",
- "jf-primitives 0.4.4",
- "jf-utils 0.4.4",
+ "jf-pcs",
+ "jf-signature",
+ "jf-utils",
+ "jf-vid",
  "lazy_static",
  "memoize",
  "rand 0.8.5",
@@ -3464,8 +3419,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "snafu 0.8.2",
- "tagged-base64 0.4.0",
+ "snafu",
+ "tagged-base64",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3986,205 +3941,202 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
-name = "jf-plonk"
-version = "0.4.4"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
+name = "jf-commitment"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
 dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
  "ark-std",
- "derivative",
- "displaydoc",
- "downcast-rs",
- "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "espresso-systems-common 0.4.0",
- "hashbrown 0.14.3",
- "itertools 0.12.1",
- "jf-primitives 0.4.4",
- "jf-relation 0.4.4",
- "jf-utils 0.4.4",
- "merlin",
- "num-bigint",
- "rand_chacha 0.3.1",
- "rayon",
- "serde",
- "sha3",
- "tagged-base64 0.4.0",
 ]
 
 [[package]]
-name = "jf-primitives"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish.git?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
+name = "jf-crhf"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
 dependencies = [
- "anyhow",
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
+name = "jf-merkle-tree"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
  "ark-bn254",
- "ark-bw6-761",
- "ark-crypto-primitives",
  "ark-ec",
- "ark-ed-on-bls12-377",
- "ark-ed-on-bls12-381",
- "ark-ed-on-bn254",
  "ark-ff",
- "ark-pallas",
- "ark-poly",
  "ark-serialize",
  "ark-std",
- "blst",
- "chacha20poly1305",
- "crypto_kx",
  "derivative",
  "digest 0.10.7",
  "displaydoc",
- "espresso-systems-common 0.4.0",
- "generic-array",
  "hashbrown 0.14.3",
  "itertools 0.12.1",
- "jf-relation 0.4.0-pre.0",
- "jf-utils 0.4.0-pre.0",
- "merlin",
+ "jf-rescue",
+ "jf-utils",
  "num-bigint",
  "num-traits",
- "rand_chacha 0.3.1",
  "serde",
- "sha2 0.10.8",
  "sha3",
- "tagged-base64 0.3.4",
- "typenum",
- "zeroize",
+ "tagged-base64",
 ]
 
 [[package]]
-name = "jf-primitives"
-version = "0.4.4"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
+name = "jf-pcs"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
 dependencies = [
  "anyhow",
- "ark-bls12-377",
- "ark-bls12-381",
  "ark-bn254",
- "ark-bw6-761",
- "ark-crypto-primitives",
  "ark-ec",
- "ark-ed-on-bls12-377",
- "ark-ed-on-bls12-381",
- "ark-ed-on-bn254",
  "ark-ff",
- "ark-pallas",
  "ark-poly",
  "ark-serialize",
  "ark-std",
- "blst",
- "chacha20poly1305",
- "crypto_kx",
  "derivative",
- "digest 0.10.7",
  "displaydoc",
- "espresso-systems-common 0.4.0",
- "generic-array",
- "hashbrown 0.14.3",
  "icicle-bn254",
  "icicle-core",
  "icicle-cuda-runtime",
  "itertools 0.12.1",
- "jf-relation 0.4.4",
- "jf-utils 0.4.4",
+ "jf-utils",
  "merlin",
+ "rayon",
+]
+
+[[package]]
+name = "jf-prf"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
+ "ark-serialize",
+ "ark-std",
+]
+
+[[package]]
+name = "jf-relation"
+version = "0.4.4"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "derivative",
+ "displaydoc",
+ "downcast-rs",
+ "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hashbrown 0.14.3",
+ "itertools 0.12.1",
+ "jf-utils",
  "num-bigint",
- "num-traits",
  "rand_chacha 0.3.1",
  "rayon",
+]
+
+[[package]]
+name = "jf-rescue"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-crypto-primitives",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-381",
+ "ark-ed-on-bn254",
+ "ark-ff",
+ "ark-std",
+ "displaydoc",
+ "itertools 0.12.1",
+ "jf-commitment",
+ "jf-crhf",
+ "jf-prf",
+ "jf-relation",
+ "jf-utils",
+]
+
+[[package]]
+name = "jf-signature"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "blst",
+ "derivative",
+ "digest 0.10.7",
+ "displaydoc",
+ "hashbrown 0.14.3",
+ "itertools 0.12.1",
+ "jf-crhf",
+ "jf-relation",
+ "jf-rescue",
+ "jf-utils",
+ "num-bigint",
+ "num-traits",
  "serde",
- "sha2 0.10.8",
  "sha3",
- "tagged-base64 0.4.0",
+ "tagged-base64",
  "zeroize",
 ]
 
 [[package]]
-name = "jf-relation"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish.git?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
+name = "jf-utils"
+version = "0.4.4"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
 dependencies = [
- "ark-bls12-377",
- "ark-bls12-381",
- "ark-bn254",
- "ark-bw6-761",
+ "ark-ec",
+ "ark-ed-on-bls12-377",
+ "ark-ed-on-bls12-381",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "digest 0.10.7",
+ "displaydoc",
+ "rand_chacha 0.3.1",
+ "rayon",
+ "serde",
+ "sha2 0.10.8",
+ "tagged-base64",
+]
+
+[[package]]
+name = "jf-vid"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
+ "anyhow",
  "ark-ec",
  "ark-ff",
  "ark-poly",
  "ark-serialize",
  "ark-std",
  "derivative",
- "displaydoc",
- "downcast-rs",
- "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "hashbrown 0.14.3",
- "itertools 0.12.1",
- "jf-utils 0.4.0-pre.0",
- "num-bigint",
- "rand_chacha 0.3.1",
-]
-
-[[package]]
-name = "jf-relation"
-version = "0.4.4"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
-dependencies = [
- "ark-bls12-377",
- "ark-bls12-381",
- "ark-bn254",
- "ark-bw6-761",
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "ark-std",
- "derivative",
- "displaydoc",
- "downcast-rs",
- "dyn-clone 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "hashbrown 0.14.3",
- "itertools 0.12.1",
- "jf-utils 0.4.4",
- "num-bigint",
- "rand_chacha 0.3.1",
- "rayon",
-]
-
-[[package]]
-name = "jf-utils"
-version = "0.4.0-pre.0"
-source = "git+https://github.com/EspressoSystems/jellyfish.git?tag=0.4.2#f85f9024ef42ab8be95b2c81bd15fd6cbadeafbf"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
  "digest 0.10.7",
- "serde",
- "sha2 0.10.8",
- "tagged-base64 0.3.4",
-]
-
-[[package]]
-name = "jf-utils"
-version = "0.4.4"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.4#8f48813ca52d964090dbf0de62f07f5e0c7e22c6"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "digest 0.10.7",
+ "displaydoc",
+ "generic-array",
+ "itertools 0.12.1",
+ "jf-merkle-tree",
+ "jf-pcs",
+ "jf-utils",
  "rayon",
  "serde",
- "sha2 0.10.8",
- "tagged-base64 0.4.0",
+ "tagged-base64",
 ]
 
 [[package]]
@@ -4601,7 +4553,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "snafu 0.8.2",
+ "snafu",
  "tide",
  "tokio",
  "tokio-stream",
@@ -4813,7 +4765,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5112,7 +5064,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5213,33 +5165,6 @@ name = "mnemonic"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2b8f3a258db515d5e91a904ce4ae3f73e091149b90cadbdb93d210bee07f63b"
-
-[[package]]
-name = "mockall"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43766c2b5203b10de348ffe19f7e54564b64f3d6018ff7648d1e2d6d3a0f0a48"
-dependencies = [
- "cfg-if",
- "downcast",
- "fragile",
- "lazy_static",
- "mockall_derive",
- "predicates",
- "predicates-tree",
-]
-
-[[package]]
-name = "mockall_derive"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af7cbce79ec385a1d4f54baa90a76401eb15d9cab93685f62e7e9f942aa00ae2"
-dependencies = [
- "cfg-if",
- "proc-macro2",
- "quote",
- "syn 2.0.61",
-]
 
 [[package]]
 name = "multiaddr"
@@ -5494,7 +5419,7 @@ checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5535,6 +5460,27 @@ checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
 dependencies = [
  "hermit-abi",
  "libc",
+]
+
+[[package]]
+name = "num_enum"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02339744ee7253741199f897151b38e72257d13802d4ee837285cc2990a90845"
+dependencies = [
+ "num_enum_derive",
+]
+
+[[package]]
+name = "num_enum_derive"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5590,7 +5536,7 @@ checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5762,7 +5708,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5793,7 +5739,7 @@ checksum = "2f38a4412a78282e09a2cf38d195ea5420d15ba0602cb375210efbc877243965"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -5951,39 +5897,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
-name = "predicates"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68b87bfd4605926cdfefc1c3b5f8fe560e3feca9d5552cf68c466d3d8236c7e8"
-dependencies = [
- "anstyle",
- "predicates-core",
-]
-
-[[package]]
-name = "predicates-core"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b794032607612e7abeb4db69adb4e33590fa6cf1149e95fd7cb00e634b92f174"
-
-[[package]]
-name = "predicates-tree"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368ba315fb8c5052ab692e68a0eefec6ec57b23a36959c14496f0b0df2c0cecf"
-dependencies = [
- "predicates-core",
- "termtree",
-]
-
-[[package]]
 name = "prettyplease"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ac2cf0f2e4f42b49f5ffd07dae8d746508ef7526c13940e5f524012ae6c6550"
 dependencies = [
  "proc-macro2",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -6039,9 +5959,9 @@ checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.81"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d1597b0c024618f09a9c3b8655b7e430397a36d23fdafec26d6965e9eec3eba"
+checksum = "8ad3d49ab951a01fbaafe34f2ec74122942fe18a3f9814c3268f1bb72042131b"
 dependencies = [
  "unicode-ident",
 ]
@@ -6081,7 +6001,7 @@ checksum = "440f724eba9f6996b75d63681b0a92b06947f1457076d503a4d2e2c8f56442b8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -6104,7 +6024,7 @@ dependencies = [
  "itertools 0.12.1",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -6927,9 +6847,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.200"
+version = "1.0.201"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddc6f9cc94d67c0e21aaf7eda3a010fd3af78ebf6e096aa6e2e13c79749cce4f"
+checksum = "780f1cebed1629e4753a1a38a3c72d30b97ec044f0aef68cb26650a3c5cf363c"
 dependencies = [
  "serde_derive",
 ]
@@ -6956,13 +6876,13 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.200"
+version = "1.0.201"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "856f046b9400cee3c8c94ed572ecdb752444c24528c035cd35882aad6f492bcb"
+checksum = "c5e405930b9796f1c00bee880d03fc7e0bb4b9a11afc776885ffe84320da2865"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -6976,9 +6896,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.116"
+version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e17db7126d17feb94eb3fad46bf1a96b034e8aacbc2e775fe81505f8b0b2813"
+checksum = "455182ea6142b14f93f4bc5320a2b31c1f266b66a4a5c858b013302a5d8cbfc3"
 dependencies = [
  "itoa",
  "ryu",
@@ -7044,17 +6964,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
-]
-
-[[package]]
-name = "serdect"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
-dependencies = [
- "base16ct",
- "serde",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -7255,34 +7165,11 @@ dependencies = [
 
 [[package]]
 name = "snafu"
-version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4de37ad025c587a29e8f3f5605c00f70b98715ef90b9061a815b9e59e9042d6"
-dependencies = [
- "backtrace",
- "doc-comment",
- "snafu-derive 0.7.5",
-]
-
-[[package]]
-name = "snafu"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75976f4748ab44f6e5332102be424e7c2dc18daeaf7e725f2040c3ebb133512e"
 dependencies = [
- "snafu-derive 0.8.2",
-]
-
-[[package]]
-name = "snafu-derive"
-version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "990079665f075b699031e9c08fd3ab99be5029b96f3b78dc0709e8f77e4efebf"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
+ "snafu-derive",
 ]
 
 [[package]]
@@ -7294,7 +7181,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -7686,7 +7573,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -7805,9 +7692,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.61"
+version = "2.0.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c993ed8ccba56ae856363b1845da7266a7cb78e1d146c8a32d54b45a8b831fc9"
+checksum = "bf5be731623ca1a1fb7d8be6f261a3be6d3e2337b8a1f97be944d020c8fcb704"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7855,21 +7742,6 @@ dependencies = [
 
 [[package]]
 name = "tagged-base64"
-version = "0.3.4"
-source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
-dependencies = [
- "ark-serialize",
- "ark-std",
- "base64 0.21.7",
- "crc-any",
- "serde",
- "snafu 0.7.5",
- "tagged-base64-macros 0.3.3",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "tagged-base64"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b74bbf1db405a3fd2c6f8cd403bfa14727faa145925efe3012fa270b61551f1"
@@ -7879,18 +7751,9 @@ dependencies = [
  "base64 0.22.0",
  "crc-any",
  "serde",
- "snafu 0.8.2",
- "tagged-base64-macros 0.4.0",
+ "snafu",
+ "tagged-base64-macros",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "tagged-base64-macros"
-version = "0.3.3"
-source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.3.4#93be6f0f5c0ec8458f13dede3d2b68dcce12a608"
-dependencies = [
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -7922,12 +7785,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termtree"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
-
-[[package]]
 name = "thiserror"
 version = "1.0.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7944,7 +7801,7 @@ checksum = "d1cd413b5d558b4c5bf3680e324a6fa5014e7b7c067a51e69dbdf47eb7148b66"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -8024,10 +7881,10 @@ dependencies = [
  "shellexpand",
  "signal-hook",
  "signal-hook-async-std",
- "snafu 0.8.2",
+ "snafu",
  "strum",
  "strum_macros",
- "tagged-base64 0.4.0",
+ "tagged-base64",
  "tide",
  "tide-websockets",
  "toml",
@@ -8189,7 +8046,7 @@ checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -8362,7 +8219,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -8814,7 +8671,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
  "wasm-bindgen-shared",
 ]
 
@@ -8848,7 +8705,7 @@ checksum = "e94f17b526d0a461a191c78ea52bbce64071ed5c04c9ffe424dcb38f74171bb7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -9278,7 +9135,7 @@ checksum = "9ce1b18ccd8e73a9321186f97e46f9f04b778851177567b1975109d26a08d2a6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]
 
 [[package]]
@@ -9298,5 +9155,5 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.61",
+ "syn 2.0.63",
 ]

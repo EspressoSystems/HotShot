@@ -12,6 +12,7 @@ use bincode::{
 };
 use committable::Commitment;
 use digest::OutputSizeUser;
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tagged_base64::tagged;
 use typenum::Unsigned;
@@ -23,14 +24,15 @@ use crate::{
 };
 
 /// A view's state
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(bound = "")]
 pub enum ViewInner<TYPES: NodeType> {
     /// A pending view with an available block but not leaf proposal yet.
     ///
     /// Storing this state allows us to garbage collect blocks for views where a proposal is never
     /// made. This saves memory when a leader fails and subverts a DoS attack where malicious
     /// leaders repeatedly request availability for blocks that they never propose.
-    DA {
+    Da {
         /// Payload commitment to the available block.
         payload_commitment: VidCommitment,
     },
@@ -49,7 +51,7 @@ pub enum ViewInner<TYPES: NodeType> {
 impl<TYPES: NodeType> Clone for ViewInner<TYPES> {
     fn clone(&self) -> Self {
         match self {
-            Self::DA { payload_commitment } => Self::DA {
+            Self::Da { payload_commitment } => Self::Da {
                 payload_commitment: *payload_commitment,
             },
             Self::Leaf { leaf, state, delta } => Self::Leaf {
@@ -116,7 +118,7 @@ impl<TYPES: NodeType> ViewInner<TYPES> {
     /// return the underlying block paylod commitment if it exists
     #[must_use]
     pub fn get_payload_commitment(&self) -> Option<VidCommitment> {
-        if let Self::DA { payload_commitment } = self {
+        if let Self::Da { payload_commitment } = self {
             Some(*payload_commitment)
         } else {
             None
@@ -133,7 +135,8 @@ impl<TYPES: NodeType> Deref for View<TYPES> {
 }
 
 /// This exists so we can perform state transitions mutably
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(bound = "")]
 pub struct View<TYPES: NodeType> {
     /// The view data. Wrapped in a struct so we can mutate
     pub view_inner: ViewInner<TYPES>,
