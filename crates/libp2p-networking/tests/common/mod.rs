@@ -39,30 +39,42 @@ pub(crate) struct HandleWithState {
 }
 
 impl HandleWithState {
+    /// Get the current state of the handle
     pub fn load_state(&self) -> u32 {
         self.state.load(Ordering::SeqCst)
     }
 
+    /// Increment the state of the handle by 1
     pub fn increment_state(&self) {
+        // Increment the state by 1
         let new_val = self.state.fetch_add(1, Ordering::SeqCst) + 1;
+
+        // Send the new state
         self.state_change_sender
             .send(new_val)
             .expect("failed to send state change");
     }
 
+    /// Set the state of the handle to a new value
     pub fn set_state(&self, new_state: u32) {
+        // Set the state to the new value
         self.state.store(new_state, Ordering::SeqCst);
+
+        // Send the new state
         self.state_change_sender
             .send(new_state)
             .expect("failed to send state change");
     }
 
+    /// Compare and exchange the state of the handle
     pub fn compare_exchange_state(&self, current: u32, new: u32) -> bool {
+        // Exchange the state if the current state is equal to `current`
         let exchanged = self
             .state
             .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok();
 
+        // If the state was exchanged, send the new state
         if exchanged {
             self.state_change_sender
                 .send(new)
@@ -72,8 +84,10 @@ impl HandleWithState {
         exchanged
     }
 
+    /// Wait for the state of the handle to change to a new value specified by `new_state`
     pub async fn wait_for_state(&self, timeout_duration: Duration, new_state: u32) -> bool {
         loop {
+            // Wait for the state to change with a timeout
             match timeout(
                 timeout_duration,
                 self.state_change_receiver.lock().await.recv(),
@@ -81,11 +95,13 @@ impl HandleWithState {
             .await
             {
                 Ok(Some(state)) => {
+                    // If the state was equal to the new state, return true
                     if state == new_state {
                         return true;
                     }
                 }
                 _ => {
+                    // If the state change receiver was closed, return false
                     return false;
                 }
             };
