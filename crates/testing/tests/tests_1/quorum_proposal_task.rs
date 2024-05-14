@@ -94,7 +94,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
             ),
             VIDShareValidated(get_vid_share(&vids[0].0, handle.get_public_key())),
             ValidatedStateUpdated(
-                ViewNumber::new(1),
+                ViewNumber::new(0),
                 create_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],

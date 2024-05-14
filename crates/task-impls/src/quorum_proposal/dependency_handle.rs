@@ -1,28 +1,21 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    sync::Arc,
-    time::Duration,
-};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
-use committable::{Commitment, Committable};
+use async_lock::RwLock;
+use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
-    consensus::CommitmentAndMetadata,
+    consensus::{CommitmentAndMetadata, Consensus},
     data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
-    utils::View,
-    vote::HasViewNumber,
 };
 use tracing::{debug, error};
 
@@ -84,18 +77,8 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
     /// Round start delay from config, in milliseconds.
     pub round_start_delay: u64,
 
-    /// The map of undecided leaves. This mapping is from hash -> leaf.
-    /// This contains *only* undecided leaves.
-    pub undecided_leaves: HashMap<Commitment<Leaf<TYPES>>, Leaf<TYPES>>,
-
-    /// The most recently decided view.
-    pub last_decided_view: TYPES::Time,
-
-    /// The last high qc that we've seen in this node.
-    pub high_qc: QuorumCertificate<TYPES>,
-
-    /// The validated states (i.e. states that the blocks modify) that we have received so far.
-    pub validated_states: BTreeMap<TYPES::Time, View<TYPES>>,
+    /// Shared consensus task state
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
@@ -105,11 +88,12 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
         vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
-        high_qc: QuorumCertificate<TYPES>,
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
+        let high_qc = self.consensus.read().await.high_qc().clone();
         let (parent_leaf, state) =
-            get_parent_leaf_and_state(self.latest_proposed_view, self.view_number, self).await?;
+            get_parent_leaf_and_state(self.latest_proposed_view, self.view_number, &high_qc, self)
+                .await?;
 
         let proposal_certificate = view_change_evidence
             .as_ref()
@@ -181,7 +165,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
-        let mut quorum_certificate = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         let mut vid_share = None;
@@ -216,8 +199,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     either::Right(timeout) => {
                         timeout_certificate = Some(timeout.clone());
                     }
-                    either::Left(qc) => {
-                        quorum_certificate = Some(qc.clone());
+                    either::Left(_) => {
+                        // Handled by the HighQcUpdated event.
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
@@ -256,18 +239,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             return;
         }
 
-        // Take the high qc from the quorum certificate, or memory, whatever is newest.
-        let high_qc = match quorum_certificate {
-            Some(qc) => {
-                if self.high_qc.get_view_number() > qc.get_view_number() {
-                    self.high_qc.clone()
-                } else {
-                    qc
-                }
-            }
-            None => self.high_qc.clone(),
-        };
-
         let proposal_cert = if let Some(view_sync_cert) = view_sync_finalize_cert {
             Some(ViewChangeEvidence::ViewSync(view_sync_cert))
         } else {
@@ -278,7 +249,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             .publish_proposal(
                 commit_and_metadata.unwrap(),
                 vid_share.unwrap(),
-                high_qc,
                 proposal_cert,
             )
             .await

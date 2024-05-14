@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use async_broadcast::Sender;
+use chrono::Utc;
 use committable::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumProposal},
@@ -12,7 +13,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
     vote::HasViewNumber,
@@ -87,15 +88,24 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
-fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
-    task_state: &mut QuorumProposalTaskState<TYPES, I>,
+    task_state: &QuorumProposalTaskState<TYPES, I>,
 ) -> Result<LeafChainTraversalOutcome<TYPES>> {
     let proposal_view_number = proposal.get_view_number();
     let proposal_parent_view_number = proposal.justify_qc.get_view_number();
 
     // This is the output return type object whose members will be mutated as we traverse.
     let mut ret = LeafChainTraversalOutcome::default();
+
+    // Unpacking here prevents the need to endlessly call the function. These values don't change during
+    // the execution of this code.
+    let consensus_reader = task_state.consensus.read().await;
+    let validated_state_map = consensus_reader.validated_state_map();
+    let saved_leaves = consensus_reader.saved_leaves();
+    let last_decided_view = consensus_reader.last_decided_view();
+    let saved_payloads = consensus_reader.saved_payloads();
+    let vid_shares = consensus_reader.vid_shares();
 
     // Are these views consecutive (1-chain)
     if proposal_parent_view_number + 1 == proposal_view_number {
@@ -107,8 +117,7 @@ fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
         // The next view is the next view we're going to traverse, it is the validated state of the
         // parent of the proposal.
-        let next_view = task_state
-            .validated_states
+        let next_view = validated_state_map
             .get(&proposal_parent_view_number)
             .context(format!(
                 "A leaf for view {walk_start_view_number:?} does not exist in the state map"
@@ -123,19 +132,19 @@ fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         // The most recently seen view number (the view number of the last leaf we saw).
         let mut last_seen_view_number = walk_start_view_number;
 
-        while let Some(leaf) = task_state.undecided_leaves.get(&next_leaf) {
+        while let Some(leaf) = saved_leaves.get(&next_leaf) {
             // These are all just checks to make sure we have what we need to proceed.
             let current_leaf_view_number = leaf.get_view_number();
-            let leaf_state = task_state
-                .validated_states
-                .get(&current_leaf_view_number)
-                .context(format!(
-                    "View {current_leaf_view_number:?} does not exist in the state map"
-                ))?;
+            let leaf_state =
+                validated_state_map
+                    .get(&current_leaf_view_number)
+                    .context(format!(
+                        "View {current_leaf_view_number:?} does not exist in the state map"
+                    ))?;
 
             if let (Some(state), delta) = leaf_state.get_state_and_delta() {
                 // Exit if we've reached the last anchor view.
-                if current_leaf_view_number == task_state.last_decided_view {
+                if current_leaf_view_number == last_decided_view {
                     return Ok(LeafChainTraversalOutcome::default());
                 }
 
@@ -184,9 +193,7 @@ fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                     // }
                     // If the block payload is available for this leaf, include it in
                     // the leaf chain that we send to the client.
-                    if let Some(encoded_txns) =
-                        task_state.saved_payloads.get(&leaf.get_view_number())
-                    {
+                    if let Some(encoded_txns) = saved_payloads.get(&leaf.get_view_number()) {
                         let payload = BlockPayload::from_bytes(
                             encoded_txns,
                             leaf.get_block_header().metadata(),
@@ -195,8 +202,7 @@ fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                         leaf.fill_block_payload_unchecked(payload);
                     }
 
-                    let vid_share = task_state
-                        .vid_shares
+                    let vid_share = vid_shares
                         .get(&leaf.get_view_number())
                         .unwrap_or(&HashMap::new())
                         .get(&task_state.public_key)
@@ -249,7 +255,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         leaves_decided,
         included_txns,
-    } = visit_leaf_chain(proposal, task_state)?;
+    } = visit_leaf_chain(proposal, task_state).await?;
 
     let included_txns = if new_decided_view_number.is_some() {
         included_txns
@@ -257,6 +263,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         HashSet::new()
     };
 
+    let mut consensus_writer = task_state.consensus.write().await;
     if let Some(locked_view_number) = new_locked_view_number {
         // Broadcast the locked view update.
         broadcast_event(
@@ -265,7 +272,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         )
         .await;
 
-        // TODO - Update task state?
+        consensus_writer.update_locked_view(locked_view_number)?;
     }
 
     // TODO - update decided upgrade cert
@@ -273,29 +280,36 @@ pub(crate) async fn handle_quorum_proposal_validated<
     if let Some(decided_view_number) = new_decided_view_number {
         // Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
 
-        let old_decided_view = task_state.last_decided_view;
+        let old_decided_view = consensus_writer.last_decided_view();
         // TODO - collect garbage.
 
         // Set the new decided view.
-        task_state.last_decided_view = decided_view_number;
+        consensus_writer.update_last_decided_view(decided_view_number)?;
 
         // TODO - Metrics
-        // consensus
-        //     .metrics
-        //     .last_decided_time
-        //     .set(Utc::now().timestamp().try_into().unwrap());
-        // consensus.metrics.invalid_qc.set(0);
-        // consensus
-        //     .metrics
-        //     .last_decided_view
-        //     .set(usize::try_from(consensus.last_decided_view().get_u64()).unwrap());
-        // let cur_number_of_views_per_decide_event = *task_state.cur_view - consensus.last_decided_view().get_u64()
-        // consensus
-        //     .metrics
-        //     .number_of_views_per_decide_event
-        //     .add_point(cur_number_of_views_per_decide_event as f64);
+        consensus_writer
+            .metrics
+            .last_decided_time
+            .set(Utc::now().timestamp().try_into().unwrap());
+        consensus_writer.metrics.invalid_qc.set(0);
+        consensus_writer
+            .metrics
+            .last_decided_view
+            .set(usize::try_from(consensus_writer.last_decided_view().get_u64()).unwrap());
+        let cur_number_of_views_per_decide_event =
+            *task_state.latest_proposed_view - consensus_writer.last_decided_view().get_u64();
+        consensus_writer
+            .metrics
+            .number_of_views_per_decide_event
+            .add_point(cur_number_of_views_per_decide_event as f64);
 
-        debug!("Sending Decide for view {:?}", task_state.last_decided_view);
+        debug!(
+            "Sending Decide for view {:?}",
+            consensus_writer.last_decided_view()
+        );
+
+        // We don't need to hold this while we broadcast
+        drop(consensus_writer);
 
         // First, send an update to everyone saying that we've reached a decide
         broadcast_event(

@@ -248,7 +248,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         handle: &SystemContextHandle<TYPES, I>,
     ) -> QuorumProposalTaskState<TYPES, I> {
         let consensus = handle.hotshot.get_consensus();
-        let consensus_read = consensus.read().await;
         QuorumProposalTaskState {
             latest_proposed_view: handle.get_cur_view().await,
             propose_dependencies: HashMap::new(),
@@ -264,13 +263,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout: handle.hotshot.config.next_view_timeout,
             timeout_task: None,
             round_start_delay: handle.hotshot.config.round_start_delay,
-            high_qc: consensus_read.high_qc().clone(),
-            last_decided_view: consensus_read.last_decided_view(),
-            locked_view: consensus_read.locked_view(),
-            undecided_leaves: consensus_read.saved_leaves().clone(),
-            saved_payloads: consensus_read.saved_payloads().clone(),
-            validated_states: consensus_read.validated_state_map().clone(),
-            vid_shares: consensus_read.vid_shares().clone(),
+            consensus,
             id: handle.hotshot.id,
         }
     }
