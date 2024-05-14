@@ -1,8 +1,10 @@
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
@@ -20,10 +22,7 @@ use sha2::{Digest, Sha256};
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Amount of time to try for a request before timing out.
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
@@ -64,51 +63,36 @@ pub struct NetworkRequestState<
 type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
     for NetworkRequestState<TYPES, I, Ver>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = HotShotTaskCompleted;
-
-    async fn handle_event(
+    async fn handle_event_direct(
+        &mut self,
         event: Self::Event,
-        task: &mut hotshot_task::task::Task<Self>,
-    ) -> Option<Self::Output> {
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let state = task.state();
                 let prop_view = proposal.get_view_number();
-                if prop_view >= state.view {
-                    state
-                        .spawn_requests(prop_view, task.clone_sender(), Ver::instance())
+                if prop_view >= self.view {
+                    self.spawn_requests(prop_view, sender.clone(), Ver::instance())
                         .await;
                 }
-                None
+                Ok(vec![])
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                if view > task.state().view {
-                    task.state_mut().view = view;
+                if view > self.view {
+                    self.view = view;
                 }
-                None
+                Ok(vec![])
             }
-            HotShotEvent::Shutdown => Some(HotShotTaskCompleted),
-            _ => None,
+            _ => Ok(vec![]),
         }
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::Shutdown
-                | HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::ViewChange(_)
-        )
     }
 }
 

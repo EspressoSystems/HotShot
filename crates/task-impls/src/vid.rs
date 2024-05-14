@@ -1,8 +1,10 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
@@ -156,32 +158,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
+#[async_trait]
 /// task state implementation for VID Task
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for VIDTaskState<TYPES, I, A>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = HotShotTaskCompleted;
-
-    async fn handle_event(
+    async fn handle_event_direct(
+        &mut self,
         event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
-    }
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(_, _, _, _)
-                | HotShotEvent::BlockReady(_, _)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
+        Ok(vec![])
     }
 }

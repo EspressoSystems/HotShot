@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     event::{Event, EventType},
@@ -183,7 +185,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(Arc::clone(&event), &tx)
+                        .handle_vote_event(Arc::clone(&event), &tx)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -270,35 +272,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
+#[async_trait]
 /// task state implementation for the upgrade task
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for UpgradeTaskState<TYPES, I, A>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = HotShotTaskCompleted;
-
-    async fn handle_event(
+    async fn handle_event_direct(
+        &mut self,
         event: Self::Event,
-        task: &mut hotshot_task::task::Task<Self>,
-    ) -> Option<Self::Output> {
-        let sender = task.clone_sender();
-        tracing::trace!("sender queue len {}", sender.len());
-        task.state_mut().handle(event, sender).await
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::UpgradeProposalRecv(_, _)
-                | HotShotEvent::UpgradeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(_)
-                | HotShotEvent::VersionUpgrade(_)
-        )
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
+        Ok(vec![])
     }
 }

@@ -3,14 +3,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, Context};
-use async_broadcast::Sender;
+use anyhow::{bail, Context, Result};
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
 };
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
     data::{null_block, Leaf},
@@ -396,6 +397,7 @@ impl<
     }
 }
 
+#[async_trait]
 /// task state implementation for Transactions Task
 impl<
         TYPES: NodeType,
@@ -406,26 +408,13 @@ impl<
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = HotShotTaskCompleted;
-
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::TransactionsRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-
-    async fn handle_event(
+    async fn handle_event_direct(
+        &mut self,
         event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
+        Ok(vec![])
     }
 }

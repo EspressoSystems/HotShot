@@ -2,14 +2,15 @@ use std::{collections::BTreeMap, sync::Arc};
 
 #[cfg(not(feature = "dependency-tasks"))]
 use anyhow::Result;
-use async_broadcast::Sender;
+use async_broadcast::{Receiver, Sender};
 #[cfg(not(feature = "dependency-tasks"))]
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use async_trait::async_trait;
 use futures::future::join_all;
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::task::TaskState;
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::data::VidDisperseShare;
 #[cfg(not(feature = "dependency-tasks"))]
@@ -37,7 +38,6 @@ use jf_primitives::vid::VidScheme;
 use tokio::task::JoinHandle;
 #[cfg(not(feature = "dependency-tasks"))]
 use tracing::info;
-
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
@@ -282,9 +282,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         proposal: QuorumProposal<TYPES>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        use crate::consensus::helpers::publish_proposal_from_commitment_and_metadata;
-
         use self::helpers::publish_proposal_from_upgrade_cert;
+        use crate::consensus::helpers::publish_proposal_from_commitment_and_metadata;
 
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
@@ -424,7 +423,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -470,7 +469,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -816,39 +815,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskState<TYPES, I> {
     type Event = Arc<HotShotEvent<TYPES>>;
-    type Output = ();
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::QuorumProposalRecv(_, _)
-                | HotShotEvent::QuorumVoteRecv(_)
-                | HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QCFormed(_)
-                | HotShotEvent::UpgradeCertificateFormed(_)
-                | HotShotEvent::DACertificateRecv(_)
-                | HotShotEvent::ViewChange(_)
-                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::TimeoutVoteRecv(_)
-                | HotShotEvent::VIDShareRecv(..)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::QuorumVoteSend(_)
-                | HotShotEvent::QuorumProposalSend(_, _)
-                | HotShotEvent::Shutdown,
-        )
-    }
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
-    where
-        Self: Sized,
-    {
-        let sender = task.clone_sender();
-        tracing::trace!("sender queue len {}", sender.len());
-        task.state_mut().handle(event, sender).await;
-        None
-    }
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+
+    async fn handle_event_direct(
+        &mut self,
+        event: Self::Event,
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
+
+        Ok(vec![])
     }
 }

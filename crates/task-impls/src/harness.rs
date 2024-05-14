@@ -1,7 +1,9 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use anyhow::Result;
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::async_timeout;
+use async_trait::async_trait;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 
@@ -15,20 +17,15 @@ pub struct TestHarnessState<TYPES: NodeType> {
     allow_extra_output: bool,
 }
 
+#[async_trait]
 impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
     type Event = Arc<HotShotEvent<TYPES>>;
-    type Output = HotShotTaskCompleted;
 
-    async fn handle_event(
-        event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let extra = task.state_mut().allow_extra_output;
-        handle_event(event, task, extra)
-    }
+    async fn handle_event(&mut self, event: Self::Event) -> Result<Vec<Self::Event>> {
+        let extra = self.allow_extra_output;
+        handle_event(event, self, extra);
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+        Ok(vec![])
     }
 }
 
@@ -51,9 +48,9 @@ pub async fn run_harness<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>> +
     allow_extra_output: bool,
 ) where
     TYPES: NodeType,
+    TestHarnessState<TYPES>: TaskState<Event = Arc<HotShotEvent<TYPES>>>,
 {
-    let registry = Arc::new(TaskRegistry::default());
-    let mut tasks = vec![];
+    let registry = TaskRegistry::new();
     // set up two broadcast channels so the test sends to the task and the task back to the test
     let (to_task, from_test) = broadcast(1024);
     let (to_test, from_task) = broadcast(1024);
@@ -62,27 +59,20 @@ pub async fn run_harness<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>> +
         allow_extra_output,
     };
 
-    let test_task = Task::new(
-        to_test.clone(),
-        from_task.clone(),
-        Arc::clone(&registry),
-        test_state,
-    );
-    let task = Task::new(
-        to_test.clone(),
-        from_test.clone(),
-        Arc::clone(&registry),
-        state,
-    );
+    let test_task = Task::new(test_state, |_| false, to_test.clone(), from_task.clone());
+    let task = Task::new(state, |_| false, to_test.clone(), from_test.clone());
 
-    tasks.push(test_task.run());
-    tasks.push(task.run());
+    let test_handle = test_task.run();
+    let handle = task.run();
+
+    registry.register(test_handle).await;
+    registry.register(handle).await;
 
     for event in input {
         to_task.broadcast_direct(Arc::new(event)).await.unwrap();
     }
 
-    if async_timeout(Duration::from_secs(2), futures::future::join_all(tasks))
+    if async_timeout(Duration::from_secs(2), registry.join_all())
         .await
         .is_err()
     {
@@ -102,10 +92,9 @@ pub async fn run_harness<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>> +
 #[allow(clippy::needless_pass_by_value)]
 pub fn handle_event<TYPES: NodeType>(
     event: Arc<HotShotEvent<TYPES>>,
-    task: &mut Task<TestHarnessState<TYPES>>,
+    state: &mut TestHarnessState<TYPES>,
     allow_extra_output: bool,
 ) -> Option<HotShotTaskCompleted> {
-    let state = task.state_mut();
     // Check the output in either case:
     // * We allow outputs only in our expected output set.
     // * We haven't received all expected outputs yet.

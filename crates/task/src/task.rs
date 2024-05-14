@@ -29,6 +29,9 @@ pub trait TaskState: Send {
     }
 
     /// Handles an event, providing direct access to the specific channel we received the event on.
+    ///
+    /// If possible, a task should prefer to implement `handle_event` rather than `handle_event_direct`.
+    /// A long-term goal would be to deprecate `handle_event_direct` in favor of `handle_event`, possibly with a more general return type.
     async fn handle_event_direct(
         &mut self,
         event: Self::Event,
@@ -118,7 +121,6 @@ impl<S: TaskState + Send + 'static> Task<S> {
     }
 }
 
-#[derive(Default)]
 /// A collection of tasks which can handle shutdown
 pub struct TaskRegistry<EVENT> {
     /// Tasks this registry controls
@@ -126,6 +128,12 @@ pub struct TaskRegistry<EVENT> {
 }
 
 impl<EVENT> TaskRegistry<EVENT> {
+    /// Create a new task registry
+    pub fn new() -> Self {
+        TaskRegistry {
+            task_handles: RwLock::new(vec![]),
+        }
+    }
     /// Add a task to the registry
     pub async fn register(&self, handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>) {
         self.task_handles.write().await.push(handle);

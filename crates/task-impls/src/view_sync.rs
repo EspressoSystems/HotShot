@@ -6,12 +6,14 @@ use std::{
     time::Duration,
 };
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     message::GeneralConsensusMessage,
     simple_certificate::{
@@ -103,6 +105,7 @@ pub struct ViewSyncTaskState<
     pub last_garbage_collected_view: TYPES::Time,
 }
 
+#[async_trait]
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
@@ -111,32 +114,14 @@ impl<
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = ();
-
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ViewSyncPreCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncFinalizeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewSyncTimeout(_, _, _)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+    async fn handle_event_direct(
+        &mut self,
+        event: Self::Event,
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
+        Ok(vec![])
     }
 }
 
@@ -175,36 +160,20 @@ pub struct ViewSyncReplicaTaskState<
     pub api: A,
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for ViewSyncReplicaTaskState<TYPES, I, A>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = ();
-
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
-    }
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ViewSyncPreCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncFinalizeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewSyncTimeout(_, _, _)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+    async fn handle_event_direct(
+        &mut self,
+        event: Self::Event,
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
+        Ok(vec![])
     }
 }
 
@@ -319,7 +288,7 @@ impl<
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
                     let result = relay_task
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -357,7 +326,7 @@ impl<
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
                     let result = relay_task
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -395,7 +364,7 @@ impl<
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
                     let result = relay_task
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {

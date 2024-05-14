@@ -1,14 +1,16 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use async_trait::async_trait;
 use either::Either;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
-    task::{Task, TaskState},
+    task::TaskState,
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
@@ -616,33 +618,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     for QuorumProposalTaskState<TYPES, I>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
-    type Output = ();
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QCFormed(_)
-                | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ProposeNow(..)
-                | HotShotEvent::QuorumProposalSend(..)
-                | HotShotEvent::Shutdown,
-        )
-    }
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
-    where
-        Self: Sized,
-    {
-        let receiver = task.subscribe();
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, receiver, sender).await;
-        None
-    }
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+
+    async fn handle_event_direct(
+        &mut self,
+        event: Self::Event,
+        sender: &Sender<Self::Event>,
+        receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, receiver.clone(), sender.clone()).await;
+        Ok(vec![])
     }
 }

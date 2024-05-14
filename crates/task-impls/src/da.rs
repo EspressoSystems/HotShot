@@ -1,10 +1,12 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::{Consensus, View},
     data::DAProposal,
@@ -242,7 +244,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -320,36 +322,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
+#[async_trait]
 /// task state implementation for DA Task
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for DATaskState<TYPES, I, A>
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = HotShotTaskCompleted;
-
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::DAProposalRecv(_, _)
-                | HotShotEvent::DAVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(_, _, _, _)
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewChange(_)
-                | HotShotEvent::DAProposalValidated(_, _)
-        )
-    }
-
-    async fn handle_event(
+    async fn handle_event_direct(
+        &mut self,
         event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await
-    }
+        sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<Vec<Self::Event>> {
+        self.handle(event, sender.clone()).await;
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+        Ok(vec![])
     }
 }

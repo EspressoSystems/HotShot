@@ -1,9 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Result;
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
     data::{VidDisperse, VidDisperseShare},
@@ -79,24 +81,13 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
     pub event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
 }
 
+#[async_trait]
 impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
     type Event = Vec<Message<TYPES>>;
-    type Output = ();
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
-    where
-        Self: Sized,
-    {
-        task.state_mut().handle_messages(event).await;
-        None
-    }
-
-    fn filter(&self, _event: &Self::Event) -> bool {
-        false
-    }
-
-    fn should_shutdown(_event: &Self::Event) -> bool {
-        false
+    async fn handle_event(&mut self, event: Self::Event) -> Result<Vec<Self::Event>> {
+        self.handle_messages(event).await;
+        Ok(vec![])
     }
 }
 
@@ -214,6 +205,7 @@ pub struct NetworkEventTaskState<
     pub storage: Arc<RwLock<S>>,
 }
 
+#[async_trait]
 impl<
         TYPES: NodeType,
         COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
@@ -222,32 +214,11 @@ impl<
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    type Output = HotShotTaskCompleted;
+    async fn handle_event(&mut self, event: Self::Event) -> Result<Vec<Self::Event>> {
+        let membership = self.membership.clone();
+        self.handle_event(event, &membership).await;
 
-    async fn handle_event(
-        event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let membership = task.state_mut().membership.clone();
-        task.state_mut().handle_event(event, &membership).await
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        if matches!(event.as_ref(), HotShotEvent::Shutdown) {
-            error!("Network Task received Shutdown event");
-            return true;
-        }
-        false
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        (self.filter)(event)
-            && !matches!(
-                event.as_ref(),
-                HotShotEvent::VersionUpgrade(_)
-                    | HotShotEvent::ViewChange(_)
-                    | HotShotEvent::Shutdown
-            )
+        Ok(vec![])
     }
 }
 
