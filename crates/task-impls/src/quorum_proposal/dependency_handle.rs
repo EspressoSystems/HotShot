@@ -83,7 +83,8 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperseShare`]
-    /// and high qc [`QuorumCertificate`], with optional [`ViewChangeEvidence`].
+    /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
+    /// with optional [`ViewChangeEvidence`].
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
