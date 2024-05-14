@@ -145,10 +145,6 @@ async fn run_request_response_increment<'a>(
 
         let requestee_pid = requestee_handle.handle.peer_id();
 
-        if !requester_handle.wait_for_state(timeout).await {
-            error!("timed out waiting for {requestee_pid:?} to update state");
-            std::process::exit(-1)
-        }
         requester_handle
             .handle
             .direct_request(
@@ -157,7 +153,8 @@ async fn run_request_response_increment<'a>(
                 STATIC_VER_0_1,
             )
             .context(HandleSnafu)?;
-        if !requester_handle.wait_for_state(timeout).await {
+
+        if !requester_handle.wait_for_state(timeout, new_state).await {
             error!("timed out waiting for {requestee_pid:?} to update state");
             std::process::exit(-1)
         }
@@ -197,7 +194,7 @@ async fn run_gossip_round(
         // already modified, so skip msg_handle
         if handle.handle.peer_id() != msg_handle.handle.peer_id() {
             let handle = handle.clone();
-            futs.spawn(async move { handle.wait_for_state(timeout_duration).await });
+            futs.spawn(async move { handle.wait_for_state(timeout_duration, new_state).await });
         }
     }
 
@@ -402,7 +399,6 @@ async fn run_request_response_increment_all(handles: &[HandleWithState], timeout
     let results = Arc::new(RwLock::new(vec![]));
 
     let len = futs.len();
-
     for _ in 0..futs.len() {
         let fut = futs.pop().unwrap();
         let results = Arc::clone(&results);
@@ -438,7 +434,6 @@ async fn run_request_response_increment_all(handles: &[HandleWithState], timeout
 
 /// simple case of direct message
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
 #[instrument]
 async fn test_coverage_request_response_one_round() {
     hotshot_types::logging::setup_logging();
@@ -454,7 +449,6 @@ async fn test_coverage_request_response_one_round() {
 
 /// stress test of direct message
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
 #[instrument]
 async fn test_coverage_request_response_many_rounds() {
     Box::pin(test_bed(

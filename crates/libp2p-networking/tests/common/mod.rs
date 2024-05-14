@@ -21,7 +21,11 @@ use libp2p_networking::network::{
 use snafu::{ResultExt, Snafu};
 use tokio::{
     select, spawn,
-    sync::{broadcast, Notify},
+    sync::{
+        broadcast,
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+        Mutex,
+    },
     time::{sleep, timeout},
 };
 use tracing::{info, instrument, warn};
@@ -30,7 +34,8 @@ use tracing::{info, instrument, warn};
 pub(crate) struct HandleWithState {
     pub(crate) handle: Arc<NetworkNodeHandle>,
     state: Arc<AtomicU32>,
-    state_change: Arc<Notify>,
+    state_change_receiver: Arc<Mutex<UnboundedReceiver<u32>>>,
+    state_change_sender: Arc<UnboundedSender<u32>>,
 }
 
 impl HandleWithState {
@@ -39,25 +44,52 @@ impl HandleWithState {
     }
 
     pub fn increment_state(&self) {
-        self.state.fetch_add(1, Ordering::SeqCst);
-        self.state_change.notify_waiters();
+        let new_val = self.state.fetch_add(1, Ordering::SeqCst) + 1;
+        self.state_change_sender
+            .send(new_val)
+            .expect("failed to send state change");
     }
 
     pub fn set_state(&self, new_state: u32) {
         self.state.store(new_state, Ordering::SeqCst);
-        self.state_change.notify_waiters();
+        self.state_change_sender
+            .send(new_state)
+            .expect("failed to send state change");
     }
 
     pub fn compare_exchange_state(&self, current: u32, new: u32) -> bool {
-        self.state
+        let exchanged = self
+            .state
             .compare_exchange(current, new, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
+            .is_ok();
+
+        if exchanged {
+            self.state_change_sender
+                .send(new)
+                .expect("failed to send state change");
+        }
+
+        exchanged
     }
 
-    pub async fn wait_for_state(&self, timeout_duration: Duration) -> bool {
-        timeout(timeout_duration, self.state_change.notified())
+    pub async fn wait_for_state(&self, timeout_duration: Duration, new_state: u32) -> bool {
+        loop {
+            match timeout(
+                timeout_duration,
+                self.state_change_receiver.lock().await.recv(),
+            )
             .await
-            .is_ok()
+            {
+                Ok(Some(state)) => {
+                    if state == new_state {
+                        return true;
+                    }
+                }
+                _ => {
+                    return false;
+                }
+            };
+        }
     }
 }
 
@@ -240,10 +272,13 @@ pub async fn spin_up_swarms(
             }
             .boxed_local()
         });
+
+        let (state_change_sender, state_change_receiver) = unbounded_channel();
         let node_with_state = HandleWithState {
             handle: Arc::clone(&node),
             state: Arc::default(),
-            state_change: Arc::default(),
+            state_change_sender: Arc::from(state_change_sender),
+            state_change_receiver: Arc::from(Mutex::new(state_change_receiver)),
         };
         handles.push((node_with_state, rx));
     }
@@ -277,10 +312,13 @@ pub async fn spin_up_swarms(
             }
             .boxed_local()
         });
+
+        let (state_change_sender, state_change_receiver) = unbounded_channel();
         let node_with_state = HandleWithState {
             handle: Arc::clone(&node),
             state: Arc::default(),
-            state_change: Arc::default(),
+            state_change_sender: Arc::from(state_change_sender),
+            state_change_receiver: Arc::from(Mutex::new(state_change_receiver)),
         };
         handles.push((node_with_state, rx));
     }
