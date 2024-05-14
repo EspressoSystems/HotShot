@@ -262,12 +262,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_qc_timeout() {
-    use hotshot_example_types::block_types::TestMetadata;
-    use hotshot_types::{data::null_block, simple_vote::TimeoutData};
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let node_id = 2;
+    let node_id = 3;
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
@@ -280,19 +278,22 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut vids = Vec::new();
+    let mut leaves = Vec::new();
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
+        leaves.push(view.leaf.clone());
     }
     let timeout_data = TimeoutData {
         view: ViewNumber::new(1),
     };
     generator.add_timeout(timeout_data);
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(2) {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
+        leaves.push(view.leaf.clone());
     }
 
     // Get the proposal cert out for the view sync input
@@ -301,7 +302,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
         _ => panic!("Found a View Sync Cert when there should have been a Timeout cert"),
     };
 
-    // Run at view 2, the quorum vote task shouldn't care as long as the bookkeeping is correct
+    // Run at view 2, propose at view 3.
     let view_2 = TestScriptStage {
         inputs: vec![
             QCFormed(either::Right(cert.clone())),
@@ -309,9 +310,14 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 payload_commitment,
                 builder_commitment,
                 TestMetadata,
-                ViewNumber::new(2),
+                ViewNumber::new(3),
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
+            ),
+            VIDShareValidated(get_vid_share(&vids[2].0.clone(), handle.get_public_key())),
+            ValidatedStateUpdated(
+                ViewNumber::new(2),
+                create_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
