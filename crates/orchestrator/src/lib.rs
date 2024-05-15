@@ -262,17 +262,17 @@ where
 
     // Assumes one node do not get twice
     fn get_tmp_node_index(&mut self) -> Result<u16, ServerError> {
-        let get_tmp_node_index = self.tmp_latest_index;
+        let tmp_node_index = self.tmp_latest_index;
         self.tmp_latest_index += 1;
 
-        if usize::from(get_tmp_node_index) >= self.config.config.num_nodes_with_stake.get() {
+        if usize::from(tmp_node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Node index getter for key pair generation has reached capacity"
                     .to_string(),
             });
         }
-        Ok(get_tmp_node_index)
+        Ok(tmp_node_index)
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -582,7 +582,7 @@ where
             .boxed()
         },
     )?
-    .get("start", |_req, state| {
+    .get("get_start", |_req, state| {
         async move { state.get_start() }.boxed()
     })?
     .post("post_results", |req, state| {

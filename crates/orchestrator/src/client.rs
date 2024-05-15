@@ -393,7 +393,7 @@ impl OrchestratorClient {
             .await;
 
         let wait_for_all_nodes_ready_f = |client: Client<ClientError, OrchestratorVersion>| {
-            async move { client.get("api/get_start").send().await }.boxed()
+            async move { client.get("api/start").send().await }.boxed()
         };
         self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
             .await
