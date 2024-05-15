@@ -8,7 +8,7 @@ use hotshot_orchestrator::client::ValidatorArgs;
 use local_ip_address::local_ip;
 use tracing::{info, instrument};
 
-use crate::types::{DANetwork, NodeImpl, QuorumNetwork, ThisRun};
+use crate::types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun};
 
 /// types used for this example
 pub mod types;

@@ -19,8 +19,8 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::DACertificate,
-    simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},
+    simple_certificate::DaCertificate,
+    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -30,7 +30,7 @@ use hotshot_types::{
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::VidScheme;
 use serde::Serialize;
 
 use crate::test_builder::TestDescription;
@@ -270,17 +270,17 @@ pub fn build_da_certificate(
     transactions: Vec<TestTransaction>,
     public_key: &<TestTypes as NodeType>::SignatureKey,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-) -> DACertificate<TestTypes> {
+) -> DaCertificate<TestTypes> {
     let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
 
     let da_payload_commitment =
         vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
 
-    let da_data = DAData {
+    let da_data = DaData {
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::<TestTypes, DAData, DAVote<TestTypes>, DACertificate<TestTypes>>(
+    build_cert::<TestTypes, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
         da_data,
         da_membership,
         view_number,
