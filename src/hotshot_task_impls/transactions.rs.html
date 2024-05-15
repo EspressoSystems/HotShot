@@ -427,15 +427,6 @@
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -454,7 +445,7 @@
     data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
-        block_contents::{precompute_vid_commitment, BuilderFee},
+        block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -573,18 +564,9 @@
                     block_header,
                 }) = <span class="self">self</span>.wait_for_block().<span class="kw">await
                 </span>{
-                    <span class="comment">// send the sequenced transactions to VID and DA tasks
-                    </span><span class="kw">let </span>encoded_transactions = <span class="kw">match </span>block_data.block_payload.encode() {
-                        <span class="prelude-val">Ok</span>(encoded) =&gt; encoded,
-                        <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">error!</span>(<span class="string">"Failed to encode the block payload: {:?}."</span>, e);
-                            <span class="kw">return </span><span class="prelude-val">None</span>;
-                        }
-                    };
-
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            encoded_transactions,
+                            block_data.block_payload.encode(),
                             block_data.metadata,
                             block_view,
                             BuilderFee {

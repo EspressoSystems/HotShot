@@ -1013,6 +1013,7 @@
 <a href="#1011" id="1011">1011</a>
 <a href="#1012" id="1012">1012</a>
 <a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     fmt::Debug,
@@ -1487,7 +1488,7 @@
                                         .get_transactions(leaf.get_block_header().metadata())
                                     {
                                         <span class="kw">let </span>restored_timestamp_vec =
-                                            tx.<span class="number">0</span>[tx.<span class="number">0</span>.len() - <span class="number">8</span>..].to_vec();
+                                            tx.bytes()[tx.bytes().len() - <span class="number">8</span>..].to_vec();
                                         <span class="kw">let </span>restored_timestamp = i64::from_be_bytes(
                                             restored_timestamp_vec.as_slice().try_into().unwrap(),
                                         );
@@ -1510,12 +1511,12 @@
                                 </span><span class="kw">for _ in </span><span class="number">0</span>..transactions_to_send_per_round {
                                     <span class="comment">// append current timestamp to the tx to calc latency
                                     </span><span class="kw">let </span>timestamp = Utc::now().timestamp();
-                                    <span class="kw">let </span><span class="kw-2">mut </span>tx = transactions.remove(<span class="number">0</span>).<span class="number">0</span>;
+                                    <span class="kw">let </span><span class="kw-2">mut </span>tx = transactions.remove(<span class="number">0</span>).into_bytes();
                                     <span class="kw">let </span><span class="kw-2">mut </span>timestamp_vec = timestamp.to_be_bytes().to_vec();
                                     tx.append(<span class="kw-2">&amp;mut </span>timestamp_vec);
 
                                     () = context
-                                        .submit_transaction(TestTransaction(tx))
+                                        .submit_transaction(TestTransaction::new(tx))
                                         .<span class="kw">await
                                         </span>.unwrap();
                                     total_transactions_sent += <span class="number">1</span>;
@@ -1995,7 +1996,7 @@
 
     <span class="kw">for </span>round <span class="kw">in </span><span class="number">0</span>..rounds {
         <span class="kw">for _ in </span><span class="number">0</span>..transactions_to_send_per_round {
-            <span class="kw">let </span><span class="kw-2">mut </span>txn = &lt;TYPES::ValidatedState&gt;::create_random_transaction(
+            <span class="kw">let </span>txn = &lt;TYPES::ValidatedState&gt;::create_random_transaction(
                 <span class="prelude-val">None</span>,
                 <span class="kw-2">&amp;mut </span>txn_rng,
                 transaction_size <span class="kw">as </span>u64,
@@ -2003,9 +2004,10 @@
 
             <span class="comment">// prepend destined view number to transaction
             </span><span class="kw">let </span>view_execute_number: u64 = round <span class="kw">as </span>u64 + <span class="number">4</span>;
-            txn.<span class="number">0</span>[<span class="number">0</span>..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>view_execute_number.to_be_bytes());
+            <span class="kw">let </span><span class="kw-2">mut </span>bytes = txn.into_bytes();
+            bytes[<span class="number">0</span>..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>view_execute_number.to_be_bytes());
 
-            transactions.push(txn);
+            transactions.push(TestTransaction::new(bytes));
         }
     }
     <span class="kw">if let </span>NetworkConfigSource::Orchestrator = source {

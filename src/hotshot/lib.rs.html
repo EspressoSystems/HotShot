@@ -806,11 +806,6 @@
 <a href="#804" id="804">804</a>
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -858,7 +853,7 @@
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
-        BlockPayload,
+        EncodeBytes,
     },
     HotShotConfig,
 };
@@ -1070,12 +1065,7 @@
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.get_block_payload() {
-            <span class="kw">let </span>encoded_txns = <span class="kw">match </span>payload.encode() {
-                <span class="prelude-val">Ok</span>(encoded) =&gt; encoded,
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(HotShotError::BlockError { source: e });
-                }
-            };
+            <span class="kw">let </span>encoded_txns = payload.encode();
 
             saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(<span class="kw-2">&amp;</span>encoded_txns));
         }

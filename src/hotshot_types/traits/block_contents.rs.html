@@ -210,6 +210,10 @@
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -256,7 +260,17 @@
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
 </span><span class="kw">pub trait </span>BlockPayload:
-    Serialize + Clone + Debug + Display + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
+    Serialize
+    + Clone
+    + Debug
+    + Display
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + DeserializeOwned
+    + EncodeBytes
 {
     <span class="doccomment">/// The error type for this type of block
     </span><span class="kw">type </span>Error: Error + Debug + Send + Sync + Serialize + DeserializeOwned;
@@ -291,12 +305,6 @@
 
     <span class="doccomment">/// Build the genesis payload and metadata.
     </span><span class="kw">fn </span>genesis() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata);
-
-    <span class="doccomment">/// Encode the payload
-    ///
-    /// # Errors
-    /// If the transaction length conversion fails.
-    </span><span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;[u8]&gt;, <span class="self">Self</span>::Error&gt;;
 
     <span class="doccomment">/// List of transaction commitments.
     </span><span class="kw">fn </span>transaction_commitments(

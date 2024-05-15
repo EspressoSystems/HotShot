@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TestBlockHeader","TestBlockPayload","TestMetadata","TestTransaction"]};
+window.SIDEBAR_ITEMS = {"struct":["TestBlockHeader","TestBlockPayload","TestMetadata","TestTransaction","TransactionTooLong","TransactionTooLongSnafu"]};

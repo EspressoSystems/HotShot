@@ -224,7 +224,7 @@
     ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
         <span class="doccomment">/// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         </span><span class="kw">const </span>RANDOM_TX_BASE_SIZE: usize = <span class="number">8</span>;
-        TestTransaction(<span class="macro">vec!</span>[
+        TestTransaction::new(<span class="macro">vec!</span>[
             <span class="number">0</span>;
             RANDOM_TX_BASE_SIZE + usize::try_from(padding).unwrap()
         ])

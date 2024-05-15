@@ -533,7 +533,7 @@
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
     <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
-    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap();
+    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
     <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap();
 
     vid_disperse.commit
@@ -543,7 +543,7 @@
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
-    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap();
+    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes())
 }
@@ -556,7 +556,7 @@
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
-    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap();
+    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     <span class="kw">let </span>vid_disperse = VidDisperse::from_membership(
         view_number,
@@ -582,7 +582,7 @@
     public_key: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; DaCertificate&lt;TestTypes&gt; {
-    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap();
+    <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     <span class="kw">let </span>da_payload_commitment =
         vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes());

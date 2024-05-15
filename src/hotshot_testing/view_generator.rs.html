@@ -605,7 +605,7 @@
             proposal_certificate: <span class="prelude-val">None</span>,
         };
 
-        <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions).unwrap());
+        <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions));
         <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>encoded_transactions);
         <span class="kw">let </span>block_payload_signature =
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
@@ -811,7 +811,7 @@
             _pd: PhantomData,
         };
 
-        <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(transactions).unwrap());
+        <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(transactions));
         <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>encoded_transactions);
         <span class="kw">let </span>block_payload_signature =
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
