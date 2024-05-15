@@ -73,3 +73,5 @@ async fn test_quorum_proposal_recv_task() {
     let state = QuorumProposalRecvTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     run_test_script(vec![view_2], state).await;
 }
+
+// TODO - test vote now is called
