@@ -2,7 +2,8 @@
 
 source "$HOME/.cargo/env"
 
-# assign local ip
+# assign local ip by curl from AWS metadata server:
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 # when you run it, these ips are fixed because nginx config is fixed in other servers 
 # which we are not able to access and update in this script.

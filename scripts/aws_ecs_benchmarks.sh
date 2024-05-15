@@ -2,7 +2,8 @@
 
 source "$HOME/.cargo/env"
 
-# assign local ip
+# assign local ip by curl from AWS metadata server:
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 webserver_url=http://"$ip":9000
 da_webserver_url=http://"$ip":9001

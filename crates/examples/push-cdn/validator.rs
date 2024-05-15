@@ -21,6 +21,6 @@ async fn main() {
     setup_logging();
     setup_backtrace();
     let args = ValidatorArgs::parse();
-    info!("connecting to orchestrator at {:?}", args.url);
+    debug!("connecting to orchestrator at {:?}", args.url);
     infra::main_entry_point::<TestTypes, DANetwork, QuorumNetwork, NodeImpl, ThisRun>(args).await;
 }
