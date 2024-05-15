@@ -145,10 +145,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     start_view: TYPES::Time,
 
     /// Access to the output event stream.
-    #[deprecated(
-        note = "please use the `event_stream` method on `SystemContextHandle` instead. This field will be made private in a future release of HotShot"
-    )]
-    pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+    output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
     /// External event stream for communication with the application.
     pub(crate) external_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),

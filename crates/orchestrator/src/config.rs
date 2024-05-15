@@ -256,7 +256,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
                     error!("{e}, falling back to orchestrator");
 
                     let config = client
-                        .config_without_peer(libp2p_address, libp2p_public_key)
+                        .get_config_without_peer(libp2p_address, libp2p_public_key)
                         .await?;
 
                     // save to file if we fell back
@@ -273,7 +273,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
             // otherwise just get from orchestrator
             Ok((
                 client
-                    .config_without_peer(libp2p_address, libp2p_public_key)
+                    .get_config_without_peer(libp2p_address, libp2p_public_key)
                     .await?,
                 NetworkConfigSource::Orchestrator,
             ))
@@ -287,7 +287,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
     ) -> ValidatorConfig<K> {
         // This cur_node_index is only used for key pair generation, it's not bound with the node,
         // lather the node with the generated key pair will get a new node_index from orchestrator.
-        let cur_node_index = client.node_index_for_init_validator_config().await;
+        let cur_node_index = client.get_node_index_for_init_validator_config().await;
         ValidatorConfig::generated_from_seed_indexed([0u8; 32], cur_node_index.into(), 1, is_da)
     }
 
