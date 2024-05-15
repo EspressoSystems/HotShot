@@ -1,6 +1,5 @@
 #![cfg(feature = "dependency-tasks")]
 
-use committable::Committable;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
