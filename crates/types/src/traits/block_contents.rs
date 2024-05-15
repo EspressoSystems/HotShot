@@ -12,7 +12,7 @@ use std::{
 };
 
 use committable::{Commitment, Committable};
-use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
+use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
@@ -45,7 +45,17 @@ pub trait Transaction:
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
 pub trait BlockPayload:
-    Serialize + Clone + Debug + Display + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
+    Serialize
+    + Clone
+    + Debug
+    + Display
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + DeserializeOwned
+    + EncodeBytes
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync + Serialize + DeserializeOwned;
@@ -80,12 +90,6 @@ pub trait BlockPayload:
 
     /// Build the genesis payload and metadata.
     fn genesis() -> (Self, Self::Metadata);
-
-    /// Encode the payload
-    ///
-    /// # Errors
-    /// If the transaction length conversion fails.
-    fn encode(&self) -> Result<Arc<[u8]>, Self::Error>;
 
     /// List of transaction commitments.
     fn transaction_commitments(

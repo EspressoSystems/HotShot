@@ -9,7 +9,7 @@ use hotshot_example_types::{
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
 use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
 use hotshot_types::{
-    data::{null_block, DAProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    data::{null_block, DaProposal, VidDisperse, VidDisperseShare, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -17,7 +17,7 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::{precomputable::Precomputable, VidScheme};
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -36,12 +36,13 @@ async fn test_vid_task() {
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
     let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
-    let transactions = vec![TestTransaction(vec![0])];
+    let transactions = vec![TestTransaction::new(vec![0])];
     let (payload, metadata) =
         TestBlockPayload::from_transactions(transactions.clone(), &TestInstanceState {}).unwrap();
     let builder_commitment = payload.builder_commitment(&metadata);
-    let encoded_transactions = Arc::from(TestTransaction::encode(&transactions).unwrap());
+    let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
+    let (_, vid_precompute) = vid.commit_only_precompute(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
@@ -49,7 +50,7 @@ async fn test_vid_task() {
         payload_commitment.as_ref(),
     )
     .expect("Failed to sign block payload!");
-    let proposal: DAProposal<TestTypes> = DAProposal {
+    let proposal: DaProposal<TestTypes> = DaProposal {
         encoded_transactions: encoded_transactions.clone(),
         metadata: TestMetadata,
         view_number: ViewNumber::new(2),
@@ -89,6 +90,7 @@ async fn test_vid_task() {
         TestMetadata,
         ViewNumber::new(2),
         null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {}).unwrap(),
+        vid_precompute,
     ));
     input.push(HotShotEvent::BlockReady(
         vid_disperse.clone(),

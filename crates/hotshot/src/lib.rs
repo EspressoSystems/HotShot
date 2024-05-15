@@ -45,7 +45,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
-        BlockPayload,
+        EncodeBytes,
     },
     HotShotConfig,
 };
@@ -79,7 +79,7 @@ pub struct Networks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for reaching the DA committee
-    pub da_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Phantom for TYPES and I
     pub _pd: PhantomData<(TYPES, I)>,
@@ -257,12 +257,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         if let Some(payload) = anchored_leaf.get_block_payload() {
-            let encoded_txns = match payload.encode() {
-                Ok(encoded) => encoded,
-                Err(e) => {
-                    return Err(HotShotError::BlockError { source: e });
-                }
-            };
+            let encoded_txns = payload.encode();
 
             saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(&encoded_txns));
         }
@@ -271,11 +266,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             validated_state_map,
             anchored_leaf.get_view_number(),
             anchored_leaf.get_view_number(),
-            saved_leaves,
-            saved_payloads,
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             anchored_leaf.get_view_number(),
+            saved_leaves,
+            saved_payloads,
             initializer.high_qc,
             Arc::clone(&consensus_metrics),
         );
@@ -611,7 +606,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             event_rx.activate_cloned(),
             Arc::clone(&da_network),
             da_membership,
-            network::committee_filter,
+            network::da_filter,
             Arc::clone(&handle.get_storage()),
         )
         .await;

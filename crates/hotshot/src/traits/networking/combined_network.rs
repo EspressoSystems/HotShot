@@ -128,7 +128,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 SequencingMessage::General(general_consensus_message) => {
                     matches!(general_consensus_message, GeneralConsensusMessage::Vote(_))
                 }
-                SequencingMessage::Committee(_) => true,
+                SequencingMessage::Da(_) => true,
             },
             MessageKind::Data(_) => false,
         }
@@ -285,7 +285,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     async fn request_data<T: NodeType, VER: 'static + StaticVersionType>(
         &self,
         request: Message<TYPES>,
-        recipient: TYPES::SignatureKey,
+        recipient: &TYPES::SignatureKey,
         bind_version: VER,
     ) -> Result<ResponseMessage<T>, NetworkError> {
         self.secondary()

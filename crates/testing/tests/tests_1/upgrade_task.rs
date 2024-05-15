@@ -3,10 +3,7 @@
 
 use std::time::Duration;
 
-use hotshot::{
-    tasks::{task_state::CreateTaskState},
-    types::SystemContextHandle,
-};
+use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
@@ -88,7 +85,7 @@ async fn test_consensus_task_upgrade() {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
-            DACertificateRecv(dacs[0].clone()),
+            DaCertificateRecv(dacs[0].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -102,7 +99,7 @@ async fn test_consensus_task_upgrade() {
         inputs: vec![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
-            DACertificateRecv(dacs[1].clone()),
+            DaCertificateRecv(dacs[1].clone()),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
@@ -115,7 +112,7 @@ async fn test_consensus_task_upgrade() {
     let view_3 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
-            DACertificateRecv(dacs[2].clone()),
+            DaCertificateRecv(dacs[2].clone()),
             VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
         ],
         outputs: vec![
@@ -130,7 +127,7 @@ async fn test_consensus_task_upgrade() {
     let view_4 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
-            DACertificateRecv(dacs[3].clone()),
+            DaCertificateRecv(dacs[3].clone()),
             VIDShareRecv(get_vid_share(&vids[3].0, handle.get_public_key())),
         ],
         outputs: vec![
@@ -241,12 +238,13 @@ async fn test_upgrade_and_consensus_task() {
         vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
-            DACertificateRecv(dacs[0].clone()),
+            DaCertificateRecv(dacs[0].clone()),
         ],
         upgrade_vote_recvs,
-        vec![QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-        DACertificateRecv(dacs[1].clone()),
-        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+        vec![
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            DaCertificateRecv(dacs[1].clone()),
+            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
         ],
         vec![
             VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
@@ -255,11 +253,8 @@ async fn test_upgrade_and_consensus_task() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    &TestInstanceState {},
-                )
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
+                    .unwrap(),
             ),
             QCFormed(either::Either::Left(proposals[2].data.justify_qc.clone())),
         ],
@@ -397,7 +392,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     }
 
     // We set the transactions to something not null for view 6, but we expect the node to emit a quorum proposal where they are still null.
-    generator.add_transactions(vec![TestTransaction(vec![0])]);
+    generator.add_transactions(vec![TestTransaction::new(vec![0])]);
 
     for view in (&mut generator).take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -409,7 +404,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     }
 
     // For view 7, we set the transactions to something not null. The node should fail to vote on this.
-    generator.add_transactions(vec![TestTransaction(vec![0])]);
+    generator.add_transactions(vec![TestTransaction::new(vec![0])]);
 
     for view in generator.take(1) {
         proposals.push(view.quorum_proposal.clone());
@@ -434,12 +429,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
-            DACertificateRecv(dacs[0].clone()),
+            DaCertificateRecv(dacs[0].clone()),
         ],
         vec![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
-            DACertificateRecv(dacs[1].clone()),
+            DaCertificateRecv(dacs[1].clone()),
             SendPayloadCommitmentAndMetadata(
                 vids[1].0[0].data.payload_commitment,
                 proposals[1].data.block_header.builder_commitment.clone(),
@@ -450,7 +445,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             ),
         ],
         vec![
-            DACertificateRecv(dacs[2].clone()),
+            DaCertificateRecv(dacs[2].clone()),
             VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[2].0[0].data.payload_commitment,
@@ -463,7 +458,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
         vec![
-            DACertificateRecv(dacs[3].clone()),
+            DaCertificateRecv(dacs[3].clone()),
             VIDShareRecv(get_vid_share(&vids[3].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[3].0[0].data.payload_commitment,
@@ -476,7 +471,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
         vec![
-            DACertificateRecv(dacs[4].clone()),
+            DaCertificateRecv(dacs[4].clone()),
             VIDShareRecv(get_vid_share(&vids[4].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[4].0[0].data.payload_commitment,
@@ -489,7 +484,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
         vec![
-            DACertificateRecv(dacs[5].clone()),
+            DaCertificateRecv(dacs[5].clone()),
             VIDShareRecv(get_vid_share(&vids[5].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[5].0[0].data.payload_commitment,
@@ -502,7 +497,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             QCFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
         vec![
-            DACertificateRecv(dacs[6].clone()),
+            DaCertificateRecv(dacs[6].clone()),
             VIDShareRecv(get_vid_share(&vids[6].0, handle.get_public_key())),
             SendPayloadCommitmentAndMetadata(
                 vids[6].0[0].data.payload_commitment,

@@ -16,7 +16,7 @@ use hotshot_types::{
     data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
-        block_contents::BuilderFee,
+        block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -135,18 +135,9 @@ impl<
                     block_header,
                 }) = self.wait_for_block().await
                 {
-                    // send the sequenced transactions to VID and DA tasks
-                    let encoded_transactions = match block_data.block_payload.encode() {
-                        Ok(encoded) => encoded,
-                        Err(e) => {
-                            error!("Failed to encode the block payload: {:?}.", e);
-                            return None;
-                        }
-                    };
-
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            encoded_transactions,
+                            block_data.block_payload.encode(),
                             block_data.metadata,
                             block_view,
                             BuilderFee {
@@ -154,6 +145,7 @@ impl<
                                 fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },
+                            block_header.vid_precompute_data,
                         )),
                         &event_stream,
                     )
@@ -191,6 +183,9 @@ impl<
                         return None;
                     };
 
+                    let (_, precompute_data) =
+                        precompute_vid_commitment(&[], self.membership.total_nodes());
+
                     // Broadcast the empty block
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
@@ -198,6 +193,7 @@ impl<
                             metadata,
                             block_view,
                             builder_fee,
+                            precompute_data,
                         )),
                         &event_stream,
                     )
@@ -228,7 +224,7 @@ impl<
                     .get(&prev_view)
                     .and_then(|view| match view.view_inner {
                         // For a view for which we have a Leaf stored
-                        ViewInner::DA { payload_commitment } => Some(payload_commitment),
+                        ViewInner::Da { payload_commitment } => Some(payload_commitment),
                         ViewInner::Leaf { leaf, .. } => consensus
                             .saved_leaves()
                             .get(&leaf)
