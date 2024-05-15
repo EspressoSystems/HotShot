@@ -1,8 +1,7 @@
 ## How to run the benchmarks
 
 - To run it locally, check out `crates/examples/push-cdn/README.md`.
-<!-- Sishan: add more details -->
-- To run it in AWS, make sure you've installed everything needed and have access to needed AWS servers, and then `./scripts/aws_ecs_benchmarks_cdn.sh`. More details in `https://www.notion.so/espressosys/Running-Benchmarks-in-AWS-as-of-Feb-2024-fa680676053044aa8a04d5bccea0b1b4?pvs=4`.
+- To run it in AWS, take a look at `scripts/aws_ecs_benchmarks_cdn.sh`, make sure you've installed everything needed in the script and have access to needed AWS servers, update `REMOTE_USER` and `REMOTE_HOST`, then `./scripts/aws_ecs_benchmarks_cdn.sh`. More details in `https://www.notion.so/espressosys/Running-Benchmarks-in-AWS-as-of-Feb-2024-fa680676053044aa8a04d5bccea0b1b4?pvs=4`.
 
 ## How to view the results
 
