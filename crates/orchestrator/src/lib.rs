@@ -176,7 +176,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// get endpoint for the next available temporary node index
     /// # Errors
     /// if unable to serve
-    fn tmp_node_index(&mut self) -> Result<u16, ServerError>;
+    fn get_tmp_node_index(&mut self) -> Result<u16, ServerError>;
     /// post endpoint for each node's public key
     /// # Errors
     /// if unable to serve
@@ -198,7 +198,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// get endpoint for whether or not the run has started
     /// # Errors
     /// if unable to serve
-    fn start(&self) -> Result<bool, ServerError>;
+    fn get_start(&self) -> Result<bool, ServerError>;
     /// post endpoint for the results of the run
     /// # Errors
     /// if unable to serve
@@ -261,18 +261,18 @@ where
     }
 
     // Assumes one node do not get twice
-    fn tmp_node_index(&mut self) -> Result<u16, ServerError> {
-        let tmp_node_index = self.tmp_latest_index;
+    fn get_tmp_node_index(&mut self) -> Result<u16, ServerError> {
+        let get_tmp_node_index = self.tmp_latest_index;
         self.tmp_latest_index += 1;
 
-        if usize::from(tmp_node_index) >= self.config.config.num_nodes_with_stake.get() {
+        if usize::from(get_tmp_node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Node index getter for key pair generation has reached capacity"
                     .to_string(),
             });
         }
-        Ok(tmp_node_index)
+        Ok(get_tmp_node_index)
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -374,7 +374,7 @@ where
         Ok(self.config.clone())
     }
 
-    fn start(&self) -> Result<bool, ServerError> {
+    fn get_start(&self) -> Result<bool, ServerError> {
         // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
@@ -538,8 +538,8 @@ where
         }
         .boxed()
     })?
-    .post("tmp_node_index", |_req, state| {
-        async move { state.tmp_node_index() }.boxed()
+    .post("get_tmp_node_index", |_req, state| {
+        async move { state.get_tmp_node_index() }.boxed()
     })?
     .post("post_pubkey", |req, state| {
         async move {
@@ -582,7 +582,9 @@ where
             .boxed()
         },
     )?
-    .get("start", |_req, state| async move { state.start() }.boxed())?
+    .get("start", |_req, state| {
+        async move { state.get_start() }.boxed()
+    })?
     .post("post_results", |req, state| {
         async move {
             let metrics: Result<BenchResults, RequestError> = req.body_json();
