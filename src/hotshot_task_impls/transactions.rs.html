@@ -424,9 +424,6 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -547,12 +544,12 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>make_block = <span class="bool-val">false</span>;
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
                     <span class="macro">error!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
-                    make_block = <span class="self">self</span>.membership.get_leader(view) == <span class="self">self</span>.public_key;
+                    make_block = <span class="self">self</span>.membership.leader(view) == <span class="self">self</span>.public_key;
                 }
                 <span class="self">self</span>.cur_view = view;
 
                 <span class="comment">// return if we aren't the next leader or we skipped last view and aren't the current leader.
-                </span><span class="kw">if </span>!make_block &amp;&amp; <span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span>!make_block &amp;&amp; <span class="self">self</span>.membership.leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
                     <span class="macro">debug!</span>(<span class="string">"Not next leader for view {:?}"</span>, <span class="self">self</span>.cur_view);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -657,7 +654,7 @@
                         ViewInner::Leaf { leaf, .. } =&gt; consensus
                             .saved_leaves()
                             .get(<span class="kw-2">&amp;</span>leaf)
-                            .map(Leaf::get_payload_commitment),
+                            .map(Leaf::payload_commitment),
                         ViewInner::Failed =&gt; <span class="prelude-val">None</span>,
                     })
             {
@@ -667,10 +664,7 @@
         }
 
         <span class="comment">// If not found, return commitment for last decided block
-        </span>(
-            prev_view,
-            consensus.get_decided_leaf().get_payload_commitment(),
-        )
+        </span>(prev_view, consensus.decided_leaf().payload_commitment())
     }
 
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
@@ -695,7 +689,7 @@
                 <span class="self">self</span>.api
                     .builder_timeout()
                     .saturating_sub(task_start_time.elapsed()),
-                <span class="self">self</span>.get_block_from_builder(parent_comm, view_num, <span class="kw-2">&amp;</span>parent_comm_sig),
+                <span class="self">self</span>.block_from_builder(parent_comm, view_num, <span class="kw-2">&amp;</span>parent_comm_sig),
             )
             .<span class="kw">await
             </span>{
@@ -724,8 +718,8 @@
         <span class="prelude-val">None
     </span>}
 
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"get_block_from_builder"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>get_block_from_builder(
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"block_from_builder"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="kw">async fn </span>block_from_builder(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
@@ -733,9 +727,9 @@
     ) -&gt; anyhow::Result&lt;BuilderResponses&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>available_blocks = <span class="self">self
             </span>.builder_client
-            .get_available_blocks(
+            .available_blocks(
                 parent_comm,
-                view_number.get_u64(),
+                view_number.u64(),
                 <span class="self">self</span>.public_key.clone(),
                 parent_comm_sig,
             )
@@ -776,8 +770,8 @@
         .context(<span class="string">"signing block hash"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(block, header_input) = <span class="macro">futures::join!</span> {
-            <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), view_number.get_u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
-            <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
+            <span class="self">self</span>.builder_client.claim_block(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
+            <span class="self">self</span>.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
         };
 
         <span class="kw">let </span>block_data = block.context(<span class="string">"claiming block data"</span>)<span class="question-mark">?</span>;

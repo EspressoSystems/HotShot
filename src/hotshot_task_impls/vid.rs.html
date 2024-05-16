@@ -342,7 +342,7 @@
                 <span class="self">self</span>.cur_view = view;
 
                 <span class="comment">// If we are not the next leader, we should exit
-                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
                     <span class="comment">// panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     </span><span class="kw">return </span><span class="prelude-val">None</span>;
                 }

@@ -343,8 +343,8 @@
     ) -&gt; NetworkRequestState&lt;TYPES, I, V&gt; {
         NetworkRequestState {
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
-            state: handle.hotshot.get_consensus(),
-            view: handle.get_cur_view().<span class="kw">await</span>,
+            state: handle.hotshot.consensus(),
+            view: handle.cur_view().<span class="kw">await</span>,
             delay: handle.hotshot.config.data_request_delay,
             da_membership: handle.hotshot.memberships.da_membership.clone(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
@@ -366,7 +366,7 @@
     ) -&gt; UpgradeTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         UpgradeTaskState {
             api: handle.clone(),
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            cur_view: handle.cur_view().<span class="kw">await</span>,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             <span class="attr">#[cfg(not(feature = <span class="string">"example-upgrade"</span>))]
@@ -390,8 +390,8 @@
     ) -&gt; VIDTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         VIDTaskState {
             api: handle.clone(),
-            consensus: handle.hotshot.get_consensus(),
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            consensus: handle.hotshot.consensus(),
+            cur_view: handle.cur_view().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             membership: handle.hotshot.memberships.vid_membership.clone().into(),
@@ -411,11 +411,11 @@
     ) -&gt; DaTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
         DaTaskState {
             api: handle.clone(),
-            consensus: handle.hotshot.get_consensus(),
+            consensus: handle.hotshot.consensus(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            cur_view: handle.cur_view().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -432,7 +432,7 @@
     <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; ViewSyncTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
-        <span class="kw">let </span>cur_view = handle.get_cur_view().<span class="kw">await</span>;
+        <span class="kw">let </span>cur_view = handle.cur_view().<span class="kw">await</span>;
         ViewSyncTaskState {
             current_view: cur_view,
             next_view: cur_view,
@@ -468,13 +468,13 @@
     ) -&gt; TransactionTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;, Ver&gt; {
         TransactionTaskState {
             api: handle.clone(),
-            consensus: handle.hotshot.get_consensus(),
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            consensus: handle.hotshot.consensus(),
+            cur_view: handle.cur_view().<span class="kw">await</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            instance_state: handle.hotshot.get_instance_state(),
+            instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
             builder_client: BuilderClient::new(handle.hotshot.config.builder_url.clone()),
         }
@@ -486,14 +486,14 @@
     <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I&gt;
 {
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; ConsensusTaskState&lt;TYPES, I&gt; {
-        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+        <span class="kw">let </span>consensus = handle.hotshot.consensus();
 
         ConsensusTaskState {
             consensus,
-            instance_state: handle.hotshot.get_instance_state(),
+            instance_state: handle.hotshot.instance_state(),
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            cur_view: handle.cur_view().<span class="kw">await</span>,
             payload_commitment_and_metadata: <span class="prelude-val">None</span>,
             vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_vote_collector: <span class="prelude-val">None</span>.into(),
@@ -523,14 +523,14 @@
     <span class="kw">for </span>QuorumVoteTaskState&lt;TYPES, I&gt;
 {
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; QuorumVoteTaskState&lt;TYPES, I&gt; {
-        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+        <span class="kw">let </span>consensus = handle.hotshot.consensus();
 
         QuorumVoteTaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             consensus,
-            instance_state: handle.hotshot.get_instance_state(),
-            latest_voted_view: handle.get_cur_view().<span class="kw">await</span>,
+            instance_state: handle.hotshot.instance_state(),
+            latest_voted_view: handle.cur_view().<span class="kw">await</span>,
             vote_dependencies: HashMap::new(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
@@ -550,15 +550,15 @@
     <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; QuorumProposalTaskState&lt;TYPES, I&gt; {
-        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+        <span class="kw">let </span>consensus = handle.hotshot.consensus();
         QuorumProposalTaskState {
-            latest_proposed_view: handle.get_cur_view().<span class="kw">await</span>,
+            latest_proposed_view: handle.cur_view().<span class="kw">await</span>,
             propose_dependencies: HashMap::new(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             consensus,
-            instance_state: handle.hotshot.get_instance_state(),
+            instance_state: handle.hotshot.instance_state(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
@@ -579,12 +579,12 @@
     <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; QuorumProposalRecvTaskState&lt;TYPES, I&gt; {
-        <span class="kw">let </span>consensus = handle.hotshot.get_consensus();
+        <span class="kw">let </span>consensus = handle.hotshot.consensus();
         QuorumProposalRecvTaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             consensus,
-            cur_view: handle.get_cur_view().<span class="kw">await</span>,
+            cur_view: handle.cur_view().<span class="kw">await</span>,
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -597,7 +597,7 @@
             proposal_cert: <span class="prelude-val">None</span>,
             decided_upgrade_cert: <span class="prelude-val">None</span>,
             spawned_tasks: BTreeMap::new(),
-            instance_state: handle.hotshot.get_instance_state(),
+            instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
         }
     }

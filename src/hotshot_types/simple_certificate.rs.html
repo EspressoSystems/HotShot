@@ -334,8 +334,8 @@
         <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::Time::genesis() {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
-        <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::get_public_parameter(
-            membership.get_committee_qc_stake_table(),
+        <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
+            membership.committee_qc_stake_table(),
             U256::from(<span class="self">Self</span>::threshold(membership)),
         );
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
@@ -347,10 +347,10 @@
     <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
         THRESHOLD::threshold(membership)
     }
-    <span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable {
+    <span class="kw">fn </span>date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable {
         <span class="kw-2">&amp;</span><span class="self">self</span>.data
     }
-    <span class="kw">fn </span>get_data_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>::Voteable&gt; {
+    <span class="kw">fn </span>date_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>::Voteable&gt; {
         <span class="self">self</span>.vote_commitment
     }
 }
@@ -358,7 +358,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">'static</span>, THRESHOLD: Threshold&lt;TYPES&gt;&gt;
     HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE, THRESHOLD&gt;
 {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }

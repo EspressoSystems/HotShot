@@ -1085,7 +1085,7 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) {
         <span class="comment">// Don't even bother making the task if we are not entitled to propose anyay.
-        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view_number) != <span class="self">self</span>.public_key {
+        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view_number) != <span class="self">self</span>.public_key {
             <span class="kw">return</span>;
         }
 
@@ -1223,7 +1223,7 @@
                 <span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
                     <span class="macro">warn!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
-                        certificate.get_data()
+                        certificate.date()
                     );
                     <span class="kw">return</span>;
                 }

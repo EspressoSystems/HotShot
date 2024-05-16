@@ -527,7 +527,7 @@
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    <span class="kw">fn </span>get_transactions&lt;<span class="lifetime">'a</span>&gt;(
+    <span class="kw">fn </span>transactions&lt;<span class="lifetime">'a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         _metadata: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Metadata,
     ) -&gt; <span class="kw">impl </span><span class="lifetime">'a </span>+ Iterator&lt;Item = <span class="self">Self</span>::Transaction&gt; {
@@ -563,7 +563,7 @@
         _builder_fee: BuilderFee&lt;TYPES&gt;,
         _vid_common: VidCommon,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">let </span>parent = parent_leaf.get_block_header();
+        <span class="kw">let </span>parent = parent_leaf.block_header();
 
         <span class="kw">let </span><span class="kw-2">mut </span>timestamp = OffsetDateTime::now_utc().unix_timestamp() <span class="kw">as </span>u64;
         <span class="kw">if </span>timestamp &lt; parent.timestamp {

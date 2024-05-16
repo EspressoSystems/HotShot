@@ -1534,12 +1534,12 @@
 
         <span class="comment">// Make a node DA if it is under the staked committee size
         </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_da_nodes {
-            da_keys.insert(K::get_public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
+            da_keys.insert(K::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
         }
 
         <span class="comment">// Insert all known nodes into the set of all keys
         </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_nodes_with_stake {
-            all_keys.insert(K::get_public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
+            all_keys.insert(K::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
         }
 
         <span class="prelude-val">Ok</span>(Libp2pNetwork::new(
@@ -2250,7 +2250,7 @@
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time::new(view) + LOOK_AHEAD;
-        <span class="kw">let </span>future_leader = membership.get_leader(future_view);
+        <span class="kw">let </span>future_leader = membership.leader(future_view);
 
         <span class="kw">let _ </span>= <span class="self">self
             </span>.queue_node_lookup(ViewNumber::new(<span class="kw-2">*</span>future_view), future_leader)

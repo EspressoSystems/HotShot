@@ -306,7 +306,7 @@
 <span class="doccomment">/// Type representing stake table entries in a `StakeTable`
 </span><span class="kw">pub trait </span>StakeTableEntryType {
     <span class="doccomment">/// Get the stake value
-    </span><span class="kw">fn </span>get_stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
+    </span><span class="kw">fn </span>stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
 }
 
 <span class="doccomment">/// Trait for abstracting public key signatures
@@ -406,13 +406,13 @@
     </span><span class="kw">fn </span>generated_from_seed_indexed(seed: [u8; <span class="number">32</span>], index: u64) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::PrivateKey);
 
     <span class="doccomment">/// get the stake table entry from the public key and stake value
-    </span><span class="kw">fn </span>get_stake_table_entry(<span class="kw-2">&amp;</span><span class="self">self</span>, stake: u64) -&gt; <span class="self">Self</span>::StakeTableEntry;
+    </span><span class="kw">fn </span>stake_table_entry(<span class="kw-2">&amp;</span><span class="self">self</span>, stake: u64) -&gt; <span class="self">Self</span>::StakeTableEntry;
 
     <span class="doccomment">/// only get the public key from the stake table entry
-    </span><span class="kw">fn </span>get_public_key(entry: <span class="kw-2">&amp;</span><span class="self">Self</span>::StakeTableEntry) -&gt; <span class="self">Self</span>;
+    </span><span class="kw">fn </span>public_key(entry: <span class="kw-2">&amp;</span><span class="self">Self</span>::StakeTableEntry) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// get the public parameter for the assembled signature checking
-    </span><span class="kw">fn </span>get_public_parameter(
+    </span><span class="kw">fn </span>public_parameter(
         stake_entries: Vec&lt;<span class="self">Self</span>::StakeTableEntry&gt;,
         threshold: U256,
     ) -&gt; <span class="self">Self</span>::QCParams;
@@ -421,7 +421,7 @@
     </span><span class="kw">fn </span>check(real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCParams, data: <span class="kw-2">&amp;</span>[u8], qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; bool;
 
     <span class="doccomment">/// get the assembled signature and the `BitVec` separately from the assembled signature
-    </span><span class="kw">fn </span>get_sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
+    </span><span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
 
     <span class="doccomment">/// assemble the signature from the partial signature and the indication of signers in `BitVec`
     </span><span class="kw">fn </span>assemble(

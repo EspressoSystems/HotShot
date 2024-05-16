@@ -576,7 +576,7 @@
     <span class="doccomment">/// in progress queries for nearby peers
     </span><span class="kw">pub </span>in_progress_get_closest_peers: HashMap&lt;QueryId, Sender&lt;()&gt;&gt;,
     <span class="doccomment">/// List of in-progress get requests
-    </span>in_progress_get_record_queries: HashMap&lt;QueryId, KadGetQuery&gt;,
+    </span>in_progress_record_queries: HashMap&lt;QueryId, KadGetQuery&gt;,
     <span class="doccomment">/// List of in-progress put requests
     </span>in_progress_put_record_queries: HashMap&lt;QueryId, KadPutQuery&gt;,
     <span class="doccomment">/// State of bootstrapping
@@ -635,7 +635,7 @@
         // &lt;https://github.com/libp2p/rust-libp2p/issues/4194&gt;
         </span><span class="self">Self </span>{
             peer_id: pid,
-            in_progress_get_record_queries: HashMap::default(),
+            in_progress_record_queries: HashMap::default(),
             in_progress_put_record_queries: HashMap::default(),
             bootstrap_state: Bootstrap {
                 state: State::NotStarted,
@@ -666,7 +666,7 @@
 
     <span class="doccomment">/// Get the replication factor for queries
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_replication_factor(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
+    </span><span class="kw">pub fn </span>replication_factor(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
         <span class="self">self</span>.replication_factor
     }
     <span class="doccomment">/// Publish a key/value to the kv store.
@@ -681,7 +681,7 @@
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`crate::network::error::DHTError`] is sent instead.
     /// NOTE: noop if `retry_count` is 0
-    </span><span class="kw">pub fn </span>get_record(
+    </span><span class="kw">pub fn </span>record(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         key: Vec&lt;u8&gt;,
         chan: Sender&lt;Vec&lt;u8&gt;&gt;,
@@ -714,7 +714,7 @@
                 retry_count: retry_count - <span class="number">1</span>,
                 records: HashMap::default(),
             };
-            <span class="self">self</span>.in_progress_get_record_queries.insert(qid, query);
+            <span class="self">self</span>.in_progress_record_queries.insert(qid, query);
         }
     }
 
@@ -759,7 +759,7 @@
         id: QueryId,
         <span class="kw-2">mut </span>last: bool,
     ) {
-        <span class="kw">let </span>num = <span class="kw">match </span><span class="self">self</span>.in_progress_get_record_queries.get_mut(<span class="kw-2">&amp;</span>id) {
+        <span class="kw">let </span>num = <span class="kw">match </span><span class="self">self</span>.in_progress_record_queries.get_mut(<span class="kw-2">&amp;</span>id) {
             <span class="prelude-val">Some</span>(query) =&gt; <span class="kw">match </span>record_results {
                 <span class="prelude-val">Ok</span>(results) =&gt; <span class="kw">match </span>results {
                     GetRecordOk::FoundRecord(record) =&gt; {
@@ -807,7 +807,7 @@
                 key,
                 retry_count,
                 records,
-            }) = <span class="self">self</span>.in_progress_get_record_queries.remove(<span class="kw-2">&amp;</span>id)
+            }) = <span class="self">self</span>.in_progress_record_queries.remove(<span class="kw-2">&amp;</span>id)
             {
                 <span class="comment">// if channel has been dropped, cancel request
                 </span><span class="kw">if </span>notify.is_canceled() {

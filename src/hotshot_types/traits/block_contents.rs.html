@@ -212,8 +212,6 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -311,21 +309,19 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata,
     ) -&gt; Vec&lt;Commitment&lt;<span class="self">Self</span>::Transaction&gt;&gt; {
-        <span class="self">self</span>.get_transactions(metadata)
-            .map(|tx| tx.commit())
-            .collect()
+        <span class="self">self</span>.transactions(metadata).map(|tx| tx.commit()).collect()
     }
 
     <span class="doccomment">/// Number of transactions in the block.
     </span><span class="kw">fn </span>num_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; usize {
-        <span class="self">self</span>.get_transactions(metadata).count()
+        <span class="self">self</span>.transactions(metadata).count()
     }
 
     <span class="doccomment">/// Generate commitment that builders use to sign block options.
     </span><span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment;
 
     <span class="doccomment">/// Get the transactions in the payload.
-    </span><span class="kw">fn </span>get_transactions&lt;<span class="lifetime">'a</span>&gt;(
+    </span><span class="kw">fn </span>transactions&lt;<span class="lifetime">'a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         metadata: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>::Metadata,
     ) -&gt; <span class="kw">impl </span><span class="lifetime">'a </span>+ Iterator&lt;Item = <span class="self">Self</span>::Transaction&gt;;

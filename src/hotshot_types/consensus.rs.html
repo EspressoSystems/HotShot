@@ -876,7 +876,7 @@
         ) -&gt; bool,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>next_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = <span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>start_from) {
-            view.get_leaf_commitment()
+            view.leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: <span class="macro">format!</span>(
                         <span class="string">"Visited failed view {start_from:?} leaf. Expected successfuil leaf"
@@ -889,8 +889,8 @@
         };
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>next_leaf) {
-            <span class="kw">let </span>view = leaf.get_view_number();
-            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), delta) = <span class="self">self</span>.get_state_and_delta(view) {
+            <span class="kw">let </span>view = leaf.view_number();
+            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), delta) = <span class="self">self</span>.state_and_delta(view) {
                 <span class="kw">if let </span>Terminator::Exclusive(stop_before) = terminator {
                     <span class="kw">if </span>stop_before == view {
                         <span class="kw">if </span>ok_when_finished {
@@ -899,7 +899,7 @@
                         <span class="kw">break</span>;
                     }
                 }
-                next_leaf = leaf.get_parent_commitment();
+                next_leaf = leaf.parent_commitment();
                 <span class="kw">if </span>!f(leaf, state, delta) {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
@@ -941,7 +941,7 @@
             .retain(|view_number, <span class="kw">_</span>| <span class="kw-2">*</span>view_number &gt;= old_anchor_view);
         <span class="self">self</span>.validated_state_map
             .range(old_anchor_view..new_anchor_view)
-            .filter_map(|(_view_number, view)| view.get_leaf_commitment())
+            .filter_map(|(_view_number, view)| view.leaf_commitment())
             .for_each(|leaf| {
                 <span class="self">self</span>.saved_leaves.remove(<span class="kw-2">&amp;</span>leaf);
             });
@@ -956,29 +956,29 @@
     /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
         <span class="kw">let </span>view = <span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>decided_view_num).unwrap();
         <span class="kw">let </span>leaf = view
-            .get_leaf_commitment()
+            .leaf_commitment()
             .expect(<span class="string">"Decided leaf not found! Consensus internally inconsistent"</span>);
         <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>leaf).unwrap().clone()
     }
 
     <span class="doccomment">/// Gets the validated state with the given view number, if in the state map.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt;&gt; {
+    </span><span class="kw">pub fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt;&gt; {
         <span class="kw">match </span><span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>view_number) {
-            <span class="prelude-val">Some</span>(view) =&gt; view.get_state(),
+            <span class="prelude-val">Some</span>(view) =&gt; view.state(),
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
     <span class="doccomment">/// Gets the validated state and state delta with the given view number, if in the state map.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_state_and_delta(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; StateAndDelta&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>state_and_delta(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; StateAndDelta&lt;TYPES&gt; {
         <span class="kw">match </span><span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>view_number) {
-            <span class="prelude-val">Some</span>(view) =&gt; view.get_state_and_delta(),
+            <span class="prelude-val">Some</span>(view) =&gt; view.state_and_delta(),
             <span class="prelude-val">None </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
         }
     }
@@ -989,9 +989,9 @@
     /// If the last decided view's state does not exist in the state map, which should never
     /// happen.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
+    </span><span class="kw">pub fn </span>decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
-        <span class="self">self</span>.get_state_and_delta(decided_view_num)
+        <span class="self">self</span>.state_and_delta(decided_view_num)
             .<span class="number">0
             </span>.expect(<span class="string">"Decided state not found! Consensus internally inconsistent"</span>)
     }

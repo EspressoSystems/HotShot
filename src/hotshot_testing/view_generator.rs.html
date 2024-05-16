@@ -864,7 +864,7 @@
                 leaf_commit: <span class="self">self</span>.leaf.commit(),
             },
             <span class="self">self</span>.view_number,
-            handle.public_key(),
+            <span class="kw-2">&amp;</span>handle.public_key(),
             handle.private_key(),
         )
         .expect(<span class="string">"Failed to generate a signature on QuorumVote"</span>)
@@ -878,7 +878,7 @@
         UpgradeVote::&lt;TestTypes&gt;::create_signed_vote(
             data,
             <span class="self">self</span>.view_number,
-            handle.public_key(),
+            <span class="kw-2">&amp;</span>handle.public_key(),
             handle.private_key(),
         )
         .expect(<span class="string">"Failed to generate a signature on UpgradVote"</span>)
@@ -892,7 +892,7 @@
         DaVote::create_signed_vote(
             data,
             <span class="self">self</span>.view_number,
-            handle.public_key(),
+            <span class="kw-2">&amp;</span>handle.public_key(),
             handle.private_key(),
         )
         .expect(<span class="string">"Failed to sign DaData"</span>)

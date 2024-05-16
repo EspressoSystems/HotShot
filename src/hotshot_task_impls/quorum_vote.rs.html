@@ -649,14 +649,14 @@
                     }
                     <span class="kw">let </span>parent_commitment = parent_leaf.commit();
                     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                    <span class="kw">if </span>proposed_leaf.get_parent_commitment() != parent_commitment {
+                    <span class="kw">if </span>proposed_leaf.parent_commitment() != parent_commitment {
                         <span class="macro">warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>);
                         <span class="kw">return</span>;
                     }
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert) =&gt; {
-                    <span class="kw">let </span>cert_payload_comm = cert.get_data().payload_commit;
+                    <span class="kw">let </span>cert_payload_comm = cert.date().payload_commit;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>cert_payload_comm != comm {
                             <span class="macro">error!</span>(<span class="string">"DAC has inconsistent payload commitment with quorum proposal or VID."</span>);
@@ -735,7 +735,7 @@
         <span class="kw">if let </span>GeneralConsensusMessage::Vote(vote) = message {
             <span class="macro">debug!</span>(
                 <span class="string">"Sending vote to next quorum leader {:?}"</span>,
-                vote.get_view_number() + <span class="number">1
+                vote.view_number() + <span class="number">1
             </span>);
             <span class="comment">// Add to the storage.
             </span><span class="kw">let </span><span class="prelude-val">Some</span>(disperse) = disperse_share <span class="kw">else </span>{
@@ -992,7 +992,7 @@
                 <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
             HotShotEvent::VIDShareRecv(disperse) =&gt; {
-                <span class="kw">let </span>view = disperse.data.get_view_number();
+                <span class="kw">let </span>view = disperse.data.view_number();
                 <span class="macro">trace!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
                     <span class="kw">return</span>;
@@ -1006,14 +1006,14 @@
                 // * Signed by one of the staked DA committee members.
                 </span><span class="kw">if </span>!<span class="self">self
                     </span>.quorum_membership
-                    .get_leader(view)
+                    .leader(view)
                     .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
                     &amp;&amp; !<span class="self">self
                         </span>.public_key
                         .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
                 {
                     <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
-                    <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.get_staked_committee(view) {
+                    <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.staked_committee(view) {
                         <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
                             validated = <span class="bool-val">true</span>;
                             <span class="kw">break</span>;

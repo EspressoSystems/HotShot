@@ -272,7 +272,7 @@
     </span>TYPES: NodeType&lt;SignatureKey = PUBKEY&gt;,
 {
     <span class="doccomment">/// Clone the public key and corresponding stake table for current elected committee
-    </span><span class="kw">fn </span>get_committee_qc_stake_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PUBKEY::StakeTableEntry&gt; {
+    </span><span class="kw">fn </span>committee_qc_stake_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PUBKEY::StakeTableEntry&gt; {
         <span class="self">self</span>.committee_nodes_with_stake.clone()
     }
 
@@ -281,16 +281,16 @@
         feature = <span class="string">"fixed-leader-election"
     </span>)))]
     </span><span class="doccomment">/// Index the vector of public keys with the current view number
-    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
         <span class="kw">let </span>index = usize::try_from(<span class="kw-2">*</span>view_number % <span class="self">self</span>.all_nodes_with_stake.len() <span class="kw">as </span>u64).unwrap();
         <span class="kw">let </span>res = <span class="self">self</span>.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
+        TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res)
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
     </span><span class="doccomment">/// Only get leader in fixed set
     /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
-    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
         <span class="kw">if </span><span class="self">self</span>.fixed_leader_for_gpuvid &lt;= <span class="number">0
             </span>|| <span class="self">self</span>.fixed_leader_for_gpuvid &gt; <span class="self">self</span>.all_nodes_with_stake.len()
         {
@@ -298,29 +298,29 @@
         }
         <span class="kw">let </span>index = usize::try_from(<span class="kw-2">*</span>view_number % <span class="self">self</span>.fixed_leader_for_gpuvid <span class="kw">as </span>u64).unwrap();
         <span class="kw">let </span>res = <span class="self">self</span>.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
+        TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res)
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"randomized-leader-election"</span>)]
     </span><span class="doccomment">/// Index the vector of public keys with a random number generated using the current view number as a seed
-    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; PUBKEY {
         <span class="kw">let </span><span class="kw-2">mut </span>rng: StdRng = rand::SeedableRng::seed_from_u64(<span class="kw-2">*</span>view_number);
         <span class="kw">let </span>randomized_view_number: usize = rng.gen();
         <span class="kw">let </span>index = randomized_view_number % <span class="self">self</span>.nodes_with_stake.len();
         <span class="kw">let </span>res = <span class="self">self</span>.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::get_public_key(<span class="kw-2">&amp;</span>res)
+        TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res)
     }
 
     <span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>PUBKEY) -&gt; bool {
-        <span class="kw">let </span>entry = pub_key.get_stake_table_entry(<span class="number">1u64</span>);
+        <span class="kw">let </span>entry = pub_key.stake_table_entry(<span class="number">1u64</span>);
         <span class="self">self</span>.committee_nodes_with_stake.contains(<span class="kw-2">&amp;</span>entry)
     }
 
-    <span class="kw">fn </span>get_stake(
+    <span class="kw">fn </span>stake(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pub_key: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt; {
-        <span class="kw">let </span>entry = pub_key.get_stake_table_entry(<span class="number">1u64</span>);
+        <span class="kw">let </span>entry = pub_key.stake_table_entry(<span class="number">1u64</span>);
         <span class="kw">if </span><span class="self">self</span>.committee_nodes_with_stake.contains(<span class="kw-2">&amp;</span>entry) {
             <span class="prelude-val">Some</span>(entry)
         } <span class="kw">else </span>{
@@ -341,17 +341,17 @@
             .iter()
             .map(|entry| entry.stake_table_entry.clone())
         {
-            <span class="kw">if </span>entry.get_stake() &gt; U256::from(<span class="number">0</span>) {
+            <span class="kw">if </span>entry.stake() &gt; U256::from(<span class="number">0</span>) {
                 <span class="comment">// Positive stake
                 </span>committee_nodes_with_stake.push(entry);
             } <span class="kw">else </span>{
                 <span class="comment">// Zero stake
-                </span>committee_nodes_without_stake.push(PUBKEY::get_public_key(<span class="kw-2">&amp;</span>entry));
+                </span>committee_nodes_without_stake.push(PUBKEY::public_key(<span class="kw-2">&amp;</span>entry));
             }
         }
 
         <span class="comment">// Retain all nodes with stake
-        </span>all_nodes.retain(|entry| entry.stake_table_entry.get_stake() &gt; U256::from(<span class="number">0</span>));
+        </span>all_nodes.retain(|entry| entry.stake_table_entry.stake() &gt; U256::from(<span class="number">0</span>));
 
         <span class="macro">debug!</span>(
             <span class="string">"Election Membership Size: {}"</span>,
@@ -386,29 +386,29 @@
         NonZeroU64::new(((<span class="self">self</span>.committee_nodes_with_stake.len() <span class="kw">as </span>u64 * <span class="number">9</span>) / <span class="number">10</span>) + <span class="number">1</span>).unwrap()
     }
 
-    <span class="kw">fn </span>get_staked_committee(
+    <span class="kw">fn </span>staked_committee(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
         <span class="self">self</span>.committee_nodes_with_stake
             .iter()
-            .map(|node| &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey::get_public_key(node))
+            .map(|node| &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey::public_key(node))
             .collect()
     }
 
-    <span class="kw">fn </span>get_non_staked_committee(
+    <span class="kw">fn </span>non_staked_committee(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
         <span class="self">self</span>.committee_nodes_without_stake.iter().cloned().collect()
     }
 
-    <span class="kw">fn </span>get_whole_committee(
+    <span class="kw">fn </span>whole_committee(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
     ) -&gt; std::collections::BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>committee = <span class="self">self</span>.get_staked_committee(view_number);
-        committee.extend(<span class="self">self</span>.get_non_staked_committee(view_number));
+        <span class="kw">let </span><span class="kw-2">mut </span>committee = <span class="self">self</span>.staked_committee(view_number);
+        committee.extend(<span class="self">self</span>.non_staked_committee(view_number));
         committee
     }
 }
@@ -424,7 +424,7 @@
     }
     <span class="attr">#[allow(clippy::must_use_candidate)]
     </span><span class="doccomment">/// get all the non-staked nodes
-    </span><span class="kw">pub fn </span>get_non_staked_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PUBKEY&gt; {
+    </span><span class="kw">pub fn </span>non_staked_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PUBKEY&gt; {
         <span class="self">self</span>.committee_nodes_without_stake.clone()
     }
 }

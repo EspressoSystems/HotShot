@@ -1143,19 +1143,19 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
-                <span class="kw">let </span>view = certificate.get_view_number();
+                <span class="kw">let </span>view = certificate.view_number();
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
-                <span class="kw">let </span>view = certificate.get_view_number();
+                <span class="kw">let </span>view = certificate.view_number();
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
-                <span class="kw">let </span>view = certificate.get_view_number();
+                <span class="kw">let </span>view = certificate.view_number();
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
             }
@@ -1168,8 +1168,8 @@
 
             HotShotEvent::ViewSyncPreCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.pre_commit_relay_map.write().<span class="kw">await</span>;
-                <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">let </span>relay = vote.get_data().relay;
+                <span class="kw">let </span>vote_view = vote.view_number();
+                <span class="kw">let </span>relay = vote.date().relay;
                 <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.get_mut(<span class="kw-2">&amp;</span>relay) {
                     <span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
@@ -1185,7 +1185,7 @@
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(vote_view + relay) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(vote_view + relay) != <span class="self">self</span>.public_key {
                     <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
                     <span class="kw">return</span>;
@@ -1206,8 +1206,8 @@
 
             HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.commit_relay_map.write().<span class="kw">await</span>;
-                <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">let </span>relay = vote.get_data().relay;
+                <span class="kw">let </span>vote_view = vote.view_number();
+                <span class="kw">let </span>relay = vote.date().relay;
                 <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.get_mut(<span class="kw-2">&amp;</span>relay) {
                     <span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
@@ -1223,7 +1223,7 @@
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(vote_view + relay) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(vote_view + relay) != <span class="self">self</span>.public_key {
                     <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
                     <span class="kw">return</span>;
@@ -1244,8 +1244,8 @@
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>map = <span class="self">self</span>.finalize_relay_map.write().<span class="kw">await</span>;
-                <span class="kw">let </span>vote_view = vote.get_view_number();
-                <span class="kw">let </span>relay = vote.get_data().relay;
+                <span class="kw">let </span>vote_view = vote.view_number();
+                <span class="kw">let </span>relay = vote.date().relay;
                 <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.get_mut(<span class="kw-2">&amp;</span>relay) {
                     <span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
@@ -1261,7 +1261,7 @@
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self</span>.membership.get_leader(vote_view + relay) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(vote_view + relay) != <span class="self">self</span>.public_key {
                     <span class="comment">// TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     </span><span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
                     <span class="kw">return</span>;
@@ -1325,7 +1325,7 @@
                 }
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="self">self</span>.membership.get_leader(view_number);
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number);
                 <span class="macro">error!</span>(
                     %leader,
                     leader_mnemonic = cdn_proto::mnemonic(<span class="kw-2">&amp;</span>leader),
@@ -1380,7 +1380,7 @@
                 <span class="kw">let </span>last_seen_certificate = ViewSyncPhase::PreCommit;
 
                 <span class="comment">// Ignore certificate if it is for an older round
-                </span><span class="kw">if </span>certificate.get_view_number() &lt; <span class="self">self</span>.next_view {
+                </span><span class="kw">if </span>certificate.view_number() &lt; <span class="self">self</span>.next_view {
                     <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1388,24 +1388,24 @@
 
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.membership.as_ref()) {
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.get_data());
+                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
                 <span class="comment">// If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                </span><span class="kw">if </span>certificate.get_view_number() &gt; <span class="self">self</span>.next_view {
+                </span><span class="kw">if </span>certificate.view_number() &gt; <span class="self">self</span>.next_view {
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
                 }
 
-                <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate.get_data().relay;
+                <span class="kw">if </span>certificate.date().relay &gt; <span class="self">self</span>.relay {
+                    <span class="self">self</span>.relay = certificate.date().relay;
                 }
 
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = ViewSyncCommitVote::&lt;TYPES&gt;::create_signed_vote(
                     ViewSyncCommitData {
-                        relay: certificate.get_data().relay,
+                        relay: certificate.date().relay,
                         round: <span class="self">self</span>.next_view,
                     },
                     <span class="self">self</span>.next_view,
@@ -1456,7 +1456,7 @@
                 <span class="kw">let </span>last_seen_certificate = ViewSyncPhase::Commit;
 
                 <span class="comment">// Ignore certificate if it is for an older round
-                </span><span class="kw">if </span>certificate.get_view_number() &lt; <span class="self">self</span>.next_view {
+                </span><span class="kw">if </span>certificate.view_number() &lt; <span class="self">self</span>.next_view {
                     <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1464,24 +1464,24 @@
 
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.membership.as_ref()) {
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.get_data());
+                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
                 <span class="comment">// If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                </span><span class="kw">if </span>certificate.get_view_number() &gt; <span class="self">self</span>.next_view {
+                </span><span class="kw">if </span>certificate.view_number() &gt; <span class="self">self</span>.next_view {
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
                 }
 
-                <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate.get_data().relay;
+                <span class="kw">if </span>certificate.date().relay &gt; <span class="self">self</span>.relay {
+                    <span class="self">self</span>.relay = certificate.date().relay;
                 }
 
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = ViewSyncFinalizeVote::&lt;TYPES&gt;::create_signed_vote(
                     ViewSyncFinalizeData {
-                        relay: certificate.get_data().relay,
+                        relay: certificate.date().relay,
                         round: <span class="self">self</span>.next_view,
                     },
                     <span class="self">self</span>.next_view,
@@ -1548,7 +1548,7 @@
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="comment">// Ignore certificate if it is for an older round
-                </span><span class="kw">if </span>certificate.get_view_number() &lt; <span class="self">self</span>.next_view {
+                </span><span class="kw">if </span>certificate.view_number() &lt; <span class="self">self</span>.next_view {
                     <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1556,19 +1556,19 @@
 
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.membership.as_ref()) {
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.get_data());
+                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
                 <span class="comment">// If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                </span><span class="kw">if </span>certificate.get_view_number() &gt; <span class="self">self</span>.next_view {
+                </span><span class="kw">if </span>certificate.view_number() &gt; <span class="self">self</span>.next_view {
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
                 }
 
-                <span class="kw">if </span>certificate.get_data().relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate.get_data().relay;
+                <span class="kw">if </span>certificate.date().relay &gt; <span class="self">self</span>.relay {
+                    <span class="self">self</span>.relay = certificate.date().relay;
                 }
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {

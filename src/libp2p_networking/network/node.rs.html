@@ -1143,7 +1143,7 @@
         <span class="kw">let </span>record = Record::new(query.key.clone(), query.value.clone());
         <span class="kw">match </span><span class="self">self</span>.swarm.behaviour_mut().dht.put_record(
             record,
-            libp2p::kad::Quorum::N(<span class="self">self</span>.dht_handler.get_replication_factor()),
+            libp2p::kad::Quorum::N(<span class="self">self</span>.dht_handler.replication_factor()),
         ) {
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="comment">// failed try again later
@@ -1221,7 +1221,7 @@
                         notify,
                         retry_count,
                     } =&gt; {
-                        <span class="self">self</span>.dht_handler.get_record(
+                        <span class="self">self</span>.dht_handler.record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),

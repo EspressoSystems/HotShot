@@ -296,9 +296,9 @@
     }
 
     <span class="doccomment">/// get the public config of the validator
-    </span><span class="kw">pub fn </span>get_public_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerConfig&lt;KEY&gt; {
+    </span><span class="kw">pub fn </span>public_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerConfig&lt;KEY&gt; {
         PeerConfig {
-            stake_table_entry: <span class="self">self</span>.public_key.get_stake_table_entry(<span class="self">self</span>.stake_value),
+            stake_table_entry: <span class="self">self</span>.public_key.stake_table_entry(<span class="self">self</span>.stake_value),
             state_ver_key: <span class="self">self</span>.state_key_pair.<span class="number">0</span>.ver_key(),
         }
     }
@@ -351,7 +351,7 @@
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; Default <span class="kw">for </span>PeerConfig&lt;KEY&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>default_validator_config = ValidatorConfig::&lt;KEY&gt;::default();
-        default_validator_config.get_public_config()
+        default_validator_config.public_config()
     }
 }
 

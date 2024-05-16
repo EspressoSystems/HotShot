@@ -547,7 +547,7 @@
 &gt;
 {
     <span class="doccomment">/// return the leader for this votes
-    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey;
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey;
 
     <span class="doccomment">/// return the Hotshot event for the completion of this CERT
     </span><span class="kw">fn </span>make_cert_event(certificate: CERT, key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; HotShotEvent&lt;TYPES&gt;;
@@ -567,15 +567,15 @@
         vote: <span class="kw-2">&amp;</span>VOTE,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">if </span>vote.get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership) != <span class="self">self</span>.public_key {
+        <span class="kw">if </span>vote.leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership) != <span class="self">self</span>.public_key {
             <span class="macro">error!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="kw">if </span>vote.get_view_number() != <span class="self">self</span>.view {
+        <span class="kw">if </span>vote.view_number() != <span class="self">self</span>.view {
             <span class="macro">error!</span>(
                 <span class="string">"Vote view does not match! vote view is {} current view is {}"</span>,
-                <span class="kw-2">*</span>vote.get_view_number(),
+                <span class="kw-2">*</span>vote.view_number(),
                 <span class="kw-2">*</span><span class="self">self</span>.view
             );
             <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -683,10 +683,10 @@
         + <span class="lifetime">'static</span>,
     VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;: HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;,
 {
-    <span class="kw">if </span>vote.get_view_number() != info.view {
+    <span class="kw">if </span>vote.view_number() != info.view {
         <span class="macro">error!</span>(
             <span class="string">"Vote view does not match! vote view is {} current view is {}"</span>,
-            <span class="kw-2">*</span>vote.get_view_number(),
+            <span class="kw-2">*</span>vote.view_number(),
             <span class="kw-2">*</span>info.view
         );
         <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -745,8 +745,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>QuorumVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_view_number() + <span class="number">1</span>)
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>)
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: QuorumCertificate&lt;TYPES&gt;,
@@ -759,8 +759,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>UpgradeVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_view_number())
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.view_number())
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: UpgradeCertificate&lt;TYPES&gt;,
@@ -773,8 +773,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>DaVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_view_number())
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.view_number())
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: DaCertificate&lt;TYPES&gt;,
@@ -787,8 +787,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>TimeoutVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_view_number() + <span class="number">1</span>)
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>)
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: TimeoutCertificate&lt;TYPES&gt;,
@@ -802,8 +802,8 @@
     AggregatableVote&lt;TYPES, ViewSyncCommitVote&lt;TYPES&gt;, ViewSyncCommitCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncCommitVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_data().round + <span class="self">self</span>.get_data().relay)
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay)
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: ViewSyncCommitCertificate2&lt;TYPES&gt;,
@@ -817,8 +817,8 @@
     AggregatableVote&lt;TYPES, ViewSyncPreCommitVote&lt;TYPES&gt;, ViewSyncPreCommitCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncPreCommitVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_data().round + <span class="self">self</span>.get_data().relay)
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay)
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: ViewSyncPreCommitCertificate2&lt;TYPES&gt;,
@@ -832,8 +832,8 @@
     AggregatableVote&lt;TYPES, ViewSyncFinalizeVote&lt;TYPES&gt;, ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncFinalizeVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
-        membership.get_leader(<span class="self">self</span>.get_data().round + <span class="self">self</span>.get_data().relay)
+    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; TYPES::SignatureKey {
+        membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay)
     }
     <span class="kw">fn </span>make_cert_event(
         certificate: ViewSyncFinalizeCertificate2&lt;TYPES&gt;,

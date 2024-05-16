@@ -767,23 +767,6 @@
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
 <a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -948,7 +931,7 @@
     <span class="doccomment">/// Validate the VID disperse is correctly signed and has the correct share.
     </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">fn </span>validate_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, disperse: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; bool {
-        <span class="kw">let </span>view = disperse.data.get_view_number();
+        <span class="kw">let </span>view = disperse.data.view_number();
         <span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
 
         <span class="comment">// Check whether the data satisfies one of the following.
@@ -957,14 +940,14 @@
         // * Signed by one of the staked DA committee members.
         </span><span class="kw">if </span>!<span class="self">self
             </span>.quorum_membership
-            .get_leader(view)
+            .leader(view)
             .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
             &amp;&amp; !<span class="self">self
                 </span>.public_key
                 .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
         {
             <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
-            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.get_staked_committee(view) {
+            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.staked_committee(view) {
                 <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
                     validated = <span class="bool-val">true</span>;
                     <span class="kw">break</span>;
@@ -1034,7 +1017,7 @@
         <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
             <span class="kw">return</span>;
         };
-        <span class="kw">if </span>proposal.get_view_number() != view {
+        <span class="kw">if </span>proposal.view_number() != view {
             <span class="kw">return</span>;
         }
         <span class="kw">let </span>upgrade = <span class="self">self</span>.decided_upgrade_cert.clone();
@@ -1071,12 +1054,12 @@
         <span class="kw">match </span>event.as_ref() {
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.get_view_number());
+                <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.view_number());
                 <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), <span class="self">self</span>)
                     .<span class="kw">await
                 </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(current_proposal)) =&gt; {
-                        <span class="kw">let </span>view = current_proposal.get_view_number();
+                        <span class="kw">let </span>view = current_proposal.view_number();
                         <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(current_proposal);
                         <span class="self">self</span>.spawn_vote_task(view, event_stream);
                     }
@@ -1086,7 +1069,7 @@
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"proposal validated view: {:?}"</span>, proposal.get_view_number());
+                <span class="macro">debug!</span>(<span class="string">"proposal validated view: {:?}"</span>, proposal.view_number());
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), <span class="self">self</span>).<span class="kw">await
                 </span>{
@@ -1094,30 +1077,23 @@
                 }
             }
             HotShotEvent::QuorumVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"Received quorum vote: {:?}"</span>, vote.get_view_number());
-                <span class="kw">if </span><span class="self">self
-                    </span>.quorum_membership
-                    .get_leader(vote.get_view_number() + <span class="number">1</span>)
-                    != <span class="self">self</span>.public_key
-                {
+                <span class="macro">debug!</span>(<span class="string">"Received quorum vote: {:?}"</span>, vote.view_number());
+                <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(vote.view_number() + <span class="number">1</span>) != <span class="self">self</span>.public_key {
                     <span class="macro">error!</span>(
                         <span class="string">"We are not the leader for view {} are we the leader for view + 1? {}"</span>,
-                        <span class="kw-2">*</span>vote.get_view_number() + <span class="number">1</span>,
-                        <span class="self">self</span>.quorum_membership
-                            .get_leader(vote.get_view_number() + <span class="number">2</span>)
-                            == <span class="self">self</span>.public_key
+                        <span class="kw-2">*</span>vote.view_number() + <span class="number">1</span>,
+                        <span class="self">self</span>.quorum_membership.leader(vote.view_number() + <span class="number">2</span>) == <span class="self">self</span>.public_key
                     );
                     <span class="kw">return</span>;
                 }
                 <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
-                {
-                    <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.get_view_number());
+                <span class="kw">if </span>collector.is_none() || vote.view_number() &gt; collector.as_ref().unwrap().view {
+                    <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
                         membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
-                        view: vote.get_view_number(),
+                        view: vote.view_number(),
                         id: <span class="self">self</span>.id,
                     };
                     <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
@@ -1141,29 +1117,22 @@
                 }
             }
             HotShotEvent::TimeoutVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
-                <span class="kw">if </span><span class="self">self
-                    </span>.timeout_membership
-                    .get_leader(vote.get_view_number() + <span class="number">1</span>)
-                    != <span class="self">self</span>.public_key
-                {
+                <span class="kw">if </span><span class="self">self</span>.timeout_membership.leader(vote.view_number() + <span class="number">1</span>) != <span class="self">self</span>.public_key {
                     <span class="macro">error!</span>(
                         <span class="string">"We are not the leader for view {} are we the leader for view + 1? {}"</span>,
-                        <span class="kw-2">*</span>vote.get_view_number() + <span class="number">1</span>,
-                        <span class="self">self</span>.timeout_membership
-                            .get_leader(vote.get_view_number() + <span class="number">2</span>)
-                            == <span class="self">self</span>.public_key
+                        <span class="kw-2">*</span>vote.view_number() + <span class="number">1</span>,
+                        <span class="self">self</span>.timeout_membership.leader(vote.view_number() + <span class="number">2</span>) == <span class="self">self</span>.public_key
                     );
                     <span class="kw">return</span>;
                 }
                 <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.timeout_vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">if </span>collector.is_none() || vote.get_view_number() &gt; collector.as_ref().unwrap().view
-                {
-                    <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.get_view_number());
+                <span class="kw">if </span>collector.is_none() || vote.view_number() &gt; collector.as_ref().unwrap().view {
+                    <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.view_number());
                     <span class="kw">let </span>info = AccumulatorInfo {
                         public_key: <span class="self">self</span>.public_key.clone(),
                         membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
-                        view: vote.get_view_number(),
+                        view: vote.view_number(),
                         id: <span class="self">self</span>.id,
                     };
                     <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
@@ -1249,14 +1218,14 @@
                 <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
                     <span class="kw">return</span>;
                 };
-                <span class="kw">if </span>proposal.get_view_number() != view {
+                <span class="kw">if </span>proposal.view_number() != view {
                     <span class="kw">return</span>;
                 }
                 <span class="self">self</span>.spawn_vote_task(view, event_stream);
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::VIDShareRecv(disperse) =&gt; {
-                <span class="kw">let </span>view = disperse.data.get_view_number();
+                <span class="kw">let </span>view = disperse.data.view_number();
 
                 <span class="macro">debug!</span>(
                     <span class="string">"VID disperse received for view: {:?} in consensus task"</span>,
@@ -1289,7 +1258,7 @@
                 <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
                     <span class="kw">return</span>;
                 };
-                <span class="kw">if </span>proposal.get_view_number() != view {
+                <span class="kw">if </span>proposal.view_number() != view {
                     <span class="kw">return</span>;
                 }
                 <span class="self">self</span>.spawn_vote_task(view, event_stream.clone());
@@ -1423,8 +1392,8 @@
                     fee: fee.clone(),
                     block_view: view,
                 });
-                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key
-                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().get_view_number() + <span class="number">1 </span>== view
+                <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view) == <span class="self">self</span>.public_key
+                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number() + <span class="number">1 </span>== view
                 {
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
                         <span class="macro">error!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
@@ -1439,7 +1408,7 @@
                     }
                     <span class="kw">match </span>cert {
                         ViewChangeEvidence::Timeout(tc) =&gt; {
-                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(tc.get_view_number() + <span class="number">1</span>)
+                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(tc.view_number() + <span class="number">1</span>)
                                 == <span class="self">self</span>.public_key
                             {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
@@ -1448,9 +1417,7 @@
                             }
                         }
                         ViewChangeEvidence::ViewSync(vsc) =&gt; {
-                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(vsc.get_view_number())
-                                == <span class="self">self</span>.public_key
-                            {
+                            <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(vsc.view_number()) == <span class="self">self</span>.public_key {
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
                                     <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                                 };
@@ -1464,14 +1431,14 @@
                 <span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
                     <span class="macro">error!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
-                        certificate.get_data()
+                        certificate.date()
                     );
                     <span class="kw">return</span>;
                 }
 
                 <span class="kw">let </span>view = certificate.view_number;
 
-                <span class="kw">if </span><span class="self">self</span>.quorum_membership.get_leader(view) == <span class="self">self</span>.public_key {
+                <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view) == <span class="self">self</span>.public_key {
                     <span class="self">self</span>.proposal_cert = <span class="prelude-val">Some</span>(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                     <span class="macro">debug!</span>(
@@ -1489,12 +1456,11 @@
                 <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
                     <span class="kw">return</span>;
                 };
-                <span class="kw">let </span>new_view = proposal.get_view_number() + <span class="number">1</span>;
+                <span class="kw">let </span>new_view = proposal.view_number() + <span class="number">1</span>;
                 <span class="comment">// In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                </span><span class="kw">let </span>should_propose = <span class="self">self</span>.quorum_membership.get_leader(new_view) == <span class="self">self</span>.public_key
-                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number
-                        == proposal.get_view_number();
+                </span><span class="kw">let </span>should_propose = <span class="self">self</span>.quorum_membership.leader(new_view) == <span class="self">self</span>.public_key
+                    &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number == proposal.view_number();
 
                 <span class="kw">if </span>should_propose {
                     <span class="macro">debug!</span>(
@@ -1505,7 +1471,7 @@
                         <span class="macro">debug!</span>(<span class="string">"failed to propose e = {:?}"</span>, e);
                     }
                 }
-                <span class="kw">if </span>proposal.get_view_number() &lt;= vote.get_view_number() {
+                <span class="kw">if </span>proposal.view_number() &lt;= vote.view_number() {
                     <span class="self">self</span>.current_proposal = <span class="prelude-val">None</span>;
                 }
             }
@@ -1513,16 +1479,16 @@
                 <span class="kw">if </span><span class="self">self
                     </span>.payload_commitment_and_metadata
                     .as_ref()
-                    .is_some_and(|p| p.block_view &lt;= proposal.data.get_view_number())
+                    .is_some_and(|p| p.block_view &lt;= proposal.data.view_number())
                 {
                     <span class="self">self</span>.payload_commitment_and_metadata = <span class="prelude-val">None</span>;
                 }
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="kw-2">&amp;</span><span class="self">self</span>.proposal_cert {
                     <span class="kw">let </span>view = <span class="kw">match </span>cert {
-                        ViewChangeEvidence::Timeout(tc) =&gt; tc.get_view_number() + <span class="number">1</span>,
-                        ViewChangeEvidence::ViewSync(vsc) =&gt; vsc.get_view_number(),
+                        ViewChangeEvidence::Timeout(tc) =&gt; tc.view_number() + <span class="number">1</span>,
+                        ViewChangeEvidence::ViewSync(vsc) =&gt; vsc.view_number(),
                     };
-                    <span class="kw">if </span>view &lt; proposal.data.get_view_number() {
+                    <span class="kw">if </span>view &lt; proposal.data.view_number() {
                         <span class="self">self</span>.proposal_cert = <span class="prelude-val">None</span>;
                     }
                 }

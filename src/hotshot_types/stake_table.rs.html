@@ -51,14 +51,14 @@
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; StakeTableEntryType <span class="kw">for </span>StakeTableEntry&lt;K&gt; {
     <span class="doccomment">/// Get the stake amount
-    </span><span class="kw">fn </span>get_stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
+    </span><span class="kw">fn </span>stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
         <span class="self">self</span>.stake_amount
     }
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; StakeTableEntry&lt;K&gt; {
     <span class="doccomment">/// Get the public key
-    </span><span class="kw">pub fn </span>get_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>K {
+    </span><span class="kw">pub fn </span>key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>K {
         <span class="kw-2">&amp;</span><span class="self">self</span>.stake_key
     }
 }

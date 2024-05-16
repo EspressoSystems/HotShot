@@ -760,9 +760,6 @@
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -835,7 +832,7 @@
         <span class="self">Self</span>(n)
     }
     <span class="doccomment">/// Returen the u64 format
-    </span><span class="kw">fn </span>get_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+    </span><span class="kw">fn </span>u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.<span class="number">0
     </span>}
 }
@@ -927,7 +924,7 @@
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
-            .get_staked_committee(view_number)
+            .staked_committee(view_number)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
             .collect();
@@ -956,7 +953,7 @@
     <span class="doccomment">/// Check that the given ViewChangeEvidence is relevant to the current view.
     </span><span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
-            ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.get_data().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
+            ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.date().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
             ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; view_sync_cert.view_number == <span class="kw-2">*</span>view,
         }
     }
@@ -1084,31 +1081,31 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DaProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>QuorumProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>UpgradeProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
 }
@@ -1189,7 +1186,7 @@
             f,
             <span class="string">"view: {:?}, height: {:?}, justify: {}"</span>,
             <span class="self">self</span>.view_number,
-            <span class="self">self</span>.get_height(),
+            <span class="self">self</span>.height(),
             <span class="self">self</span>.justify_qc
         )
     }
@@ -1259,34 +1256,34 @@
     }
 
     <span class="doccomment">/// Time when this leaf was created.
-    </span><span class="kw">pub fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.view_number
     }
     <span class="doccomment">/// Height of this leaf in the chain.
     ///
     /// Equivalently, this is the number of leaves before this one in the chain.
-    </span><span class="kw">pub fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+    </span><span class="kw">pub fn </span>height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.block_header.block_number()
     }
     <span class="doccomment">/// The QC linking this leaf to its parent in the chain.
-    </span><span class="kw">pub fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES&gt; {
         <span class="self">self</span>.justify_qc.clone()
     }
     <span class="doccomment">/// The QC linking this leaf to its parent in the chain.
-    </span><span class="kw">pub fn </span>get_upgrade_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>upgrade_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.upgrade_certificate.clone()
     }
     <span class="doccomment">/// Commitment to this leaf's parent.
-    </span><span class="kw">pub fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+    </span><span class="kw">pub fn </span>parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="self">self</span>.parent_commitment
     }
     <span class="doccomment">/// The block header contained in this leaf.
-    </span><span class="kw">pub fn </span>get_block_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
+    </span><span class="kw">pub fn </span>block_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
         <span class="kw-2">&amp;</span><span class="self">self</span>.block_header
     }
 
     <span class="doccomment">/// Get a mutable reference to the block header contained in this leaf.
-    </span><span class="kw">pub fn </span>get_block_header_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
+    </span><span class="kw">pub fn </span>block_header_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockHeader {
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.block_header
     }
     <span class="doccomment">/// Fill this leaf with the block payload.
@@ -1316,13 +1313,13 @@
     }
 
     <span class="doccomment">/// Optional block payload.
-    </span><span class="kw">pub fn </span>get_block_payload(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt; {
+    </span><span class="kw">pub fn </span>block_payload(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt; {
         <span class="self">self</span>.block_payload.clone()
     }
 
     <span class="doccomment">/// A commitment to the block payload contained in this leaf.
-    </span><span class="kw">pub fn </span>get_payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
-        <span class="self">self</span>.get_block_header().payload_commitment()
+    </span><span class="kw">pub fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
+        <span class="self">self</span>.block_header().payload_commitment()
     }
 
     <span class="doccomment">/// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
@@ -1337,10 +1334,7 @@
         parent: <span class="kw-2">&amp;</span><span class="self">Self</span>,
         decided_upgrade_certificate: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">match </span>(
-            <span class="self">self</span>.get_upgrade_certificate(),
-            parent.get_upgrade_certificate(),
-        ) {
+        <span class="kw">match </span>(<span class="self">self</span>.upgrade_certificate(), parent.upgrade_certificate()) {
             <span class="comment">// Easiest cases are:
             //   - no upgrade certificate on either: this is the most common case, and is always fine.
             //   - if the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade: again, this is always fine.
@@ -1349,8 +1343,8 @@
             //    - no longer care because we have passed new_version_first_view, or
             //    - no longer care because we have passed `decide_by` without deciding the certificate.
             </span>(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(parent_cert)) =&gt; {
-                <span class="macro">ensure!</span>(<span class="self">self</span>.get_view_number() &gt; parent_cert.data.new_version_first_view
-                    || (<span class="self">self</span>.get_view_number() &gt; parent_cert.data.decide_by &amp;&amp; decided_upgrade_certificate.is_none()),
+                <span class="macro">ensure!</span>(<span class="self">self</span>.view_number() &gt; parent_cert.data.new_version_first_view
+                    || (<span class="self">self</span>.view_number() &gt; parent_cert.data.decide_by &amp;&amp; decided_upgrade_certificate.is_none()),
                        <span class="string">"The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
                 </span>);
             }
@@ -1363,7 +1357,7 @@
         }
 
         <span class="comment">// This check should be added once we sort out the genesis leaf/justify_qc issue.
-        // ensure!(self.get_parent_commitment() == parent_leaf.commit(), "The commitment of the parent leaf does not match the specified parent commitment.");
+        // ensure!(self.parent_commitment() == parent_leaf.commit(), "The commitment of the parent leaf does not match the specified parent commitment.");
 
         </span><span class="prelude-val">Ok</span>(())
     }
@@ -1409,7 +1403,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>signatures_bytes = <span class="macro">vec!</span>[];
     signatures_bytes.extend(<span class="string">"Yes"</span>.as_bytes());
 
-    <span class="kw">let </span>(sig, proof) = TYPES::SignatureKey::get_sig_proof(signatures);
+    <span class="kw">let </span>(sig, proof) = TYPES::SignatureKey::sig_proof(signatures);
     <span class="kw">let </span>proof_bytes = bincode_opts()
         .serialize(<span class="kw-2">&amp;</span>proof.as_bitslice())
         .expect(<span class="string">"This serialization shouldn't be able to fail"</span>);
@@ -1428,11 +1422,11 @@
         <span class="comment">// Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
         </span>RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
             .u64_field(<span class="string">"view number"</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
-            .u64_field(<span class="string">"block number"</span>, <span class="self">self</span>.get_height())
+            .u64_field(<span class="string">"block number"</span>, <span class="self">self</span>.height())
             .field(<span class="string">"parent Leaf commitment"</span>, <span class="self">self</span>.parent_commitment)
             .var_size_field(
                 <span class="string">"block payload commitment"</span>,
-                <span class="self">self</span>.get_payload_commitment().as_ref(),
+                <span class="self">self</span>.payload_commitment().as_ref(),
             )
             .field(<span class="string">"justify qc"</span>, <span class="self">self</span>.justify_qc.commit())
             .optional(<span class="string">"upgrade certificate"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_certificate)
@@ -1455,7 +1449,7 @@
         Leaf {
             view_number: <span class="kw-2">*</span>view_number,
             justify_qc: justify_qc.clone(),
-            parent_commitment: justify_qc.get_data().leaf_commit,
+            parent_commitment: justify_qc.date().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: <span class="prelude-val">None</span>,

@@ -738,7 +738,7 @@
 
     <span class="doccomment">/// get election type in use
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_election_type() -&gt; String {
+    </span><span class="kw">pub fn </span>election_type() -&gt; String {
         <span class="comment">// leader is chosen in index order
         </span><span class="attr">#[cfg(not(any(
             feature = <span class="string">"randomized-leader-election"</span>,
@@ -766,7 +766,7 @@
             transactions_per_round: <span class="self">self</span>.config.transactions_per_round,
             transaction_size: <span class="self">self</span>.bench_results.transaction_size_in_bytes,
             rounds: <span class="self">self</span>.config.rounds,
-            leader_election_type: OrchestratorState::&lt;KEY&gt;::get_election_type(),
+            leader_election_type: OrchestratorState::&lt;KEY&gt;::election_type(),
             avg_latency_in_sec: <span class="self">self</span>.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: <span class="self">self</span>.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: <span class="self">self</span>.bench_results.maximum_latency_in_sec,

@@ -618,11 +618,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>internal_event_rxs = <span class="macro">vec!</span>[];
 
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.nodes {
-            <span class="kw">let </span>r = node.handle.get_event_stream_known_impl();
+            <span class="kw">let </span>r = node.handle.event_stream_known_impl();
             event_rxs.push(r);
         }
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.nodes {
-            <span class="kw">let </span>r = node.handle.get_internal_event_stream_known_impl();
+            <span class="kw">let </span>r = node.handle.internal_event_stream_known_impl();
             internal_event_rxs.push(r);
         }
 
@@ -870,7 +870,7 @@
                     <span class="kw">let </span>handle = hotshot.run_tasks().<span class="kw">await</span>;
                     <span class="kw">if </span>node_id == <span class="number">1 </span>{
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task.take() {
-                            task.start(Box::new(handle.get_event_stream()))
+                            task.start(Box::new(handle.event_stream()))
                         }
                     }
 

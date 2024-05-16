@@ -235,7 +235,7 @@
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 
 <span class="kw">use crate</span>::{
-    consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
+    consensus::helpers::{handle_quorum_proposal_recv, parent_leaf_and_state},
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
@@ -330,9 +330,9 @@
             <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), <span class="self">self</span>).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(current_proposal)) =&gt; {
                     <span class="comment">// Build the parent leaf since we didn't find it during the proposal check.
-                    </span><span class="kw">let </span>parent_leaf = <span class="kw">match </span>get_parent_leaf_and_state(
+                    </span><span class="kw">let </span>parent_leaf = <span class="kw">match </span>parent_leaf_and_state(
                         <span class="self">self</span>.cur_view,
-                        proposal.data.get_view_number() + <span class="number">1</span>,
+                        proposal.data.view_number() + <span class="number">1</span>,
                         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                         <span class="self">self</span>.public_key.clone(),
                         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
@@ -346,8 +346,8 @@
                         }
                     };
 
-                    <span class="kw">let </span>view = current_proposal.get_view_number();
-                    <span class="self">self</span>.cancel_tasks(proposal.data.get_view_number()).<span class="kw">await</span>;
+                    <span class="kw">let </span>view = current_proposal.view_number();
+                    <span class="self">self</span>.cancel_tasks(proposal.data.view_number()).<span class="kw">await</span>;
                     <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares().get(<span class="kw-2">&amp;</span>view) <span class="kw">else </span>{
                         <span class="macro">debug!</span>(
@@ -362,11 +362,11 @@
                     };
                     <span class="kw">let </span><span class="prelude-val">Some</span>(da_cert) = consensus
                         .saved_da_certs()
-                        .get(<span class="kw-2">&amp;</span>current_proposal.get_view_number())
+                        .get(<span class="kw-2">&amp;</span>current_proposal.view_number())
                     <span class="kw">else </span>{
                         <span class="macro">debug!</span>(
                             <span class="string">"Received VID share, but couldn't find DAC cert for view {:?}"</span>,
-                            current_proposal.get_view_number()
+                            current_proposal.view_number()
                         );
                         <span class="kw">return</span>;
                     };
@@ -385,7 +385,7 @@
                     .<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                    <span class="self">self</span>.cancel_tasks(proposal.data.get_view_number()).<span class="kw">await</span>;
+                    <span class="self">self</span>.cancel_tasks(proposal.data.view_number()).<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to propose"</span>),
             }

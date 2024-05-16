@@ -323,7 +323,7 @@
         } = event
         {
             <span class="kw">let </span>leaf = leaf_chain.first().unwrap().leaf.clone();
-            <span class="kw">if </span>leaf.get_view_number() &gt; state.last_decided_leaf.get_view_number() {
+            <span class="kw">if </span>leaf.view_number() &gt; state.last_decided_leaf.view_number() {
                 state.last_decided_leaf = leaf;
             }
         } <span class="kw">else if let </span>EventType::QuorumProposal {
@@ -331,7 +331,7 @@
             sender: <span class="kw">_</span>,
         } = event
         {
-            <span class="kw">if </span>proposal.data.justify_qc.get_view_number() &gt; state.high_qc.get_view_number() {
+            <span class="kw">if </span>proposal.data.justify_qc.view_number() &gt; state.high_qc.view_number() {
                 state.high_qc = proposal.data.justify_qc;
             }
         }

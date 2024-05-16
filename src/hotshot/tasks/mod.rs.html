@@ -328,7 +328,7 @@
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
     <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
-        handle.hotshot.get_consensus(),
+        handle.hotshot.consensus(),
         rx,
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),

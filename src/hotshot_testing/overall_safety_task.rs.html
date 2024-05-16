@@ -713,7 +713,7 @@
                 block_size: maybe_block_size,
             } =&gt; {
                 <span class="comment">// Skip the genesis leaf.
-                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.get_view_number() == TYPES::Time::genesis() {
+                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.view_number() == TYPES::Time::genesis() {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
@@ -926,7 +926,7 @@
                 }
             }
 
-            <span class="kw">let </span>payload_commitment = leaf.get_payload_commitment();
+            <span class="kw">let </span>payload_commitment = leaf.payload_commitment();
 
             <span class="kw">match </span><span class="self">self</span>.block_map.entry(payload_commitment) {
                 std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
@@ -983,7 +983,7 @@
                 .unwrap();
             <span class="kw">if </span><span class="kw-2">*</span>count &gt;= threshold {
                 <span class="kw">for </span>leaf <span class="kw">in </span><span class="self">self</span>.leaf_map.keys() {
-                    <span class="kw">if </span>leaf.get_view_number() &gt; quorum_leaf.get_view_number() {
+                    <span class="kw">if </span>leaf.view_number() &gt; quorum_leaf.view_number() {
                         <span class="macro">error!</span>(<span class="string">"LEAF MAP (that is mismatched) IS: {:?}"</span>, <span class="self">self</span>.leaf_map);
                         <span class="self">self</span>.status = ViewStatus::Err(OverallSafetyTaskErr::MismatchedLeaf);
                         <span class="kw">return</span>;
@@ -1018,7 +1018,7 @@
             // if not, return error
             // if neither, continue through
 
-            </span><span class="kw">let </span>block_key = key.get_payload_commitment();
+            </span><span class="kw">let </span>block_key = key.payload_commitment();
 
             <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.block_map.get(<span class="kw-2">&amp;</span>block_key).unwrap() == threshold
                 &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.leaf_map.get(key).unwrap() == threshold

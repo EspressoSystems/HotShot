@@ -795,17 +795,6 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -953,10 +942,7 @@
     </span>start_view: TYPES::Time,
 
     <span class="doccomment">/// Access to the output event stream.
-    </span><span class="attr">#[deprecated(
-        note = <span class="string">"please use the `get_event_stream` method on `SystemContextHandle` instead. This field will be made private in a future release of HotShot"
-    </span>)]
-    </span><span class="kw">pub </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
+    </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// External event stream for communication with the application.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) external_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
@@ -1037,14 +1023,14 @@
         </span><span class="kw">let </span>validated_state = <span class="kw">match </span>initializer.validated_state {
             <span class="prelude-val">Some</span>(state) =&gt; state,
             <span class="prelude-val">None </span>=&gt; Arc::new(TYPES::ValidatedState::from_header(
-                anchored_leaf.get_block_header(),
+                anchored_leaf.block_header(),
             )),
         };
 
         <span class="comment">// Insert the validated state to state map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
         validated_state_map.insert(
-            anchored_leaf.get_view_number(),
+            anchored_leaf.view_number(),
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
@@ -1064,19 +1050,19 @@
         <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.get_block_payload() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.block_payload() {
             <span class="kw">let </span>encoded_txns = payload.encode();
 
-            saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(<span class="kw-2">&amp;</span>encoded_txns));
+            saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(<span class="kw-2">&amp;</span>encoded_txns));
         }
 
         <span class="kw">let </span>consensus = Consensus::new(
             validated_state_map,
-            anchored_leaf.get_view_number(),
-            anchored_leaf.get_view_number(),
+            anchored_leaf.view_number(),
+            anchored_leaf.view_number(),
             <span class="comment">// TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            </span>anchored_leaf.get_view_number(),
+            </span>anchored_leaf.view_number(),
             saved_leaves,
             saved_payloads,
             initializer.high_qc,
@@ -1135,12 +1121,12 @@
         {
             <span class="comment">// Some applications seem to expect a leaf decide event for the genesis leaf,
             // which contains only that leaf and nothing else.
-            </span><span class="kw">if </span><span class="self">self</span>.anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+            </span><span class="kw">if </span><span class="self">self</span>.anchored_leaf.view_number() == TYPES::Time::genesis() {
                 <span class="kw">let </span>(validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
                 broadcast_event(
                     Event {
-                        view_number: <span class="self">self</span>.anchored_leaf.get_view_number(),
+                        view_number: <span class="self">self</span>.anchored_leaf.view_number(),
                         event: EventType::Decide {
                             leaf_chain: Arc::new(<span class="macro">vec!</span>[LeafInfo::new(
                                 <span class="self">self</span>.anchored_leaf.clone(),
@@ -1203,7 +1189,7 @@
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_whole_committee(view_number),
+                        da_membership.whole_committee(view_number),
                         STATIC_VER_0_1,
                     ),
                 api
@@ -1220,20 +1206,20 @@
 
     <span class="doccomment">/// Returns a copy of the consensus struct
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)
     }
 
     <span class="doccomment">/// Returns a copy of the instance state
-    </span><span class="kw">pub fn </span>get_instance_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::InstanceState&gt; {
+    </span><span class="kw">pub fn </span>instance_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::InstanceState&gt; {
         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state)
     }
 
     <span class="doccomment">/// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
-        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_leaf()
+    </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_leaf()
     }
 
     <span class="doccomment">/// [Non-blocking] instantly returns a copy of the last decided leaf if
@@ -1242,18 +1228,16 @@
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>try_get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.consensus
-            .try_read()
-            .map(|guard| guard.get_decided_leaf())
+    </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.consensus.try_read().map(|guard| guard.decided_leaf())
     }
 
     <span class="doccomment">/// Returns the last decided validated state.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
-        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_decided_state())
+    </span><span class="kw">pub async fn </span>decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_state())
     }
 
     <span class="doccomment">/// Get the validated state from a given `view`.
@@ -1261,10 +1245,10 @@
     /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
     /// tracks views that have not yet been decided but could be in the future. This function may
     /// return [`None`] if the requested view has already been decided (but see
-    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
-        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.get_state(view).cloned()
+    </span><span class="kw">pub async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
+        <span class="self">self</span>.consensus.read().<span class="kw">await</span>.state(view).cloned()
     }
 
     <span class="doccomment">/// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
@@ -1318,18 +1302,12 @@
     }
     <span class="doccomment">/// return the timeout for a view for `self`
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+    </span><span class="kw">pub fn </span>next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.config.next_view_timeout
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; SystemContext&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Get access to [`Consensus`]
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.consensus
-    }
-
     <span class="doccomment">/// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
@@ -1395,7 +1373,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             quorum_membership.clone(),
             network::quorum_filter,
-            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
@@ -1405,7 +1383,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             quorum_membership,
             network::upgrade_filter,
-            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
@@ -1415,7 +1393,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>da_network),
             da_membership,
             network::da_filter,
-            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
@@ -1425,7 +1403,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             view_sync_membership,
             network::view_sync_filter,
-            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         )
         .<span class="kw">await</span>;
         add_network_event_task(
@@ -1435,7 +1413,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
             vid_membership,
             network::vid_filter,
-            Arc::clone(<span class="kw-2">&amp;</span>handle.get_storage()),
+            Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         )
         .<span class="kw">await</span>;
         add_consensus_task(

@@ -415,7 +415,7 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>state = task.state();
-                <span class="kw">let </span>prop_view = proposal.get_view_number();
+                <span class="kw">let </span>prop_view = proposal.view_number();
                 <span class="kw">if </span>prop_view &gt;= state.view {
                     state
                         .spawn_requests(prop_view, task.clone_sender(), Ver::instance())
@@ -497,7 +497,7 @@
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
             </span>.da_membership
-            .get_whole_committee(view)
+            .whole_committee(view)
             .into_iter()
             .collect();
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients

@@ -245,18 +245,18 @@
         (kp.ver_key(), kp.sign_key_ref().clone())
     }
 
-    <span class="kw">fn </span>get_stake_table_entry(<span class="kw-2">&amp;</span><span class="self">self</span>, stake: u64) -&gt; <span class="self">Self</span>::StakeTableEntry {
+    <span class="kw">fn </span>stake_table_entry(<span class="kw-2">&amp;</span><span class="self">self</span>, stake: u64) -&gt; <span class="self">Self</span>::StakeTableEntry {
         StakeTableEntry {
             stake_key: <span class="kw-2">*</span><span class="self">self</span>,
             stake_amount: U256::from(stake),
         }
     }
 
-    <span class="kw">fn </span>get_public_key(entry: <span class="kw-2">&amp;</span><span class="self">Self</span>::StakeTableEntry) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>public_key(entry: <span class="kw-2">&amp;</span><span class="self">Self</span>::StakeTableEntry) -&gt; <span class="self">Self </span>{
         entry.stake_key
     }
 
-    <span class="kw">fn </span>get_public_parameter(
+    <span class="kw">fn </span>public_parameter(
         stake_entries: Vec&lt;<span class="self">Self</span>::StakeTableEntry&gt;,
         threshold: U256,
     ) -&gt; <span class="self">Self</span>::QCParams {
@@ -272,7 +272,7 @@
         BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::check(real_qc_pp, msg, qc).is_ok()
     }
 
-    <span class="kw">fn </span>get_sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec) {
+    <span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec) {
         signature.clone()
     }
 

@@ -852,7 +852,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PeerId, NetworkNodeHandleError&gt; {
         <span class="comment">// get record (from DHT)
         </span><span class="kw">let </span>pid = <span class="self">self
-            </span>.get_record_timeout::&lt;PeerId, VER&gt;(<span class="kw-2">&amp;</span>key, dht_timeout, bind_version)
+            </span>.record_timeout::&lt;PeerId, VER&gt;(<span class="kw-2">&amp;</span>key, dht_timeout, bind_version)
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// pid lookup for routing
@@ -889,7 +889,7 @@
     /// - Will return [`NetworkNodeHandleError::DHTError`] when encountering an error putting to DHT
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    </span><span class="kw">pub async fn </span>get_record&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;, VER: StaticVersionType&gt;(
+    </span><span class="kw">pub async fn </span>record&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;, VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         retry_count: u8,
@@ -915,13 +915,13 @@
     /// - Will return [`NetworkNodeHandleError::TimeoutError`] when times out
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize the key
     /// - Will return [`NetworkNodeHandleError::DeserializationError`] when unable to deserialize the returned value
-    </span><span class="kw">pub async fn </span>get_record_timeout&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;, VER: StaticVersionType&gt;(
+    </span><span class="kw">pub async fn </span>record_timeout&lt;V: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;, VER: StaticVersionType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize,
         timeout: Duration,
         bind_version: VER,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;V, NetworkNodeHandleError&gt; {
-        <span class="kw">let </span>result = async_timeout(timeout, <span class="self">self</span>.get_record(key, <span class="number">3</span>, bind_version)).<span class="kw">await</span>;
+        <span class="kw">let </span>result = async_timeout(timeout, <span class="self">self</span>.record(key, <span class="number">3</span>, bind_version)).<span class="kw">await</span>;
         <span class="kw">match </span>result {
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e).context(TimeoutSnafu),
             <span class="prelude-val">Ok</span>(r) =&gt; r,

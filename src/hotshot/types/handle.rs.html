@@ -242,7 +242,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
     <span class="doccomment">/// obtains a stream to expose to the user
-    </span><span class="kw">pub fn </span>get_event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
     }
 
@@ -251,7 +251,7 @@
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Event&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Event&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
     }
 
@@ -261,7 +261,7 @@
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned()
     }
 
@@ -269,8 +269,8 @@
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    </span><span class="kw">pub async fn </span>get_decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
-        <span class="self">self</span>.hotshot.get_decided_state().<span class="kw">await
+    </span><span class="kw">pub async fn </span>decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
+        <span class="self">self</span>.hotshot.decided_state().<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Get the validated state from a given `view`.
@@ -278,18 +278,18 @@
     /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
     /// tracks views that have not yet been decided but could be in the future. This function may
     /// return [`None`] if the requested view has already been decided (but see
-    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
-        <span class="self">self</span>.hotshot.get_state(view).<span class="kw">await
+    </span><span class="kw">pub async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
+        <span class="self">self</span>.hotshot.state(view).<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Get the last decided leaf of the [`SystemContext`] instance.
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
-        <span class="self">self</span>.hotshot.get_decided_leaf().<span class="kw">await
+    </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+        <span class="self">self</span>.hotshot.decided_leaf().<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Tries to get the most recent decided leaf, returning instantly
@@ -298,8 +298,8 @@
     /// # Panics
     /// Panics if internal consensus is in an inconsistent state.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>try_get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.hotshot.try_get_decided_leaf()
+    </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.hotshot.try_decided_leaf()
     }
 
     <span class="doccomment">/// Submits a transaction to the backing [`SystemContext`] instance.
@@ -319,8 +319,8 @@
 
     <span class="doccomment">/// Get the underlying consensus state for this [`SystemContext`]
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
-        <span class="self">self</span>.hotshot.get_consensus()
+    </span><span class="kw">pub fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
+        <span class="self">self</span>.hotshot.consensus()
     }
 
     <span class="doccomment">/// Block the underlying quorum (and DA) networking interfaces until node is
@@ -353,36 +353,36 @@
 
     <span class="doccomment">/// return the timeout for a view of the underlying `SystemContext`
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.hotshot.get_next_view_timeout()
+    </span><span class="kw">pub fn </span>next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.hotshot.next_view_timeout()
     }
 
-    <span class="doccomment">/// Wrapper for `HotShotConsensusApi`'s `get_leader` function
+    <span class="doccomment">/// Wrapper for `HotShotConsensusApi`'s `leader` function
     </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
-    </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
+    </span><span class="kw">pub async fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot
             .memberships
             .quorum_membership
-            .get_leader(view_number)
+            .leader(view_number)
     }
 
     <span class="comment">// Below is for testing only:
     </span><span class="doccomment">/// Wrapper to get this node's public key
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     #[must_use]
-    </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
+    </span><span class="kw">pub fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot.public_key.clone()
     }
 
     <span class="doccomment">/// Wrapper to get the view number this node is on.
-    </span><span class="kw">pub async fn </span>get_cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">pub async fn </span>cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.hotshot.consensus.read().<span class="kw">await</span>.cur_view()
     }
 
     <span class="doccomment">/// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
     /// historical data
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;I::Storage&gt;&gt; {
+    </span><span class="kw">pub fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;I::Storage&gt;&gt; {
         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage)
     }
 }

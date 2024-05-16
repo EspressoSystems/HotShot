@@ -531,12 +531,6 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -822,11 +816,11 @@
                 </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
                     maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
                     (
-                        vote.get_signing_key(),
+                        vote.signing_key(),
                         MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                             GeneralConsensusMessage::Vote(vote.clone()),
                         )),
-                        TransmitType::Direct(membership.get_leader(vote.get_view_number() + <span class="number">1</span>)),
+                        TransmitType::Direct(membership.leader(vote.view_number() + <span class="number">1</span>)),
                     )
                 }
                 HotShotEvent::VidDisperseSend(proposal, sender) =&gt; {
@@ -845,11 +839,11 @@
                 HotShotEvent::DaVoteSend(vote) =&gt; {
                     maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaVote);
                     (
-                        vote.get_signing_key(),
+                        vote.signing_key(),
                         MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
                             DaConsensusMessage::DaVote(vote.clone()),
                         )),
-                        TransmitType::Direct(membership.get_leader(vote.get_view_number())),
+                        TransmitType::Direct(membership.leader(vote.view_number())),
                     )
                 }
                 <span class="comment">// ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
@@ -864,31 +858,25 @@
                     )
                 }
                 HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
-                    ),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
                 ),
                 HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
-                    ),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
                 ),
                 HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
-                    ),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
                 ),
                 HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; (
                     sender,
@@ -912,11 +900,11 @@
                     TransmitType::Broadcast,
                 ),
                 HotShotEvent::TimeoutVoteSend(vote) =&gt; (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.get_leader(vote.get_view_number() + <span class="number">1</span>)),
+                    TransmitType::Direct(membership.leader(vote.view_number() + <span class="number">1</span>)),
                 ),
                 HotShotEvent::UpgradeProposalSend(proposal, sender) =&gt; (
                     sender,
@@ -928,17 +916,17 @@
                 HotShotEvent::UpgradeVoteSend(vote) =&gt; {
                     <span class="macro">error!</span>(<span class="string">"Sending upgrade vote!"</span>);
                     (
-                        vote.get_signing_key(),
+                        vote.signing_key(),
                         MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                             GeneralConsensusMessage::UpgradeVote(vote.clone()),
                         )),
-                        TransmitType::Direct(membership.get_leader(vote.get_view_number())),
+                        TransmitType::Direct(membership.leader(vote.view_number())),
                     )
                 }
                 HotShotEvent::ViewChange(view) =&gt; {
                     <span class="self">self</span>.view = view;
                     <span class="self">self</span>.channel
-                        .update_view::&lt;TYPES&gt;(<span class="self">self</span>.view.get_u64(), membership)
+                        .update_view::&lt;TYPES&gt;(<span class="self">self</span>.view.u64(), membership)
                         .<span class="kw">await</span>;
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -960,8 +948,8 @@
             sender,
             kind: message_kind,
         };
-        <span class="kw">let </span>view = message.kind.get_view_number();
-        <span class="kw">let </span>committee = membership.get_whole_committee(view);
+        <span class="kw">let </span>view = message.kind.view_number();
+        <span class="kw">let </span>committee = membership.whole_committee(view);
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>version = <span class="self">self</span>.version;

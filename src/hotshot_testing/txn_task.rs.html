@@ -163,7 +163,7 @@
                     // we're assuming all nodes have the same leaf.
                     // If they don't match, this is probably fine since
                     // it should be caught by an assertion (and the txn will be rejected anyway)
-                    </span><span class="kw">let </span>leaf = node.handle.get_decided_leaf().<span class="kw">await</span>;
+                    </span><span class="kw">let </span>leaf = node.handle.decided_leaf().<span class="kw">await</span>;
                     <span class="kw">let </span>txn = I::leaf_create_random_transaction(<span class="kw-2">&amp;</span>leaf, <span class="kw-2">&amp;mut </span>thread_rng(), <span class="number">0</span>);
                     node.handle
                         .submit_transaction(txn.clone())

@@ -110,28 +110,28 @@
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Clone the public key and corresponding stake table for current elected committee
-    </span><span class="kw">fn </span>get_committee_qc_stake_table(
+    </span><span class="kw">fn </span>committee_qc_stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// The leader of the committee for view `view_number`.
-    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
 
     <span class="doccomment">/// The staked members of the committee for view `view_number`.
-    </span><span class="kw">fn </span>get_staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    </span><span class="kw">fn </span>staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// The non-staked members of the committee for view `view_number`.
-    </span><span class="kw">fn </span>get_non_staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    </span><span class="kw">fn </span>non_staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get whole (staked + non-staked) committee for view `view_number`.
-    </span><span class="kw">fn </span>get_whole_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    </span><span class="kw">fn </span>whole_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Check if a key has stake
     </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool;
 
     <span class="doccomment">/// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table
-    </span><span class="kw">fn </span>get_stake(
+    </span><span class="kw">fn </span>stake(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;

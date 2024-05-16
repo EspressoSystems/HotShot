@@ -379,7 +379,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable + <span class="lifetime">'static</span>&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>SimpleVote&lt;TYPES, DATA&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time {
         <span class="self">self</span>.view_number
     }
 }
@@ -387,19 +387,19 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable + <span class="lifetime">'static</span>&gt; Vote&lt;TYPES&gt; <span class="kw">for </span>SimpleVote&lt;TYPES, DATA&gt; {
     <span class="kw">type </span>Commitment = DATA;
 
-    <span class="kw">fn </span>get_signing_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey {
+    <span class="kw">fn </span>signing_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey {
         <span class="self">self</span>.signature.<span class="number">0</span>.clone()
     }
 
-    <span class="kw">fn </span>get_signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType {
+    <span class="kw">fn </span>signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType {
         <span class="self">self</span>.signature.<span class="number">1</span>.clone()
     }
 
-    <span class="kw">fn </span>get_data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DATA {
+    <span class="kw">fn </span>date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DATA {
         <span class="kw-2">&amp;</span><span class="self">self</span>.data
     }
 
-    <span class="kw">fn </span>get_data_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;DATA&gt; {
+    <span class="kw">fn </span>date_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;DATA&gt; {
         <span class="self">self</span>.data.commit()
     }
 }

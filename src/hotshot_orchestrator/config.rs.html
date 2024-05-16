@@ -1467,11 +1467,11 @@
 
                 <span class="comment">// Add to DA nodes based on index
                 </span><span class="kw">if </span>node_id &lt; staked_da_nodes <span class="kw">as </span>u64 {
-                    known_da_nodes.push(cur_validator_config.get_public_config());
+                    known_da_nodes.push(cur_validator_config.public_config());
                     cur_validator_config.is_da = <span class="bool-val">true</span>;
                 }
 
-                cur_validator_config.get_public_config()
+                cur_validator_config.public_config()
             })
             .collect();
 

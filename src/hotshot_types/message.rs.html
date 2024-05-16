@@ -343,12 +343,6 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -405,8 +399,8 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewMessage&lt;TYPES&gt; <span class="kw">for </span>Message&lt;TYPES&gt; {
     <span class="doccomment">/// get the view number out of a message
-    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
-        <span class="self">self</span>.kind.get_view_number()
+    </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+        <span class="self">self</span>.kind.view_number()
     }
     <span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose {
         <span class="self">self</span>.kind.purpose()
@@ -474,7 +468,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewMessage&lt;TYPES&gt; <span class="kw">for </span>MessageKind&lt;TYPES&gt; {
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             MessageKind::Consensus(message) =&gt; message.view_number(),
             MessageKind::Data(DataMessage::SubmitTransaction(<span class="kw">_</span>, v)) =&gt; <span class="kw-2">*</span>v,
@@ -572,32 +566,26 @@
                     GeneralConsensusMessage::Proposal(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
                         // this should match replica upon receipt
-                        </span>p.data.get_view_number()
+                        </span>p.data.view_number()
                     }
-                    GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.get_view_number(),
-                    GeneralConsensusMessage::TimeoutVote(message) =&gt; message.get_view_number(),
+                    GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.view_number(),
+                    GeneralConsensusMessage::TimeoutVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) =&gt; {
-                        message.get_view_number()
+                        message.view_number()
                     }
-                    GeneralConsensusMessage::ViewSyncCommitVote(message) =&gt; {
-                        message.get_view_number()
-                    }
-                    GeneralConsensusMessage::ViewSyncFinalizeVote(message) =&gt; {
-                        message.get_view_number()
-                    }
+                    GeneralConsensusMessage::ViewSyncCommitVote(message) =&gt; message.view_number(),
+                    GeneralConsensusMessage::ViewSyncFinalizeVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitCertificate(message) =&gt; {
-                        message.get_view_number()
+                        message.view_number()
                     }
                     GeneralConsensusMessage::ViewSyncCommitCertificate(message) =&gt; {
-                        message.get_view_number()
+                        message.view_number()
                     }
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(message) =&gt; {
-                        message.get_view_number()
+                        message.view_number()
                     }
-                    GeneralConsensusMessage::UpgradeProposal(message) =&gt; {
-                        message.data.get_view_number()
-                    }
-                    GeneralConsensusMessage::UpgradeVote(message) =&gt; message.get_view_number(),
+                    GeneralConsensusMessage::UpgradeProposal(message) =&gt; message.data.view_number(),
+                    GeneralConsensusMessage::UpgradeVote(message) =&gt; message.view_number(),
                 }
             }
             SequencingMessage::Da(da_message) =&gt; {
@@ -605,11 +593,11 @@
                     DaConsensusMessage::DaProposal(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
                         // this should match replica upon receipt
-                        </span>p.data.get_view_number()
+                        </span>p.data.view_number()
                     }
-                    DaConsensusMessage::DaVote(vote_message) =&gt; vote_message.get_view_number(),
+                    DaConsensusMessage::DaVote(vote_message) =&gt; vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) =&gt; cert.view_number,
-                    DaConsensusMessage::VidDisperseMsg(disperse) =&gt; disperse.data.get_view_number(),
+                    DaConsensusMessage::VidDisperseMsg(disperse) =&gt; disperse.data.view_number(),
                 }
             }
         }
@@ -686,8 +674,8 @@
     /// # Errors
     /// Returns an error when the proposal signature is invalid.
     </span><span class="kw">pub fn </span>validate_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>view_number = <span class="self">self</span>.data.get_view_number();
-        <span class="kw">let </span>view_leader_key = quorum_membership.get_leader(view_number);
+        <span class="kw">let </span>view_number = <span class="self">self</span>.data.view_number();
+        <span class="kw">let </span>view_leader_key = quorum_membership.leader(view_number);
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.data);
 
         <span class="macro">ensure!</span>(

@@ -676,7 +676,7 @@
             <span class="self">self</span>.delayed_tasks
                 .write()
                 .<span class="kw">await
-                </span>.entry(message.kind.get_view_number().get_u64())
+                </span>.entry(message.kind.view_number().u64())
                 .or_default()
                 .push(async_spawn(<span class="kw">async move </span>{
                     async_sleep(duration).<span class="kw">await</span>;

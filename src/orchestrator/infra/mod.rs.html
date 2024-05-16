@@ -1371,15 +1371,15 @@
         <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
             .expect(<span class="string">"Couldn't generate genesis block"</span>);
 
-        <span class="kw">let </span>config = <span class="self">self</span>.get_config();
+        <span class="kw">let </span>config = <span class="self">self</span>.config();
 
         <span class="comment">// Get KeyPair for certificate Aggregation
         </span><span class="kw">let </span>pk = config.config.my_own_validator_config.public_key.clone();
         <span class="kw">let </span>sk = config.config.my_own_validator_config.private_key.clone();
         <span class="kw">let </span>known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
 
-        <span class="kw">let </span>da_network = <span class="self">self</span>.get_da_channel();
-        <span class="kw">let </span>quorum_network = <span class="self">self</span>.get_quorum_channel();
+        <span class="kw">let </span>da_network = <span class="self">self</span>.da_channel();
+        <span class="kw">let </span>quorum_network = <span class="self">self</span>.quorum_channel();
 
         <span class="kw">let </span>networks_bundle = Networks {
             quorum_network: quorum_network.clone().into(),
@@ -1439,7 +1439,7 @@
             node_index,
             start_delay_seconds,
             ..
-        } = <span class="self">self</span>.get_config();
+        } = <span class="self">self</span>.config();
 
         <span class="kw">let </span><span class="kw-2">mut </span>total_transactions_committed = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>total_transactions_sent = <span class="number">0</span>;
@@ -1454,7 +1454,7 @@
         <span class="macro">info!</span>(<span class="string">"Starting HotShot example!"</span>);
         <span class="kw">let </span>start = Instant::now();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.get_event_stream();
+        <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.event_stream();
         <span class="kw">let </span><span class="kw-2">mut </span>anchor_view: TYPES::Time = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
         <span class="kw">let </span><span class="kw-2">mut </span>num_successful_commits = <span class="number">0</span>;
 
@@ -1480,12 +1480,12 @@
                             <span class="comment">// this might be a obob
                             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_info) = leaf_chain.first() {
                                 <span class="kw">let </span>leaf = <span class="kw-2">&amp;</span>leaf_info.leaf;
-                                <span class="macro">info!</span>(<span class="string">"Decide event for leaf: {}"</span>, <span class="kw-2">*</span>leaf.get_view_number());
+                                <span class="macro">info!</span>(<span class="string">"Decide event for leaf: {}"</span>, <span class="kw-2">*</span>leaf.view_number());
 
                                 <span class="comment">// iterate all the decided transactions to calculate latency
-                                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(block_payload) = <span class="kw-2">&amp;</span>leaf.get_block_payload() {
-                                    <span class="kw">for </span>tx <span class="kw">in </span>block_payload
-                                        .get_transactions(leaf.get_block_header().metadata())
+                                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(block_payload) = <span class="kw-2">&amp;</span>leaf.block_payload() {
+                                    <span class="kw">for </span>tx <span class="kw">in
+                                        </span>block_payload.transactions(leaf.block_header().metadata())
                                     {
                                         <span class="kw">let </span>restored_timestamp_vec =
                                             tx.bytes()[tx.bytes().len() - <span class="number">8</span>..].to_vec();
@@ -1502,9 +1502,9 @@
                                     }
                                 }
 
-                                <span class="kw">let </span>new_anchor = leaf.get_view_number();
+                                <span class="kw">let </span>new_anchor = leaf.view_number();
                                 <span class="kw">if </span>new_anchor &gt;= anchor_view {
-                                    anchor_view = leaf.get_view_number();
+                                    anchor_view = leaf.view_number();
                                 }
 
                                 <span class="comment">// send transactions
@@ -1548,9 +1548,9 @@
                 }
             }
         }
-        <span class="kw">let </span>consensus_lock = context.hotshot.get_consensus();
+        <span class="kw">let </span>consensus_lock = context.hotshot.consensus();
         <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
-        <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().get_u64()).unwrap();
+        <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         <span class="comment">// `failed_num_views` could include uncommitted views
         </span><span class="kw">let </span>failed_num_views = total_num_views - num_successful_commits;
         <span class="comment">// When posting to the orchestrator, note that the total number of views also include un-finalized views.
@@ -1586,13 +1586,13 @@
     }
 
     <span class="doccomment">/// Returns the da network for this run
-    </span><span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DANET;
+    </span><span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DANET;
 
     <span class="doccomment">/// Returns the quorum network for this run
-    </span><span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QUORUMNET;
+    </span><span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QUORUMNET;
 
     <span class="doccomment">/// Returns the config for this run
-    </span><span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt;;
+    </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt;;
 }
 
 <span class="comment">// Push CDN
@@ -1668,15 +1668,15 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
+    <span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
         <span class="self">self</span>.da_channel.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
+    <span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
+    <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -1766,15 +1766,15 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; {
+    <span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; {
         <span class="self">self</span>.da_channel.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; {
+    <span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt; {
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
+    <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -1862,15 +1862,15 @@
         }
     }
 
-    <span class="kw">fn </span>get_da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
+    <span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
         <span class="self">self</span>.da_channel.clone()
     }
 
-    <span class="kw">fn </span>get_quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
+    <span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
         <span class="self">self</span>.quorum_channel.clone()
     }
 
-    <span class="kw">fn </span>get_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
+    <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
 }
@@ -1970,7 +1970,7 @@
     <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task {
-        task.start(Box::new(hotshot.get_event_stream()));
+        task.start(Box::new(hotshot.event_stream()));
     }
 
     <span class="comment">// pre-generate transactions

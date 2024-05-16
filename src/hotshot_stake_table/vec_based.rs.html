@@ -661,7 +661,7 @@
     }
 
     <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion) -&gt; <span class="prelude-ty">Result</span>&lt;usize, StakeTableError&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.get_version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>.bls_keys.len())
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>.bls_keys.len())
     }
 
     <span class="kw">fn </span>contains_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key) -&gt; bool {
@@ -673,7 +673,7 @@
         version: SnapshotVersion,
         key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Amount, StakeTableError&gt; {
-        <span class="kw">let </span>table = <span class="self">self</span>.get_version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>table = <span class="self">self</span>.version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="kw">let </span>pos = <span class="self">self</span>.lookup_pos(key)<span class="question-mark">?</span>;
         <span class="kw">if </span>pos &gt;= table.bls_keys.len() {
             <span class="prelude-val">Err</span>(StakeTableError::KeyNotFound)
@@ -696,7 +696,7 @@
         version: SnapshotVersion,
         key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Amount, <span class="self">Self</span>::Aux, <span class="self">Self</span>::LookupProof), StakeTableError&gt; {
-        <span class="kw">let </span>table = <span class="self">self</span>.get_version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>table = <span class="self">self</span>.version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="kw">let </span>pos = <span class="self">self</span>.lookup_pos(key)<span class="question-mark">?</span>;
         <span class="kw">if </span>pos &gt;= table.bls_keys.len() {
             <span class="prelude-val">Err</span>(StakeTableError::KeyNotFound)
@@ -745,7 +745,7 @@
     }
 
     <span class="kw">fn </span>try_iter(<span class="kw-2">&amp;</span><span class="self">self</span>, version: SnapshotVersion) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::IntoIter, StakeTableError&gt; {
-        <span class="kw">let </span>table = <span class="self">self</span>.get_version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>table = <span class="self">self</span>.version(<span class="kw-2">&amp;</span>version)<span class="question-mark">?</span>;
         <span class="kw">let </span>owned = (<span class="number">0</span>..table.bls_keys.len())
             .map(|i| {
                 (
@@ -871,7 +871,7 @@
     }
 
     <span class="doccomment">/// returns the snapshot version
-    </span><span class="kw">fn </span>get_version(
+    </span><span class="kw">fn </span>version(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         version: <span class="kw-2">&amp;</span>SnapshotVersion,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>StakeTableSnapshot&lt;K1, K2&gt;, StakeTableError&gt; {
