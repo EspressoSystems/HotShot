@@ -18,9 +18,10 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error};
+use vbs::version::Version;
 
 use crate::{
-    consensus::helpers::get_parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
+    consensus::helpers::parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -79,6 +80,9 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// Shared consensus task state
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+
+    /// The current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
@@ -91,7 +95,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
-        let (parent_leaf, state) = get_parent_leaf_and_state(
+        let (parent_leaf, state) = parent_leaf_and_state(
             self.latest_proposed_view,
             self.view_number,
             Arc::clone(&self.quorum_membership),
@@ -119,6 +123,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             commitment_and_metadata.metadata,
             commitment_and_metadata.fee,
             vid_share.data.common.clone(),
+            self.version,
         )
         .await
         .context("Failed to construct block header")?;
@@ -133,7 +138,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
         ensure!(
-            proposed_leaf.get_parent_commitment() == parent_leaf.commit(),
+            proposed_leaf.parent_commitment() == parent_leaf.commit(),
             "Proposed leaf parent does not equal high qc"
         );
 
@@ -148,7 +153,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         };
         debug!(
             "Sending proposal for view {:?}",
-            proposed_leaf.get_view_number(),
+            proposed_leaf.view_number(),
         );
 
         self.consensus

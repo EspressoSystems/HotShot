@@ -24,6 +24,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, instrument, warn};
+use vbs::version::Version;
 
 use crate::{
     events::HotShotEvent,
@@ -89,6 +90,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// The node's id
     pub id: u64,
+
+    /// Current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -107,14 +111,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
                         if let HotShotEvent::HighQcUpdated(qc) = event {
-                            qc.get_view_number() + 1
+                            qc.view_number() + 1
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::TimeoutCert => {
                         if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
-                            timeout.get_view_number() + 1
+                            timeout.view_number() + 1
                         } else {
                             return false;
                         }
@@ -123,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
                             event
                         {
-                            view_sync_cert.get_view_number()
+                            view_sync_cert.view_number()
                         } else {
                             return false;
                         }
@@ -131,7 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                     ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
-                            proposal.get_view_number() + 1
+                            proposal.view_number() + 1
                         } else {
                             return false;
                         }
@@ -159,7 +163,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                     ProposalDependency::VIDShare => {
                         if let HotShotEvent::VIDShareValidated(vid_share) = event {
-                            vid_share.data.get_view_number()
+                            vid_share.data.view_number()
                         } else {
                             return false;
                         }
@@ -314,7 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event: Arc<HotShotEvent<TYPES>>,
     ) {
         // Don't even bother making the task if we are not entitled to propose anyay.
-        if self.quorum_membership.get_leader(view_number) != self.public_key {
+        if self.quorum_membership.leader(view_number) != self.public_key {
             tracing::trace!("We are not the leader of the next view");
             return;
         }
@@ -346,6 +350,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: Arc::clone(&self.consensus),
+                version: self.version,
             },
         );
         self.propose_dependencies
@@ -385,6 +390,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            HotShotEvent::VersionUpgrade(version) => {
+                self.version = *version;
+            }
             HotShotEvent::ProposeNow(view_number, _) => {
                 self.create_dependency_task_if_new(
                     *view_number,
@@ -442,7 +450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.get_data()
+                        certificate.date()
                     );
                     return;
                 }
@@ -487,7 +495,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
             }
             HotShotEvent::VIDShareValidated(vid_share) => {
-                let view_number = vid_share.data.get_view_number();
+                let view_number = vid_share.data.view_number();
 
                 // Update the vid shares map if we need to include the new value.
                 let share = vid_share.clone();
@@ -523,7 +531,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     tracing::trace!("Failed to update high qc; error = {e}");
                 }
 
-                let view_number = qc.get_view_number() + 1;
+                let view_number = qc.view_number() + 1;
                 self.create_dependency_task_if_new(
                     view_number,
                     event_receiver,
