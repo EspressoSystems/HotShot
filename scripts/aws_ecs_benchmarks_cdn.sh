@@ -39,7 +39,7 @@ round_up() {
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
 # see `aws_ecs_nginx_benchmarks.sh` for an example
-for total_nodes in 10 50 100
+for total_nodes in 10 50 100 200 500 1000
 do
     for da_committee_size in 5 10 50 100
     do
@@ -53,7 +53,7 @@ do
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
-                            for rounds in 50 100
+                            for rounds in 100 50
                             do
                                 # server1 broker
                                 just async_std example cdn-broker -- -d redis://localhost:6379 \
@@ -70,7 +70,7 @@ do
                                     --public-advertise-endpoint local_ip:1740 \
                                     --private-bind-endpoint 0.0.0.0:1741 \
                                     --private-advertise-endpoint local_ip:1741 &"
-                                ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND; exit"
+                                ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND exit"
 
                                 # start orchestrator
                                 just async_std example_fixed_leader orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
@@ -101,7 +101,7 @@ do
                                 # shut down brokers
                                 COMMAND_SHUTDOWN="killall -9 cdn-broker"
                                 killall -9 cdn-broker
-                                ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND_SHUTDOWN; exit"
+                                ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND_SHUTDOWN exit"
                                 sleep 10
                             done
                         fi
@@ -113,5 +113,5 @@ do
 done
 
 # shut down all related threads
-for pid in $(ps -ef | grep "cdn-marshal" | awk '{print $2}'); do kill -9 $pid; done
+killall -9 cdn-marshal
 # for pid in $(ps -ef | grep "keydb-server" | awk '{print $2}'); do sudo kill -9 $pid; done

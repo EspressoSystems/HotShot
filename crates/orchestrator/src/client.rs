@@ -50,11 +50,7 @@ impl BenchResults {
     /// printout the results of one example run
     pub fn printout(&self) {
         println!("=====================");
-        if self.partial_results == "Partial" {
-            println!("Partial Benchmark results:");
-        } else {
-            println!("Complete Benchmark results:");
-        }
+        println!("{0} Benchmark results:", self.partial_results);
         println!(
             "Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds",
             self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec
@@ -95,8 +91,9 @@ pub struct BenchResultsDownloadConfig {
 
     // Results starting here
     /// Whether the results are partially collected
-    /// "Partial" when the results are collected for half running nodes if not all nodes terminate successfully
-    /// "Complete" if the results are successfully collected from all nodes
+    /// "One" when the results are collected for one node
+    /// "Half" when the results are collecte for half running nodes if not all nodes terminate successfully
+    /// "Full" if the results are successfully collected from all nodes
     pub partial_results: String,
     /// The average latency of the transactions
     pub avg_latency_in_sec: i64,

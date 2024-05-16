@@ -188,7 +188,7 @@ jobs:
           - tokio
       fail-fast: false
     runs-on: [self-hosted, arm64]
-    # if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     container: ghcr.io/espressosystems/devops-rust:stable
     steps:
       - uses: actions/checkout@v4
@@ -227,7 +227,7 @@ jobs:
           - tokio
       fail-fast: false
     runs-on: ubuntu-latest
-    # if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: [build-release, build-arm-release, test]
     steps:
       - name: Checkout Repository
