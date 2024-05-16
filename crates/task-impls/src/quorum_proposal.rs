@@ -25,6 +25,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
+use vbs::version::Version;
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
@@ -98,6 +99,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     /// The node's id
     #[allow(dead_code)]
     id: u64,
+
+    /// Current version of consensus
+    version: Version,
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
@@ -188,6 +192,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             commit_and_metadata,
             None,
             Arc::clone(&self.instance_state),
+            self.version,
         )
         .await
         {
@@ -247,6 +252,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     // pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     /// The node's id
     pub id: u64,
+
+    /// Current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -435,7 +443,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event: Arc<HotShotEvent<TYPES>>,
     ) {
         // Don't even bother making the task if we are not entitled to propose anyay.
-        if self.quorum_membership.get_leader(view_number) != self.public_key {
+        if self.quorum_membership.leader(view_number) != self.public_key {
             return;
         }
 
@@ -469,6 +477,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 id: self.id,
                 instance_state: Arc::clone(&self.instance_state),
+                version: self.version,
             },
         );
         self.propose_dependencies
@@ -508,6 +517,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            HotShotEvent::VersionUpgrade(version) => {
+                self.version = *version;
+            }
             HotShotEvent::ProposeNow(view, _) => {
                 self.create_dependency_task_if_new(
                     *view,
@@ -573,7 +585,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.get_data()
+                        certificate.date()
                     );
                     return;
                 }

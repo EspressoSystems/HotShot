@@ -10,18 +10,15 @@ use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposa
 use hotshot_testing::{
     predicates::event::quorum_proposal_send,
     script::{run_test_script, TestScriptStage},
-    task_helpers::{build_cert, key_pair_for_id},
-    task_helpers::{build_system_handle, vid_scheme_from_view_number},
+    task_helpers::{build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number},
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, ProposalDependencyData},
-    data::null_block,
-    data::{VidDisperseShare, ViewChangeEvidence, ViewNumber},
+    data::{null_block, VidDisperseShare, ViewChangeEvidence, ViewNumber},
     message::Proposal,
     simple_certificate::{TimeoutCertificate, ViewSyncFinalizeCertificate2},
-    simple_vote::ViewSyncFinalizeData,
-    simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeVote},
+    simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData, ViewSyncFinalizeVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -51,7 +48,7 @@ async fn insert_vid_shares_for_view(
         <TestTypes as NodeType>::SignatureKey,
     ),
 ) {
-    let consensus = handle.get_consensus();
+    let consensus = handle.consensus();
     let mut consensus = consensus.write().await;
 
     // `create_and_send_proposal` depends on the `vid_shares` obtaining a vid dispersal.
@@ -151,7 +148,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     }
 
     insert_vid_shares_for_view(ViewNumber::new(node_id), &handle, vids[2].clone()).await;
-    let consensus = handle.get_consensus();
+    let consensus = handle.consensus();
     let mut consensus = consensus.write().await;
 
     // `validate_proposal_safety_and_liveness` depends on the existence of prior values in the consensus
@@ -164,7 +161,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ViewNumber::new(2),
         View {
             view_inner: ViewInner::Leaf {
-                leaf: leaves[1].get_parent_commitment(),
+                leaf: leaves[1].parent_commitment(),
                 state: TestValidatedState::default().into(),
                 delta: None,
             },
