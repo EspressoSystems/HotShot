@@ -912,7 +912,7 @@ pub async fn main_entry_point<
     // It returns the complete config which also includes peer's public key and public config.
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
-    let (mut run_config, source) = NetworkConfig::<TYPES::SignatureKey>::complete_config(
+    let (mut run_config, source) = NetworkConfig::<TYPES::SignatureKey>::get_complete_config(
         &orchestrator_client,
         my_own_validator_config,
         args.advertise_address,

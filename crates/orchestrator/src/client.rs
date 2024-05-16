@@ -228,7 +228,7 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        let node_index = self.get_wait_for_fn_from_orchestrator(identity).await;
+        let node_index = self.wait_for_fn_from_orchestrator(identity).await;
 
         // get the corresponding config
         let f = |client: Client<ClientError, OrchestratorVersion>| {
@@ -242,7 +242,7 @@ impl OrchestratorClient {
             .boxed()
         };
 
-        let mut config = self.get_wait_for_fn_from_orchestrator(f).await;
+        let mut config = self.wait_for_fn_from_orchestrator(f).await;
         config.node_index = From::<u16>::from(node_index);
 
         Ok(config)
@@ -257,7 +257,7 @@ impl OrchestratorClient {
         let cur_node_index = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
                 let cur_node_index: Result<u16, ClientError> = client
-                    .post("api/tmp_node_index")
+                    .post("api/get_tmp_node_index")
                     .send()
                     .await
                     .inspect_err(|err| tracing::error!("{err}"));
@@ -266,7 +266,7 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        self.get_wait_for_fn_from_orchestrator(cur_node_index).await
+        self.wait_for_fn_from_orchestrator(cur_node_index).await
     }
 
     /// Requests the configuration from the orchestrator with the stipulation that
@@ -293,7 +293,7 @@ impl OrchestratorClient {
         };
 
         // Loop until successful
-        self.get_wait_for_fn_from_orchestrator(get_config_after_collection)
+        self.wait_for_fn_from_orchestrator(get_config_after_collection)
             .await
     }
 
@@ -359,7 +359,7 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        self.get_wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
+        self.wait_for_fn_from_orchestrator::<_, _, ()>(wait_for_all_nodes_pub_key)
             .await;
 
         let mut network_config = self.get_config_after_collection().await;
@@ -389,13 +389,13 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        self.get_wait_for_fn_from_orchestrator::<_, _, ()>(send_ready_f)
+        self.wait_for_fn_from_orchestrator::<_, _, ()>(send_ready_f)
             .await;
 
         let wait_for_all_nodes_ready_f = |client: Client<ClientError, OrchestratorVersion>| {
             async move { client.get("api/start").send().await }.boxed()
         };
-        self.get_wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
+        self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
             .await
     }
 
@@ -417,7 +417,7 @@ impl OrchestratorClient {
     /// Generic function that waits for the orchestrator to return a non-error
     /// Returns whatever type the given function returns
     #[instrument(skip_all, name = "waiting for orchestrator")]
-    async fn get_wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
+    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
         F: Fn(Client<ClientError, OrchestratorVersion>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,

@@ -296,7 +296,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
     ///
     /// # Errors
     /// If we are unable to get the configuration from the orchestrator
-    pub async fn complete_config(
+    pub async fn get_complete_config(
         client: &OrchestratorClient,
         my_own_validator_config: ValidatorConfig<K>,
         libp2p_address: Option<SocketAddr>,
