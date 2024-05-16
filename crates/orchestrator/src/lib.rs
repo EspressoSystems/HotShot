@@ -495,13 +495,15 @@ where
             self.bench_results.printout();
             self.output_to_csv();
         }
-        if self.bench_results.partial_results == "One" && self.nodes_post_results >= (self.config.config.da_staked_committee_size as u64 / 2)
+        if self.bench_results.partial_results == "One"
+            && self.nodes_post_results >= (self.config.config.da_staked_committee_size as u64 / 2)
         {
             self.bench_results.partial_results = "HalfDA".to_string();
             self.bench_results.printout();
             self.output_to_csv();
         }
-        if self.bench_results.partial_results == "HalfDA" && self.nodes_post_results >= (self.config.config.num_nodes_with_stake.get() as u64 / 2)
+        if self.bench_results.partial_results == "HalfDA"
+            && self.nodes_post_results >= (self.config.config.num_nodes_with_stake.get() as u64 / 2)
         {
             self.bench_results.partial_results = "Half".to_string();
             self.bench_results.printout();

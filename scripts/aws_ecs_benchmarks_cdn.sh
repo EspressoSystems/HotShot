@@ -63,8 +63,11 @@ do
                                     --private-advertise-endpoint local_ip:1741 &
                                 # server2: broker
                                 # make sure you're able to access the remote host from current host
-                                REMOTE_USER=[YOUR-ID]
-                                REMOTE_HOST=[PUBLIC-IP]
+                                # Sishan TODO:
+                                # REMOTE_USER=[YOUR-ID]
+                                # REMOTE_HOST=[PUBLIC-IP]
+                                REMOTE_USER="sishan"
+                                REMOTE_HOST="3.135.239.251"
                                 COMMAND="just async_std example cdn-broker -- -d ${keydb_address} \
                                     --public-bind-endpoint 0.0.0.0:1740 \
                                     --public-advertise-endpoint local_ip:1740 \
