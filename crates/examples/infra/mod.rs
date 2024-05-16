@@ -990,18 +990,13 @@ pub async fn main_entry_point<
     );
     let mut transactions = Vec::new();
 
-    for round in 0..rounds {
+    for _round in 0..rounds {
         for _ in 0..transactions_to_send_per_round {
-            let mut txn = <TYPES::ValidatedState>::create_random_transaction(
+            let txn = <TYPES::ValidatedState>::create_random_transaction(
                 None,
                 &mut txn_rng,
                 transaction_size as u64,
             );
-
-            // prepend destined view number to transaction
-            let view_execute_number: u64 = round as u64 + 4;
-            txn.0[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
-
             transactions.push(txn);
         }
     }
