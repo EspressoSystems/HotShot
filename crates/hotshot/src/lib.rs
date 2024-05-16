@@ -45,7 +45,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
-        BlockPayload,
+        EncodeBytes,
     },
     HotShotConfig,
 };
@@ -254,12 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         if let Some(payload) = anchored_leaf.block_payload() {
-            let encoded_txns = match payload.encode() {
-                Ok(encoded) => encoded,
-                Err(e) => {
-                    return Err(HotShotError::BlockError { source: e });
-                }
-            };
+            let encoded_txns = payload.encode();
 
             saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(&encoded_txns));
         }
