@@ -306,11 +306,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for Consensus2TaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Consensus2TaskState<TYPES, I> {
-        let consensus = handle.hotshot.get_consensus();
+        let consensus = handle.hotshot.consensus();
         Consensus2TaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            instance_state: handle.hotshot.get_instance_state(),
+            instance_state: handle.hotshot.instance_state(),
             quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
             da_network: Arc::clone(&handle.hotshot.networks.da_network),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -319,12 +319,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
             storage: Arc::clone(&handle.storage),
-            cur_view: handle.get_cur_view().await,
+            cur_view: handle.cur_view().await,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             timeout_task: None,
             timeout: handle.hotshot.config.next_view_timeout,
             consensus,
-            last_decided_view: handle.get_cur_view().await,
+            last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
         }
     }
