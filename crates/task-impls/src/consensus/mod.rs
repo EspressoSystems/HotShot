@@ -819,14 +819,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskState<TYPES, I> {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    async fn handle_event_direct(
+    async fn handle_event(
         &mut self,
         event: Self::Event,
         sender: &Sender<Self::Event>,
         _receiver: &Receiver<Self::Event>,
-    ) -> Result<Vec<Self::Event>> {
+    ) -> Result<()> {
         self.handle(event, sender.clone()).await;
 
-        Ok(vec![])
+        Ok(())
+    }
+
+    async fn cancel_subtasks(&mut self) {
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
+
+            for handle in handles {
+                handle.cancel().await;
+            }
+        }
+
+        if let Some(task) = self.timeout_task.take() {
+            task.cancel().await;
+        }
     }
 }

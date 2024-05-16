@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use async_broadcast::Sender;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -85,10 +85,18 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
 impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
     type Event = Vec<Message<TYPES>>;
 
-    async fn handle_event(&mut self, event: Self::Event) -> Result<Vec<Self::Event>> {
+    async fn handle_event(
+        &mut self,
+        event: Self::Event,
+        _sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<()> {
         self.handle_messages(event).await;
-        Ok(vec![])
+
+        Ok(())
     }
+
+    async fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
@@ -214,12 +222,19 @@ impl<
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    async fn handle_event(&mut self, event: Self::Event) -> Result<Vec<Self::Event>> {
+    async fn handle_event(
+        &mut self,
+        event: Self::Event,
+        _sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<()> {
         let membership = self.membership.clone();
         self.handle_event(event, &membership).await;
 
-        Ok(vec![])
+        Ok(())
     }
+
+    async fn cancel_subtasks(&mut self) {}
 }
 
 impl<

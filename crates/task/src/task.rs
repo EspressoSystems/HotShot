@@ -21,25 +21,17 @@ use tokio::{
 pub trait TaskState: Send {
     /// Type of event sent and received by the task
     type Event: Clone + Send + Sync;
-    /// Handles an event, possibly mutating our state.
-    /// Returns a sequence of events to broadcast to the channel,
-    /// or an error trace in handling the message.
-    async fn handle_event(&mut self, _event: Self::Event) -> Result<Vec<Self::Event>> {
-        Ok(vec![])
-    }
+
+    /// Joins all subtasks.
+    async fn cancel_subtasks(&mut self);
 
     /// Handles an event, providing direct access to the specific channel we received the event on.
-    ///
-    /// If possible, a task should prefer to implement `handle_event` rather than `handle_event_direct`.
-    /// A long-term goal would be to deprecate `handle_event_direct` in favor of `handle_event`, possibly with a more general return type.
-    async fn handle_event_direct(
+    async fn handle_event(
         &mut self,
         event: Self::Event,
         _sender: &Sender<Self::Event>,
         _receiver: &Receiver<Self::Event>,
-    ) -> Result<Vec<Self::Event>> {
-        self.handle_event(event).await
-    }
+    ) -> Result<()>;
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
@@ -92,25 +84,10 @@ impl<S: TaskState + Send + 'static> Task<S> {
                             break self.boxed_state();
                         }
 
-                        match S::handle_event_direct(
-                            &mut self.state,
-                            input,
-                            &self.sender,
-                            &self.receiver,
-                        )
-                        .await
-                        {
-                            Ok(outputs) => {
-                                for output in outputs {
-                                    let _ = self.sender.broadcast_direct(output).await.inspect_err(
-                                        |e| {
-                                            tracing::error!("{e}");
-                                        },
-                                    );
-                                }
-                            }
-                            Err(e) => tracing::info!("{e}"),
-                        }
+                        let _ =
+                            S::handle_event(&mut self.state, input, &self.sender, &self.receiver)
+                                .await
+                                .inspect_err(|e| tracing::info!("{e}"));
                     }
                     Err(e) => {
                         tracing::error!("Failed to receive from event stream Error: {}", e);
@@ -121,6 +98,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
     }
 }
 
+#[derive(Default)]
 /// A collection of tasks which can handle shutdown
 pub struct TaskRegistry<EVENT> {
     /// Tasks this registry controls
@@ -128,6 +106,7 @@ pub struct TaskRegistry<EVENT> {
 }
 
 impl<EVENT> TaskRegistry<EVENT> {
+    #[must_use]
     /// Create a new task registry
     pub fn new() -> Self {
         TaskRegistry {

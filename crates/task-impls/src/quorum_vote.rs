@@ -522,14 +522,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTaskState<TYPES, I> {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    async fn handle_event_direct(
+    async fn handle_event(
         &mut self,
         event: Self::Event,
         sender: &Sender<Self::Event>,
         receiver: &Receiver<Self::Event>,
-    ) -> Result<Vec<Self::Event>> {
+    ) -> Result<()> {
         self.handle(event, receiver.clone(), sender.clone()).await;
 
-        Ok(vec![])
+        Ok(())
+    }
+
+    async fn cancel_subtasks(&mut self) {
+        for handle in self.vote_dependencies.drain().map(|(_view, handle)| handle) {
+            let _ = handle.cancel().await;
+        }
     }
 }

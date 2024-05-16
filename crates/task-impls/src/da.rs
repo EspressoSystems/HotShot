@@ -329,14 +329,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    async fn handle_event_direct(
+    async fn handle_event(
         &mut self,
         event: Self::Event,
         sender: &Sender<Self::Event>,
         _receiver: &Receiver<Self::Event>,
-    ) -> Result<Vec<Self::Event>> {
+    ) -> Result<()> {
         self.handle(event, sender.clone()).await;
 
-        Ok(vec![])
+        Ok(())
     }
+
+    async fn cancel_subtasks(&mut self) {}
 }

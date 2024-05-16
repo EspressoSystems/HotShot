@@ -69,12 +69,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
 {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    async fn handle_event_direct(
+    async fn handle_event(
         &mut self,
         event: Self::Event,
         sender: &Sender<Self::Event>,
         _receiver: &Receiver<Self::Event>,
-    ) -> Result<Vec<Self::Event>> {
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.get_view_number();
@@ -82,18 +82,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
                     self.spawn_requests(prop_view, sender.clone(), Ver::instance())
                         .await;
                 }
-                Ok(vec![])
+                Ok(())
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
                 if view > self.view {
                     self.view = view;
                 }
-                Ok(vec![])
+                Ok(())
             }
-            _ => Ok(vec![]),
+            _ => Ok(()),
         }
     }
+
+    async fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static>

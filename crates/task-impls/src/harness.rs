@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use anyhow::Result;
-use async_broadcast::broadcast;
+use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::art::async_timeout;
 use async_trait::async_trait;
 use hotshot_task::task::{Task, TaskRegistry, TaskState};
@@ -21,12 +21,19 @@ pub struct TestHarnessState<TYPES: NodeType> {
 impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
     type Event = Arc<HotShotEvent<TYPES>>;
 
-    async fn handle_event(&mut self, event: Self::Event) -> Result<Vec<Self::Event>> {
+    async fn handle_event(
+        &mut self,
+        event: Self::Event,
+        _sender: &Sender<Self::Event>,
+        _receiver: &Receiver<Self::Event>,
+    ) -> Result<()> {
         let extra = self.allow_extra_output;
         handle_event(event, self, extra);
 
-        Ok(vec![])
+        Ok(())
     }
+
+    async fn cancel_subtasks(&mut self) {}
 }
 
 /// Runs a test by building the task using `build_fn` and then passing it the `input` events
