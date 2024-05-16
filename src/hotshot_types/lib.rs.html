@@ -201,10 +201,14 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
 <span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>displaydoc::Display;
 <span class="kw">use </span>light_client::StateVerKey;
 <span class="kw">use </span>tracing::error;
@@ -259,13 +263,15 @@
     </span>Incremental,
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
+<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Derivative, Display)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
+#[derivative(Debug(bound = <span class="string">""</span>))]
 </span><span class="doccomment">/// config for validator, including public key, private key, stake value
 </span><span class="kw">pub struct </span>ValidatorConfig&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// The validator's public key and stake value
     </span><span class="kw">pub </span>public_key: KEY,
     <span class="doccomment">/// The validator's private key, should be in the mempool, not public
+    </span><span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub </span>private_key: KEY::PrivateKey,
     <span class="doccomment">/// The validator's stake
     </span><span class="kw">pub </span>stake_value: u64,
