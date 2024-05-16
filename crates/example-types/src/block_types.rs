@@ -26,6 +26,35 @@ use crate::{node_types::TestTypes, state_types::TestInstanceState};
 pub struct TestTransaction(pub Vec<u8>);
 
 impl TestTransaction {
+    /// Construct new transaction
+    ///
+    /// # Panics
+    /// If `bytes.len()` > `u32::MAX`
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self::try_new(bytes).expect("Vector too long")
+    }
+
+    /// Construct a new transaction.
+    /// Returns `None` if `bytes.len()` > `u32::MAX`
+    /// for cross-platform compatibility
+    pub fn try_new(bytes: Vec<u8>) -> Option<Self> {
+        if u32::try_from(bytes.len()).is_err() {
+            None
+        } else {
+            Some(Self(bytes))
+        }
+    }
+
+    /// Get reference to raw bytes of transaction
+    pub fn bytes(&self) -> &Vec<u8> {
+        &self.0
+    }
+
+    /// Convert transaction to raw vector of bytes
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+
     /// Encode a list of transactions into bytes.
     ///
     /// # Errors

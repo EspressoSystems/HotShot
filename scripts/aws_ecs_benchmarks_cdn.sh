@@ -85,7 +85,7 @@ do
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha cdn_no_gpu &
+                                                                                --commit_sha random_tx &
                                 sleep 30
 
                                 # start validators
