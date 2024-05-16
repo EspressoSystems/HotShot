@@ -93,6 +93,8 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstractions over the immutable instance-level state and the global state that blocks modify.
 //!
 //! This module provides the [`InstanceState`] and [`ValidatedState`] traits, which serve as
@@ -102,6 +104,7 @@
 </span><span class="kw">use </span>std::{error::Error, fmt::Debug, future::Future, hash::Hash};
 
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use </span><span class="kw">super</span>::block_contents::TestableBlock;
 <span class="kw">use crate</span>::{
@@ -156,6 +159,7 @@
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
         vid_common: VidCommon,
+        version: Version,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Delta), <span class="self">Self</span>::Error&gt;&gt; + Send;
 
     <span class="doccomment">/// Construct the state with the given block header.

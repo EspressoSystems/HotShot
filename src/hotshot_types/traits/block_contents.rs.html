@@ -212,6 +212,8 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -228,6 +230,7 @@
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidScheme};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use </span><span class="kw">super</span>::signature_key::BuilderSignatureKey;
 <span class="kw">use crate</span>::{
@@ -402,6 +405,7 @@
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         builder_fee: BuilderFee&lt;TYPES&gt;,
         vid_common: VidCommon,
+        version: Version,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;&gt; + Send;
 
     <span class="doccomment">/// Build the genesis header, payload, and metadata.

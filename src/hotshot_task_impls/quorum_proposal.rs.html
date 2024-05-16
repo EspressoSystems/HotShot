@@ -648,6 +648,18 @@
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -675,6 +687,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::handle_quorum_proposal_validated;
@@ -748,6 +761,9 @@
     <span class="doccomment">/// The node's id
     </span><span class="attr">#[allow(dead_code)]
     </span>id: u64,
+
+    <span class="doccomment">/// Current version of consensus
+    </span>version: Version,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleDepOutput <span class="kw">for </span>ProposalDependencyHandle&lt;TYPES&gt; {
@@ -838,6 +854,7 @@
             commit_and_metadata,
             <span class="prelude-val">None</span>,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+            <span class="self">self</span>.version,
         )
         .<span class="kw">await
         </span>{
@@ -897,6 +914,9 @@
     // pub decided_upgrade_cert: Option&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     </span><span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// Current version of consensus
+    </span><span class="kw">pub </span>version: Version,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; QuorumProposalTaskState&lt;TYPES, I&gt; {
@@ -1119,6 +1139,7 @@
                 round_start_delay: <span class="self">self</span>.round_start_delay,
                 id: <span class="self">self</span>.id,
                 instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+                version: <span class="self">self</span>.version,
             },
         );
         <span class="self">self</span>.propose_dependencies
@@ -1158,6 +1179,9 @@
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">match </span>event.as_ref() {
+            HotShotEvent::VersionUpgrade(version) =&gt; {
+                <span class="self">self</span>.version = <span class="kw-2">*</span>version;
+            }
             HotShotEvent::ProposeNow(view, <span class="kw">_</span>) =&gt; {
                 <span class="self">self</span>.create_dependency_task_if_new(
                     <span class="kw-2">*</span>view,

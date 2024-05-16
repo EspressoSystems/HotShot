@@ -767,6 +767,16 @@
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
 <a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -995,6 +1005,7 @@
             <span class="self">self</span>.payload_commitment_and_metadata.clone(),
             <span class="self">self</span>.proposal_cert.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+            <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1009,7 +1020,7 @@
     <span class="doccomment">/// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
     </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-    </span><span class="kw">fn </span>spawn_vote_task(
+    </span><span class="kw">async fn </span>spawn_vote_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1028,6 +1039,7 @@
         <span class="kw">let </span>quorum_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
         <span class="kw">let </span>da_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.da_membership);
         <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
+        <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
             update_state_and_vote_if_able::&lt;TYPES, I&gt;(
                 view,
@@ -1038,6 +1050,7 @@
                 quorum_mem,
                 instance_state,
                 (priv_key, upgrade, da_mem, event_stream),
+                version,
             )
             .<span class="kw">await</span>;
         });
@@ -1051,17 +1064,24 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
+        <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
         <span class="kw">match </span>event.as_ref() {
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.view_number());
-                <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), <span class="self">self</span>)
-                    .<span class="kw">await
+                <span class="kw">match </span>handle_quorum_proposal_recv(
+                    proposal,
+                    sender,
+                    event_stream.clone(),
+                    <span class="self">self</span>,
+                    version,
+                )
+                .<span class="kw">await
                 </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(current_proposal)) =&gt; {
                         <span class="kw">let </span>view = current_proposal.view_number();
                         <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(current_proposal);
-                        <span class="self">self</span>.spawn_vote_task(view, event_stream);
+                        <span class="self">self</span>.spawn_vote_task(view, event_stream).<span class="kw">await</span>;
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {}
                     <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(<span class="string">"Failed to propose {e:#}"</span>),
@@ -1221,7 +1241,7 @@
                 <span class="kw">if </span>proposal.view_number() != view {
                     <span class="kw">return</span>;
                 }
-                <span class="self">self</span>.spawn_vote_task(view, event_stream);
+                <span class="self">self</span>.spawn_vote_task(view, event_stream).<span class="kw">await</span>;
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::VIDShareRecv(disperse) =&gt; {
@@ -1261,7 +1281,7 @@
                 <span class="kw">if </span>proposal.view_number() != view {
                     <span class="kw">return</span>;
                 }
-                <span class="self">self</span>.spawn_vote_task(view, event_stream.clone());
+                <span class="self">self</span>.spawn_vote_task(view, event_stream.clone()).<span class="kw">await</span>;
             }
             HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="kw">let </span>new_view = <span class="kw-2">*</span>new_view;

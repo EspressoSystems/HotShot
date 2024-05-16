@@ -315,6 +315,8 @@
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -336,6 +338,7 @@
 <span class="kw">use </span>sha3::{Digest, Keccak256};
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>time::OffsetDateTime;
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{node_types::TestTypes, state_types::TestInstanceState};
 
@@ -562,6 +565,7 @@
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
         _builder_fee: BuilderFee&lt;TYPES&gt;,
         _vid_common: VidCommon,
+        _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="kw">let </span>parent = parent_leaf.block_header();
 

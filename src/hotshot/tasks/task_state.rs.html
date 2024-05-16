@@ -301,6 +301,7 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -568,6 +569,7 @@
             timeout_task: <span class="prelude-val">None</span>,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
+            version: <span class="kw-2">*</span>handle.hotshot.version.read().<span class="kw">await</span>,
         }
     }
 }
