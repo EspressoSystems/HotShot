@@ -38,7 +38,7 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
             == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
-            vote.get_view_number()
+            vote.get_view_number() + 1
         )
     );
 
@@ -87,7 +87,7 @@ pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementat
             == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
-            vote.get_view_number()
+            vote.get_view_number() + 1
         )
     );
 
