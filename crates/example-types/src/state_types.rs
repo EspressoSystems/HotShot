@@ -14,6 +14,7 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use vbs::version::Version;
 
 use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;
@@ -76,6 +77,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _parent_leaf: &Leaf<TYPES>,
         _proposed_header: &TYPES::BlockHeader,
         _vid_common: VidCommon,
+        _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
         Ok((
             TestValidatedState {

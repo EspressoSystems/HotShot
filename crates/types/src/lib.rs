@@ -2,6 +2,7 @@
 use std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
 use bincode::Options;
+use derivative::Derivative;
 use displaydoc::Display;
 use light_client::StateVerKey;
 use tracing::error;
@@ -56,13 +57,15 @@ pub enum ExecutionType {
     Incremental,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Display)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Derivative, Display)]
 #[serde(bound(deserialize = ""))]
+#[derivative(Debug(bound = ""))]
 /// config for validator, including public key, private key, stake value
 pub struct ValidatorConfig<KEY: SignatureKey> {
     /// The validator's public key and stake value
     pub public_key: KEY,
     /// The validator's private key, should be in the mempool, not public
+    #[derivative(Debug = "ignore")]
     pub private_key: KEY::PrivateKey,
     /// The validator's stake
     pub stake_value: u64,
@@ -93,9 +96,9 @@ impl<KEY: SignatureKey> ValidatorConfig<KEY> {
     }
 
     /// get the public config of the validator
-    pub fn get_public_config(&self) -> PeerConfig<KEY> {
+    pub fn public_config(&self) -> PeerConfig<KEY> {
         PeerConfig {
-            stake_table_entry: self.public_key.get_stake_table_entry(self.stake_value),
+            stake_table_entry: self.public_key.stake_table_entry(self.stake_value),
             state_ver_key: self.state_key_pair.0.ver_key(),
         }
     }
@@ -148,7 +151,7 @@ impl<KEY: SignatureKey> PeerConfig<KEY> {
 impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
     fn default() -> Self {
         let default_validator_config = ValidatorConfig::<KEY>::default();
-        default_validator_config.get_public_config()
+        default_validator_config.public_config()
     }
 }
 
