@@ -1209,19 +1209,18 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         },
     );
     consensus.update_saved_leaves(proposed_leaf.clone());
+    let new_leaves = consensus.saved_leaves().clone();
+    let new_state = consensus.validated_state_map().clone();
+    drop(consensus);
 
     if let Err(e) = storage
         .write()
         .await
-        .update_undecided_state(
-            consensus.saved_leaves().clone(),
-            consensus.validated_state_map().clone(),
-        )
+        .update_undecided_state(new_leaves, new_state)
         .await
     {
         error!("Couldn't store undecided state.  Error: {:?}", e);
     }
-    drop(consensus);
 
     #[cfg(not(feature = "dependency-tasks"))]
     {
