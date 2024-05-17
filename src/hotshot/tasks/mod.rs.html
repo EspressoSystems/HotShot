@@ -282,7 +282,7 @@
     response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
-    vid::VIDTaskState,
+    vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::{
@@ -421,7 +421,7 @@
     rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>vid_state = VIDTaskState::create_from(handle).<span class="kw">await</span>;
+    <span class="kw">let </span>vid_state = VidTaskState::create_from(handle).<span class="kw">await</span>;
     <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), vid_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }

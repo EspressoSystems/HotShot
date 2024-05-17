@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BitVectorQC","QCParams"]};
+window.SIDEBAR_ITEMS = {"struct":["BitVectorQc","QcParams"]};

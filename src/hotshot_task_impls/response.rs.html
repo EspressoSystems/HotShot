@@ -356,7 +356,7 @@
     /// of the request.
     </span><span class="kw">async fn </span>handle_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: DataRequest&lt;TYPES&gt;) -&gt; Message&lt;TYPES&gt; {
         <span class="kw">match </span>req.request {
-            RequestKind::VID(view, pub_key) =&gt; {
+            RequestKind::Vid(view, pub_key) =&gt; {
                 <span class="kw">let </span><span class="prelude-val">Some</span>(share) = <span class="self">self</span>.get_or_calc_vid_share(view, <span class="kw-2">&amp;</span>pub_key).<span class="kw">await else </span>{
                     <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
                 };

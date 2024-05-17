@@ -752,7 +752,7 @@
         certificate: QuorumCertificate&lt;TYPES&gt;,
         _key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; HotShotEvent&lt;TYPES&gt; {
-        HotShotEvent::QCFormed(Left(certificate))
+        HotShotEvent::QcFormed(Left(certificate))
     }
 }
 
@@ -794,7 +794,7 @@
         certificate: TimeoutCertificate&lt;TYPES&gt;,
         _key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; HotShotEvent&lt;TYPES&gt; {
-        HotShotEvent::QCFormed(Right(certificate))
+        HotShotEvent::QcFormed(Right(certificate))
     }
 }
 

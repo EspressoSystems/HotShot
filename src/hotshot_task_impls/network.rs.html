@@ -695,7 +695,7 @@
                                 HotShotEvent::DaCertificateRecv(cert)
                             }
                             DaConsensusMessage::VidDisperseMsg(proposal) =&gt; {
-                                HotShotEvent::VIDShareRecv(proposal)
+                                HotShotEvent::VidShareRecv(proposal)
                             }
                         },
                     };
@@ -827,7 +827,7 @@
                     <span class="kw">return </span><span class="self">self</span>.handle_vid_disperse_proposal(proposal, <span class="kw-2">&amp;</span>sender);
                 }
                 HotShotEvent::DaProposalSend(proposal, sender) =&gt; {
-                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DAPropose);
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaPropose);
                     (
                         sender,
                         MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
@@ -848,7 +848,7 @@
                 }
                 <span class="comment">// ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
                 </span>HotShotEvent::DacSend(certificate, sender) =&gt; {
-                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DACert);
+                    maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaCert);
                     (
                         sender,
                         MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(

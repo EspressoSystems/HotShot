@@ -1176,7 +1176,7 @@
                 }
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::QCFormed(cert) =&gt; <span class="kw">match </span>cert {
+            </span>HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {
                 either::Right(qc) =&gt; {
                     <span class="self">self</span>.proposal_cert = <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(qc.clone()));
 
@@ -1244,7 +1244,7 @@
                 <span class="self">self</span>.spawn_vote_task(view, event_stream).<span class="kw">await</span>;
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::VIDShareRecv(disperse) =&gt; {
+            </span>HotShotEvent::VidShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
 
                 <span class="macro">debug!</span>(
@@ -1527,14 +1527,14 @@
             HotShotEvent::QuorumProposalRecv(<span class="kw">_</span>, <span class="kw">_</span>)
                 | HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
                 | HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QCFormed(<span class="kw">_</span>)
+                | HotShotEvent::QcFormed(<span class="kw">_</span>)
                 | HotShotEvent::UpgradeCertificateFormed(<span class="kw">_</span>)
                 | HotShotEvent::DaCertificateRecv(<span class="kw">_</span>)
                 | HotShotEvent::ViewChange(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::Timeout(<span class="kw">_</span>)
                 | HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>)
-                | HotShotEvent::VIDShareRecv(..)
+                | HotShotEvent::VidShareRecv(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
                 | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
                 | HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)

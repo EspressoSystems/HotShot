@@ -288,7 +288,7 @@
     <span class="doccomment">/// Which view this QC relates to
     </span><span class="kw">pub </span>view_number: TYPES::Time,
     <span class="doccomment">/// assembled signature for certificate aggregation
-    </span><span class="kw">pub </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType&gt;,
+    </span><span class="kw">pub </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType&gt;,
     <span class="doccomment">/// phantom data for `THRESHOLD` and `TYPES`
     </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, THRESHOLD)&gt;,
 }
@@ -319,7 +319,7 @@
     <span class="kw">fn </span>create_signed_certificate(
         vote_commitment: Commitment&lt;VOTEABLE&gt;,
         data: <span class="self">Self</span>::Voteable,
-        sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType,
+        sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType,
         view: TYPES::Time,
     ) -&gt; <span class="self">Self </span>{
         SimpleCertificate {

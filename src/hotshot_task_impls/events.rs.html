@@ -221,7 +221,7 @@
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
     </span>DaVoteSend(DaVote&lt;TYPES&gt;),
     <span class="doccomment">/// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
-    </span>QCFormed(Either&lt;QuorumCertificate&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;),
+    </span>QcFormed(Either&lt;QuorumCertificate&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     </span>DacSend(DaCertificate&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
@@ -292,9 +292,9 @@
     <span class="doccomment">/// Vid disperse share has been received from the network; handled by the consensus task
     ///
     /// Like [`HotShotEvent::DaProposalRecv`].
-    </span>VIDShareRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
+    </span>VidShareRecv(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// VID share data is validated.
-    </span>VIDShareValidated(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
+    </span>VidShareValidated(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network

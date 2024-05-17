@@ -313,7 +313,7 @@
     builder::BuilderClient, consensus::ConsensusTaskState, da::DaTaskState,
     quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
     quorum_vote::QuorumVoteTaskState, request::NetworkRequestState,
-    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VIDTaskState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::traits::{
@@ -384,12 +384,12 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>VIDTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>VidTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
 {
     <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; VIDTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
-        VIDTaskState {
+    ) -&gt; VidTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+        VidTaskState {
             api: handle.clone(),
             consensus: handle.hotshot.consensus(),
             cur_view: handle.cur_view().<span class="kw">await</span>,

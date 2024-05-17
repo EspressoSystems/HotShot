@@ -309,7 +309,7 @@
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Implementation for `BitVectorQC` that uses BLS signature + Bit vector.
+</pre></div><pre class="rust"><code><span class="doccomment">//! Implementation for `BitVectorQc` that uses BLS signature + Bit vector.
 //! See more details in hotshot paper.
 
 </span><span class="kw">use </span>ark_std::{
@@ -334,14 +334,14 @@
 
 <span class="doccomment">/// An implementation of QC using BLS signature and a bit-vector.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub struct </span>BitVectorQC&lt;A: AggregateableSignatureSchemes + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
+</span><span class="kw">pub struct </span>BitVectorQc&lt;A: AggregateableSignatureSchemes + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
     PhantomData&lt;A&gt;,
 );
 
-<span class="doccomment">/// Public parameters of [`BitVectorQC`]
+<span class="doccomment">/// Public parameters of [`BitVectorQc`]
 </span><span class="attr">#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
-</span><span class="kw">pub struct </span>QCParams&lt;K: SignatureKey, P: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt; {
+</span><span class="kw">pub struct </span>QcParams&lt;K: SignatureKey, P: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt; {
     <span class="doccomment">/// the stake table (snapshot) this QC is verified against
     </span><span class="kw">pub </span>stake_entries: Vec&lt;StakeTableEntry&lt;K&gt;&gt;,
     <span class="doccomment">/// threshold for the accumulated "weight" of votes to form a QC
@@ -350,17 +350,17 @@
     </span><span class="kw">pub </span>agg_sig_pp: P,
 }
 
-<span class="kw">impl</span>&lt;A&gt; QuorumCertificateScheme&lt;A&gt; <span class="kw">for </span>BitVectorQC&lt;A&gt;
+<span class="kw">impl</span>&lt;A&gt; QuorumCertificateScheme&lt;A&gt; <span class="kw">for </span>BitVectorQc&lt;A&gt;
 <span class="kw">where
     </span>A: AggregateableSignatureSchemes + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;,
     A::VerificationKey: SignatureKey,
 {
-    <span class="kw">type </span>QCProverParams = QCParams&lt;A::VerificationKey, A::PublicParameter&gt;;
+    <span class="kw">type </span>QcProverParams = QcParams&lt;A::VerificationKey, A::PublicParameter&gt;;
 
     <span class="comment">// TODO: later with SNARKs we'll use a smaller verifier parameter
-    </span><span class="kw">type </span>QCVerifierParams = QCParams&lt;A::VerificationKey, A::PublicParameter&gt;;
+    </span><span class="kw">type </span>QcVerifierParams = QcParams&lt;A::VerificationKey, A::PublicParameter&gt;;
 
-    <span class="kw">type </span>QC = (A::Signature, BitVec);
+    <span class="kw">type </span>Qc = (A::Signature, BitVec);
     <span class="kw">type </span>MessageLength = U32;
     <span class="kw">type </span>QuorumSize = U256;
 
@@ -375,10 +375,10 @@
     }
 
     <span class="kw">fn </span>assemble(
-        qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCProverParams,
+        qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcProverParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[A::Signature],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QC, SignatureError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Qc, SignatureError&gt; {
         <span class="kw">if </span>signers.len() != qc_pp.stake_entries.len() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(SignatureError::ParameterError(<span class="macro">format!</span>(
                 <span class="string">"bit vector len {} != the number of stake entries {}"</span>,
@@ -423,9 +423,9 @@
     }
 
     <span class="kw">fn </span>check(
-        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
+        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
-        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
+        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Qc,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QuorumSize, SignatureError&gt; {
         <span class="kw">let </span>(sig, signers) = qc;
         <span class="kw">if </span>signers.len() != qc_vp.stake_entries.len() {
@@ -465,9 +465,9 @@
     }
 
     <span class="kw">fn </span>trace(
-        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
+        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;&lt;A&gt;::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
-        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
+        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Qc,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;&lt;A&gt;::VerificationKey&gt;, SignatureError&gt; {
         <span class="kw">let </span>(_sig, signers) = qc;
         <span class="kw">if </span>signers.len() != qc_vp.stake_entries.len() {
@@ -521,37 +521,37 @@
                 stake_key: key_pair3.ver_key(),
                 stake_amount: U256::from(<span class="number">7u8</span>),
             };
-            <span class="kw">let </span>qc_pp = QCParams {
+            <span class="kw">let </span>qc_pp = QcParams {
                 stake_entries: <span class="macro">vec!</span>[entry1, entry2, entry3],
                 threshold: U256::from(<span class="number">10u8</span>),
                 agg_sig_pp,
             };
             <span class="kw">let </span>msg = [<span class="number">72u8</span>; <span class="number">32</span>];
             <span class="kw">let </span>sig1 =
-                BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::sign(<span class="kw-2">&amp;</span>agg_sig_pp, key_pair1.sign_key_ref(), <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;mut </span>rng)
+                BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::sign(<span class="kw-2">&amp;</span>agg_sig_pp, key_pair1.sign_key_ref(), <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;mut </span>rng)
                     .unwrap();
             <span class="kw">let </span>sig2 =
-                BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::sign(<span class="kw-2">&amp;</span>agg_sig_pp, key_pair2.sign_key_ref(), <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;mut </span>rng)
+                BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::sign(<span class="kw-2">&amp;</span>agg_sig_pp, key_pair2.sign_key_ref(), <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;mut </span>rng)
                     .unwrap();
             <span class="kw">let </span>sig3 =
-                BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::sign(<span class="kw-2">&amp;</span>agg_sig_pp, key_pair3.sign_key_ref(), <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;mut </span>rng)
+                BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::sign(<span class="kw-2">&amp;</span>agg_sig_pp, key_pair3.sign_key_ref(), <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;mut </span>rng)
                     .unwrap();
 
             <span class="comment">// happy path
             </span><span class="kw">let </span>signers = <span class="macro">bitvec!</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>];
-            <span class="kw">let </span>qc = BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
+            <span class="kw">let </span>qc = BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
                 <span class="kw-2">&amp;</span>qc_pp,
                 signers.as_bitslice(),
                 <span class="kw-2">&amp;</span>[sig2.clone(), sig3.clone()],
             )
             .unwrap();
-            <span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>msg.into(), <span class="kw-2">&amp;</span>qc).is_ok());
+            <span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>msg.into(), <span class="kw-2">&amp;</span>qc).is_ok());
             <span class="macro">assert_eq!</span>(
-                BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::trace(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>msg.into(), <span class="kw-2">&amp;</span>qc).unwrap(),
+                BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::trace(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>msg.into(), <span class="kw-2">&amp;</span>qc).unwrap(),
                 <span class="macro">vec!</span>[key_pair2.ver_key(), key_pair3.ver_key()],
             );
 
-            <span class="comment">// Check the QC and the QCParams can be serialized / deserialized
+            <span class="comment">// Check the QC and the QcParams can be serialized / deserialized
             </span><span class="macro">assert_eq!</span>(
                 qc,
                 Serializer::&lt;Version&gt;::deserialize(<span class="kw-2">&amp;</span>Serializer::&lt;Version&gt;::serialize(<span class="kw-2">&amp;</span>qc).unwrap())
@@ -568,7 +568,7 @@
 
             <span class="comment">// bad paths
             // number of signatures unmatch
-            </span><span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
+            </span><span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
                 <span class="kw-2">&amp;</span>qc_pp,
                 signers.as_bitslice(),
                 <span class="kw-2">&amp;</span>[sig2.clone()]
@@ -576,7 +576,7 @@
             .is_err());
             <span class="comment">// total weight under threshold
             </span><span class="kw">let </span>active_bad = <span class="macro">bitvec!</span>[<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>];
-            <span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
+            <span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
                 <span class="kw-2">&amp;</span>qc_pp,
                 active_bad.as_bitslice(),
                 <span class="kw-2">&amp;</span>[sig1.clone(), sig2.clone()]
@@ -584,31 +584,31 @@
             .is_err());
             <span class="comment">// wrong bool vector length
             </span><span class="kw">let </span>active_bad_2 = <span class="macro">bitvec!</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>];
-            <span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
+            <span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::assemble(
                 <span class="kw-2">&amp;</span>qc_pp,
                 active_bad_2.as_bitslice(),
                 <span class="kw-2">&amp;</span>[sig2, sig3],
             )
             .is_err());
 
-            <span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(
+            <span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(
                 <span class="kw-2">&amp;</span>qc_pp,
                 <span class="kw-2">&amp;</span>msg.into(),
                 <span class="kw-2">&amp;</span>(qc.<span class="number">0</span>.clone(), active_bad)
             )
             .is_err());
-            <span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(
+            <span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(
                 <span class="kw-2">&amp;</span>qc_pp,
                 <span class="kw-2">&amp;</span>msg.into(),
                 <span class="kw-2">&amp;</span>(qc.<span class="number">0</span>.clone(), active_bad_2)
             )
             .is_err());
             <span class="kw">let </span>bad_msg = [<span class="number">70u8</span>; <span class="number">32</span>];
-            <span class="macro">assert!</span>(BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>bad_msg.into(), <span class="kw-2">&amp;</span>qc).is_err());
+            <span class="macro">assert!</span>(BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>bad_msg.into(), <span class="kw-2">&amp;</span>qc).is_err());
 
             <span class="kw">let </span>bad_sig = <span class="kw-2">&amp;</span>sig1;
             <span class="macro">assert!</span>(
-                BitVectorQC::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>msg.into(), <span class="kw-2">&amp;</span>(bad_sig.clone(), qc.<span class="number">1</span>))
+                BitVectorQc::&lt;<span class="macro-nonterminal">$aggsig</span>&gt;::check(<span class="kw-2">&amp;</span>qc_pp, <span class="kw-2">&amp;</span>msg.into(), <span class="kw-2">&amp;</span>(bad_sig.clone(), qc.<span class="number">1</span>))
                     .is_err()
             );
         };

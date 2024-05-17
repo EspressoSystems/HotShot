@@ -701,13 +701,13 @@
     <span class="doccomment">/// For the `SendPayloadCommitmentAndMetadata` event.
     </span>PayloadAndMetadata,
 
-    <span class="doccomment">/// For the `QCFormed` event.
+    <span class="doccomment">/// For the `QcFormed` event.
     </span>QC,
 
     <span class="doccomment">/// For the `ViewSyncFinalizeCertificate2Recv` event.
     </span>ViewSyncCert,
 
-    <span class="doccomment">/// For the `QCFormed` event timeout branch.
+    <span class="doccomment">/// For the `QcFormed` event timeout branch.
     </span>TimeoutCert,
 
     <span class="doccomment">/// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
@@ -803,7 +803,7 @@
                         block_view: <span class="kw-2">*</span>view,
                     });
                 }
-                HotShotEvent::QCFormed(cert) =&gt; <span class="kw">match </span>cert {
+                HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {
                     either::Right(timeout) =&gt; {
                         _timeout_certificate = <span class="prelude-val">Some</span>(timeout.clone());
                     }
@@ -934,14 +934,14 @@
                 <span class="kw">let </span>event = event.as_ref();
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
                     ProposalDependency::QC =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::QCFormed(either::Left(qc)) = event {
+                        <span class="kw">if let </span>HotShotEvent::QcFormed(either::Left(qc)) = event {
                             qc.view_number + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
                     ProposalDependency::TimeoutCert =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::QCFormed(either::Right(timeout)) = event {
+                        <span class="kw">if let </span>HotShotEvent::QcFormed(either::Right(timeout)) = event {
                             timeout.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -1048,7 +1048,7 @@
             HotShotEvent::QuorumProposalValidated(..) =&gt; {
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QCFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
+            HotShotEvent::QcFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
                 Either::Right(<span class="kw">_</span>) =&gt; {
                     timeout_dependency.mark_as_completed(event);
                 }
@@ -1070,7 +1070,7 @@
             </span>AndDependency::from_deps(<span class="macro">vec!</span>[view_sync_dependency]),
         ];
 
-        <span class="comment">// 1. A QCFormed event and QuorumProposalValidated event
+        <span class="comment">// 1. A QcFormed event and QuorumProposalValidated event
         </span><span class="kw">if </span><span class="kw-2">*</span>view_number &gt; <span class="number">1 </span>{
             secondary_deps.push(AndDependency::from_deps(<span class="macro">vec!</span>[
                 qc_dependency,
@@ -1190,7 +1190,7 @@
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
-            HotShotEvent::QCFormed(cert) =&gt; {
+            HotShotEvent::QcFormed(cert) =&gt; {
                 <span class="kw">match </span>cert.clone() {
                     either::Right(timeout_cert) =&gt; {
                         <span class="kw">let </span>view = timeout_cert.view_number + <span class="number">1</span>;
@@ -1299,7 +1299,7 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QCFormed(<span class="kw">_</span>)
+                | HotShotEvent::QcFormed(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
                 | HotShotEvent::ProposeNow(..)

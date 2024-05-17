@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["VIDTaskState"]};
+window.SIDEBAR_ITEMS = {"struct":["VidTaskState"]};

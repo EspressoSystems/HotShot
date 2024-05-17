@@ -471,9 +471,9 @@
     data: <span class="kw-2">&amp;</span>DATAType,
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view: TYPES::Time,
-) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType {
+) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType {
     <span class="kw">let </span>stake_table = membership.committee_qc_stake_table();
-    <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCParams =
+    <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table.clone(),
             U256::from(CERT::threshold(membership)),

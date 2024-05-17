@@ -265,7 +265,7 @@ The votes all must be over the `Commitment` associated type.
     </span><span class="kw">fn </span>create_signed_certificate(
         vote_commitment: Commitment&lt;<span class="self">Self</span>::Voteable&gt;,
         data: <span class="self">Self</span>::Voteable,
-        sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType,
+        sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType,
         view: TYPES::Time,
     ) -&gt; <span class="self">Self</span>;
 
@@ -360,7 +360,7 @@ The votes all must be over the `Commitment` associated type.
 
         <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership).into() {
             <span class="comment">// Assemble QC
-            </span><span class="kw">let </span>real_qc_pp: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCParams =
+            </span><span class="kw">let </span>real_qc_pp: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
                 &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
                     stake_table,
                     U256::from(CERT::threshold(membership)),

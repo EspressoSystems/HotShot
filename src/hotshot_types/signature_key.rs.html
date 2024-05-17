@@ -178,7 +178,7 @@
 <span class="kw">use </span>tracing::instrument;
 
 <span class="kw">use crate</span>::{
-    qc::{BitVectorQC, QCParams},
+    qc::{BitVectorQc, QcParams},
     stake_table::StakeTableEntry,
     traits::{
         qc::QuorumCertificateScheme,
@@ -196,11 +196,11 @@
 <span class="kw">impl </span>SignatureKey <span class="kw">for </span>BLSPubKey {
     <span class="kw">type </span>PrivateKey = BLSPrivKey;
     <span class="kw">type </span>StakeTableEntry = StakeTableEntry&lt;VerKey&gt;;
-    <span class="kw">type </span>QCParams =
-        QCParams&lt;BLSPubKey, &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::PublicParameter&gt;;
+    <span class="kw">type </span>QcParams =
+        QcParams&lt;BLSPubKey, &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::PublicParameter&gt;;
     <span class="kw">type </span>PureAssembledSignatureType =
         &lt;BLSOverBN254CurveSignatureScheme <span class="kw">as </span>SignatureScheme&gt;::Signature;
-    <span class="kw">type </span>QCType = (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
+    <span class="kw">type </span>QcType = (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
     <span class="kw">type </span>SignError = SignatureError;
 
     <span class="attr">#[instrument(skip(<span class="self">self</span>))]
@@ -213,7 +213,7 @@
         sk: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey,
         data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::PureAssembledSignatureType, <span class="self">Self</span>::SignError&gt; {
-        BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::sign(
+        BitVectorQc::&lt;BLSOverBN254CurveSignatureScheme&gt;::sign(
             <span class="kw-2">&amp;</span>(),
             sk,
             data,
@@ -259,29 +259,29 @@
     <span class="kw">fn </span>public_parameter(
         stake_entries: Vec&lt;<span class="self">Self</span>::StakeTableEntry&gt;,
         threshold: U256,
-    ) -&gt; <span class="self">Self</span>::QCParams {
-        QCParams {
+    ) -&gt; <span class="self">Self</span>::QcParams {
+        QcParams {
             stake_entries,
             threshold,
             agg_sig_pp: (),
         }
     }
 
-    <span class="kw">fn </span>check(real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCParams, data: <span class="kw-2">&amp;</span>[u8], qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; bool {
+    <span class="kw">fn </span>check(real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcParams, data: <span class="kw-2">&amp;</span>[u8], qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType) -&gt; bool {
         <span class="kw">let </span>msg = GenericArray::from_slice(data);
-        BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::check(real_qc_pp, msg, qc).is_ok()
+        BitVectorQc::&lt;BLSOverBN254CurveSignatureScheme&gt;::check(real_qc_pp, msg, qc).is_ok()
     }
 
-    <span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec) {
+    <span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec) {
         signature.clone()
     }
 
     <span class="kw">fn </span>assemble(
-        real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCParams,
+        real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::PureAssembledSignatureType],
-    ) -&gt; <span class="self">Self</span>::QCType {
-        BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::assemble(real_qc_pp, signers, sigs)
+    ) -&gt; <span class="self">Self</span>::QcType {
+        BitVectorQc::&lt;BLSOverBN254CurveSignatureScheme&gt;::assemble(real_qc_pp, signers, sigs)
             .expect(<span class="string">"this assembling shouldn't fail"</span>)
     }
 
@@ -305,7 +305,7 @@
         private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderPrivateKey,
         data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::BuilderSignature, <span class="self">Self</span>::SignError&gt; {
-        BitVectorQC::&lt;BLSOverBN254CurveSignatureScheme&gt;::sign(
+        BitVectorQc::&lt;BLSOverBN254CurveSignatureScheme&gt;::sign(
             <span class="kw-2">&amp;</span>(),
             private_key,
             data,

@@ -350,7 +350,7 @@
         + Serialize
         + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;;
     <span class="doccomment">/// The type of the quorum certificate parameters used for assembled signature
-    </span><span class="kw">type </span>QCParams: Send + Sync + Sized + Clone + Debug + Hash;
+    </span><span class="kw">type </span>QcParams: Send + Sync + Sized + Clone + Debug + Hash;
     <span class="doccomment">/// The type of the assembled signature, without `BitVec`
     </span><span class="kw">type </span>PureAssembledSignatureType: Send
         + Sync
@@ -365,7 +365,7 @@
         + Into&lt;TaggedBase64&gt;
         + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;;
     <span class="doccomment">/// The type of the assembled qc: assembled signature + `BitVec`
-    </span><span class="kw">type </span>QCType: Send
+    </span><span class="kw">type </span>QcType: Send
         + Sync
         + Sized
         + Clone
@@ -415,20 +415,20 @@
     </span><span class="kw">fn </span>public_parameter(
         stake_entries: Vec&lt;<span class="self">Self</span>::StakeTableEntry&gt;,
         threshold: U256,
-    ) -&gt; <span class="self">Self</span>::QCParams;
+    ) -&gt; <span class="self">Self</span>::QcParams;
 
     <span class="doccomment">/// check the quorum certificate for the assembled signature
-    </span><span class="kw">fn </span>check(real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCParams, data: <span class="kw-2">&amp;</span>[u8], qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; bool;
+    </span><span class="kw">fn </span>check(real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcParams, data: <span class="kw-2">&amp;</span>[u8], qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType) -&gt; bool;
 
     <span class="doccomment">/// get the assembled signature and the `BitVec` separately from the assembled signature
-    </span><span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
+    </span><span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec);
 
     <span class="doccomment">/// assemble the signature from the partial signature and the indication of signers in `BitVec`
     </span><span class="kw">fn </span>assemble(
-        real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCParams,
+        real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::PureAssembledSignatureType],
-    ) -&gt; <span class="self">Self</span>::QCType;
+    ) -&gt; <span class="self">Self</span>::QcType;
 
     <span class="doccomment">/// generates the genesis public key. Meant to be dummy/filler
     </span><span class="attr">#[must_use]

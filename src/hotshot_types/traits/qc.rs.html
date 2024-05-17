@@ -114,17 +114,17 @@
 {
     <span class="doccomment">/// Public parameters for generating the QC
     /// E.g: snark proving/verifying keys, list of (or pointer to) public keys stored in the smart contract.
-    </span><span class="kw">type </span>QCProverParams: Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;;
+    </span><span class="kw">type </span>QcProverParams: Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;;
 
     <span class="doccomment">/// Public parameters for validating the QC
     /// E.g: verifying keys, stake table commitment
-    </span><span class="kw">type </span>QCVerifierParams: Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;;
+    </span><span class="kw">type </span>QcVerifierParams: Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;;
 
     <span class="doccomment">/// Allows to fix the size of the message at compilation time.
     </span><span class="kw">type </span>MessageLength: ArrayLength&lt;A::MessageUnit&gt;;
 
     <span class="doccomment">/// Type of the actual quorum certificate object
-    </span><span class="kw">type </span>QC;
+    </span><span class="kw">type </span>Qc;
 
     <span class="doccomment">/// Type of the quorum size (e.g. number of votes or accumulated weight of signatures)
     </span><span class="kw">type </span>QuorumSize;
@@ -158,10 +158,10 @@
     /// Will return error if some of the partial signatures provided are invalid or the number of
     /// partial signatures / verifications keys are different.
     </span><span class="kw">fn </span>assemble(
-        qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCProverParams,
+        qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcProverParams,
         signers: <span class="kw-2">&amp;</span>BitSlice,
         sigs: <span class="kw-2">&amp;</span>[A::Signature],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QC, SignatureError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Qc, SignatureError&gt;;
 
     <span class="doccomment">/// Checks an aggregated signature over some message provided as input
     /// * `qc_vp` - public parameters for validating the QC
@@ -174,9 +174,9 @@
     /// Return error if the QC is invalid, either because accumulated weight didn't exceed threshold,
     /// or some partial signatures are invalid.
     </span><span class="kw">fn </span>check(
-        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
+        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
-        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
+        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Qc,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QuorumSize, SignatureError&gt;;
 
     <span class="doccomment">/// Trace the list of signers given a qc.
@@ -185,9 +185,9 @@
     ///
     /// Return error if the inputs mismatch (e.g. wrong verifier parameter or original message).
     </span><span class="kw">fn </span>trace(
-        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QCVerifierParams,
+        qc_vp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcVerifierParams,
         message: <span class="kw-2">&amp;</span>GenericArray&lt;A::MessageUnit, <span class="self">Self</span>::MessageLength&gt;,
-        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QC,
+        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Qc,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;A::VerificationKey&gt;, SignatureError&gt;;
 }
 </code></pre></div></section></main></body></html>

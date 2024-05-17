@@ -1398,7 +1398,7 @@
 /// # Panics
 /// if serialization fails
 </span><span class="kw">pub fn </span>serialize_signature2&lt;TYPES: NodeType&gt;(
-    signatures: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QCType,
+    signatures: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType,
 ) -&gt; Vec&lt;u8&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>signatures_bytes = <span class="macro">vec!</span>[];
     signatures_bytes.extend(<span class="string">"Yes"</span>.as_bytes());

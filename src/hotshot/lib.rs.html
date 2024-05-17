@@ -1098,7 +1098,7 @@
         <span class="prelude-val">Ok</span>(inner)
     }
 
-    <span class="doccomment">/// "Starts" consensus by sending a `QCFormed` event
+    <span class="doccomment">/// "Starts" consensus by sending a `QcFormed` event
     ///
     /// # Panics
     /// Panics if sending genesis fails
@@ -1112,7 +1112,7 @@
             </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
         <span class="self">self</span>.internal_event_stream
             .<span class="number">0
-            </span>.broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
+            </span>.broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
                 consensus.high_qc().clone(),
             ))))
             .<span class="kw">await

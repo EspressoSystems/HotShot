@@ -297,7 +297,7 @@
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a VID vote.
-</span><span class="kw">pub struct </span>VIDData {
+</span><span class="kw">pub struct </span>VidData {
     <span class="doccomment">/// Commitment to the block payload the VID vote is on.
     </span><span class="kw">pub </span>payload_commit: VidCommitment,
 }
@@ -449,7 +449,7 @@
     }
 }
 
-<span class="kw">impl </span>Committable <span class="kw">for </span>VIDData {
+<span class="kw">impl </span>Committable <span class="kw">for </span>VidData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         committable::RawCommitmentBuilder::new(<span class="string">"VID data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())

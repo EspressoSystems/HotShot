@@ -1644,7 +1644,7 @@
         <span class="comment">// See if we should be DA, subscribe to the DA topic if so
         </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[Topic::Global];
         <span class="kw">if </span>config.config.my_own_validator_config.is_da {
-            topics.push(Topic::DA);
+            topics.push(Topic::Da);
         }
 
         <span class="comment">// Create the network and await the initial connection

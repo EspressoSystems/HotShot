@@ -739,7 +739,7 @@
     <span class="doccomment">/// The global topic
     </span>Global = <span class="number">0</span>,
     <span class="doccomment">/// The DA topic
-    </span>DA = <span class="number">1</span>,
+    </span>Da = <span class="number">1</span>,
 }
 
 <span class="doccomment">/// Implement the `TopicTrait` for our `Topic` enum. We need this to filter
@@ -949,7 +949,7 @@
 
                     <span class="comment">// Calculate if we're DA or not
                     </span><span class="kw">let </span>topics = <span class="kw">if </span>node_id &lt; da_committee_size <span class="kw">as </span>u64 {
-                        <span class="macro">vec!</span>[Topic::DA <span class="kw">as </span>u8, Topic::Global <span class="kw">as </span>u8]
+                        <span class="macro">vec!</span>[Topic::Da <span class="kw">as </span>u8, Topic::Global <span class="kw">as </span>u8]
                     } <span class="kw">else </span>{
                         <span class="macro">vec!</span>[Topic::Global <span class="kw">as </span>u8]
                     };
@@ -1040,7 +1040,7 @@
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
         bind_version: Ver,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::DA, bind_version)
+        <span class="self">self</span>.broadcast_message(message, Topic::Da, bind_version)
             .<span class="kw">await
     </span>}
 

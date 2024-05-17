@@ -595,7 +595,7 @@
     </span>QuorumProposal,
     <span class="doccomment">/// For the `DaCertificateRecv` event.
     </span>Dac,
-    <span class="doccomment">/// For the `VIDShareRecv` event.
+    <span class="doccomment">/// For the `VidShareRecv` event.
     </span>Vid,
     <span class="doccomment">/// For the `VoteNow` event.
     </span>VoteNow,
@@ -666,7 +666,7 @@
                         payload_commitment = <span class="prelude-val">Some</span>(cert_payload_comm);
                     }
                 }
-                HotShotEvent::VIDShareValidated(share) =&gt; {
+                HotShotEvent::VidShareValidated(share) =&gt; {
                     <span class="kw">let </span>vid_payload_commitment = share.data.payload_commitment;
                     disperse_share = <span class="prelude-val">Some</span>(share.clone());
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
@@ -823,7 +823,7 @@
                         }
                     }
                     VoteDependency::Vid =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::VIDShareValidated(disperse) = event {
+                        <span class="kw">if let </span>HotShotEvent::VidShareValidated(disperse) = event {
                             disperse.data.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -991,7 +991,7 @@
                 .<span class="kw">await</span>;
                 <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
-            HotShotEvent::VIDShareRecv(disperse) =&gt; {
+            HotShotEvent::VidShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
                 <span class="macro">trace!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
@@ -1046,7 +1046,7 @@
                 }
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
+                    Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
@@ -1071,7 +1071,7 @@
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::DaCertificateRecv(<span class="kw">_</span>)
-                | HotShotEvent::VIDShareRecv(..)
+                | HotShotEvent::VidShareRecv(..)
                 | HotShotEvent::QuorumVoteDependenciesValidated(<span class="kw">_</span>)
                 | HotShotEvent::VoteNow(..)
                 | HotShotEvent::QuorumProposalValidated(..)
