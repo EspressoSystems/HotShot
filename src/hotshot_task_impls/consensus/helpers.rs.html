@@ -1248,6 +1248,7 @@
 <a href="#1246" id="1246">1246</a>
 <a href="#1247" id="1247">1247</a>
 <a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1258,7 +1259,7 @@
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
-<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
@@ -1426,11 +1427,12 @@
     <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus_read
         .vid_shares()
         .get(<span class="kw-2">&amp;</span>view)
-        .map(|shares| shares.get(<span class="kw-2">&amp;</span>public_key))
+        .map(|shares| shares.get(<span class="kw-2">&amp;</span>public_key).cloned())
     <span class="kw">else </span>{
         <span class="macro">error!</span>(<span class="string">"Cannot propopse without our VID share, view {:?}"</span>, view);
         <span class="kw">return</span>;
     };
+    drop(consensus_read);
     <span class="kw">let </span>block_header = <span class="kw">match </span>TYPES::BlockHeader::new(
         state.as_ref(),
         instance_state.as_ref(),
@@ -1439,7 +1441,7 @@
         commitment_and_metadata.builder_commitment,
         commitment_and_metadata.metadata,
         commitment_and_metadata.fee,
-        vid_share.data.common.clone(),
+        vid_share.data.common,
         version,
     )
     .<span class="kw">await
@@ -1450,7 +1452,6 @@
             <span class="kw">return</span>;
         }
     };
-    drop(consensus_read);
 
     <span class="kw">let </span>proposal = QuorumProposal {
         block_header,
@@ -1890,7 +1891,7 @@
         <span class="macro">debug!</span>(<span class="string">"Failed to update view; error = {e:#}"</span>);
     }
 
-    <span class="kw">let </span>consensus_read = task_state.consensus.upgradable_read().<span class="kw">await</span>;
+    <span class="kw">let </span>consensus_read = task_state.consensus.read().<span class="kw">await</span>;
 
     <span class="comment">// Get the parent leaf and state.
     </span><span class="kw">let </span>parent = <span class="kw">match </span>consensus_read
@@ -1920,7 +1921,8 @@
         }
     }
 
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = RwLockUpgradableReadGuard::upgrade(consensus_read).<span class="kw">await</span>;
+    drop(consensus_read);
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_high_qc(justify_qc.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
@@ -1952,15 +1954,15 @@
         );
 
         consensus_write.update_saved_leaves(leaf.clone());
+        <span class="kw">let </span>new_leaves = consensus_write.saved_leaves().clone();
+        <span class="kw">let </span>new_state = consensus_write.validated_state_map().clone();
+        drop(consensus_write);
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
             .storage
             .write()
             .<span class="kw">await
-            </span>.update_undecided_state(
-                consensus_write.saved_leaves().clone(),
-                consensus_write.validated_state_map().clone(),
-            )
+            </span>.update_undecided_state(new_leaves, new_state)
             .<span class="kw">await
         </span>{
             <span class="macro">warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
@@ -1970,12 +1972,13 @@
         // still vote if the liveness check succeeds.
         </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
         </span>{
-            <span class="kw">let </span>liveness_check = justify_qc.view_number() &gt; consensus_write.locked_view();
+            <span class="kw">let </span>consensus_read = task_state.consensus.read().<span class="kw">await</span>;
+            <span class="kw">let </span>liveness_check = justify_qc.view_number() &gt; consensus_read.locked_view();
 
-            <span class="kw">let </span>high_qc = consensus_write.high_qc().clone();
-            <span class="kw">let </span>locked_view = consensus_write.locked_view();
+            <span class="kw">let </span>high_qc = consensus_read.high_qc().clone();
+            <span class="kw">let </span>locked_view = consensus_read.locked_view();
 
-            drop(consensus_write);
+            drop(consensus_read);
 
             <span class="kw">let </span><span class="kw-2">mut </span>current_proposal = <span class="prelude-val">None</span>;
             <span class="kw">if </span>liveness_check {
@@ -2457,19 +2460,18 @@
         },
     );
     consensus.update_saved_leaves(proposed_leaf.clone());
+    <span class="kw">let </span>new_leaves = consensus.saved_leaves().clone();
+    <span class="kw">let </span>new_state = consensus.validated_state_map().clone();
+    drop(consensus);
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = storage
         .write()
         .<span class="kw">await
-        </span>.update_undecided_state(
-            consensus.saved_leaves().clone(),
-            consensus.validated_state_map().clone(),
-        )
+        </span>.update_undecided_state(new_leaves, new_state)
         .<span class="kw">await
     </span>{
         <span class="macro">error!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
     }
-    drop(consensus);
 
     <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span>{

@@ -355,6 +355,10 @@
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
 <a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -464,7 +468,6 @@
                 // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
-
                 </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::Time::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
                     <span class="macro">warn!</span>(<span class="string">"Throwing away DA proposal that is more than one view older"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -502,6 +505,11 @@
                 .<span class="kw">await</span>;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) =&gt; {
+                <span class="kw">let </span>curr_view = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_view();
+                <span class="kw">if </span>curr_view &gt; proposal.data.view_number() + <span class="number">1 </span>{
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}"</span>, curr_view, proposal.data.view_number());
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
                 <span class="comment">// Proposal is fresh and valid, notify the application layer
                 </span><span class="self">self</span>.api
                     .send_event(Event {
