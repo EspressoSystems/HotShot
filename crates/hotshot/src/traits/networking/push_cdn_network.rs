@@ -6,7 +6,7 @@ use std::{path::Path, sync::Arc, time::Duration};
 
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
+use async_compatibility_layer::channel::UnboundedSendError;
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use futures::Stream;
-use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
+use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     boxed_sync,
@@ -48,6 +48,20 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
+    /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
+    pub async fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(
+        &mut self,
+        task_state: S,
+    ) {
+        let task = Task::new(
+            task_state,
+            self.internal_event_stream.0.clone(),
+            self.internal_event_stream.1.activate_cloned(),
+        );
+
+        self.consensus_registry.run_task(task).await;
+    }
+
     /// obtains a stream to expose to the user
     pub fn get_event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
         self.output_event_stream.1.activate_cloned()
