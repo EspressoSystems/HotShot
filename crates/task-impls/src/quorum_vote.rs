@@ -520,13 +520,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTaskState<TYPES, I> {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        sender: &Sender<Self::Event>,
-        receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         self.handle(event, receiver.clone(), sender.clone()).await;
 

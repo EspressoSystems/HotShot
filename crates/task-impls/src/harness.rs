@@ -19,13 +19,13 @@ pub struct TestHarnessState<TYPES: NodeType> {
 
 #[async_trait]
 impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        _sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        _sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         let extra = self.allow_extra_output;
         handle_event(event, self, extra);
@@ -48,14 +48,14 @@ impl<TYPES: NodeType> TaskState for TestHarnessState<TYPES> {
 /// Panics if any state the test expects is not set. Panicking causes a test failure
 #[allow(clippy::implicit_hasher)]
 #[allow(clippy::panic)]
-pub async fn run_harness<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>> + Send + 'static>(
+pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send + 'static>(
     input: Vec<HotShotEvent<TYPES>>,
     expected_output: HashMap<HotShotEvent<TYPES>, usize>,
     state: S,
     allow_extra_output: bool,
 ) where
     TYPES: NodeType,
-    TestHarnessState<TYPES>: TaskState<Event = Arc<HotShotEvent<TYPES>>>,
+    TestHarnessState<TYPES>: TaskState<Event = HotShotEvent<TYPES>>,
 {
     let registry = TaskRegistry::new();
     // set up two broadcast channels so the test sends to the task and the task back to the test
@@ -66,8 +66,8 @@ pub async fn run_harness<TYPES, S: TaskState<Event = Arc<HotShotEvent<TYPES>>> +
         allow_extra_output,
     };
 
-    let test_task = Task::new(test_state, |_| false, to_test.clone(), from_task.clone());
-    let task = Task::new(state, |_| false, to_test.clone(), from_test.clone());
+    let test_task = Task::new(test_state, to_test.clone(), from_task.clone());
+    let task = Task::new(state, to_test.clone(), from_test.clone());
 
     let test_handle = test_task.run();
     let handle = task.run();

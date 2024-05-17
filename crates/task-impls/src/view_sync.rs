@@ -112,13 +112,13 @@ impl<
         A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
     > TaskState for ViewSyncTaskState<TYPES, I, A>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         self.handle(event, sender.clone()).await;
 
@@ -167,15 +167,16 @@ pub struct ViewSyncReplicaTaskState<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
     for ViewSyncReplicaTaskState<TYPES, I, A>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         self.handle(event, sender.clone()).await;
+
         Ok(())
     }
 

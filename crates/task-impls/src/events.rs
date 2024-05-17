@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use either::Either;
+use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     consensus::ProposalDependencyData,
     data::{DAProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
@@ -21,6 +22,12 @@ use hotshot_types::{
 use vbs::version::Version;
 
 use crate::view_sync::ViewSyncPhase;
+
+impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
+    fn shutdown_event() -> Self {
+        HotShotEvent::Shutdown
+    }
+}
 
 /// Marker that the task completed
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]

@@ -817,13 +817,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskState<TYPES, I> {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         self.handle(event, sender.clone()).await;
 

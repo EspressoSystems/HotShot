@@ -67,13 +67,13 @@ type Signature<TYPES> =
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
     for NetworkRequestState<TYPES, I, Ver>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {

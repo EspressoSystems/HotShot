@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 #[cfg(async_executor_impl = "async-std")]
@@ -16,11 +18,17 @@ use tokio::{
     task::{spawn, JoinHandle},
 };
 
+/// Trait for events that long-running tasks handle
+pub trait TaskEvent: PartialEq {
+    /// The shutdown signal for this event type
+    fn shutdown_event() -> Self;
+}
+
 #[async_trait]
 /// Type for mutable task state that can be used as the state for a `Task`
 pub trait TaskState: Send {
     /// Type of event sent and received by the task
-    type Event: Clone + Send + Sync;
+    type Event: TaskEvent + Clone + Send + Sync;
 
     /// Joins all subtasks.
     async fn cancel_subtasks(&mut self);
@@ -28,9 +36,9 @@ pub trait TaskState: Send {
     /// Handles an event, providing direct access to the specific channel we received the event on.
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        _sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        _sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()>;
 }
 
@@ -44,25 +52,17 @@ pub struct Task<S: TaskState> {
     /// and mutates it state ocordingly.  Also it signals the task
     /// if it is complete/should shutdown
     state: S,
-    /// Whether an event should cause the task to return, given as a boolean predicate.
-    break_on: fn(&S::Event) -> bool,
     /// Sends events all tasks including itself
-    sender: Sender<S::Event>,
+    sender: Sender<Arc<S::Event>>,
     /// Receives events that are broadcast from any task, including itself
-    receiver: Receiver<S::Event>,
+    receiver: Receiver<Arc<S::Event>>,
 }
 
 impl<S: TaskState + Send + 'static> Task<S> {
     /// Create a new task
-    pub fn new(
-        state: S,
-        break_on: fn(&S::Event) -> bool,
-        sender: Sender<S::Event>,
-        receiver: Receiver<S::Event>,
-    ) -> Self {
+    pub fn new(state: S, sender: Sender<Arc<S::Event>>, receiver: Receiver<Arc<S::Event>>) -> Self {
         Task {
             state,
-            break_on,
             sender,
             receiver,
         }
@@ -80,7 +80,9 @@ impl<S: TaskState + Send + 'static> Task<S> {
             loop {
                 match self.receiver.recv_direct().await {
                     Ok(input) => {
-                        if (self.break_on)(&input) {
+                        if *input == S::Event::shutdown_event() {
+                            self.state.cancel_subtasks().await;
+
                             break self.boxed_state();
                         }
 

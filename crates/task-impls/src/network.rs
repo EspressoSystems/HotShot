@@ -81,24 +81,6 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
     pub event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
 }
 
-#[async_trait]
-impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
-    type Event = Vec<Message<TYPES>>;
-
-    async fn handle_event(
-        &mut self,
-        event: Self::Event,
-        _sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
-    ) -> Result<()> {
-        self.handle_messages(event).await;
-
-        Ok(())
-    }
-
-    async fn cancel_subtasks(&mut self) {}
-}
-
 impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
     #[instrument(skip_all, name = "Network message task", level = "trace")]
     /// Handle the message.
@@ -220,13 +202,13 @@ impl<
         S: Storage<TYPES> + 'static,
     > TaskState for NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
         &mut self,
-        event: Self::Event,
-        _sender: &Sender<Self::Event>,
-        _receiver: &Receiver<Self::Event>,
+        event: Arc<Self::Event>,
+        _sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         let membership = self.membership.clone();
         self.handle_event(event, &membership).await;
