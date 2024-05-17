@@ -158,7 +158,10 @@ async fn test_combined_network_half_dc() {
     async_compatibility_layer::logging::setup_backtrace();
     let mut metadata: TestDescription = TestDescription {
         timing_data: TimingData {
-            round_start_delay: 25,
+            // We need a longer round start delay since half of the nodes will move on to the next
+            // view before some nodes finish processing the previous view. This causes issues before
+            // the first decide event.
+            round_start_delay: 100,
             next_view_timeout: 10_000,
             start_delay: 120_000,
 

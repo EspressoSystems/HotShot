@@ -254,7 +254,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 // Create the quorum and da networks
                 let quorum_net = Self {
                     networks: Arc::new(quorum_networks),
-
                     primary_fail_counter: Arc::new(AtomicU64::new(0)),
                     primary_down: Arc::new(AtomicBool::new(false)),
                     message_cache: Arc::clone(&message_cache),
