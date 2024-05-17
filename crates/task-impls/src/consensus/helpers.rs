@@ -8,7 +8,7 @@ use std::{
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use chrono::Utc;
@@ -640,7 +640,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         debug!("Failed to update view; error = {e:#}");
     }
 
-    let consensus_read = task_state.consensus.upgradable_read().await;
+    let consensus_read = task_state.consensus.read().await;
 
     // Get the parent leaf and state.
     let parent = match consensus_read
@@ -670,7 +670,8 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         }
     }
 
-    let mut consensus_write = RwLockUpgradableReadGuard::upgrade(consensus_read).await;
+    drop(consensus_read);
+    let mut consensus_write = task_state.consensus.write().await;
 
     if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
         tracing::trace!("{e:?}");
@@ -702,15 +703,15 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         );
 
         consensus_write.update_saved_leaves(leaf.clone());
+        let new_leaves = consensus_write.saved_leaves().clone();
+        let new_state = consensus_write.validated_state_map().clone();
+        drop(consensus_write);
 
         if let Err(e) = task_state
             .storage
             .write()
             .await
-            .update_undecided_state(
-                consensus_write.saved_leaves().clone(),
-                consensus_write.validated_state_map().clone(),
-            )
+            .update_undecided_state(new_leaves, new_state)
             .await
         {
             warn!("Couldn't store undecided state.  Error: {:?}", e);
@@ -720,12 +721,13 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         // still vote if the liveness check succeeds.
         #[cfg(not(feature = "dependency-tasks"))]
         {
-            let liveness_check = justify_qc.view_number() > consensus_write.locked_view();
+            let consensus_read = task_state.consensus.read().await;
+            let liveness_check = justify_qc.view_number() > consensus_read.locked_view();
 
-            let high_qc = consensus_write.high_qc().clone();
-            let locked_view = consensus_write.locked_view();
+            let high_qc = consensus_read.high_qc().clone();
+            let locked_view = consensus_read.locked_view();
 
-            drop(consensus_write);
+            drop(consensus_read);
 
             let mut current_proposal = None;
             if liveness_check {

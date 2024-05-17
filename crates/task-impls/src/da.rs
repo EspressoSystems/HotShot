@@ -16,7 +16,7 @@ use hotshot_types::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -107,8 +107,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
-
-                if self.cur_view != TYPES::Time::genesis() && view < self.cur_view - 1 {
+                if self.consensus.read().await.cur_view() > proposal.data.view_number() + 1 {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;
                 }
@@ -145,6 +144,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
+                if self.consensus.read().await.cur_view() > proposal.data.view_number() + 1 {
+                    return None;
+                }
                 // Proposal is fresh and valid, notify the application layer
                 self.api
                     .send_event(Event {
