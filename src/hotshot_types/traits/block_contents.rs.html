@@ -214,6 +214,12 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -305,7 +311,13 @@
     </span><span class="kw">fn </span>from_bytes(encoded_transactions: <span class="kw-2">&amp;</span>[u8], metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Build the genesis payload and metadata.
-    </span><span class="kw">fn </span>genesis() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata);
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">fn </span>genesis() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata)
+    <span class="kw">where
+        </span>&lt;<span class="self">Self </span><span class="kw">as </span>BlockPayload&gt;::Instance: Default,
+    {
+        <span class="self">Self</span>::from_transactions([], <span class="kw-2">&amp;</span>Default::default()).unwrap()
+    }
 
     <span class="doccomment">/// List of transaction commitments.
     </span><span class="kw">fn </span>transaction_commitments(

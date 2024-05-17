@@ -313,10 +313,6 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -516,10 +512,6 @@
         }
 
         <span class="self">Self </span>{ transactions }
-    }
-
-    <span class="kw">fn </span>genesis() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata) {
-        (<span class="self">Self</span>::genesis(), TestMetadata)
     }
 
     <span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>, _metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; BuilderCommitment {
