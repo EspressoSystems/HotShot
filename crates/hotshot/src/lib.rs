@@ -26,7 +26,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
 use futures::join;
-use hotshot_task::task::TaskRegistry;
+use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network};
 // Internal
 /// Reexport error type
@@ -532,8 +532,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
     pub async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
-        // ED Need to set first first number to 1, or properly trigger the change upon start
-        let registry = Arc::new(TaskRegistry::default());
+        let consensus_registry = Arc::new(ConsensusTaskRegistry::new());
+        let network_registry = NetworkTaskRegistry::new();
 
         let output_event_stream = self.external_event_stream.clone();
         let internal_event_stream = self.internal_event_stream.clone();
@@ -547,8 +547,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let (event_tx, event_rx) = internal_event_stream.clone();
 
-        let handle = SystemContextHandle {
-            registry: Arc::clone(&registry),
+        let mut handle = SystemContextHandle {
+            consensus_registry: Arc::clone(&consensus_registry),
+            network_registry,
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
@@ -556,28 +557,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         };
 
         add_network_message_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             Arc::clone(&quorum_network),
         )
         .await;
         add_network_message_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             Arc::clone(&da_network),
         )
         .await;
 
         if let Some(request_rx) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await {
-            add_response_task(
-                Arc::clone(&registry),
-                event_rx.activate_cloned(),
-                request_rx,
-                &handle,
-            )
-            .await;
+            add_response_task(event_rx.activate_cloned(), request_rx, &mut handle).await;
             add_request_network_task(
-                Arc::clone(&registry),
+                Arc::clone(&consensus_registry),
                 event_tx.clone(),
                 event_rx.activate_cloned(),
                 &handle,
@@ -586,7 +581,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         }
 
         add_network_event_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             Arc::clone(&quorum_network),
@@ -596,7 +591,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             Arc::clone(&quorum_network),
@@ -606,7 +601,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             Arc::clone(&da_network),
@@ -616,7 +611,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             Arc::clone(&quorum_network),
@@ -626,7 +621,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             Arc::clone(&quorum_network),
@@ -636,42 +631,42 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         )
         .await;
         add_consensus_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_da_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_vid_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_transaction_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_view_sync_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
         )
         .await;
         add_upgrade_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
@@ -679,7 +674,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_proposal_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
@@ -687,7 +682,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_vote_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,
@@ -695,7 +690,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         .await;
         #[cfg(feature = "dependency-tasks")]
         add_quorum_proposal_recv_task(
-            Arc::clone(&registry),
+            Arc::clone(&consensus_registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
             &handle,

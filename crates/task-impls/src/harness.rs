@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::art::async_timeout;
 use async_trait::async_trait;
-use hotshot_task::task::{Task, TaskRegistry, TaskState};
+use hotshot_task::task::{ConsensusTaskRegistry, Task, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
 
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
@@ -57,7 +57,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
     TYPES: NodeType,
     TestHarnessState<TYPES>: TaskState<Event = HotShotEvent<TYPES>>,
 {
-    let registry = TaskRegistry::new();
+    let registry = ConsensusTaskRegistry::new();
     // set up two broadcast channels so the test sends to the task and the task back to the test
     let (to_task, from_test) = broadcast(1024);
     let (to_test, from_task) = broadcast(1024);

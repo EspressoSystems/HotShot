@@ -16,7 +16,6 @@ use hotshot_types::{
     simple_vote::{DAData, DAVote},
     traits::{
         block_contents::vid_commitment,
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -42,13 +41,9 @@ use crate::{
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
 /// Tracks state of a DA task
-pub struct DATaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
-    /// The state's api
-    pub api: A,
+pub struct DATaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Output events to application
+    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -83,9 +78,7 @@ pub struct DATaskState<
     pub storage: Arc<RwLock<I::Storage>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    DATaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DATaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
     pub async fn handle(
@@ -148,15 +141,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             }
             HotShotEvent::DAProposalValidated(proposal, sender) => {
                 // Proposal is fresh and valid, notify the application layer
-                self.api
-                    .send_event(Event {
+                broadcast_event(
+                    Event {
                         view_number: self.cur_view,
                         event: EventType::DAProposal {
                             proposal: proposal.clone(),
                             sender: sender.clone(),
                         },
-                    })
-                    .await;
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
 
                 if !self.da_membership.has_stake(&self.public_key) {
                     debug!(
@@ -324,9 +319,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
 #[async_trait]
 /// task state implementation for DA Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for DATaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for DATaskState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

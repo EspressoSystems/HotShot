@@ -10,7 +10,6 @@ use hotshot_types::{
     data::VidDisperseShare,
     message::Proposal,
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -25,17 +24,9 @@ use crate::{
 };
 
 /// Tracks state of a VID task
-pub struct VIDTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
-    /// The state's api
-    pub api: A,
-
+pub struct VIDTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
-
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// Network for all nodes
@@ -52,9 +43,7 @@ pub struct VIDTaskState<
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    VIDTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error")]
     pub async fn handle(
@@ -160,9 +149,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
 #[async_trait]
 /// task state implementation for VID Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for VIDTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VIDTaskState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

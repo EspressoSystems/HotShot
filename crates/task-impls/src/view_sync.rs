@@ -24,7 +24,6 @@ use hotshot_types::{
         ViewSyncPreCommitData, ViewSyncPreCommitVote,
     },
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -60,11 +59,7 @@ type RelayMap<TYPES, VOTE, CERT> =
     HashMap<<TYPES as NodeType>::Time, BTreeMap<u64, VoteCollectionTaskState<TYPES, VOTE, CERT>>>;
 
 /// Main view sync task state
-pub struct ViewSyncTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
-> {
+pub struct ViewSyncTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View HotShot is currently in
     pub current_view: TYPES::Time,
     /// View HotShot wishes to be in
@@ -77,8 +72,6 @@ pub struct ViewSyncTaskState<
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// HotShot consensus API
-    pub api: A,
     /// Our node id; for logging
     pub id: u64,
 
@@ -86,7 +79,7 @@ pub struct ViewSyncTaskState<
     pub num_timeouts_tracked: u64,
 
     /// Map of running replica tasks
-    pub replica_task_map: RwLock<HashMap<TYPES::Time, ViewSyncReplicaTaskState<TYPES, I, A>>>,
+    pub replica_task_map: RwLock<HashMap<TYPES::Time, ViewSyncReplicaTaskState<TYPES, I>>>,
 
     /// Map of pre-commit vote accumulates for the relay
     pub pre_commit_relay_map:
@@ -106,12 +99,7 @@ pub struct ViewSyncTaskState<
 }
 
 #[async_trait]
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
-    > TaskState for ViewSyncTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ViewSyncTaskState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
@@ -129,11 +117,7 @@ impl<
 }
 
 /// State of a view sync replica task
-pub struct ViewSyncReplicaTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
+pub struct ViewSyncReplicaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Timeout for view sync rounds
     pub view_sync_timeout: Duration,
     /// Current round HotShot is in
@@ -159,13 +143,11 @@ pub struct ViewSyncReplicaTaskState<
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// HotShot consensus API
-    pub api: A,
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for ViewSyncReplicaTaskState<TYPES, I, A>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
+    for ViewSyncReplicaTaskState<TYPES, I>
 {
     type Event = HotShotEvent<TYPES>;
 
@@ -187,12 +169,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
-    > ViewSyncTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
@@ -228,7 +205,7 @@ impl<
         }
 
         // We do not have a replica task already running, so start one
-        let mut replica_state: ViewSyncReplicaTaskState<TYPES, I, A> = ViewSyncReplicaTaskState {
+        let mut replica_state: ViewSyncReplicaTaskState<TYPES, I> = ViewSyncReplicaTaskState {
             current_view: view,
             next_view: view,
             relay: 0,
@@ -239,7 +216,6 @@ impl<
             network: Arc::clone(&self.network),
             public_key: self.public_key.clone(),
             private_key: self.private_key.clone(),
-            api: self.api.clone(),
             view_sync_timeout: self.view_sync_timeout,
             id: self.id,
         };
@@ -485,9 +461,7 @@ impl<
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    ViewSyncReplicaTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYPES, I> {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(

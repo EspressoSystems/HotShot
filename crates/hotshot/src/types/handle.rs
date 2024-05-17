@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use futures::Stream;
-use hotshot_task::task::TaskRegistry;
+use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     boxed_sync,
@@ -23,7 +23,6 @@ use crate::{traits::NodeImplementation, types::Event, SystemContext};
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-#[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](Sender) and [receiver](Receiver),
     /// to allow the application to communicate with HotShot.
@@ -35,8 +34,11 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
         Sender<Arc<HotShotEvent<TYPES>>>,
         InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     ),
-    /// registry for controlling tasks
-    pub(crate) registry: Arc<TaskRegistry>,
+    /// registry for controlling consensus tasks
+    pub(crate) consensus_registry: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
+
+    /// registry for controlling network tasks
+    pub(crate) network_registry: NetworkTaskRegistry,
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,
@@ -144,7 +146,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     {
         boxed_sync(async move {
             self.hotshot.networks.shut_down_networks().await;
-            self.registry.shutdown().await;
+            self.consensus_registry.shutdown().await;
+            self.network_registry.shutdown().await;
         })
     }
 

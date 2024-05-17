@@ -102,16 +102,16 @@ impl<S: TaskState + Send + 'static> Task<S> {
 
 #[derive(Default)]
 /// A collection of tasks which can handle shutdown
-pub struct TaskRegistry<EVENT> {
+pub struct ConsensusTaskRegistry<EVENT> {
     /// Tasks this registry controls
     task_handles: RwLock<Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>>,
 }
 
-impl<EVENT> TaskRegistry<EVENT> {
+impl<EVENT> ConsensusTaskRegistry<EVENT> {
     #[must_use]
     /// Create a new task registry
     pub fn new() -> Self {
-        TaskRegistry {
+        ConsensusTaskRegistry {
             task_handles: RwLock::new(vec![]),
         }
     }
@@ -146,5 +146,28 @@ impl<EVENT> TaskRegistry<EVENT> {
         #[cfg(async_executor_impl = "tokio")]
         let ret = try_join_all(self.task_handles.into_inner()).await.unwrap();
         ret
+    }
+}
+
+#[derive(Default)]
+/// A collection of tasks which can handle shutdown
+pub struct NetworkTaskRegistry {
+    /// Tasks this registry controls
+    pub handles: Vec<JoinHandle<()>>,
+}
+
+impl NetworkTaskRegistry {
+    #[must_use]
+    /// Create a new task registry
+    pub fn new() -> Self {
+        NetworkTaskRegistry { handles: vec![] }
+    }
+
+    /// Shuts down all tasks in the registry, performing any associated cleanup.
+    pub async fn shutdown(&self) {}
+
+    /// Add a task to the registry
+    pub fn register(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
     }
 }
