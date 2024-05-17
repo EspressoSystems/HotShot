@@ -257,7 +257,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 
                     primary_fail_counter: Arc::new(AtomicU64::new(0)),
                     primary_down: Arc::new(AtomicBool::new(false)),
-                    message_cache: message_cache.clone(),
+                    message_cache: Arc::clone(&message_cache),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
                 };
