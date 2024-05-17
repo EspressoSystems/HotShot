@@ -5,17 +5,13 @@ pub mod task_state;
 
 use std::{sync::Arc, time::Duration};
 
-use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use hotshot_task::task::{ConsensusTaskRegistry, Task};
+use hotshot_task::task::Task;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
     da::DATaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
-    quorum_proposal::QuorumProposalTaskState,
-    quorum_proposal_recv::QuorumProposalRecvTaskState,
-    quorum_vote::QuorumVoteTaskState,
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
@@ -140,90 +136,6 @@ pub async fn add_network_event_task<
         handle.internal_event_stream.1.activate_cloned(),
     );
     handle.consensus_registry.run_task(task).await;
-}
-
-/// add the Upgrade task.
-pub async fn add_upgrade_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    let upgrade_state = UpgradeTaskState::create_from(handle).await;
-    let task = Task::new(upgrade_state, sender, receiver);
-    task_reg.run_task(task).await;
-}
-/// add the Data Availability task
-pub async fn add_da_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    // build the da task
-    let da_state = DATaskState::create_from(handle).await;
-    let task = Task::new(da_state, sender, receiver);
-    task_reg.run_task(task).await;
-}
-
-/// add the Transaction Handling task
-pub async fn add_transaction_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    let transactions_state = TransactionTaskState::<_, _, Version01>::create_from(handle).await;
-    let task = Task::new(transactions_state, sender, receiver);
-    task_reg.run_task(task).await;
-}
-
-/// add the view sync task
-pub async fn add_view_sync_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    let view_sync_state = ViewSyncTaskState::create_from(handle).await;
-    let task = Task::new(view_sync_state, sender, receiver);
-    task_reg.run_task(task).await;
-}
-
-/// add the quorum proposal task
-pub async fn add_quorum_proposal_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    let quorum_proposal_task_state = QuorumProposalTaskState::create_from(handle).await;
-    let task = Task::new(quorum_proposal_task_state, sender, receiver);
-    task_reg.run_task(task).await;
-}
-
-/// Add the quorum vote task.
-pub async fn add_quorum_vote_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    let quorum_vote_task_state = QuorumVoteTaskState::create_from(handle).await;
-    let task = Task::new(quorum_vote_task_state, sender, receiver);
-    task_reg.run_task(task).await;
-}
-
-/// Add the quorum proposal recv task.
-pub async fn add_quorum_proposal_recv_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_reg: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    handle: &SystemContextHandle<TYPES, I>,
-) {
-    let quorum_proposal_recv_task_state = QuorumProposalRecvTaskState::create_from(handle).await;
-    let task = Task::new(quorum_proposal_recv_task_state, sender, receiver);
-    task_reg.run_task(task).await;
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
