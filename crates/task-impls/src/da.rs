@@ -144,7 +144,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
-                if self.consensus.read().await.cur_view() > proposal.data.view_number() + 1 {
+                let curr_view = self.consensus.read().await.cur_view();
+                if curr_view > proposal.data.view_number() + 1 {
+                    tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
                     return None;
                 }
                 // Proposal is fresh and valid, notify the application layer
