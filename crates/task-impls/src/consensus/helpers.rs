@@ -176,11 +176,12 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     let Some(Some(vid_share)) = consensus_read
         .vid_shares()
         .get(&view)
-        .map(|shares| shares.get(&public_key))
+        .map(|shares| shares.get(&public_key).cloned())
     else {
         error!("Cannot propopse without our VID share, view {:?}", view);
         return;
     };
+    drop(consensus_read);
     let block_header = match TYPES::BlockHeader::new(
         state.as_ref(),
         instance_state.as_ref(),
@@ -189,7 +190,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         commitment_and_metadata.builder_commitment,
         commitment_and_metadata.metadata,
         commitment_and_metadata.fee,
-        vid_share.data.common.clone(),
+        vid_share.data.common,
         version,
     )
     .await
@@ -200,7 +201,6 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             return;
         }
     };
-    drop(consensus_read);
 
     let proposal = QuorumProposal {
         block_header,
