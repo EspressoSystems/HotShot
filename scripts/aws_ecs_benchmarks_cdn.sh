@@ -14,7 +14,7 @@ keydb_address=redis://"$ip":6379
 just async_std example validator-push-cdn -- http://localhost:4444 &
 # remember to sleep enough time if it's built first time
 sleep 5m
-for pid in $(ps -ef | grep "validator-push-cdn" | awk '{print $2}'); do sudo kill -9 $pid; done
+for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
 docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
@@ -99,13 +99,16 @@ do
 
                                 # kill them
                                 ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
-                                sleep $(( $total_nodes / 2 ))
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                                 # shut down brokers
                                 COMMAND_SHUTDOWN="killall -9 cdn-broker"
                                 killall -9 cdn-broker
                                 ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND_SHUTDOWN exit"
-                                sleep 10
+                                # remove brokers from keydb
+                                # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
+                                echo DEL brokers | keydb-cli
+                                # make sure you sleep at least 1 min
+                                sleep $(( $total_nodes + 60))
                             done
                         fi
                     done

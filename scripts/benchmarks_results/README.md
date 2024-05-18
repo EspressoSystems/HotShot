@@ -10,5 +10,5 @@
     - check out Datadog under `host:/hotshot/` where you have stats for each individual validator but it's hard to track since they’re distributed.
     - wait for the output of orchestrator in local terminal, where the results are not that organized if you do multiple runs, also hard to track.
 
-- Explanation on arguments
+- Explanation on confusing arguments
     - `partial_results`: Whether the results are partially collected. It's set to "One" when the results are collected for one node; "HalfDA" when the results are collected for the number equals to DA_committee_number / 2; "Half" when the results are collected for half running nodes; "Full" if the results are successfully collected from all nodes. The reason is sometimes we'll get high throughput however not all the nodes can terminate successfully (I suspect the reason is that some of them fall behind when fetching large transactions).
