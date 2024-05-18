@@ -319,7 +319,7 @@ pub async fn run_orchestrator<TYPES: NodeType>(
     let _ = hotshot_orchestrator::run_orchestrator::<TYPES::SignatureKey>(config, url).await;
 }
 
-/// Helper function to calculate the nuymber of transactions to send per node per round
+/// Helper function to calculate the number of transactions to send per node per round
 #[allow(clippy::cast_possible_truncation)]
 fn calculate_num_tx_per_round(
     node_index: u64,
@@ -520,6 +520,8 @@ pub trait RunDa<
 
                             if let Some(size) = block_size {
                                 total_transactions_committed += size;
+                                // Sishan TODO: remove this debug println
+                                println!("[{node_index}] got block with size: {:?}", size);
                             }
 
                             num_successful_commits += leaf_chain.len();
