@@ -9,7 +9,8 @@ ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 orchestrator_url=http://"$ip":4444
 cdn_marshal_address="$ip":9000
 keydb_address=redis://"$ip":6379
-
+# this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
+ulimit -n 65536 
 # build to get the bin in advance, uncomment the following if built first time
 just async_std example validator-push-cdn -- http://localhost:4444 &
 # remember to sleep enough time if it's built first time
@@ -85,7 +86,7 @@ do
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha random_tx &
+                                                                                --commit_sha real_random_tx &
                                 sleep 30
 
                                 # start validators
@@ -98,14 +99,13 @@ do
                                 sleep $sleep_time
 
                                 # kill them
-                                ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
-                                sleep $(( $total_nodes / 2 ))
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
+                                ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
                                 # shut down brokers
-                                COMMAND_SHUTDOWN="killall -9 cdn-broker"
-                                killall -9 cdn-broker
+                                COMMAND_SHUTDOWN="for pid in $(ps -ef | grep "cdn-broker" | awk '{print $2}'); do kill -9 $pid; done"
+                                for pid in $(ps -ef | grep "cdn-broker" | awk '{print $2}'); do kill -9 $pid; done
                                 ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND_SHUTDOWN exit"
-                                sleep 10
+                                sleep 3m
                             done
                         fi
                     done
@@ -116,5 +116,5 @@ do
 done
 
 # shut down all related threads
-killall -9 cdn-marshal
+for pid in $(ps -ef | grep "cdn-marshal" | awk '{print $2}'); do kill -9 $pid; done
 # for pid in $(ps -ef | grep "keydb-server" | awk '{print $2}'); do sudo kill -9 $pid; done
