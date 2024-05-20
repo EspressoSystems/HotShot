@@ -25,7 +25,7 @@ use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
 use crate::{
-    consensus::helpers::{parent_leaf_and_state},
+    consensus::helpers::parent_leaf_and_state,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
@@ -125,19 +125,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     ) {
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
-<<<<<<< HEAD:crates/task-impls/src/quorum_proposal_recv/mod.rs
             match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
-=======
-            match handle_quorum_proposal_recv(
-                proposal,
-                sender,
-                event_stream.clone(),
-                self,
-                self.version,
-            )
-            .await
-            {
->>>>>>> 0fbd879d05f06a13c0bf6837c6ef528e2e33a5f8:crates/task-impls/src/quorum_proposal_recv.rs
                 Ok(Some(current_proposal)) => {
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match parent_leaf_and_state(
