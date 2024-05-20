@@ -11,8 +11,7 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
-use super::GlobalTestEvent;
-use crate::test_runner::{HotShotTaskCompleted, Node};
+use crate::test_task::{TestEvent, Node};
 
 // the obvious idea here is to pass in a "stream" that completes every `n` seconds
 // the stream construction can definitely be fancier but that's the baseline idea
@@ -31,23 +30,20 @@ pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// time to wait between txns
     pub duration: Duration,
     /// Receiver for the shutdown signal from the testing harness
-    pub shutdown_chan: Receiver<GlobalTestEvent>,
+    pub shutdown_chan: Receiver<TestEvent>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
-    pub fn run(mut self) -> JoinHandle<HotShotTaskCompleted> {
+    pub fn run(mut self) -> JoinHandle<()> {
         async_spawn(async move {
             async_sleep(Duration::from_millis(100)).await;
             loop {
                 async_sleep(self.duration).await;
                 match self.shutdown_chan.try_recv() {
-                    Ok(_event) => {
-                        return HotShotTaskCompleted::ShutDown;
+                    Ok(TestEvent::Shutdown) => {
+                        break ();
                     }
-                    Err(TryRecvError::Empty) => {}
-                    Err(_) => {
-                        return HotShotTaskCompleted::StreamsDied;
-                    }
+                    _ => {}
                 }
                 self.submit_tx().await;
             }
