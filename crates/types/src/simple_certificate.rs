@@ -71,7 +71,7 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Thr
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
-    pub signatures: Option<<TYPES::SignatureKey as SignatureKey>::QCType>,
+    pub signatures: Option<<TYPES::SignatureKey as SignatureKey>::QcType>,
     /// phantom data for `THRESHOLD` and `TYPES`
     pub _pd: PhantomData<(TYPES, THRESHOLD)>,
 }
@@ -102,7 +102,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     fn create_signed_certificate(
         vote_commitment: Commitment<VOTEABLE>,
         data: Self::Voteable,
-        sig: <TYPES::SignatureKey as SignatureKey>::QCType,
+        sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
     ) -> Self {
         SimpleCertificate {
@@ -117,8 +117,8 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         if self.view_number == TYPES::Time::genesis() {
             return true;
         }
-        let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
-            membership.get_committee_qc_stake_table(),
+        let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
+            membership.committee_qc_stake_table(),
             U256::from(Self::threshold(membership)),
         );
         <TYPES::SignatureKey as SignatureKey>::check(
@@ -130,10 +130,10 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
         THRESHOLD::threshold(membership)
     }
-    fn get_data(&self) -> &Self::Voteable {
+    fn date(&self) -> &Self::Voteable {
         &self.data
     }
-    fn get_data_commitment(&self) -> Commitment<Self::Voteable> {
+    fn date_commitment(&self) -> Commitment<Self::Voteable> {
         self.vote_commitment
     }
 }
@@ -141,7 +141,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
 impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
-    fn get_view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::Time {
         self.view_number
     }
 }

@@ -32,23 +32,20 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
-        task_state
-            .quorum_membership
-            .get_leader(vote.get_view_number() + 1)
-            == task_state.public_key,
+        task_state.quorum_membership.leader(vote.view_number() + 1) == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
-            vote.get_view_number()
+            vote.view_number() + 1
         )
     );
 
     let mut collector = task_state.vote_collector.write().await;
 
-    if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view {
+    if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
         let info = AccumulatorInfo {
             public_key: task_state.public_key.clone(),
             membership: Arc::clone(&task_state.quorum_membership),
-            view: vote.get_view_number(),
+            view: vote.view_number(),
             id: task_state.id,
         };
         *collector = create_vote_accumulator::<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>(
@@ -81,23 +78,20 @@ pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementat
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
-        task_state
-            .timeout_membership
-            .get_leader(vote.get_view_number() + 1)
-            == task_state.public_key,
+        task_state.timeout_membership.leader(vote.view_number() + 1) == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
-            vote.get_view_number()
+            vote.view_number() + 1
         )
     );
 
     let mut collector = task_state.timeout_vote_collector.write().await;
 
-    if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view {
+    if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
         let info = AccumulatorInfo {
             public_key: task_state.public_key.clone(),
             membership: Arc::clone(&task_state.quorum_membership),
-            view: vote.get_view_number(),
+            view: vote.view_number(),
             id: task_state.id,
         };
         *collector =
@@ -165,16 +159,16 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     consensus
         .metrics
         .current_view
-        .set(usize::try_from(task_state.cur_view.get_u64()).unwrap());
+        .set(usize::try_from(task_state.cur_view.u64()).unwrap());
 
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    if usize::try_from(task_state.cur_view.get_u64()).unwrap()
-        > usize::try_from(task_state.last_decided_view.get_u64()).unwrap()
+    if usize::try_from(task_state.cur_view.u64()).unwrap()
+        > usize::try_from(task_state.last_decided_view.u64()).unwrap()
     {
         consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.get_u64()).unwrap()
-                - usize::try_from(task_state.last_decided_view.get_u64()).unwrap(),
+            usize::try_from(task_state.cur_view.u64()).unwrap()
+                - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
         );
     }
 

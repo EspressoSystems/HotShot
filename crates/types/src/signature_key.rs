@@ -13,7 +13,7 @@ use rand_chacha::ChaCha20Rng;
 use tracing::instrument;
 
 use crate::{
-    qc::{BitVectorQC, QCParams},
+    qc::{BitVectorQc, QcParams},
     stake_table::StakeTableEntry,
     traits::{
         qc::QuorumCertificateScheme,
@@ -31,11 +31,11 @@ pub type BLSPublicParam = ();
 impl SignatureKey for BLSPubKey {
     type PrivateKey = BLSPrivKey;
     type StakeTableEntry = StakeTableEntry<VerKey>;
-    type QCParams =
-        QCParams<BLSPubKey, <BLSOverBN254CurveSignatureScheme as SignatureScheme>::PublicParameter>;
+    type QcParams =
+        QcParams<BLSPubKey, <BLSOverBN254CurveSignatureScheme as SignatureScheme>::PublicParameter>;
     type PureAssembledSignatureType =
         <BLSOverBN254CurveSignatureScheme as SignatureScheme>::Signature;
-    type QCType = (Self::PureAssembledSignatureType, BitVec);
+    type QcType = (Self::PureAssembledSignatureType, BitVec);
     type SignError = SignatureError;
 
     #[instrument(skip(self))]
@@ -48,7 +48,7 @@ impl SignatureKey for BLSPubKey {
         sk: &Self::PrivateKey,
         data: &[u8],
     ) -> Result<Self::PureAssembledSignatureType, Self::SignError> {
-        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+        BitVectorQc::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             sk,
             data,
@@ -80,43 +80,43 @@ impl SignatureKey for BLSPubKey {
         (kp.ver_key(), kp.sign_key_ref().clone())
     }
 
-    fn get_stake_table_entry(&self, stake: u64) -> Self::StakeTableEntry {
+    fn stake_table_entry(&self, stake: u64) -> Self::StakeTableEntry {
         StakeTableEntry {
             stake_key: *self,
             stake_amount: U256::from(stake),
         }
     }
 
-    fn get_public_key(entry: &Self::StakeTableEntry) -> Self {
+    fn public_key(entry: &Self::StakeTableEntry) -> Self {
         entry.stake_key
     }
 
-    fn get_public_parameter(
+    fn public_parameter(
         stake_entries: Vec<Self::StakeTableEntry>,
         threshold: U256,
-    ) -> Self::QCParams {
-        QCParams {
+    ) -> Self::QcParams {
+        QcParams {
             stake_entries,
             threshold,
             agg_sig_pp: (),
         }
     }
 
-    fn check(real_qc_pp: &Self::QCParams, data: &[u8], qc: &Self::QCType) -> bool {
+    fn check(real_qc_pp: &Self::QcParams, data: &[u8], qc: &Self::QcType) -> bool {
         let msg = GenericArray::from_slice(data);
-        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::check(real_qc_pp, msg, qc).is_ok()
+        BitVectorQc::<BLSOverBN254CurveSignatureScheme>::check(real_qc_pp, msg, qc).is_ok()
     }
 
-    fn get_sig_proof(signature: &Self::QCType) -> (Self::PureAssembledSignatureType, BitVec) {
+    fn sig_proof(signature: &Self::QcType) -> (Self::PureAssembledSignatureType, BitVec) {
         signature.clone()
     }
 
     fn assemble(
-        real_qc_pp: &Self::QCParams,
+        real_qc_pp: &Self::QcParams,
         signers: &BitSlice,
         sigs: &[Self::PureAssembledSignatureType],
-    ) -> Self::QCType {
-        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::assemble(real_qc_pp, signers, sigs)
+    ) -> Self::QcType {
+        BitVectorQc::<BLSOverBN254CurveSignatureScheme>::assemble(real_qc_pp, signers, sigs)
             .expect("this assembling shouldn't fail")
     }
 
@@ -140,7 +140,7 @@ impl BuilderSignatureKey for BuilderKey {
         private_key: &Self::BuilderPrivateKey,
         data: &[u8],
     ) -> Result<Self::BuilderSignature, Self::SignError> {
-        BitVectorQC::<BLSOverBN254CurveSignatureScheme>::sign(
+        BitVectorQc::<BLSOverBN254CurveSignatureScheme>::sign(
             &(),
             private_key,
             data,

@@ -13,6 +13,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
+        election,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
@@ -92,8 +93,9 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     task_state: &QuorumProposalTaskState<TYPES, I>,
 ) -> Result<LeafChainTraversalOutcome<TYPES>> {
-    let proposal_view_number = proposal.get_view_number();
-    let proposal_parent_view_number = proposal.justify_qc.get_view_number();
+    let proposal_view_number = proposal.view_number();
+    let proposal_parent_view_number = proposal.justify_qc.view_number();
+
     // This is the output return type object whose members will be mutated as we traverse.
     let mut ret = LeafChainTraversalOutcome::default();
 
@@ -120,7 +122,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     // The next view is the next view we're going to traverse, it is the validated state of the
     // parent of the proposal.
-    let next_view = validated_state_map
+    let parent_view = validated_state_map
         .get(&proposal_parent_view_number)
         .context(format!(
             "A leaf for view {walk_start_view_number:?} does not exist in the state map"
@@ -128,23 +130,30 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     // We need the leaf as well to ensure its state exists in its map, and to be used later once we
     // have a new chain.
-    let mut next_leaf = next_view.get_leaf_commitment().context(format!(
+    let mut parent_leaf = parent_view.leaf_commitment().context(format!(
         "View {walk_start_view_number:?} is a failed view, expected a successful leaf."
     ))?;
 
     // The most recently seen view number (the view number of the last leaf we saw).
     let mut last_seen_view_number = proposal_view_number;
 
-    while let Some(leaf) = saved_leaves.get(&next_leaf) {
+    while let Some(leaf) = saved_leaves.get(&parent_leaf) {
         // These are all just checks to make sure we have what we need to proceed.
-        let current_leaf_view_number = leaf.get_view_number();
-        let leaf_state = validated_state_map
-            .get(&current_leaf_view_number)
-            .context(format!(
-                "View {current_leaf_view_number:?} does not exist in the state map"
-            ))?;
+        let current_leaf_view_number = leaf.view_number();
 
-        if let (Some(state), delta) = leaf_state.get_state_and_delta() {
+        let leaf_state = if proposal_parent_view_number == current_leaf_view_number {
+            // The first iteration ends up re-using the same data, so we'll just use that.
+            parent_view
+        } else {
+            // Otherwise, fetch the data.
+            validated_state_map
+                .get(&current_leaf_view_number)
+                .context(format!(
+                    "View {current_leaf_view_number:?} does not exist in the state map"
+                ))?
+        };
+
+        if let (Some(state), delta) = leaf_state.state_and_delta() {
             // Exit if we've reached the last anchor view.
             if current_leaf_view_number == last_decided_view {
                 return Ok(ret);
@@ -153,23 +162,23 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             // IMPORTANT: This is the logic from the paper, and is the most critical part of this function.
             if ret.new_decided_view_number.is_none() {
                 // Does this leaf extend the chain?
-                if last_seen_view_number == leaf.get_view_number() + 1 {
-                    last_seen_view_number = leaf.get_view_number();
+                if last_seen_view_number == leaf.view_number() + 1 {
+                    last_seen_view_number = leaf.view_number();
                     current_chain_length += 1;
 
                     // We've got a 2 chain, update the locked view.
                     if current_chain_length == 2 {
-                        ret.new_locked_view_number = Some(leaf.get_view_number());
+                        ret.new_locked_view_number = Some(leaf.view_number());
 
                         // The next leaf in the chain, if there is one, is decided, so this
                         // leaf's justify_qc would become the QC for the decided chain.
-                        ret.new_decide_qc = Some(leaf.get_justify_qc().clone());
+                        ret.new_decide_qc = Some(leaf.justify_qc().clone());
                     } else if current_chain_length == 3 {
                         // We've got the 3-chain, which means we can successfully decide on this leaf.
-                        ret.new_decided_view_number = Some(leaf.get_view_number());
+                        ret.new_decided_view_number = Some(leaf.view_number());
                     }
                 } else {
-                    // Bail out with empty values, but this is not necessarily an error, but we don't have. A
+                    // Bail out with empty values, but this is not necessarily an error, but we don't have a
                     // new chain extension.
                     return Ok(ret);
                 }
@@ -178,15 +187,15 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             // If we got a 3-chain, we can start our state updates, garbage collection, etc
             if let Some(decided_view) = ret.new_decided_view_number {
                 let mut leaf = leaf.clone();
-                if leaf.get_view_number() == decided_view {
+                if leaf.view_number() == decided_view {
                     consensus_reader
                         .metrics
                         .last_synced_block_height
-                        .set(usize::try_from(leaf.get_height()).unwrap_or(0));
+                        .set(usize::try_from(leaf.height()).unwrap_or(0));
                 }
 
                 // TODO - Upgrade certificates
-                // if let Some(cert) = leaf.get_upgrade_certificate() {
+                // if let Some(cert) = leaf.upgrade_certificate() {
                 //     ensure!(
                 //         cert.data.decide_by >= proposal_view_number,
                 //         "Failed to decide an upgrade certificate in time. Ignoring."
@@ -195,15 +204,15 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 // }
                 // If the block payload is available for this leaf, include it in
                 // the leaf chain that we send to the client.
-                if let Some(encoded_txns) = saved_payloads.get(&leaf.get_view_number()) {
+                if let Some(encoded_txns) = saved_payloads.get(&leaf.view_number()) {
                     let payload =
-                        BlockPayload::from_bytes(encoded_txns, leaf.get_block_header().metadata());
+                        BlockPayload::from_bytes(encoded_txns, leaf.block_header().metadata());
 
                     leaf.fill_block_payload_unchecked(payload);
                 }
 
                 let vid_share = vid_shares
-                    .get(&leaf.get_view_number())
+                    .get(&leaf.view_number())
                     .unwrap_or(&HashMap::new())
                     .get(&task_state.public_key)
                     .cloned()
@@ -217,8 +226,8 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                     vid_share,
                 ));
                 ret.leaves_decided.push(leaf.clone());
-                if let Some(ref payload) = leaf.get_block_payload() {
-                    for txn in payload.transaction_commitments(leaf.get_block_header().metadata()) {
+                if let Some(ref payload) = leaf.block_payload() {
+                    for txn in payload.transaction_commitments(leaf.block_header().metadata()) {
                         ret.included_txns.insert(txn);
                     }
                 }
@@ -230,7 +239,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         };
 
         // Move on to the next leaf at the end.
-        next_leaf = leaf.get_parent_commitment();
+        parent_leaf = leaf.parent_commitment();
     }
 
     bail!("Leaf not found");
@@ -283,8 +292,12 @@ pub(crate) async fn handle_quorum_proposal_validated<
 
         // Set the new decided view.
         consensus_writer.update_last_decided_view(decided_view_number)?;
+        broadcast_event(
+            HotShotEvent::LastDecidedViewUpdated(decided_view_number).into(),
+            sender,
+        )
+        .await;
 
-        // TODO - Metrics
         consensus_writer
             .metrics
             .last_decided_time
@@ -293,9 +306,9 @@ pub(crate) async fn handle_quorum_proposal_validated<
         consensus_writer
             .metrics
             .last_decided_view
-            .set(usize::try_from(consensus_writer.last_decided_view().get_u64()).unwrap());
+            .set(usize::try_from(consensus_writer.last_decided_view().u64()).unwrap());
         let cur_number_of_views_per_decide_event =
-            *task_state.latest_proposed_view - consensus_writer.last_decided_view().get_u64();
+            *task_state.latest_proposed_view - consensus_writer.last_decided_view().u64();
         consensus_writer
             .metrics
             .number_of_views_per_decide_event

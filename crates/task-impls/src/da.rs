@@ -96,10 +96,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let sender = sender.clone();
                 debug!(
                     "DA proposal received for view: {:?}",
-                    proposal.data.get_view_number()
+                    proposal.data.view_number()
                 );
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
-                let view = proposal.data.get_view_number();
+                let view = proposal.data.view_number();
 
                 // Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
@@ -107,7 +107,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
-
                 if self.cur_view != TYPES::Time::genesis() && view < self.cur_view - 1 {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;
@@ -127,7 +126,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
-                let view_leader_key = self.da_membership.get_leader(view);
+                let view_leader_key = self.da_membership.leader(view);
                 if view_leader_key != sender {
                     error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
                     return None;
@@ -145,6 +144,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
+                let curr_view = self.consensus.read().await.cur_view();
+                if curr_view > proposal.data.view_number() + 1 {
+                    tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
+                    return None;
+                }
                 // Proposal is fresh and valid, notify the application layer
                 self.api
                     .send_event(Event {
@@ -177,7 +181,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 #[cfg(async_executor_impl = "tokio")]
                 let payload_commitment = payload_commitment.unwrap();
 
-                let view = proposal.data.get_view_number();
+                let view = proposal.data.view_number();
                 // Generate and send vote
                 let Ok(vote) = DaVote::create_signed_vote(
                     DaData {
@@ -191,7 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     return None;
                 };
 
-                debug!("Sending vote to the DA leader {:?}", vote.get_view_number());
+                debug!("Sending vote to the DA leader {:?}", vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
                 let mut consensus = self.consensus.write().await;
@@ -216,22 +220,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
-                debug!("DA vote recv, Main Task {:?}", vote.get_view_number());
+                debug!("DA vote recv, Main Task {:?}", vote.view_number());
                 // Check if we are the leader and the vote is from the sender.
-                let view = vote.get_view_number();
-                if self.da_membership.get_leader(view) != self.public_key {
-                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.get_leader(view + 1) == self.public_key);
+                let view = vote.view_number();
+                if self.da_membership.leader(view) != self.public_key {
+                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1) == self.public_key);
                     return None;
                 }
                 let mut collector = self.vote_collector.write().await;
 
-                if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view
-                {
-                    debug!("Starting vote handle for view {:?}", vote.get_view_number());
+                if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
+                    debug!("Starting vote handle for view {:?}", vote.view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
                         membership: Arc::clone(&self.da_membership),
-                        view: vote.get_view_number(),
+                        view: vote.view_number(),
                         id: self.id,
                     };
                     *collector = create_vote_accumulator::<
@@ -266,7 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 self.cur_view = view;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if self.da_membership.get_leader(self.cur_view + 1) != self.public_key {
+                if self.da_membership.leader(self.cur_view + 1) != self.public_key {
                     return None;
                 }
                 debug!("Polling for DA votes for view {}", *self.cur_view + 1);

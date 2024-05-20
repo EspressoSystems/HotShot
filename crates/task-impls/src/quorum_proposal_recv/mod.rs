@@ -22,9 +22,10 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
+use vbs::version::Version;
 
 use crate::{
-    consensus::helpers::get_parent_leaf_and_state,
+    consensus::helpers::{parent_leaf_and_state},
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
@@ -96,6 +97,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
     /// The node's id
     pub id: u64,
+
+    /// Current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
@@ -121,12 +125,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     ) {
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
+<<<<<<< HEAD:crates/task-impls/src/quorum_proposal_recv/mod.rs
             match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
+=======
+            match handle_quorum_proposal_recv(
+                proposal,
+                sender,
+                event_stream.clone(),
+                self,
+                self.version,
+            )
+            .await
+            {
+>>>>>>> 0fbd879d05f06a13c0bf6837c6ef528e2e33a5f8:crates/task-impls/src/quorum_proposal_recv.rs
                 Ok(Some(current_proposal)) => {
                     // Build the parent leaf since we didn't find it during the proposal check.
-                    let parent_leaf = match get_parent_leaf_and_state(
+                    let parent_leaf = match parent_leaf_and_state(
                         self.cur_view,
-                        proposal.data.get_view_number() + 1,
+                        proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
                         Arc::clone(&self.consensus),
@@ -140,8 +156,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         }
                     };
 
-                    let view = current_proposal.get_view_number();
-                    self.cancel_tasks(proposal.data.get_view_number()).await;
+                    let view = current_proposal.view_number();
+                    self.cancel_tasks(proposal.data.view_number()).await;
                     let consensus = self.consensus.read().await;
                     let Some(vid_shares) = consensus.vid_shares().get(&view) else {
                         debug!(
@@ -156,11 +172,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     };
                     let Some(da_cert) = consensus
                         .saved_da_certs()
-                        .get(&current_proposal.get_view_number())
+                        .get(&current_proposal.view_number())
                     else {
                         debug!(
                             "Received VID share, but couldn't find DAC cert for view {:?}",
-                            current_proposal.get_view_number()
+                            current_proposal.view_number()
                         );
                         return;
                     };
@@ -179,7 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     .await;
                 }
                 Ok(None) => {
-                    self.cancel_tasks(proposal.data.get_view_number()).await;
+                    self.cancel_tasks(proposal.data.view_number()).await;
                 }
                 Err(e) => debug!(?e, "Failed to propose"),
             }

@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use snafu::Snafu;
 use time::OffsetDateTime;
+use vbs::version::Version;
 
 use crate::{node_types::TestTypes, state_types::TestInstanceState};
 
@@ -198,10 +199,6 @@ impl BlockPayload for TestBlockPayload {
         Self { transactions }
     }
 
-    fn genesis() -> (Self, Self::Metadata) {
-        (Self::genesis(), TestMetadata)
-    }
-
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
         let mut digest = sha2::Sha256::new();
         for txn in &self.transactions {
@@ -210,7 +207,7 @@ impl BlockPayload for TestBlockPayload {
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    fn get_transactions<'a>(
+    fn transactions<'a>(
         &'a self,
         _metadata: &'a Self::Metadata,
     ) -> impl 'a + Iterator<Item = Self::Transaction> {
@@ -245,8 +242,9 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         _builder_fee: BuilderFee<TYPES>,
         _vid_common: VidCommon,
+        _version: Version,
     ) -> Result<Self, Self::Error> {
-        let parent = parent_leaf.get_block_header();
+        let parent = parent_leaf.block_header();
 
         let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;
         if timestamp < parent.timestamp {

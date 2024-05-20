@@ -34,7 +34,7 @@ pub struct TimeoutData<TYPES: NodeType> {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a VID vote.
-pub struct VIDData {
+pub struct VidData {
     /// Commitment to the block payload the VID vote is on.
     pub payload_commit: VidCommitment,
 }
@@ -116,7 +116,7 @@ pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
 }
 
 impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
-    fn get_view_number(&self) -> <TYPES as NodeType>::Time {
+    fn view_number(&self) -> <TYPES as NodeType>::Time {
         self.view_number
     }
 }
@@ -124,19 +124,19 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleV
 impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
     type Commitment = DATA;
 
-    fn get_signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
+    fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
         self.signature.0.clone()
     }
 
-    fn get_signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType {
+    fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType {
         self.signature.1.clone()
     }
 
-    fn get_data(&self) -> &DATA {
+    fn date(&self) -> &DATA {
         &self.data
     }
 
-    fn get_data_commitment(&self) -> Commitment<DATA> {
+    fn date_commitment(&self) -> Commitment<DATA> {
         self.data.commit()
     }
 }
@@ -186,7 +186,7 @@ impl Committable for DaData {
     }
 }
 
-impl Committable for VIDData {
+impl Committable for VidData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("VID data")
             .var_size_bytes(self.payload_commit.as_ref())
