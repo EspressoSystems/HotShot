@@ -336,7 +336,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     // Run at view 2, propose at view 3.
     let view_2 = TestScriptStage {
         inputs: vec![
-            QCFormed(either::Right(cert.clone())),
+            QcFormed(either::Right(cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,

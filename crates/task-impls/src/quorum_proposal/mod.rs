@@ -250,7 +250,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QuorumProposalValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
+            HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
                     timeout_dependency.mark_as_completed(event);
                 }
@@ -281,7 +281,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             AndDependency::from_deps(vec![view_sync_dependency]),
         ];
 
-        // 1. A QCFormed event and QuorumProposalValidated event
+        // 1. A QcFormed event and QuorumProposalValidated event
         if *view_number > 1 {
             secondary_deps.push(AndDependency::from_deps(vec![
                 qc_dependency,
@@ -553,7 +553,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
         !matches!(
             event.as_ref(),
             HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::QCFormed(_)
+                | HotShotEvent::QcFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::ProposeNow(..)

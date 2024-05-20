@@ -1,6 +1,6 @@
-# OptimisticDACertificateRecv
+# OptimisticDaCertificateRecv
 
-![OptimisticDACertificateRecv](/docs/diagrams/images/HotShotFlow-OptimisticDACertificateRecv.drawio.png "OptimisticDACertificateRecv")
+![OptimisticDaCertificateRecv](/docs/diagrams/images/HotShotFlow-OptimisticDaCertificateRecv.drawio.png "OptimisticDaCertificateRecv")
 
 ## Basic Message Validation 
 

@@ -1,6 +1,6 @@
-# VIDShareRecv
+# VidShareRecv
 
-![VIDShareRecv](/docs/diagrams/images/HotShotFlow-VIDShareRecv.drawio.png "VIDShareRecv")
+![VidShareRecv](/docs/diagrams/images/HotShotFlow-VidShareRecv.drawio.png "VidShareRecv")
 
 ## Basic Message Validation 
 
