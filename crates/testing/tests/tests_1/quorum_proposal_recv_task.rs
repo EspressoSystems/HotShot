@@ -80,8 +80,6 @@ async fn test_quorum_proposal_recv_task() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_recv_task_liveness_check() {
-    use std::sync::Arc;
-
     use hotshot::traits::ValidatedState;
     use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::test_helpers::{
