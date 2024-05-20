@@ -30,13 +30,13 @@ pub(crate) enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// For the `QCFormed` event.
+    /// For the `QcFormed` event.
     QC,
 
     /// For the `ViewSyncFinalizeCertificate2Recv` event.
     ViewSyncCert,
 
-    /// For the `QCFormed` event timeout branch.
+    /// For the `QcFormed` event timeout branch.
     TimeoutCert,
 
     /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
@@ -45,8 +45,8 @@ pub(crate) enum ProposalDependency {
     /// For the `ProposeNow` event.
     ProposeNow,
 
-    /// For the `VIDShareValidated` event.
-    VIDShare,
+    /// For the `VidShareValidated` event.
+    VidShare,
 
     /// For the `ValidatedStateUpdated` event.
     ValidatedState,
@@ -210,7 +210,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         block_view: *view,
                     });
                 }
-                HotShotEvent::QCFormed(cert) => match cert {
+                HotShotEvent::QcFormed(cert) => match cert {
                     either::Right(timeout) => {
                         timeout_certificate = Some(timeout.clone());
                     }
@@ -235,7 +235,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         },
                     }
                 }
-                HotShotEvent::VIDShareValidated(share) => {
+                HotShotEvent::VidShareValidated(share) => {
                     vid_share = Some(share.clone());
                 }
                 _ => {}

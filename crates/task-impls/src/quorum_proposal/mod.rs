@@ -117,7 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::TimeoutCert => {
-                        if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
+                        if let HotShotEvent::QcFormed(either::Right(timeout)) = event {
                             timeout.view_number() + 1
                         } else {
                             return false;
@@ -161,8 +161,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             return false;
                         }
                     }
-                    ProposalDependency::VIDShare => {
-                        if let HotShotEvent::VIDShareValidated(vid_share) = event {
+                    ProposalDependency::VidShare => {
+                        if let HotShotEvent::VidShareValidated(vid_share) = event {
                             vid_share.data.view_number()
                         } else {
                             return false;
@@ -229,7 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         let mut vid_share_dependency = self.create_event_dependency(
-            ProposalDependency::VIDShare,
+            ProposalDependency::VidShare,
             view_number,
             event_receiver.clone(),
         );
@@ -261,7 +261,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 view_sync_dependency.mark_as_completed(event);
             }
-            HotShotEvent::VIDShareValidated(_) => {
+            HotShotEvent::VidShareValidated(_) => {
                 vid_share_dependency.mark_as_completed(event);
             }
             HotShotEvent::ValidatedStateUpdated(_, _) => {
@@ -401,7 +401,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::QCFormed(cert) => match cert.clone() {
+            HotShotEvent::QcFormed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
                     let view_number = timeout_cert.view_number + 1;
 
@@ -494,7 +494,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
             }
-            HotShotEvent::VIDShareValidated(vid_share) => {
+            HotShotEvent::VidShareValidated(vid_share) => {
                 let view_number = vid_share.data.view_number();
 
                 // Update the vid shares map if we need to include the new value.
@@ -558,7 +558,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
                 | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::QuorumProposalSend(..)
-                | HotShotEvent::VIDShareValidated(_)
+                | HotShotEvent::VidShareValidated(_)
                 | HotShotEvent::ValidatedStateUpdated(..)
                 | HotShotEvent::HighQcUpdated(_)
                 | HotShotEvent::Shutdown

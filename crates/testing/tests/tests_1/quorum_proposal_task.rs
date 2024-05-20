@@ -94,7 +94,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 
     let view = TestScriptStage {
         inputs: vec![
-            QCFormed(either::Left(genesis_cert.clone())),
+            QcFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
@@ -103,7 +103,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[0].0, handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[0].0, handle.get_public_key())),
             ValidatedStateUpdated(ViewNumber::new(0), create_fake_view_with_leaf(genesis_leaf)),
         ],
         outputs: vec![
@@ -164,7 +164,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let genesis_view = TestScriptStage {
         inputs: vec![
-            QCFormed(either::Left(genesis_cert.clone())),
+            QcFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(1)),
                 builder_commitment.clone(),
@@ -173,7 +173,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[0].0, handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[0].0, handle.get_public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(0),
                 create_fake_view_with_leaf(genesis_leaf.clone()),
@@ -187,7 +187,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[0].data.clone(), genesis_leaf.clone()),
-            QCFormed(either::Left(proposals[1].data.justify_qc.clone())),
+            QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
@@ -196,7 +196,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[1].0, handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[1].0, handle.get_public_key())),
             ValidatedStateUpdated(
                 proposals[0].data.get_view_number(),
                 create_fake_view_with_leaf(leaves[0].clone()),
@@ -210,7 +210,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let view_2 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-            QCFormed(either::Left(proposals[2].data.justify_qc.clone())),
+            QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
@@ -219,7 +219,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[2].0, handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[2].0, handle.get_public_key())),
             ValidatedStateUpdated(
                 proposals[1].data.get_view_number(),
                 create_fake_view_with_leaf(leaves[1].clone()),
@@ -237,7 +237,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let view_3 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[2].data.clone(), leaves[1].clone()),
-            QCFormed(either::Left(proposals[3].data.justify_qc.clone())),
+            QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(4)),
                 builder_commitment.clone(),
@@ -246,7 +246,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[3].0, handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[3].0, handle.get_public_key())),
             ValidatedStateUpdated(
                 proposals[2].data.get_view_number(),
                 create_fake_view_with_leaf(leaves[2].clone()),
@@ -259,7 +259,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let view_4 = TestScriptStage {
         inputs: vec![
             QuorumProposalValidated(proposals[3].data.clone(), leaves[2].clone()),
-            QCFormed(either::Left(proposals[4].data.justify_qc.clone())),
+            QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(5)),
                 builder_commitment,
@@ -268,7 +268,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[4].0, handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[4].0, handle.get_public_key())),
             ValidatedStateUpdated(
                 proposals[3].data.get_view_number(),
                 create_fake_view_with_leaf(leaves[3].clone()),
@@ -345,7 +345,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[2].0.clone(), handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[2].0.clone(), handle.get_public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(2),
                 create_fake_view_with_leaf(leaves[1].clone()),
@@ -425,7 +425,7 @@ async fn test_quorum_proposal_task_view_sync() {
                 null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
                     .unwrap(),
             ),
-            VIDShareValidated(get_vid_share(&vids[1].0.clone(), handle.get_public_key())),
+            VidShareValidated(get_vid_share(&vids[1].0.clone(), handle.get_public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(1),
                 create_fake_view_with_leaf(leaves[1].clone()),
