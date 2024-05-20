@@ -259,6 +259,19 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -272,6 +285,7 @@
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState,
+    consensus2::Consensus2TaskState,
     da::DaTaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
@@ -516,6 +530,18 @@
         Arc::clone(<span class="kw-2">&amp;</span>task_reg),
         quorum_proposal_recv_task_state,
     );
+    task_reg.run_task(task).<span class="kw">await</span>;
+}
+
+<span class="doccomment">/// Add the Consensus2 task.
+</span><span class="kw">pub async fn </span>add_consensus2_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+    task_reg: Arc&lt;TaskRegistry&gt;,
+    tx: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    rx: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
+) {
+    <span class="kw">let </span>consensus2_task_state = Consensus2TaskState::create_from(handle).<span class="kw">await</span>;
+    <span class="kw">let </span>task = Task::new(tx, rx, Arc::clone(<span class="kw-2">&amp;</span>task_reg), consensus2_task_state);
     task_reg.run_task(task).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

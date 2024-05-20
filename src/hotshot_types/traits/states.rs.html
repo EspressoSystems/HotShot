@@ -95,6 +95,9 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstractions over the immutable instance-level state and the global state that blocks modify.
 //!
 //! This module provides the [`InstanceState`] and [`ValidatedState`] traits, which serve as
@@ -120,7 +123,10 @@
 </span><span class="kw">pub trait </span>InstanceState: Debug + Send + Sync {}
 
 <span class="doccomment">/// Application-specific state delta, which will be used to store a list of merkle tree entries.
-</span><span class="kw">pub trait </span>StateDelta: Debug + Send + Sync + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; {}
+</span><span class="kw">pub trait </span>StateDelta:
+    Debug + PartialEq + Eq + Hash + Send + Sync + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;
+{
+}
 
 <span class="doccomment">/// Abstraction over the state that blocks modify
 ///

@@ -54,11 +54,17 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements sequencing
 //! consensus in an event driven way
 
 /// the task which implements the main parts of consensus
 </span><span class="kw">pub mod </span>consensus;
+
+<span class="doccomment">/// The task which implements the core state logic of consensus.
+</span><span class="kw">pub mod </span>consensus2;
 
 <span class="doccomment">/// The task which handles the logic for the quorum vote.
 </span><span class="kw">pub mod </span>quorum_vote;

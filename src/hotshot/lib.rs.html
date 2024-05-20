@@ -795,6 +795,22 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -855,11 +871,18 @@
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::tasks::{add_quorum_proposal_recv_task, add_quorum_proposal_task, add_quorum_vote_task};
+</span><span class="kw">use </span><span class="kw">crate</span>::tasks::{
+    add_consensus2_task, add_quorum_proposal_recv_task, add_quorum_proposal_task,
+    add_quorum_vote_task,
+};
+
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">crate</span>::tasks::add_consensus_task;
+
 <span class="kw">use crate</span>::{
     tasks::{
-        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_upgrade_task, add_view_sync_task,
+        add_da_task, add_network_event_task, add_network_message_task, add_transaction_task,
+        add_upgrade_task, add_view_sync_task,
     },
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
@@ -1416,7 +1439,8 @@
             Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         )
         .<span class="kw">await</span>;
-        add_consensus_task(
+        <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+        </span>add_consensus_task(
             Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),
@@ -1476,6 +1500,14 @@
         .<span class="kw">await</span>;
         <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
         </span>add_quorum_proposal_recv_task(
+            Arc::clone(<span class="kw-2">&amp;</span>registry),
+            event_tx.clone(),
+            event_rx.activate_cloned(),
+            <span class="kw-2">&amp;</span>handle,
+        )
+        .<span class="kw">await</span>;
+        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+        </span>add_consensus2_task(
             Arc::clone(<span class="kw-2">&amp;</span>registry),
             event_tx.clone(),
             event_rx.activate_cloned(),

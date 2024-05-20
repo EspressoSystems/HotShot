@@ -156,6 +156,13 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>either::Either;
@@ -172,7 +179,7 @@
         ViewSyncPreCommitVote,
     },
     traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
-    utils::BuilderCommitment,
+    utils::{BuilderCommitment, View},
     vid::{VidCommitment, VidPrecomputeData},
     vote::VoteDependencyData,
 };
@@ -311,5 +318,12 @@
     </span>ProposeNow(TYPES::Time, ProposalDependencyData&lt;TYPES&gt;),
     <span class="doccomment">/// Initiate a vote right now for the designated view.
     </span>VoteNow(TYPES::Time, VoteDependencyData&lt;TYPES&gt;),
+
+    <span class="comment">/* Consensus State Update Events */
+    </span><span class="doccomment">/// A undecided view has been created and added to the validated state storage.
+    </span>ValidatedStateUpdate(TYPES::Time, View&lt;TYPES&gt;),
+
+    <span class="doccomment">/// A new anchor view has been successfully reached by this node.
+    </span>LastDecidedViewUpdated(TYPES::Time),
 }
 </code></pre></div></section></main></body></html>
