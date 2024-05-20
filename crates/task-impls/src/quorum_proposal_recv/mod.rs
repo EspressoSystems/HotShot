@@ -139,7 +139,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     {
                         Ok((parent_leaf, _ /* state */)) => parent_leaf,
                         Err(error) => {
-                            warn!(?error, "Failed to get parent leaf and state");
+                            warn!("Failed to get parent leaf and state during VoteNow data construction; error = {error:#}");
                             return;
                         }
                     };

@@ -62,18 +62,7 @@ async fn send_liveness_proposal<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     };
 
     consensus_write.update_validated_state_map(view_number, view.clone());
-    broadcast_event(
-        HotShotEvent::ValidatedStateUpdated(view_number, view.clone()).into(),
-        event_sender,
-    )
-    .await;
-
     consensus_write.update_saved_leaves(leaf.clone());
-    broadcast_event(
-        HotShotEvent::NewUndecidedView(leaf.clone()).into(),
-        event_sender,
-    )
-    .await;
 
     if let Err(e) = task_state
         .storage
@@ -188,7 +177,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
                 Some((leaf, Arc::clone(&state)))
             } else {
-                tracing::error!(?leaf, "FUCK");
                 bail!("Parent state not found! Consensus internally inconsistent");
             }
         }
