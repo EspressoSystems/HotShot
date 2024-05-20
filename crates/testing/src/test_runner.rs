@@ -5,15 +5,20 @@ use std::{
     sync::Arc,
 };
 
+use crate::test_task::Node;
+
+use async_lock::RwLock;
+
+use crate::test_task::{LateStartNode, TestRunner, TestEvent, TestResult, TestTask};
+
 use async_broadcast::broadcast;
-use either::Either::{self, Left, Right};
+use futures::future::Either::{self, Left, Right};
 use futures::future::join_all;
 use hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
 };
 use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
-use hotshot_task::task::{Task, TaskRegistry, TestTask};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
@@ -68,6 +73,7 @@ where
     #[allow(clippy::too_many_lines)]
     pub async fn run_test<B: TestBuilderImplementation<TYPES>>(mut self) {
         let (tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
+        let (test_sender, test_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         let spinning_changes = self
             .launcher
             .metadata
@@ -101,8 +107,6 @@ where
             internal_event_rxs.push(r);
         }
 
-        let reg = Arc::new(TaskRegistry::default());
-
         let TestRunner {
             ref launcher,
             nodes,
@@ -111,13 +115,17 @@ where
             _pd: _,
         } = self;
 
+        let mut test_generators = vec![];
+
         let mut task_futs = vec![];
         let meta = launcher.metadata.clone();
+
+        let handles = Arc::new(RwLock::new(nodes));
 
         let txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
-                    handles: nodes.clone(),
+            handles: Arc::clone(&handles),
                     next_node_idx: Some(0),
                     duration,
                     shutdown_chan: rx.clone(),
@@ -133,7 +141,7 @@ where
         let completion_task = CompletionTask {
             tx: tx.clone(),
             rx: rx.clone(),
-            handles: nodes.clone(),
+            handles: Arc::clone(&handles),
             duration: time_based.duration,
         };
 
@@ -148,32 +156,31 @@ where
         }
 
         let spinning_task_state = SpinningTask {
-            handles: nodes.clone(),
+            handles: Arc::clone(&handles),
             late_start,
             latest_view: None,
             changes,
             last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
             high_qc: QuorumCertificate::genesis(&TestInstanceState {}),
         };
-        let spinning_task = TestTask::<SpinningTask<TYPES, I>, SpinningTask<TYPES, I>>::new(
-            Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
+        let spinning_task = TestTask::<SpinningTask<TYPES, I>>::new(
+            spinning_task_state,
             event_rxs.clone(),
+            test_receiver.clone(),
         );
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
-            handles: nodes.clone(),
+            handles: Arc::clone(&handles),
             ctx: RoundCtx::default(),
             properties: self.launcher.metadata.overall_safety_properties,
+            error: None,
+            test_sender, 
         };
 
-        let safety_task = TestTask::<OverallSafetyTask<TYPES, I>, OverallSafetyTask<TYPES, I>>::new(
-            Task::new(
-                tx.clone(),
-                rx.clone(),
-                reg.clone(),
+        let safety_task = TestTask::<OverallSafetyTask<TYPES, I>>::new(
                 overall_safety_task_state,
-            ),
             event_rxs.clone(),
+            test_receiver.clone(),
         );
 
         // add view sync task
@@ -183,19 +190,22 @@ where
             _pd: PhantomData,
         };
 
-        let view_sync_task = TestTask::<ViewSyncTask<TYPES, I>, ViewSyncTask<TYPES, I>>::new(
-            Task::new(tx.clone(), rx.clone(), reg.clone(), view_sync_task_state),
+        let view_sync_task = TestTask::<ViewSyncTask<TYPES, I>>::new(
+            view_sync_task_state,
             internal_event_rxs,
+            test_receiver.clone(),
         );
 
+        let mut nodes = handles.write().await;
+
         // wait for networks to be ready
-        for node in &nodes {
+        for node in &mut nodes.iter_mut() {
             node.networks.0.wait_for_ready().await;
             node.networks.1.wait_for_ready().await;
         }
 
         // Start hotshot
-        for node in nodes {
+        for node in &mut nodes.iter_mut() {
             if !late_start_nodes.contains(&node.node_id) {
                 node.handle.hotshot.start_consensus().await;
             }
@@ -203,9 +213,9 @@ where
         task_futs.push(safety_task.run());
         task_futs.push(view_sync_task.run());
         if let Some(txn) = txn_task {
-            task_futs.push(txn.run());
+            test_generators.push(txn.run());
         }
-        task_futs.push(completion_task.run());
+        test_generators.push(completion_task.run());
         task_futs.push(spinning_task.run());
         let mut error_list = vec![];
 
@@ -215,10 +225,10 @@ where
             tracing::info!("test tasks joined");
             for result in results {
                 match result {
-                    HotShotTaskCompleted::ShutDown => {
+                    TestResult::Pass => {
                         info!("Task shut down successfully");
                     }
-                    HotShotTaskCompleted::Error(e) => error_list.push(e),
+                    TestResult::Fail(e) => error_list.push(e),
                     _ => {
                         panic!("Future impl for task abstraction failed! This should never happen");
                     }

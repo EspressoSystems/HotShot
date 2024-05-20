@@ -54,7 +54,7 @@ pub enum TestResult {
     /// the test task passed
     Pass,
     /// the test task failed with an error
-    Fail(Box<dyn snafu::Error>),
+    Fail(Box<dyn snafu::Error + Send + Sync>),
     /// the streams the task was listening for died
     StreamsDied,
     /// we somehow lost the state
@@ -73,7 +73,7 @@ pub trait TestTaskState: Send {
     type Event: Clone + Send + Sync;
 
     /// Handles an event from one of multiple receivers.
-    async fn handle_event(&mut self, (event, id): (Arc<Self::Event>, usize)) -> Result<()>;
+    async fn handle_event(&mut self, (event, id): (Self::Event, usize)) -> Result<()>;
 
     /// Check the result of the test.
     fn check(&self) -> TestResult;
@@ -90,7 +90,7 @@ pub struct TestTask<S: TestTaskState> {
     /// if it is complete/should shutdown
     state: S,
     /// Receives events that are broadcast from any task, including itself
-    receivers: Vec<Receiver<Arc<S::Event>>>,
+    receivers: Vec<Receiver<S::Event>>,
     /// Receiver for test events, used for communication between test tasks.
     test_receiver: Receiver<TestEvent>,
 }
@@ -104,7 +104,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
     /// Create a new task
     pub fn new(
         state: S,
-        receivers: Vec<Receiver<Arc<S::Event>>>,
+        receivers: Vec<Receiver<S::Event>>,
         test_receiver: Receiver<TestEvent>,
     ) -> Self {
         TestTask {
@@ -121,7 +121,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
 
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
-    pub fn run(mut self) -> JoinHandle<Box<dyn TestTaskState<Event = S::Event>>> {
+    pub fn run(mut self) -> JoinHandle<TestResult> {
         spawn(async move {
             loop {
                 let mut messages = Vec::new();
@@ -134,7 +134,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
 
                 match select(test_message, select_all(messages)).await {
                     Either::Left((Ok(TestEvent::Shutdown), _)) => {
-                        break self.boxed_state();
+                        break self.state.check();
                     }
 
                     Either::Right(((Ok(input), id, _), _)) => {

@@ -31,10 +31,10 @@ pub struct ViewSyncTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
     for ViewSyncTask<TYPES, I>
 {
-    type Event = HotShotEvent<TYPES>;
+    type Event = Arc<HotShotEvent<TYPES>>;
 
     /// Handles an event from one of multiple receivers.
-    async fn handle_event(&mut self, (event, id): (Arc<Self::Event>, usize)) -> Result<()> {
+    async fn handle_event(&mut self, (event, id): (Self::Event, usize)) -> Result<()> {
         match event.as_ref() {
             // all the view sync events
             HotShotEvent::ViewSyncTimeout(_, _, _)

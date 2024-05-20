@@ -7,7 +7,7 @@
 )]
 
 /// Helpers for initializing system context handle and building tasks.
-// pub mod task_helpers;
+pub mod task_helpers;
 
 ///  builder
 pub mod test_builder;
@@ -16,7 +16,7 @@ pub mod test_builder;
 pub mod test_launcher;
 
 /// runner
-// pub mod test_runner;
+pub mod test_runner;
 
 /// task that's consuming events and asserting safety
 pub mod overall_safety_task;
@@ -46,7 +46,7 @@ pub mod predicates;
 pub mod script;
 
 /// view generator for tests
-// pub mod view_generator;
+pub mod view_generator;
 
 /// helper functions for test scripts
 pub mod test_helpers;

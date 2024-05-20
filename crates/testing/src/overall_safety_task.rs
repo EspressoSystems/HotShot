@@ -3,6 +3,8 @@ use std::{
     sync::Arc,
 };
 
+use async_lock::RwLock;
+
 use async_broadcast::Sender;
 use crate::test_task::{TestResult, TestEvent, TestTask, TestTaskState};
 use async_trait::async_trait;
@@ -68,13 +70,13 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
 /// Data availability task state
 pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handles
-    pub handles: Vec<Node<TYPES, I>>,
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
     /// ctx
     pub ctx: RoundCtx<TYPES>,
     /// configure properties
     pub properties: OverallSafetyPropertiesDescription,
     /// error
-    pub error: Option<Box<dyn snafu::Error + Send + Sync>>,
+    pub error: Option<Box<OverallSafetyTaskErr<TYPES>>>,
     /// sender to test event channel
     pub test_sender: Sender<TestEvent>,
 
@@ -88,7 +90,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 
 
     /// Handles an event from one of multiple receivers.
-    async fn handle_event(&mut self, (message, id): (Arc<Self::Event>, usize)) -> Result<()> {
+    async fn handle_event(&mut self, (message, id): (Self::Event, usize)) -> Result<()> {
     
         let OverallSafetyPropertiesDescription {
             check_leaf,
@@ -98,12 +100,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             threshold_calculator,
             transaction_threshold,
         }: OverallSafetyPropertiesDescription = self.properties.clone();
-        let Event { view_number, event } = message.as_ref();
+        let Event { view_number, event } = message;
         let key = match event {
             EventType::Error { error } => {
                 self
                     .ctx
-                    .insert_error_to_context(*view_number, id, error.clone());
+                    .insert_error_to_context(view_number, id, error.clone());
                 None
             }
             EventType::Decide {
@@ -115,15 +117,15 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                 if leaf_chain.last().unwrap().leaf.get_view_number() == TYPES::Time::genesis() {
                     return Ok(());
                 }
-                let paired_up = (leaf_chain.to_vec(), (**qc).clone());
-                match self.ctx.round_results.entry(*view_number) {
+                let paired_up = (leaf_chain.to_vec(), (*qc).clone());
+                match self.ctx.round_results.entry(view_number) {
                     Entry::Occupied(mut o) => {
                         o.get_mut()
-                            .insert_into_result(id, paired_up, *maybe_block_size)
+                            .insert_into_result(id, paired_up, maybe_block_size)
                     }
                     Entry::Vacant(v) => {
                         let mut round_result = RoundResult::default();
-                        let key = round_result.insert_into_result(id, paired_up, *maybe_block_size);
+                        let key = round_result.insert_into_result(id, paired_up, maybe_block_size);
                         v.insert(round_result);
                         key
                     }
@@ -131,26 +133,28 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }
             EventType::ReplicaViewTimeout { view_number } => {
                 let error = Arc::new(HotShotError::<TYPES>::ViewTimeoutError {
-                    view_number: *view_number,
+                    view_number: view_number,
                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                 });
                 self
                     .ctx
-                    .insert_error_to_context(*view_number, id, error);
+                    .insert_error_to_context(view_number, id, error);
                 None
             }
             _ => return Ok(()),
         };
 
+
+        let len = self.handles.read().await.len();
+
         // update view count
         let threshold =
-            (threshold_calculator)(self.handles.len(), self.handles.len());
+            (threshold_calculator)(len, len);
 
-        let len = self.handles.len();
         let view = self
             .ctx
             .round_results
-            .get_mut(view_number)
+            .get_mut(&view_number)
             .unwrap();
         if let Some(key) = key {
             view.update_status(
@@ -163,14 +167,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             );
             match view.status.clone() {
                 ViewStatus::Ok => {
-                    self.ctx.successful_views.insert(*view_number);
+                    self.ctx.successful_views.insert(view_number);
                     if self.ctx.successful_views.len() >= num_successful_views {
                         self.test_sender.broadcast(TestEvent::Shutdown).await;
                     }
                     return Ok(());
                 }
                 ViewStatus::Failed => {
-                    self.ctx.failed_views.insert(*view_number);
+                    self.ctx.failed_views.insert(view_number);
                     if self.ctx.failed_views.len() > num_failed_views {
                         self.test_sender.broadcast(TestEvent::Shutdown).await;
                         self.error = Some(Box::new(
@@ -192,7 +196,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }
         } else if view.check_if_failed(threshold, len) {
             view.status = ViewStatus::Failed;
-            self.ctx.failed_views.insert(*view_number);
+            self.ctx.failed_views.insert(view_number);
             if self.ctx.failed_views.len() > num_failed_views {
                         self.test_sender.broadcast(TestEvent::Shutdown).await;
                 self.error = Some(Box::new(
@@ -208,8 +212,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 
 
     fn check(&self) -> TestResult {
+      if let Some(e) = &self.error
+      {
+                    return TestResult::Fail(e.clone());
 
-                tracing::error!("Shutting down SafetyTask");
+      }
+
                 let OverallSafetyPropertiesDescription {
                     check_leaf: _,
                     check_block: _,
