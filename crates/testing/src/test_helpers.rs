@@ -24,13 +24,7 @@ where
 
 /// This function will create a fake [`View`] from a provided [`Leaf`].
 pub fn create_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
-    View {
-        view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
-            state: TestValidatedState::default().into(),
-            delta: None,
-        },
-    }
+    create_fake_view_with_leaf_and_state(leaf, TestValidatedState::default())
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.

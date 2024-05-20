@@ -65,7 +65,7 @@ async fn test_quorum_proposal_recv_task() {
             exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
             exact(QuorumProposalValidated(
                 proposals[1].data.clone(),
-                leaves[0].clone(),
+                leaves[1].clone(),
             )),
         ],
         asserts: vec![],
