@@ -7,8 +7,8 @@
     cur_view: &amp;mut TYPES::<a class="associatedtype" href="../../../hotshot_types/traits/node_implementation/trait.NodeType.html#associatedtype.Time" title="type hotshot_types::traits::node_implementation::NodeType::Time">Time</a>,
     timeout_task: &amp;mut <a class="enum" href="https://doc.rust-lang.org/1.78.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;JoinHandle&lt;<a class="primitive" href="https://doc.rust-lang.org/1.78.0/std/primitive.unit.html">()</a>&gt;&gt;,
     send_view_change_event: <a class="primitive" href="https://doc.rust-lang.org/1.78.0/std/primitive.bool.html">bool</a>
-) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.83/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.78.0/std/primitive.unit.html">()</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Update the view if it actually changed, takes a mutable reference to the <code>cur_view</code> and the
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.85/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.78.0/std/primitive.unit.html">()</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Update the view if it actually changed, takes a mutable reference to the <code>cur_view</code> and the
 <code>timeout_task</code> which are updated during the operation of the function.</p>
 <h2 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h2>
-<p>Returns an <a href="https://docs.rs/anyhow/1.0.83/anyhow/struct.Error.html" title="struct anyhow::Error"><code>anyhow::Error</code></a> when the new view is not greater than the current view.</p>
+<p>Returns an <a href="https://docs.rs/anyhow/1.0.85/anyhow/struct.Error.html" title="struct anyhow::Error"><code>anyhow::Error</code></a> when the new view is not greater than the current view.</p>
 </div></details></section></div></main></body></html>
