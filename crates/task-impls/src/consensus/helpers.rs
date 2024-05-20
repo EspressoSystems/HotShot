@@ -328,9 +328,9 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     );
 
     let consensus = consensus.read().await;
-    let parent_view_number = view - 1;
-    let parent_view = consensus.validated_state_map().get(&parent_view_number).context(
-        format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
+    let parent_view_number = &consensus.high_qc().view_number();
+    let parent_view = consensus.validated_state_map().get(parent_view_number).context(
+        format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", **parent_view_number)
     )?;
 
     // Leaf hash in view inner does not match high qc hash - Why?
