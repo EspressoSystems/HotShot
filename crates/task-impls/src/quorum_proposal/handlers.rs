@@ -284,7 +284,6 @@ pub(crate) async fn handle_quorum_proposal_validated<
         // Set the new decided view.
         consensus_writer.update_last_decided_view(decided_view_number)?;
 
-        // TODO - Metrics
         consensus_writer
             .metrics
             .last_decided_time
