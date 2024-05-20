@@ -13,6 +13,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
+        election,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
@@ -94,6 +95,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 ) -> Result<LeafChainTraversalOutcome<TYPES>> {
     let proposal_view_number = proposal.view_number();
     let proposal_parent_view_number = proposal.justify_qc.view_number();
+
     // This is the output return type object whose members will be mutated as we traverse.
     let mut ret = LeafChainTraversalOutcome::default();
 
@@ -120,7 +122,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     // The next view is the next view we're going to traverse, it is the validated state of the
     // parent of the proposal.
-    let next_view = validated_state_map
+    let parent_view = validated_state_map
         .get(&proposal_parent_view_number)
         .context(format!(
             "A leaf for view {walk_start_view_number:?} does not exist in the state map"
@@ -128,21 +130,28 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     // We need the leaf as well to ensure its state exists in its map, and to be used later once we
     // have a new chain.
-    let mut next_leaf = next_view.leaf_commitment().context(format!(
+    let mut parent_leaf = parent_view.leaf_commitment().context(format!(
         "View {walk_start_view_number:?} is a failed view, expected a successful leaf."
     ))?;
 
     // The most recently seen view number (the view number of the last leaf we saw).
     let mut last_seen_view_number = proposal_view_number;
 
-    while let Some(leaf) = saved_leaves.get(&next_leaf) {
+    while let Some(leaf) = saved_leaves.get(&parent_leaf) {
         // These are all just checks to make sure we have what we need to proceed.
         let current_leaf_view_number = leaf.view_number();
-        let leaf_state = validated_state_map
-            .get(&current_leaf_view_number)
-            .context(format!(
-                "View {current_leaf_view_number:?} does not exist in the state map"
-            ))?;
+
+        let leaf_state = if proposal_parent_view_number == current_leaf_view_number {
+            // The first iteration ends up re-using the same data, so we'll just use that.
+            parent_view
+        } else {
+            // Otherwise, fetch the data.
+            validated_state_map
+                .get(&current_leaf_view_number)
+                .context(format!(
+                    "View {current_leaf_view_number:?} does not exist in the state map"
+                ))?
+        };
 
         if let (Some(state), delta) = leaf_state.state_and_delta() {
             // Exit if we've reached the last anchor view.
@@ -169,7 +178,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                         ret.new_decided_view_number = Some(leaf.view_number());
                     }
                 } else {
-                    // Bail out with empty values, but this is not necessarily an error, but we don't have. A
+                    // Bail out with empty values, but this is not necessarily an error, but we don't have a
                     // new chain extension.
                     return Ok(ret);
                 }
@@ -230,7 +239,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         };
 
         // Move on to the next leaf at the end.
-        next_leaf = leaf.parent_commitment();
+        parent_leaf = leaf.parent_commitment();
     }
 
     bail!("Leaf not found");
@@ -283,6 +292,11 @@ pub(crate) async fn handle_quorum_proposal_validated<
 
         // Set the new decided view.
         consensus_writer.update_last_decided_view(decided_view_number)?;
+        broadcast_event(
+            HotShotEvent::LastDecidedViewUpdated(decided_view_number).into(),
+            sender,
+        )
+        .await;
 
         consensus_writer
             .metrics

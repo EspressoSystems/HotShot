@@ -278,6 +278,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         outputs: vec![
             exact(LockedViewUpdated(ViewNumber::new(3))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(2))),
             leaf_decided(),
             exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
         ],
