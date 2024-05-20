@@ -9,7 +9,6 @@ use tracing::{debug, warn};
 
 use async_broadcast::{broadcast, Sender};
 use hotshot_types::{
-    consensus::ProposalDependencyData,
     data::{Leaf, QuorumProposal},
     message::Proposal,
     simple_certificate::QuorumCertificate,
@@ -121,7 +120,11 @@ async fn send_liveness_proposal<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 "Attempting to publish proposal after voting for liveness; now in view: {}",
                 *new_view
             );
-            // TODO - publish the propose now event.
+            broadcast_event(
+                HotShotEvent::LivenessCheckProposalRecv(proposal.data.clone()).into(),
+                event_sender,
+            )
+            .await;
         }
     }
 
