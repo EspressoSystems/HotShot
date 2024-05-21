@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
+use hotshot::{tasks::task_state::CreateTaskState};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
