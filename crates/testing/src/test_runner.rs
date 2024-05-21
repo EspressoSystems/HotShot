@@ -261,6 +261,8 @@ where
 
         for node in &mut nodes {
             node.handle.shut_down().await;
+            node.networks.0.shut_down().await;
+            node.networks.1.shut_down().await;
         }
 
         assert!(
