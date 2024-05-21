@@ -9,13 +9,22 @@ ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 orchestrator_url=http://"$ip":4444
 cdn_marshal_address="$ip":9000
 keydb_address=redis://"$ip":6379
+
+# Check if at least two arguments are provided
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <REMOTE_USER> <REMOTE_HOST>"
+    exit 1
+fi
+REMOTE_USER="$1" #"sishan"
+REMOTE_HOST="$2" #"3.135.239.251"
+
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
-ulimit -n 65536 
+# ulimit -n 65536 
 # build to get the bin in advance, uncomment the following if built first time
-just async_std example validator-push-cdn -- http://localhost:4444 &
-# remember to sleep enough time if it's built first time
-sleep 5m
-for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
+# just async_std example validator-push-cdn -- http://localhost:4444 &
+# # remember to sleep enough time if it's built first time
+# sleep 3m
+# for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
 docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
@@ -28,6 +37,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
 # server1 marshal
+echo -e "\e[35mGoing to start cdn-marshal on local server\e[0m"
 just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
 # remember to sleep enough time if it's built first time
 
@@ -39,7 +49,7 @@ round_up() {
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
-# see `aws_ecs_nginx_benchmarks.sh` for an example
+# see `aws_ecs_benchmarks_webserver.sh` for an example
 for total_nodes in 10 50 100 200 500 1000
 do
     for da_committee_size in 5 10 50 100
@@ -57,26 +67,16 @@ do
                             for rounds in 100 50
                             do
                                 # server1 broker
-                                just async_std example cdn-broker -- -d redis://localhost:6379 \
-                                    --public-bind-endpoint 0.0.0.0:1740 \
-                                    --public-advertise-endpoint local_ip:1740 \
-                                    --private-bind-endpoint 0.0.0.0:1741 \
-                                    --private-advertise-endpoint local_ip:1741 &
+                                echo -e "\e[35mGoing to start cdn-broker on local server\e[0m"
+                                COMMAND="./HotShot/scripts/benchmarks_start_cdn_broker.sh ${keydb_address}"
+                                $COMMAND
                                 # server2: broker
                                 # make sure you're able to access the remote host from current host
-                                # Sishan TODO:
-                                # REMOTE_USER=[YOUR-ID]
-                                # REMOTE_HOST=[PUBLIC-IP]
-                                REMOTE_USER="sishan"
-                                REMOTE_HOST="3.135.239.251"
-                                COMMAND="just async_std example cdn-broker -- -d ${keydb_address} \
-                                    --public-bind-endpoint 0.0.0.0:1740 \
-                                    --public-advertise-endpoint local_ip:1740 \
-                                    --private-bind-endpoint 0.0.0.0:1741 \
-                                    --private-advertise-endpoint local_ip:1741 &"
+                                echo -e "\e[35mGoing to start cdn-broker on remote server\e[0m"
                                 ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND exit"
 
                                 # start orchestrator
+                                echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
                                 just async_std example_fixed_leader orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                                                 --orchestrator_url http://0.0.0.0:4444 \
                                                                                 --total_nodes ${total_nodes} \
@@ -90,21 +90,23 @@ do
                                 sleep 30
 
                                 # start validators
+                                echo -e "\e[35mGoing to start validators on remote servers\e[0m"
                                 ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
                                 sleep_time=$(( ($rounds + $total_nodes) * $mul ))
-                                echo "sleep_time: $sleep_time"
+                                echo -e "\e[35msleep_time: $sleep_time\e[0m"
                                 sleep $sleep_time
 
                                 # kill them
+                                echo -e "\e[35mGoing to stop validators on remote servers\e[0m"
                                 ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                                 # shut down brokers
-                                COMMAND_SHUTDOWN="for pid in $(ps -ef | grep "cdn-broker" | awk '{print $2}'); do kill -9 $pid; done"
-                                for pid in $(ps -ef | grep "cdn-broker" | awk '{print $2}'); do kill -9 $pid; done
-                                ssh $REMOTE_USER@$REMOTE_HOST "$COMMAND_SHUTDOWN exit"
+                                echo -e "\e[35mGoing to stop cdn-broker\e[0m"
+                                killall -9 cdn-broker
+                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "./HotShot/scripts/shutdown.sh exit"
                                 # remove brokers from keydb
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli
@@ -120,5 +122,6 @@ do
 done
 
 # shut down all related threads
-for pid in $(ps -ef | grep "cdn-marshal" | awk '{print $2}'); do kill -9 $pid; done
+echo -e "\e[35mGoing to stop cdn-marshal\e[0m"
+killall -9 cdn-marshal
 # for pid in $(ps -ef | grep "keydb-server" | awk '{print $2}'); do sudo kill -9 $pid; done
