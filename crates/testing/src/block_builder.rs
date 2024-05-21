@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     num::NonZeroUsize,
     ops::Deref,
     sync::Arc,
@@ -26,7 +26,7 @@ use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
         block_contents::{precompute_vid_commitment, BlockHeader},
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
@@ -45,6 +45,7 @@ where
 
     async fn start(
         num_storage_nodes: usize,
+        id: u64,
         options: Self::Config,
     ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url);
 }
@@ -61,6 +62,7 @@ where
 
     async fn start(
         num_storage_nodes: usize,
+        _id: u64,
         config: RandomBuilderConfig,
     ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
         let port = portpicker::pick_unused_port().expect("No free ports");
@@ -81,11 +83,12 @@ where
 
     async fn start(
         num_storage_nodes: usize,
+        id: u64,
         _config: Self::Config,
     ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
         let port = portpicker::pick_unused_port().expect("No free ports");
         let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
-        let (source, task) = make_simple_builder(num_storage_nodes).await;
+        let (source, task) = make_simple_builder(num_storage_nodes, id).await;
 
         let builder_api = hotshot_builder_api::builder::define_api::<
             SimpleBuilderSource<TYPES>,
@@ -292,6 +295,7 @@ where
 
 #[derive(Debug, Clone)]
 struct SubmittedTransaction<TYPES: NodeType> {
+    submitted_view: TYPES::Time,
     claimed: Option<Instant>,
     transaction: TYPES::Transaction,
 }
@@ -329,6 +333,7 @@ where
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
+        let st = Instant::now();
         let transactions = self
             .transactions
             .read(|txns| {
@@ -343,11 +348,31 @@ where
                                 .unwrap_or(true)
                         })
                         .cloned()
-                        .map(|txn| txn.transaction)
-                        .collect::<Vec<TYPES::Transaction>>()
+                        //.map(|txn| txn.transaction)
+                        .collect::<Vec<_>>()
                 })
             })
             .await;
+
+        let mut stale_transactions = transactions
+            .iter()
+            .filter_map(|txn| txn.claimed)
+            .collect::<Vec<_>>();
+
+        stale_transactions.sort();
+
+        if !stale_transactions.is_empty() {
+            tracing::error!(
+                "Stale transactions in block: {}s - {}s old",
+                stale_transactions.last().unwrap().elapsed().as_secs(),
+                stale_transactions.first().unwrap().elapsed().as_secs(),
+            );
+        }
+
+        let transactions = transactions
+            .into_iter()
+            .map(|txn| txn.transaction)
+            .collect::<Vec<_>>();
 
         if transactions.is_empty() {
             // We don't want to return an empty block, as we will end up driving consensus to
@@ -355,6 +380,12 @@ where
             // consensus will keep asking for blocks until either we have something non-trivial to
             // propose, or a timeout, in which case consensus will finally propose an empty block
             // anyways.
+            tracing::error!(
+                "No unclaimed transactions, total transactions: {}",
+                self.transactions
+                    .read(|txns| Box::pin(async { txns.len() }))
+                    .await
+            );
             return Ok(vec![]);
         }
 
@@ -375,6 +406,7 @@ where
             },
         );
 
+        tracing::error!("available_blocks call in {}ms", st.elapsed().as_millis());
         Ok(vec![metadata])
     }
 
@@ -385,6 +417,7 @@ where
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
+        let st = Instant::now();
         let payload = {
             let mut blocks = self.blocks.write().await;
             let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
@@ -396,14 +429,25 @@ where
         let claimed_transactions = payload
             .block_payload
             .transaction_commitments(&payload.metadata);
+        let txn_num = claimed_transactions.len();
 
+        let mut views = BTreeSet::new();
         let mut transactions = self.transactions.write().await;
         for txn_hash in claimed_transactions {
             if let Some(txn) = transactions.get_mut(&txn_hash) {
                 txn.claimed = Some(now);
+                views.insert(txn.submitted_view.get_u64());
             }
         }
 
+        tracing::error!(
+            "View {}: claimed block of {} transactions (submitted on views {:?})",
+            _view_number,
+            txn_num,
+            views
+        );
+
+        tracing::error!("claim_block call in {}ms", st.elapsed().as_millis());
         Ok(payload)
     }
 
@@ -414,8 +458,13 @@ where
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError> {
+        let st = Instant::now();
         let mut blocks = self.blocks.write().await;
         let entry = blocks.get_mut(block_hash).ok_or(BuildError::NotFound)?;
+        tracing::error!(
+            "claim_block_header_input call in {}ms",
+            st.elapsed().as_millis()
+        );
         entry.header_input.take().ok_or(BuildError::Missing)
     }
 
@@ -449,6 +498,9 @@ pub struct SimpleBuilderTask<TYPES: NodeType> {
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, SubmittedTransaction<TYPES>>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
     decided_transactions: LruCache<Commitment<TYPES::Transaction>, ()>,
+    cur_view: TYPES::Time,
+    n_txn: usize,
+    id: u64,
 }
 
 pub trait BuilderTask<TYPES: NodeType>: Send + Sync {
@@ -470,19 +522,38 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                         break;
                     }
                     Some(evt) => match evt.event {
+                        EventType::ViewFinished { view_number } => {
+                            tracing::error!(
+                                "{}: View {}: received {} transactions",
+                                self.id,
+                                *self.cur_view,
+                                self.n_txn
+                            );
+                            self.n_txn = 0;
+                            self.cur_view = view_number;
+                        }
                         EventType::Decide { leaf_chain, .. } => {
                             let mut queue = self.transactions.write().await;
+
+                            let mut n_txn = 0;
                             for leaf_info in leaf_chain.iter() {
                                 if let Some(ref payload) = leaf_info.leaf.get_block_payload() {
                                     for txn in payload.transaction_commitments(
                                         leaf_info.leaf.get_block_header().metadata(),
                                     ) {
+                                        n_txn += 1;
                                         self.decided_transactions.put(txn, ());
                                         queue.remove(&txn);
                                     }
                                 }
                             }
-                            self.blocks.write().await.clear();
+                            tracing::error!("{}: GCd {n_txn} transactions", self.id);
+
+                            let mut blocks = self.blocks.write().await;
+                            if blocks.len() > 0 {
+                                tracing::error!("{}: GCd {} blocks", self.id, blocks.len());
+                            }
+                            blocks.clear();
                         }
                         EventType::DaProposal { proposal, .. } => {
                             let payload = TYPES::BlockPayload::from_bytes(
@@ -492,25 +563,38 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                             let now = Instant::now();
 
                             let mut queue = self.transactions.write().await;
+                            let mut n_txn = 0;
                             for commitment in
                                 payload.transaction_commitments(&proposal.data.metadata)
                             {
                                 if let Some(txn) = queue.get_mut(&commitment) {
                                     txn.claimed = Some(now);
+                                    n_txn += 1;
                                 }
                             }
+
+                            tracing::error!(
+                                "{}: Marked {n_txn} transactions as claimed on DA proposal",
+                                self.id
+                            );
                         }
                         EventType::Transactions { transactions } => {
                             let mut queue = self.transactions.write().await;
                             for transaction in transactions {
                                 if !self.decided_transactions.contains(&transaction.commit()) {
-                                    queue.insert(
-                                        transaction.commit(),
-                                        SubmittedTransaction {
-                                            claimed: None,
-                                            transaction: transaction.clone(),
-                                        },
-                                    );
+                                    if queue
+                                        .insert(
+                                            transaction.commit(),
+                                            SubmittedTransaction {
+                                                submitted_view: self.cur_view,
+                                                claimed: None,
+                                                transaction: transaction.clone(),
+                                            },
+                                        )
+                                        .is_none()
+                                    {
+                                        self.n_txn += 1;
+                                    };
                                 }
                             }
                         }
@@ -524,6 +608,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
 
 pub async fn make_simple_builder<TYPES: NodeType>(
     num_storage_nodes: usize,
+    id: u64,
 ) -> (SimpleBuilderSource<TYPES>, SimpleBuilderTask<TYPES>) {
     let (pub_key, priv_key) = TYPES::BuilderSignatureKey::generated_from_seed_indexed([1; 32], 0);
 
@@ -542,6 +627,9 @@ pub async fn make_simple_builder<TYPES: NodeType>(
         transactions,
         blocks,
         decided_transactions: LruCache::new(NonZeroUsize::new(u16::MAX.into()).expect("> 0")),
+        cur_view: TYPES::Time::genesis(),
+        n_txn: 0,
+        id,
     };
 
     (source, task)

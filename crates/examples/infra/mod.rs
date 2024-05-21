@@ -941,6 +941,7 @@ pub async fn main_entry_point<
             let (builder_task, builder_url) =
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
+                    run_config.node_index,
                     run_config.random_builder.clone().unwrap_or_default(),
                 )
                 .await;
@@ -953,6 +954,7 @@ pub async fn main_entry_point<
             let (builder_task, builder_url) =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
+                    run_config.node_index,
                     (),
                 )
                 .await;

@@ -332,7 +332,7 @@ where
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
         let (mut builder_task, builder_url) =
-            B::start(config.num_nodes_with_stake.into(), B::Config::default()).await;
+            B::start(config.num_nodes_with_stake.into(), 1, B::Config::default()).await;
         for i in 0..total {
             let mut config = config.clone();
             let node_id = self.next_node_id;

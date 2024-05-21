@@ -281,12 +281,16 @@ impl<
             {
                 // We got a block
                 Ok(Ok(block)) => {
+                    tracing::error!(
+                        "Got available blocks in {}ms",
+                        task_start_time.elapsed().as_millis()
+                    );
                     return Some(block);
                 }
 
                 // We failed to get a block
                 Ok(Err(err)) => {
-                    tracing::warn!(%err, "Couldn't get a block");
+                    tracing::error!(%err, "Couldn't get a block");
                     // pause a bit
                     async_sleep(Duration::from_millis(100)).await;
                     continue;
