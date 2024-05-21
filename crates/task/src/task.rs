@@ -153,14 +153,14 @@ impl<EVENT> ConsensusTaskRegistry<EVENT> {
 /// A collection of tasks which can handle shutdown
 pub struct NetworkTaskRegistry {
     /// Tasks this registry controls
-    pub handles: Vec<JoinHandle<()>>,
+    pub handles: RwLock<Vec<JoinHandle<()>>>,
 }
 
 impl NetworkTaskRegistry {
     #[must_use]
     /// Create a new task registry
     pub fn new() -> Self {
-        NetworkTaskRegistry { handles: vec![] }
+        NetworkTaskRegistry { handles: RwLock::new(vec![]) }
     }
 
     #[allow(clippy::unused_async)]
@@ -168,7 +168,7 @@ impl NetworkTaskRegistry {
     pub async fn shutdown(&self) {}
 
     /// Add a task to the registry
-    pub fn register(&mut self, handle: JoinHandle<()>) {
-        self.handles.push(handle);
+    pub async fn register(&self, handle: JoinHandle<()>) {
+        self.handles.write().await.push(handle);
     }
 }

@@ -315,7 +315,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 return Some(HotShotTaskCompleted);
             }
             _ => {
-                error!("unexpected event {:?}", event);
             }
         }
         None

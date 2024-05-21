@@ -91,26 +91,24 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
     pub fn run(mut self) -> JoinHandle<TestResult> {
         spawn(async move {
             loop {
+                if let Ok(TestEvent::Shutdown) = self.test_receiver.try_recv() {
+                    break self.state.check();
+                }
+
                 let mut messages = Vec::new();
 
                 for receiver in &mut self.receivers {
                     messages.push(receiver.recv());
                 }
 
-                let test_message = self.test_receiver.recv();
-
-                match select(test_message, select_all(messages)).await {
-                    Either::Left((Ok(TestEvent::Shutdown), _)) => {
-                        break self.state.check();
-                    }
-
-                    Either::Right(((Ok(input), id, _), _)) => {
+                match select_all(messages).await {
+                    (Ok(input), id, _) => {
                         let _ = S::handle_event(&mut self.state, (input, id))
                             .await
                             .inspect_err(|e| tracing::error!("{e}"));
                     }
 
-                    Either::Left((Err(e), _)) | Either::Right(((Err(e), _, _), _)) => {
+                    (Err(e), _, _) => {
                         error!("Receiver error in test task: {e}");
                     }
                 }

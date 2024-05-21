@@ -72,7 +72,7 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .register(run_response_task::<TYPES, Version01>(
             state,
             handle.internal_event_stream.1.activate_cloned(),
-        ));
+        )).await;
 }
 /// Add the network task to handle messages and publish events.
 pub async fn add_network_message_task<
@@ -95,7 +95,7 @@ pub async fn add_network_message_task<
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => Messages(msgs),
                 Err(err) => {
-                    error!("failed to receive messages: {err}");
+                    // error!("failed to receive messages: {err}");
 
                     // return zero messages so we sleep and try again
                     Messages(vec![])
@@ -109,7 +109,7 @@ pub async fn add_network_message_task<
             }
         }
     });
-    handle.network_registry.register(task_handle);
+    handle.network_registry.register(task_handle).await;
 }
 /// Add the network task to handle events and send messages.
 pub async fn add_network_event_task<

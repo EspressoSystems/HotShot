@@ -38,7 +38,7 @@ pub struct SpinningTaskErr {}
 /// Spinning task state
 pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handle to the nodes
-    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub(crate) handles: Vec<Node<TYPES, I>>,
     /// late start nodes
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// time based changes
@@ -145,24 +145,24 @@ where
                                 };
                                 node.handle.hotshot.start_consensus().await;
 
-                                self.handles.write().await.push(node);
+                                self.handles.push(node);
                             }
                         }
                         UpDown::Down => {
-                            if let Some(node) = self.handles.write().await.get_mut(idx) {
+                            if let Some(node) = self.handles.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
                             }
                         }
                         UpDown::NetworkUp => {
-                            if let Some(handle) = self.handles.read().await.get(idx) {
+                            if let Some(handle) = self.handles.get(idx) {
                                 tracing::error!("Node {} networks resuming", idx);
                                 handle.networks.0.resume();
                                 handle.networks.1.resume();
                             }
                         }
                         UpDown::NetworkDown => {
-                            if let Some(handle) = self.handles.read().await.get(idx) {
+                            if let Some(handle) = self.handles.get(idx) {
                                 tracing::error!("Node {} networks pausing", idx);
                                 handle.networks.0.pause();
                                 handle.networks.1.pause();

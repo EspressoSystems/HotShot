@@ -4,6 +4,8 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::{spawn_blocking, JoinHandle};
 
 use async_broadcast::broadcast;
 use async_lock::RwLock;
@@ -65,7 +67,6 @@ where
     /// if the test fails
     #[allow(clippy::too_many_lines)]
     pub async fn run_test<B: TestBuilderImplementation<TYPES>>(mut self) {
-        let (tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
         let (test_sender, test_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         let spinning_changes = self
             .launcher
@@ -108,20 +109,16 @@ where
             _pd: _,
         } = self;
 
-        let mut test_generators = vec![];
-
         let mut task_futs = vec![];
         let meta = launcher.metadata.clone();
-
-        let handles = Arc::new(RwLock::new(nodes));
 
         let txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
-                    handles: Arc::clone(&handles),
+                    handles: nodes.clone(),
                     next_node_idx: Some(0),
                     duration,
-                    shutdown_chan: rx.clone(),
+                    shutdown_chan: test_receiver.clone(),
                 };
                 Some(txn_task)
             } else {
@@ -132,9 +129,9 @@ where
         let CompletionTaskDescription::TimeBasedCompletionTaskBuilder(time_based) =
             meta.completion_task_description;
         let completion_task = CompletionTask {
-            tx: tx.clone(),
-            rx: rx.clone(),
-            handles: Arc::clone(&handles),
+            tx: test_sender.clone(),
+            rx: test_receiver.clone(),
+            handles: nodes.clone(),
             duration: time_based.duration,
         };
 
@@ -149,7 +146,7 @@ where
         }
 
         let spinning_task_state = SpinningTask {
-            handles: Arc::clone(&handles),
+            handles: nodes.clone(),
             late_start,
             latest_view: None,
             changes,
@@ -163,7 +160,7 @@ where
         );
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
-            handles: Arc::clone(&handles),
+            handles: nodes.clone(),
             ctx: RoundCtx::default(),
             properties: self.launcher.metadata.overall_safety_properties,
             error: None,
@@ -189,32 +186,33 @@ where
             test_receiver.clone(),
         );
 
-        let mut nodes = handles.write().await;
-
         // wait for networks to be ready
-        for node in &mut nodes.iter_mut() {
+        for node in &nodes {
             node.networks.0.wait_for_ready().await;
             node.networks.1.wait_for_ready().await;
         }
 
         // Start hotshot
-        for node in &mut nodes.iter_mut() {
+        for node in nodes {
             if !late_start_nodes.contains(&node.node_id) {
                 node.handle.hotshot.start_consensus().await;
             }
         }
         task_futs.push(safety_task.run());
         task_futs.push(view_sync_task.run());
-        if let Some(txn) = txn_task {
-            test_generators.push(txn.run());
-        }
-        test_generators.push(completion_task.run());
         task_futs.push(spinning_task.run());
+
+        // `generator` tasks that do not process events. 
+        let txn_handle = if let Some(txn) = txn_task {
+            Some(txn.run())
+        } else { None };
+        let completion_handle = completion_task.run();
+
         let mut error_list = vec![];
 
         #[cfg(async_executor_impl = "async-std")]
         {
-            let (results, _) = join(join_all(task_futs), join_all(test_generators)).await;
+            let results = join_all(task_futs).await;
             tracing::info!("test tasks joined");
             for result in results {
                 match result {
@@ -253,6 +251,11 @@ where
                 }
             }
         }
+
+        if let Some(handle) = txn_handle {
+          handle.cancel().await;
+        }
+        completion_handle.cancel().await;
 
         assert!(
             error_list.is_empty(),
@@ -403,6 +406,7 @@ where
     }
 }
 
+#[derive(Clone)]
 /// a node participating in a test
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The node's unique identifier

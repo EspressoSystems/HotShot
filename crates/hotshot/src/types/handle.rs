@@ -18,6 +18,7 @@ use hotshot_types::{
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 
+#[derive(Clone)]
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
@@ -38,7 +39,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) consensus_registry: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
 
     /// registry for controlling network tasks
-    pub(crate) network_registry: NetworkTaskRegistry,
+    pub(crate) network_registry: Arc<NetworkTaskRegistry>,
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,

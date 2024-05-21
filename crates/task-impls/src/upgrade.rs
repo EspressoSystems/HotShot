@@ -259,7 +259,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                 return Some(HotShotTaskCompleted);
             }
             _ => {
-                error!("unexpected event {:?}", event);
             }
         }
         None

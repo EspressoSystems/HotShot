@@ -148,7 +148,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 return Some(HotShotTaskCompleted);
             }
             _ => {
-                error!("unexpected event {:?}", event);
             }
         }
         None

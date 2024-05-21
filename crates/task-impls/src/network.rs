@@ -209,7 +209,10 @@ impl<
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         let membership = self.membership.clone();
-        self.handle_event(event, &membership).await;
+
+        if !(self.filter)(&event) {
+          self.handle(event, &membership).await;
+        }
 
         Ok(())
     }
@@ -228,7 +231,7 @@ impl<
     /// Returns the completion status.
     #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
     #[instrument(skip_all, fields(view = *self.view), name = "Network Task", level = "error")]
-    pub async fn handle_event(
+    pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         membership: &TYPES::Membership,
