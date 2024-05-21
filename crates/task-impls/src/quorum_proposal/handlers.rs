@@ -123,8 +123,8 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let mut last_seen_view_number = proposal_view_number;
 
     while let Some(leaf_state) = validated_state_map.get(&view_number) {
-        let leaf_commitment = leaf_state.leaf_commitment().context("")?;
-        let leaf = saved_leaves.get(&leaf_commitment).context("")?;
+        let leaf_commitment = leaf_state.leaf_commitment().context("Failed to find the leaf commitment")?;
+        let leaf = saved_leaves.get(&leaf_commitment).context("Failed to find the saved leaf")?;
 
         // These are all just checks to make sure we have what we need to proceed.
         let current_leaf_view_number = leaf.view_number();
