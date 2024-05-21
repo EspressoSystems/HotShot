@@ -110,7 +110,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
-                        if let HotShotEvent::HighQcUpdated(qc) = event {
+                        if let HotShotEvent::UpdateHighQc(qc) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
@@ -255,7 +255,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::ValidatedStateUpdated(_, _) => {
                 validated_state_update_dependency.mark_as_completed(event);
             }
-            HotShotEvent::HighQcUpdated(_) => {
+            HotShotEvent::UpdateHighQc(_) => {
                 qc_dependency.mark_as_completed(event);
             }
             _ => {}
@@ -412,7 +412,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 
                     // We need to gate on this data actually existing in the consensus shared state.
                     // So we broadcast here and handle *before* we make the task.
-                    broadcast_event(HotShotEvent::HighQcUpdated(qc).into(), &event_sender).await;
+                    broadcast_event(HotShotEvent::UpdateHighQc(qc).into(), &event_sender).await;
                 }
             },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -510,7 +510,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::HighQcUpdated(qc) => {
+            HotShotEvent::UpdateHighQc(qc) => {
                 // First, update the high QC.
                 if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
                     tracing::trace!("Failed to update high qc; error = {e}");
@@ -549,7 +549,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::QuorumProposalSend(..)
                 | HotShotEvent::VidShareValidated(_)
                 | HotShotEvent::ValidatedStateUpdated(..)
-                | HotShotEvent::HighQcUpdated(_)
+                | HotShotEvent::UpdateHighQc(_)
                 | HotShotEvent::Shutdown
         )
     }
