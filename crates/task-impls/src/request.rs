@@ -1,4 +1,11 @@
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{
+    marker::PhantomData,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -8,7 +15,7 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
-    message::{CommitteeConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
@@ -45,9 +52,9 @@ pub struct NetworkRequestState<
     pub view: TYPES::Time,
     /// Delay before requesting peers
     pub delay: Duration,
-    /// Committee
+    /// DA Membership
     pub da_membership: TYPES::Membership,
-    /// Quorum
+    /// Quorum Membership
     pub quorum_membership: TYPES::Membership,
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
@@ -57,6 +64,8 @@ pub struct NetworkRequestState<
     pub _phantom: PhantomData<fn(&Ver)>,
     /// The node's id
     pub id: u64,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub shutdown_flag: Arc<AtomicBool>,
 }
 
 /// Alias for a signature
@@ -77,7 +86,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let prop_view = proposal.get_view_number();
+                let prop_view = proposal.view_number();
                 if prop_view >= self.view {
                     self.spawn_requests(prop_view, sender.clone(), Ver::instance())
                         .await;
@@ -121,7 +130,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares().contains_key(&view) {
-            reqs.push(RequestKind::VID(view, self.public_key.clone()));
+            reqs.push(RequestKind::Vid(view, self.public_key.clone()));
         }
         // TODO request other things
         reqs
@@ -139,7 +148,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     ) {
         let mut recipients: Vec<_> = self
             .da_membership
-            .get_whole_committee(view)
+            .whole_committee(view)
             .into_iter()
             .collect();
         // Randomize the recipients so all replicas don't overload the same 1 recipients
@@ -151,6 +160,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             sender,
             delay: self.delay,
             recipients,
+            shutdown_flag: Arc::clone(&self.shutdown_flag),
         };
         let Ok(data) = Serializer::<Ver>::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
@@ -163,6 +173,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         };
         debug!("Requesting data: {:?}", request);
         async_spawn(requester.run::<Ver>(request, signature));
+    }
+
+    /// Signals delayed requesters to finish
+    fn set_shutdown_flag(&self) {
+        self.shutdown_flag.store(true, Ordering::Relaxed);
     }
 }
 
@@ -180,6 +195,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     delay: Duration,
     /// The peers we will request in a random order
     recipients: Vec<TYPES::SignatureKey>,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    shutdown_flag: Arc<AtomicBool>,
 }
 
 /// Wrapper for the info in a VID request
@@ -189,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Wait the delay, then try to complete the request.  Iterates over peers
     /// until the request is completed, or the data is no longer needed.
     async fn run<Ver: StaticVersionType + 'static>(
-        mut self,
+        self,
         request: RequestKind<TYPES>,
         signature: Signature<TYPES>,
     ) {
@@ -198,27 +215,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             async_sleep(self.delay).await;
         }
         match request {
-            RequestKind::VID(view, key) => {
+            RequestKind::Vid(view, key) => {
                 self.do_vid::<Ver>(VidRequest(view, key), signature).await;
             }
-            RequestKind::DAProposal(..) => {}
+            RequestKind::DaProposal(..) => {}
         }
     }
 
     /// Handle sending a VID Share request, runs the loop until the data exists
     async fn do_vid<Ver: StaticVersionType + 'static>(
-        &mut self,
+        &self,
         req: VidRequest<TYPES>,
         signature: Signature<TYPES>,
     ) {
         let message = make_vid(&req, signature);
+        let mut recipients_it = self.recipients.iter().cycle();
 
-        while !self.recipients.is_empty() && !self.cancel_vid(&req).await {
+        while !self.cancel_vid(&req).await {
             match async_timeout(
                 REQUEST_TIMEOUT,
                 self.network.request_data::<TYPES, Ver>(
                     message.clone(),
-                    self.recipients.pop().unwrap(),
+                    recipients_it.next().unwrap(),
                     Ver::instance(),
                 ),
             )
@@ -252,14 +270,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        state.vid_shares().contains_key(&view) && state.cur_view() > view
+        self.shutdown_flag.load(Ordering::Relaxed)
+            || state.vid_shares().contains_key(&view)
+            || state.cur_view() > view
     }
 
     /// Transform a response into a `HotShotEvent`
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
-            SequencingMessage::Committee(CommitteeConsensusMessage::VidDisperseMsg(prop)) => {
-                HotShotEvent::VIDShareRecv(prop)
+            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) => {
+                HotShotEvent::VidShareRecv(prop)
             }
             _ => return,
         };
@@ -272,7 +292,7 @@ fn make_vid<TYPES: NodeType>(
     req: &VidRequest<TYPES>,
     signature: Signature<TYPES>,
 ) -> Message<TYPES> {
-    let kind = RequestKind::VID(req.0, req.1.clone());
+    let kind = RequestKind::Vid(req.0, req.1.clone());
     let data_request = DataRequest {
         view: req.0,
         request: kind,

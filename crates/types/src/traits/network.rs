@@ -91,7 +91,7 @@ pub enum TransmitType<TYPES: NodeType> {
     /// broadcast the message to all
     Broadcast,
     /// broadcast to DA committee
-    DACommitteeBroadcast,
+    DaCommitteeBroadcast,
 }
 
 /// Error type for networking
@@ -181,7 +181,7 @@ impl NetworkMsg for Vec<u8> {}
 /// a message
 pub trait ViewMessage<TYPES: NodeType> {
     /// get the view out of the message
-    fn get_view_number(&self) -> TYPES::Time;
+    fn view_number(&self) -> TYPES::Time;
     // TODO move out of this trait.
     /// get the purpose of the message
     fn purpose(&self) -> MessagePurpose;
@@ -207,9 +207,9 @@ pub struct DataRequest<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RequestKind<TYPES: NodeType> {
     /// Request VID data by our key and the VID commitment
-    VID(TYPES::Time, TYPES::SignatureKey),
+    Vid(TYPES::Time, TYPES::SignatureKey),
     /// Request a DA proposal for a certain view
-    DAProposal(TYPES::Time),
+    DaProposal(TYPES::Time),
 }
 
 /// A response for a request.  `SequencingMessage` is the same as other network messages
@@ -316,7 +316,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     async fn request_data<TYPES: NodeType, VER: StaticVersionType + 'static>(
         &self,
         _request: M,
-        _recipient: K,
+        _recipient: &K,
         _bind_version: VER,
     ) -> Result<ResponseMessage<TYPES>, NetworkError> {
         Err(NetworkError::UnimplementedFeature)

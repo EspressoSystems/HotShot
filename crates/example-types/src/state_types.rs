@@ -13,6 +13,7 @@ use hotshot_types::{
     vid::VidCommon,
 };
 use serde::{Deserialize, Serialize};
+use vbs::version::Version;
 
 use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;
@@ -24,7 +25,7 @@ pub struct TestInstanceState {}
 impl InstanceState for TestInstanceState {}
 
 /// Application-specific state delta implementation for testing purposes.
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TestStateDelta {}
 
 impl StateDelta for TestStateDelta {}
@@ -75,6 +76,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _parent_leaf: &Leaf<TYPES>,
         _proposed_header: &TYPES::BlockHeader,
         _vid_common: VidCommon,
+        _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
         Ok((
             TestValidatedState {
@@ -107,7 +109,7 @@ impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> TestableState<TYPES> for 
     ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
-        TestTransaction(vec![
+        TestTransaction::new(vec![
             0;
             RANDOM_TX_BASE_SIZE + usize::try_from(padding).unwrap()
         ])

@@ -403,12 +403,12 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
 
         // Make a node DA if it is under the staked committee size
         for node in config.config.known_da_nodes {
-            da_keys.insert(K::get_public_key(&node.stake_table_entry));
+            da_keys.insert(K::public_key(&node.stake_table_entry));
         }
 
         // Insert all known nodes into the set of all keys
         for node in config.config.known_nodes_with_stake {
-            all_keys.insert(K::get_public_key(&node.stake_table_entry));
+            all_keys.insert(K::public_key(&node.stake_table_entry));
         }
 
         Ok(Libp2pNetwork::new(
@@ -458,9 +458,9 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
         // HACK
-        committee_pks: BTreeSet<K>,
+        quorum_public_keys: BTreeSet<K>,
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
-        da_pks: BTreeSet<K>,
+        da_public_keys: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         // Error if there were no bootstrap nodes specified
@@ -487,8 +487,8 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         let mut topic_map = BiHashMap::new();
-        topic_map.insert(committee_pks, QC_TOPIC.to_string());
-        topic_map.insert(da_pks, "DA".to_string());
+        topic_map.insert(quorum_public_keys, QC_TOPIC.to_string());
+        topic_map.insert(da_public_keys, "DA".to_string());
 
         let topic_map = RwLock::new(topic_map);
 
@@ -794,7 +794,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     async fn request_data<TYPES: NodeType, VER: 'static + StaticVersionType>(
         &self,
         request: M,
-        recipient: K,
+        recipient: &K,
         bind_version: VER,
     ) -> Result<ResponseMessage<TYPES>, NetworkError> {
         self.wait_for_ready().await;
@@ -1119,7 +1119,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         TYPES: NodeType<SignatureKey = K> + 'a,
     {
         let future_view = <TYPES as NodeType>::Time::new(view) + LOOK_AHEAD;
-        let future_leader = membership.get_leader(future_view);
+        let future_leader = membership.leader(future_view);
 
         let _ = self
             .queue_node_lookup(ViewNumber::new(*future_view), future_leader)

@@ -2,10 +2,6 @@
 
 use ark_ff::PrimeField;
 use ark_std::{format, vec, vec::Vec};
-use jf_primitives::{
-    circuit::rescue::RescueNativeGadget,
-    rescue::{sponge::RescueCRHF, RescueParameter},
-};
 use jf_relation::{
     errors::CircuitError,
     gadgets::{
@@ -17,6 +13,7 @@ use jf_relation::{
     },
     BoolVar, Circuit, PlonkCircuit, Variable,
 };
+use jf_rescue::{crhf::RescueCRHF, gadgets::RescueNativeGadget, RescueParameter};
 
 /// Digest a list of verification keys and their associated stake amounts
 /// * `stack_amts` - stake amounts
@@ -87,7 +84,7 @@ pub trait VerKeyVar<E>: Sized + Clone {
 }
 
 /// Plonk circuit gadget for stake key aggregation for quorum certificates.
-pub trait QCKeyAggregateGadget<F>
+pub trait QcKeyAggregateGadget<F>
 where
     F: RescueParameter,
 {
@@ -127,7 +124,7 @@ where
     ) -> Result<(), CircuitError>;
 }
 
-impl<F> QCKeyAggregateGadget<F> for PlonkCircuit<F>
+impl<F> QcKeyAggregateGadget<F> for PlonkCircuit<F>
 where
     F: RescueParameter,
 {

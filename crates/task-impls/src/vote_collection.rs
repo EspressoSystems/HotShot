@@ -5,11 +5,11 @@ use async_trait::async_trait;
 use either::Either::{self, Left, Right};
 use hotshot_types::{
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DAVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
     traits::{election::Membership, node_implementation::NodeType},
@@ -52,7 +52,7 @@ pub trait AggregatableVote<
 >
 {
     /// return the leader for this votes
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey;
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey;
 
     /// return the Hotshot event for the completion of this CERT
     fn make_cert_event(certificate: CERT, key: &TYPES::SignatureKey) -> HotShotEvent<TYPES>;
@@ -72,15 +72,15 @@ impl<
         vote: &VOTE,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
-        if vote.get_leader(&self.membership) != self.public_key {
+        if vote.leader(&self.membership) != self.public_key {
             error!("Received vote for a view in which we were not the leader.");
             return None;
         }
 
-        if vote.get_view_number() != self.view {
+        if vote.view_number() != self.view {
             error!(
                 "Vote view does not match! vote view is {} current view is {}",
-                *vote.get_view_number(),
+                *vote.view_number(),
                 *self.view
             );
             return None;
@@ -158,10 +158,10 @@ where
         + 'static,
     VoteCollectionTaskState<TYPES, VOTE, CERT>: HandleVoteEvent<TYPES, VOTE, CERT>,
 {
-    if vote.get_view_number() != info.view {
+    if vote.view_number() != info.view {
         error!(
             "Vote view does not match! vote view is {} current view is {}",
-            *vote.get_view_number(),
+            *vote.view_number(),
             *info.view
         );
         return None;
@@ -194,7 +194,7 @@ where
 type QuorumVoteState<TYPES> =
     VoteCollectionTaskState<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>;
 /// Alias for DA vote accumulator
-type DAVoteState<TYPES> = VoteCollectionTaskState<TYPES, DAVote<TYPES>, DACertificate<TYPES>>;
+type DaVoteState<TYPES> = VoteCollectionTaskState<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>;
 /// Alias for Timeout vote accumulator
 type TimeoutVoteState<TYPES> =
     VoteCollectionTaskState<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>;
@@ -220,22 +220,22 @@ type ViewSyncFinalizeVoteState<TYPES> = VoteCollectionTaskState<
 impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>
     for QuorumVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_view_number() + 1)
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.view_number() + 1)
     }
     fn make_cert_event(
         certificate: QuorumCertificate<TYPES>,
         _key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::QCFormed(Left(certificate))
+        HotShotEvent::QcFormed(Left(certificate))
     }
 }
 
 impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertificate<TYPES>>
     for UpgradeVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_view_number())
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.view_number())
     }
     fn make_cert_event(
         certificate: UpgradeCertificate<TYPES>,
@@ -245,31 +245,31 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
     }
 }
 
-impl<TYPES: NodeType> AggregatableVote<TYPES, DAVote<TYPES>, DACertificate<TYPES>>
-    for DAVote<TYPES>
+impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>
+    for DaVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_view_number())
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.view_number())
     }
     fn make_cert_event(
-        certificate: DACertificate<TYPES>,
+        certificate: DaCertificate<TYPES>,
         key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::DACSend(certificate, key.clone())
+        HotShotEvent::DacSend(certificate, key.clone())
     }
 }
 
 impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>
     for TimeoutVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_view_number() + 1)
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.view_number() + 1)
     }
     fn make_cert_event(
         certificate: TimeoutCertificate<TYPES>,
         _key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::QCFormed(Right(certificate))
+        HotShotEvent::QcFormed(Right(certificate))
     }
 }
 
@@ -277,8 +277,8 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>
     for ViewSyncCommitVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_data().round + self.get_data().relay)
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncCommitCertificate2<TYPES>,
@@ -292,8 +292,8 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>
     for ViewSyncPreCommitVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_data().round + self.get_data().relay)
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncPreCommitCertificate2<TYPES>,
@@ -307,8 +307,8 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
     for ViewSyncFinalizeVote<TYPES>
 {
-    fn get_leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.get_leader(self.get_data().round + self.get_data().relay)
+    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+        membership.leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncFinalizeCertificate2<TYPES>,
@@ -359,8 +359,8 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, UpgradeVote<TYPES>, UpgradeCertific
 }
 
 #[async_trait]
-impl<TYPES: NodeType> HandleVoteEvent<TYPES, DAVote<TYPES>, DACertificate<TYPES>>
-    for DAVoteState<TYPES>
+impl<TYPES: NodeType> HandleVoteEvent<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>
+    for DaVoteState<TYPES>
 {
     async fn handle_vote_event(
         &mut self,
@@ -368,12 +368,12 @@ impl<TYPES: NodeType> HandleVoteEvent<TYPES, DAVote<TYPES>, DACertificate<TYPES>
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::DAVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
+            HotShotEvent::DaVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => None,
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
-        matches!(event.as_ref(), HotShotEvent::DAVoteRecv(_))
+        matches!(event.as_ref(), HotShotEvent::DaVoteRecv(_))
     }
 }
 

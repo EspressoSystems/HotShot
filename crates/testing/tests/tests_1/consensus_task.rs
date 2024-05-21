@@ -15,7 +15,7 @@ use hotshot_testing::{
     },
     script::{run_test_script, TestScriptStage},
     task_helpers::{
-        build_system_handle, get_vid_share, key_pair_for_id, vid_scheme_from_view_number,
+        build_system_handle, vid_share, key_pair_for_id, vid_scheme_from_view_number,
     },
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
@@ -26,7 +26,7 @@ use hotshot_types::{
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::VidScheme;
 use sha2::Digest;
 
 #[cfg(test)]
@@ -71,8 +71,8 @@ async fn test_consensus_task() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -88,9 +88,9 @@ async fn test_consensus_task() {
     // Run view 2 and propose.
     let view_2 = TestScriptStage {
         inputs: vec![
-            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+            VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-            QCFormed(either::Left(cert)),
+            QcFormed(either::Left(cert)),
             // We must have a payload commitment and metadata to propose.
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
@@ -154,8 +154,8 @@ async fn test_consensus_vote() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
             QuorumVoteRecv(votes[0].clone()),
         ],
         outputs: vec![
@@ -203,8 +203,8 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -216,8 +216,8 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 
     let inputs = vec![
         // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
-        DACertificateRecv(dacs[1].clone()),
+        VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
+        DaCertificateRecv(dacs[1].clone()),
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
     ];
     let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
@@ -243,7 +243,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote_with_permuted_dac() {
-    // These tests verify that a vote is indeed sent no matter when it receives a DACertificateRecv
+    // These tests verify that a vote is indeed sent no matter when it receives a DaCertificateRecv
     // event. In particular, we want to verify that receiving events in an unexpected (but still
     // valid) order allows the system to proceed as it normally would.
     test_vote_with_specific_order(vec![0, 1, 2]).await;
@@ -316,8 +316,8 @@ async fn test_view_sync_finalize_propose() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -366,7 +366,7 @@ async fn test_view_sync_finalize_propose() {
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let view_4 = TestScriptStage {
         inputs: vec![
-            VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
+            VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             TimeoutVoteRecv(timeout_vote_view_2),
             TimeoutVoteRecv(timeout_vote_view_3),
@@ -442,8 +442,8 @@ async fn test_view_sync_finalize_vote() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -539,8 +539,8 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -609,7 +609,7 @@ async fn test_vid_disperse_storage_failure() {
     let handle = build_system_handle(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
-    handle.get_storage().write().await.should_return_err = true;
+    handle.storage().write().await.should_return_err = true;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -633,8 +633,8 @@ async fn test_vid_disperse_storage_failure() {
     let view_1 = TestScriptStage {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DACertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            DaCertificateRecv(dacs[0].clone()),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),

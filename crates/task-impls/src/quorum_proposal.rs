@@ -27,6 +27,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
+use vbs::version::Version;
 
 #[cfg(feature = "dependency-tasks")]
 use crate::consensus::helpers::handle_quorum_proposal_validated;
@@ -40,13 +41,13 @@ enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// For the `QCFormed` event.
+    /// For the `QcFormed` event.
     QC,
 
     /// For the `ViewSyncFinalizeCertificate2Recv` event.
     ViewSyncCert,
 
-    /// For the `QCFormed` event timeout branch.
+    /// For the `QcFormed` event timeout branch.
     TimeoutCert,
 
     /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
@@ -100,6 +101,9 @@ struct ProposalDependencyHandle<TYPES: NodeType> {
     /// The node's id
     #[allow(dead_code)]
     id: u64,
+
+    /// Current version of consensus
+    version: Version,
 }
 
 impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
@@ -139,7 +143,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         block_view: *view,
                     });
                 }
-                HotShotEvent::QCFormed(cert) => match cert {
+                HotShotEvent::QcFormed(cert) => match cert {
                     either::Right(timeout) => {
                         _timeout_certificate = Some(timeout.clone());
                     }
@@ -190,6 +194,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             commit_and_metadata,
             None,
             Arc::clone(&self.instance_state),
+            self.version,
         )
         .await
         {
@@ -210,7 +215,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for DA committee
-    pub committee_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -249,6 +254,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     // pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     /// The node's id
     pub id: u64,
+
+    /// Current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -266,14 +274,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::QC => {
-                        if let HotShotEvent::QCFormed(either::Left(qc)) = event {
+                        if let HotShotEvent::QcFormed(either::Left(qc)) = event {
                             qc.view_number + 1
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::TimeoutCert => {
-                        if let HotShotEvent::QCFormed(either::Right(timeout)) = event {
+                        if let HotShotEvent::QcFormed(either::Right(timeout)) = event {
                             timeout.view_number
                         } else {
                             return false;
@@ -380,7 +388,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QuorumProposalValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QCFormed(quorum_certificate) => match quorum_certificate {
+            HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
                     timeout_dependency.mark_as_completed(event);
                 }
@@ -402,7 +410,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             AndDependency::from_deps(vec![view_sync_dependency]),
         ];
 
-        // 1. A QCFormed event and QuorumProposalValidated event
+        // 1. A QcFormed event and QuorumProposalValidated event
         if *view_number > 1 {
             secondary_deps.push(AndDependency::from_deps(vec![
                 qc_dependency,
@@ -437,7 +445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event: Arc<HotShotEvent<TYPES>>,
     ) {
         // Don't even bother making the task if we are not entitled to propose anyay.
-        if self.quorum_membership.get_leader(view_number) != self.public_key {
+        if self.quorum_membership.leader(view_number) != self.public_key {
             return;
         }
 
@@ -471,6 +479,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 id: self.id,
                 instance_state: Arc::clone(&self.instance_state),
+                version: self.version,
             },
         );
         self.propose_dependencies
@@ -510,6 +519,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
+            HotShotEvent::VersionUpgrade(version) => {
+                self.version = *version;
+            }
             HotShotEvent::ProposeNow(view, _) => {
                 self.create_dependency_task_if_new(
                     *view,
@@ -518,7 +530,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::QCFormed(cert) => {
+            HotShotEvent::QcFormed(cert) => {
                 match cert.clone() {
                     either::Right(timeout_cert) => {
                         let view = timeout_cert.view_number + 1;
@@ -575,7 +587,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.get_data()
+                        certificate.date()
                     );
                     return;
                 }

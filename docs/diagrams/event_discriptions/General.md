@@ -6,7 +6,7 @@
 ## Data Structures
 ```
 state_map {
-  HashMap (VIDCommitment -> Leaf)
+  HashMap (VidCommitment -> Leaf)
   TODO
 }
 ```

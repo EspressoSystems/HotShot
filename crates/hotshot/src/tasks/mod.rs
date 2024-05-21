@@ -9,14 +9,15 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 use hotshot_task::task::Task;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
-    da::DATaskState,
+    consensus2::Consensus2TaskState,
+    da::DaTaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
-    vid::VIDTaskState,
+    vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
@@ -61,7 +62,7 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     request_receiver: RequestReceiver<TYPES>,
 ) {
     let state = NetworkResponseState::<TYPES>::new(
-        handle.hotshot.get_consensus(),
+        handle.hotshot.consensus(),
         request_receiver,
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
@@ -128,7 +129,7 @@ pub async fn add_network_event_task<
         version: VERSION_0_1,
         membership,
         filter,
-        storage: Arc::clone(&handle.get_storage()),
+        storage: Arc::clone(&handle.storage()),
     };
     let task = Task::new(
         network_state,
@@ -153,10 +154,10 @@ pub async fn add_consensus_tasks<
         .add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await)
         .await;
     handle
-        .add_task(VIDTaskState::<TYPES, I>::create_from(handle).await)
+        .add_task(VidTaskState::<TYPES, I>::create_from(handle).await)
         .await;
     handle
-        .add_task(DATaskState::<TYPES, I>::create_from(handle).await)
+        .add_task(DaTaskState::<TYPES, I>::create_from(handle).await)
         .await;
     handle
         .add_task(TransactionTaskState::<TYPES, I, VERSION>::create_from(handle).await)
@@ -174,6 +175,9 @@ pub async fn add_consensus_tasks<
             .await;
         handle
             .add_task(QuorumProposalRecvTaskState::<TYPES, I>::create_from(handle).await)
+            .await;
+        handle
+            .add_task(Consensus2TaskState::<TYPES, I>::create_from(handle).await)
             .await;
     }
 }

@@ -57,12 +57,7 @@ impl<
     > TestRunner<TYPES, I, N>
 where
     I: TestableNodeImplementation<TYPES>,
-    I: NodeImplementation<
-        TYPES,
-        QuorumNetwork = N,
-        CommitteeNetwork = N,
-        Storage = TestStorage<TYPES>,
-    >,
+    I: NodeImplementation<TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage<TYPES>>,
 {
     /// execute test
     ///
@@ -97,11 +92,11 @@ where
         let mut internal_event_rxs = vec![];
 
         for node in &self.nodes {
-            let r = node.handle.get_event_stream_known_impl();
+            let r = node.handle.event_stream_known_impl();
             event_rxs.push(r);
         }
         for node in &self.nodes {
-            let r = node.handle.get_internal_event_stream_known_impl();
+            let r = node.handle.internal_event_stream_known_impl();
             internal_event_rxs.push(r);
         }
 
@@ -353,7 +348,7 @@ where
                     let handle = hotshot.run_tasks().await;
                     if node_id == 1 {
                         if let Some(task) = builder_task.take() {
-                            task.start(Box::new(handle.get_event_stream()))
+                            task.start(Box::new(handle.event_stream()))
                         }
                     }
 

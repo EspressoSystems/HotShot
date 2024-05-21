@@ -4,10 +4,11 @@ use std::{
     hash::Hash,
 };
 
+use ark_serialize::SerializationError;
 use bitvec::prelude::*;
 use ethereum_types::U256;
-use jf_primitives::{errors::PrimitivesError, vid::VidScheme};
-use serde::{Deserialize, Serialize};
+use jf_vid::VidScheme;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tagged_base64::TaggedBase64;
 
 use super::EncodeBytes;
@@ -16,7 +17,7 @@ use crate::{utils::BuilderCommitment, vid::VidSchemeType};
 /// Type representing stake table entries in a `StakeTable`
 pub trait StakeTableEntryType {
     /// Get the stake value
-    fn get_stake(&self) -> U256;
+    fn stake(&self) -> U256;
 }
 
 /// Trait for abstracting public key signatures
@@ -60,7 +61,7 @@ pub trait SignatureKey:
         + Serialize
         + for<'a> Deserialize<'a>;
     /// The type of the quorum certificate parameters used for assembled signature
-    type QCParams: Send + Sync + Sized + Clone + Debug + Hash;
+    type QcParams: Send + Sync + Sized + Clone + Debug + Hash;
     /// The type of the assembled signature, without `BitVec`
     type PureAssembledSignatureType: Send
         + Sync
@@ -75,7 +76,7 @@ pub trait SignatureKey:
         + Into<TaggedBase64>
         + for<'a> TryFrom<&'a TaggedBase64>;
     /// The type of the assembled qc: assembled signature + `BitVec`
-    type QCType: Send
+    type QcType: Send
         + Sync
         + Sized
         + Clone
@@ -110,35 +111,35 @@ pub trait SignatureKey:
     /// # Errors
     ///
     /// Will return `Err` if deserialization fails
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PrimitivesError>;
+    fn from_bytes(bytes: &[u8]) -> Result<Self, SerializationError>;
 
     /// Generate a new key pair
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey);
 
     /// get the stake table entry from the public key and stake value
-    fn get_stake_table_entry(&self, stake: u64) -> Self::StakeTableEntry;
+    fn stake_table_entry(&self, stake: u64) -> Self::StakeTableEntry;
 
     /// only get the public key from the stake table entry
-    fn get_public_key(entry: &Self::StakeTableEntry) -> Self;
+    fn public_key(entry: &Self::StakeTableEntry) -> Self;
 
     /// get the public parameter for the assembled signature checking
-    fn get_public_parameter(
+    fn public_parameter(
         stake_entries: Vec<Self::StakeTableEntry>,
         threshold: U256,
-    ) -> Self::QCParams;
+    ) -> Self::QcParams;
 
     /// check the quorum certificate for the assembled signature
-    fn check(real_qc_pp: &Self::QCParams, data: &[u8], qc: &Self::QCType) -> bool;
+    fn check(real_qc_pp: &Self::QcParams, data: &[u8], qc: &Self::QcType) -> bool;
 
     /// get the assembled signature and the `BitVec` separately from the assembled signature
-    fn get_sig_proof(signature: &Self::QCType) -> (Self::PureAssembledSignatureType, BitVec);
+    fn sig_proof(signature: &Self::QcType) -> (Self::PureAssembledSignatureType, BitVec);
 
     /// assemble the signature from the partial signature and the indication of signers in `BitVec`
     fn assemble(
-        real_qc_pp: &Self::QCParams,
+        real_qc_pp: &Self::QcParams,
         signers: &BitSlice,
         sigs: &[Self::PureAssembledSignatureType],
-    ) -> Self::QCType;
+    ) -> Self::QcType;
 
     /// generates the genesis public key. Meant to be dummy/filler
     #[must_use]
@@ -154,7 +155,7 @@ pub trait BuilderSignatureKey:
     + Debug
     + Hash
     + Serialize
-    + for<'a> Deserialize<'a>
+    + DeserializeOwned
     + PartialEq
     + Eq
     + PartialOrd

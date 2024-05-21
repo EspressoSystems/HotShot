@@ -19,8 +19,8 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::DACertificate,
-    simple_vote::{DAData, DAVote, QuorumData, QuorumVote, SimpleVote},
+    simple_certificate::DaCertificate,
+    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -30,7 +30,7 @@ use hotshot_types::{
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::VidScheme;
 use serde::Serialize;
 
 use crate::test_builder::TestDescription;
@@ -126,15 +126,15 @@ pub fn build_cert<
         SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key)
             .expect("Failed to sign data!");
     let cert = CERT::create_signed_certificate(
-        vote.get_data_commitment(),
-        vote.get_data().clone(),
+        vote.date_commitment(),
+        vote.date().clone(),
         real_qc_sig,
-        vote.get_view_number(),
+        vote.view_number(),
     );
     cert
 }
 
-pub fn get_vid_share<TYPES: NodeType>(
+pub fn vid_share<TYPES: NodeType>(
     shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
     pub_key: TYPES::SignatureKey,
 ) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
@@ -160,10 +160,10 @@ pub fn build_assembled_sig<
     data: &DATAType,
     membership: &TYPES::Membership,
     view: TYPES::Time,
-) -> <TYPES::SignatureKey as SignatureKey>::QCType {
-    let stake_table = membership.get_committee_qc_stake_table();
-    let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QCParams =
-        <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+) -> <TYPES::SignatureKey as SignatureKey>::QcType {
+    let stake_table = membership.committee_qc_stake_table();
+    let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
+        <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
             U256::from(CERT::threshold(membership)),
         );
@@ -182,7 +182,7 @@ pub fn build_assembled_sig<
         )
         .expect("Failed to sign data!");
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
-            vote.get_signature();
+            vote.signature();
         sig_lists.push(original_signature);
     }
 
@@ -212,7 +212,7 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.get_staked_committee(view_number).len();
+    let num_storage_nodes = membership.staked_committee(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 
@@ -222,7 +222,7 @@ pub fn vid_payload_commitment(
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
     vid_disperse.commit
@@ -232,7 +232,7 @@ pub fn da_payload_commitment(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
 
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
@@ -245,7 +245,7 @@ pub fn build_vid_proposal(
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>> {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
@@ -270,17 +270,17 @@ pub fn build_da_certificate(
     transactions: Vec<TestTransaction>,
     public_key: &<TestTypes as NodeType>::SignatureKey,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-) -> DACertificate<TestTypes> {
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+) -> DaCertificate<TestTypes> {
+    let encoded_transactions = TestTransaction::encode(&transactions);
 
     let da_payload_commitment =
         vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
 
-    let da_data = DAData {
+    let da_data = DaData {
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::<TestTypes, DAData, DAVote<TestTypes>, DACertificate<TestTypes>>(
+    build_cert::<TestTypes, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
         da_data,
         da_membership,
         view_number,
@@ -301,7 +301,7 @@ pub async fn build_vote(
             leaf_commit: leaf.commit(),
         },
         view,
-        handle.public_key(),
+        &handle.public_key(),
         handle.private_key(),
     )
     .expect("Failed to create quorum vote");

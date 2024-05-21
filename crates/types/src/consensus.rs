@@ -2,12 +2,11 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use anyhow::{ensure, Result};
 use committable::{Commitment, Committable};
-use displaydoc::Display;
 use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
@@ -16,12 +15,12 @@ use crate::{
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
-        DACertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
     },
     traits::{
         block_contents::BuilderFee,
-        metrics::{Counter, Gauge, Histogram, Label, Metrics, NoMetrics},
+        metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -51,16 +50,19 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
-    saved_da_certs: HashMap<TYPES::Time, DACertificate<TYPES>>,
+    saved_da_certs: HashMap<TYPES::Time, DaCertificate<TYPES>>,
 
     /// View number that is currently on.
     cur_view: TYPES::Time,
 
     /// View we proposed in last.  To prevent duplicate proposals
-    pub last_proposed_view: TYPES::Time,
+    last_proposed_view: TYPES::Time,
 
     /// last view had a successful decide event
-    pub last_decided_view: TYPES::Time,
+    last_decided_view: TYPES::Time,
+
+    /// The `locked_qc` view number
+    locked_view: TYPES::Time,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
@@ -70,10 +72,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    pub saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
-
-    /// The `locked_qc` view number
-    pub locked_view: TYPES::Time,
+    saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
 
     /// the highqc per spec
     high_qc: QuorumCertificate<TYPES>,
@@ -87,10 +86,10 @@ pub struct Consensus<TYPES: NodeType> {
     ///
     /// Certificates received from other nodes will get reattached regardless of this fields,
     /// since they will be present in the leaf we propose off of.
-    pub dontuse_formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    dontuse_formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
     /// most recent decided upgrade certificate
-    pub dontuse_decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    dontuse_decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -118,120 +117,6 @@ pub struct ConsensusMetricsValue {
     pub number_of_timeouts: Box<dyn Counter>,
     /// The number of empty blocks that have been proposed
     pub number_of_empty_blocks_proposed: Box<dyn Counter>,
-}
-
-/// The wrapper with a string name for the networking metrics
-#[derive(Clone, Debug)]
-pub struct ConsensusMetrics {
-    /// a prefix which tracks the name of the metric
-    prefix: String,
-    /// a map of values
-    values: Arc<Mutex<InnerConsensusMetrics>>,
-}
-
-/// the set of counters and gauges for the networking metrics
-#[derive(Clone, Debug, Default, Display)]
-pub struct InnerConsensusMetrics {
-    /// All the counters of the networking metrics
-    pub counters: HashMap<String, usize>,
-    /// All the gauges of the networking metrics
-    pub gauges: HashMap<String, usize>,
-    /// All the histograms of the networking metrics
-    pub histograms: HashMap<String, Vec<f64>>,
-    /// All the labels of the networking metrics
-    pub labels: HashMap<String, String>,
-}
-
-impl ConsensusMetrics {
-    #[must_use]
-    /// For the creation and naming of gauge, counter, histogram and label.
-    pub fn sub(&self, name: String) -> Self {
-        let prefix = if self.prefix.is_empty() {
-            name
-        } else {
-            format!("{}-{name}", self.prefix)
-        };
-        Self {
-            prefix,
-            values: Arc::clone(&self.values),
-        }
-    }
-}
-
-impl Metrics for ConsensusMetrics {
-    fn create_counter(&self, label: String, _unit_label: Option<String>) -> Box<dyn Counter> {
-        Box::new(self.sub(label))
-    }
-
-    fn create_gauge(&self, label: String, _unit_label: Option<String>) -> Box<dyn Gauge> {
-        Box::new(self.sub(label))
-    }
-
-    fn create_histogram(&self, label: String, _unit_label: Option<String>) -> Box<dyn Histogram> {
-        Box::new(self.sub(label))
-    }
-
-    fn create_label(&self, label: String) -> Box<dyn Label> {
-        Box::new(self.sub(label))
-    }
-
-    fn subgroup(&self, subgroup_name: String) -> Box<dyn Metrics> {
-        Box::new(self.sub(subgroup_name))
-    }
-}
-
-impl Counter for ConsensusMetrics {
-    fn add(&self, amount: usize) {
-        *self
-            .values
-            .lock()
-            .unwrap()
-            .counters
-            .entry(self.prefix.clone())
-            .or_default() += amount;
-    }
-}
-
-impl Gauge for ConsensusMetrics {
-    fn set(&self, amount: usize) {
-        *self
-            .values
-            .lock()
-            .unwrap()
-            .gauges
-            .entry(self.prefix.clone())
-            .or_default() = amount;
-    }
-    fn update(&self, delta: i64) {
-        let mut values = self.values.lock().unwrap();
-        let value = values.gauges.entry(self.prefix.clone()).or_default();
-        let signed_value = i64::try_from(*value).unwrap_or(i64::MAX);
-        *value = usize::try_from(signed_value + delta).unwrap_or(0);
-    }
-}
-
-impl Histogram for ConsensusMetrics {
-    fn add_point(&self, point: f64) {
-        self.values
-            .lock()
-            .unwrap()
-            .histograms
-            .entry(self.prefix.clone())
-            .or_default()
-            .push(point);
-    }
-}
-
-impl Label for ConsensusMetrics {
-    fn set(&self, value: String) {
-        *self
-            .values
-            .lock()
-            .unwrap()
-            .labels
-            .entry(self.prefix.clone())
-            .or_default() = value;
-    }
 }
 
 impl ConsensusMetricsValue {
@@ -272,10 +157,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn new(
         validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
         cur_view: TYPES::Time,
+        locked_view: TYPES::Time,
         last_decided_view: TYPES::Time,
         saved_leaves: CommitmentMap<Leaf<TYPES>>,
         saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
-        locked_view: TYPES::Time,
         high_qc: QuorumCertificate<TYPES>,
         metrics: Arc<ConsensusMetricsValue>,
     ) -> Self {
@@ -286,9 +171,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             cur_view,
             last_decided_view,
             last_proposed_view: last_decided_view,
+            locked_view,
             saved_leaves,
             saved_payloads,
-            locked_view,
             high_qc,
             metrics,
             dontuse_decided_upgrade_cert: None,
@@ -299,6 +184,16 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the current view.
     pub fn cur_view(&self) -> TYPES::Time {
         self.cur_view
+    }
+
+    /// Get the last decided view.
+    pub fn last_decided_view(&self) -> TYPES::Time {
+        self.last_decided_view
+    }
+
+    /// Get the locked view.
+    pub fn locked_view(&self) -> TYPES::Time {
+        self.locked_view
     }
 
     /// Get the high QC.
@@ -316,13 +211,18 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         &self.saved_leaves
     }
 
+    /// Get the saved payloads.
+    pub fn saved_payloads(&self) -> &BTreeMap<TYPES::Time, Arc<[u8]>> {
+        &self.saved_payloads
+    }
+
     /// Get the vid shares.
     pub fn vid_shares(&self) -> &VidShares<TYPES> {
         &self.vid_shares
     }
 
     /// Get the saved DA certs.
-    pub fn saved_da_certs(&self) -> &HashMap<TYPES::Time, DACertificate<TYPES>> {
+    pub fn saved_da_certs(&self) -> &HashMap<TYPES::Time, DaCertificate<TYPES>> {
         &self.saved_da_certs
     }
 
@@ -330,8 +230,50 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing view number.
     pub fn update_view(&mut self, view_number: TYPES::Time) -> Result<()> {
-        ensure!(view_number > self.cur_view);
+        ensure!(
+            view_number > self.cur_view,
+            "New view isn't newer than the current view."
+        );
         self.cur_view = view_number;
+        Ok(())
+    }
+
+    /// Update the last proposed view.
+    ///
+    /// # Errors
+    /// Can return an error when the new view_number is not higher than the existing proposed view number.
+    pub fn update_last_proposed_view(&mut self, view_number: TYPES::Time) -> Result<()> {
+        ensure!(
+            view_number > self.last_proposed_view,
+            "New view isn't newer than the previously proposed view."
+        );
+        self.last_proposed_view = view_number;
+        Ok(())
+    }
+
+    /// Update the last decided view.
+    ///
+    /// # Errors
+    /// Can return an error when the new view_number is not higher than the existing decided view number.
+    pub fn update_last_decided_view(&mut self, view_number: TYPES::Time) -> Result<()> {
+        ensure!(
+            view_number > self.last_decided_view,
+            "New view isn't newer than the previously decided view."
+        );
+        self.last_decided_view = view_number;
+        Ok(())
+    }
+
+    /// Update the locked view.
+    ///
+    /// # Errors
+    /// Can return an error when the new view_number is not higher than the existing locked view number.
+    pub fn update_locked_view(&mut self, view_number: TYPES::Time) -> Result<()> {
+        ensure!(
+            view_number > self.locked_view,
+            "New view isn't newer than the previously locked view."
+        );
+        self.locked_view = view_number;
         Ok(())
     }
 
@@ -345,11 +287,31 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.saved_leaves.insert(leaf.commit(), leaf);
     }
 
+    /// Update the saved payloads with a new encoded transaction.
+    ///
+    /// # Errors
+    /// Can return an error when there's an existing payload corresponding to the same view number.
+    pub fn update_saved_payloads(
+        &mut self,
+        view_number: TYPES::Time,
+        encoded_transaction: Arc<[u8]>,
+    ) -> Result<()> {
+        ensure!(
+            !self.saved_payloads.contains_key(&view_number),
+            "Payload with the same view already exists."
+        );
+        self.saved_payloads.insert(view_number, encoded_transaction);
+        Ok(())
+    }
+
     /// Update the high QC if given a newer one.
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
-        ensure!(high_qc.view_number > self.high_qc.view_number);
+        ensure!(
+            high_qc.view_number > self.high_qc.view_number,
+            "High QC with an equal or higher view exists."
+        );
         debug!("Updating high QC");
         self.high_qc = high_qc;
 
@@ -369,8 +331,13 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Add a new entry to the da_certs map.
-    pub fn update_saved_da_certs(&mut self, view_number: TYPES::Time, cert: DACertificate<TYPES>) {
+    pub fn update_saved_da_certs(&mut self, view_number: TYPES::Time, cert: DaCertificate<TYPES>) {
         self.saved_da_certs.insert(view_number, cert);
+    }
+
+    /// Update the most recent decided upgrade certificate.
+    pub fn update_dontuse_decided_upgrade_cert(&mut self, cert: Option<UpgradeCertificate<TYPES>>) {
+        self.dontuse_decided_upgrade_cert = cert;
     }
 
     /// gather information from the parent chain of leaves
@@ -391,7 +358,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         ) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.validated_state_map.get(&start_from) {
-            view.get_leaf_commitment()
+            view.leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
                         "Visited failed view {start_from:?} leaf. Expected successfuil leaf"
@@ -404,8 +371,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
 
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
-            let view = leaf.get_view_number();
-            if let (Some(state), delta) = self.get_state_and_delta(view) {
+            let view = leaf.view_number();
+            if let (Some(state), delta) = self.state_and_delta(view) {
                 if let Terminator::Exclusive(stop_before) = terminator {
                     if stop_before == view {
                         if ok_when_finished {
@@ -414,7 +381,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                         break;
                     }
                 }
-                next_leaf = leaf.get_parent_commitment();
+                next_leaf = leaf.parent_commitment();
                 if !f(leaf, state, delta) {
                     return Ok(());
                 }
@@ -456,7 +423,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)
-            .filter_map(|(_view_number, view)| view.get_leaf_commitment())
+            .filter_map(|(_view_number, view)| view.leaf_commitment())
             .for_each(|leaf| {
                 self.saved_leaves.remove(&leaf);
             });
@@ -471,29 +438,29 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub fn decided_leaf(&self) -> Leaf<TYPES> {
         let decided_view_num = self.last_decided_view;
         let view = self.validated_state_map.get(&decided_view_num).unwrap();
         let leaf = view
-            .get_leaf_commitment()
+            .leaf_commitment()
             .expect("Decided leaf not found! Consensus internally inconsistent");
         self.saved_leaves.get(&leaf).unwrap().clone()
     }
 
     /// Gets the validated state with the given view number, if in the state map.
     #[must_use]
-    pub fn get_state(&self, view_number: TYPES::Time) -> Option<&Arc<TYPES::ValidatedState>> {
+    pub fn state(&self, view_number: TYPES::Time) -> Option<&Arc<TYPES::ValidatedState>> {
         match self.validated_state_map.get(&view_number) {
-            Some(view) => view.get_state(),
+            Some(view) => view.state(),
             None => None,
         }
     }
 
     /// Gets the validated state and state delta with the given view number, if in the state map.
     #[must_use]
-    pub fn get_state_and_delta(&self, view_number: TYPES::Time) -> StateAndDelta<TYPES> {
+    pub fn state_and_delta(&self, view_number: TYPES::Time) -> StateAndDelta<TYPES> {
         match self.validated_state_map.get(&view_number) {
-            Some(view) => view.get_state_and_delta(),
+            Some(view) => view.state_and_delta(),
             None => (None, None),
         }
     }
@@ -504,9 +471,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// If the last decided view's state does not exist in the state map, which should never
     /// happen.
     #[must_use]
-    pub fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
+    pub fn decided_state(&self) -> Arc<TYPES::ValidatedState> {
         let decided_view_num = self.last_decided_view;
-        self.get_state_and_delta(decided_view_num)
+        self.state_and_delta(decided_view_num)
             .0
             .expect("Decided state not found! Consensus internally inconsistent")
     }

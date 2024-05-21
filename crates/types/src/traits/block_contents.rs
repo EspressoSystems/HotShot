@@ -12,8 +12,9 @@ use std::{
 };
 
 use committable::{Commitment, Committable};
-use jf_primitives::vid::{precomputable::Precomputable, VidScheme};
+use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use vbs::version::Version;
 
 use super::signature_key::BuilderSignatureKey;
 use crate::{
@@ -44,7 +45,17 @@ pub trait Transaction:
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
 pub trait BlockPayload:
-    Serialize + Clone + Debug + Display + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned
+    Serialize
+    + Clone
+    + Debug
+    + Display
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + DeserializeOwned
+    + EncodeBytes
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync + Serialize + DeserializeOwned;
@@ -78,34 +89,32 @@ pub trait BlockPayload:
     fn from_bytes(encoded_transactions: &[u8], metadata: &Self::Metadata) -> Self;
 
     /// Build the genesis payload and metadata.
-    fn genesis() -> (Self, Self::Metadata);
-
-    /// Encode the payload
-    ///
-    /// # Errors
-    /// If the transaction length conversion fails.
-    fn encode(&self) -> Result<Arc<[u8]>, Self::Error>;
+    #[must_use]
+    fn genesis() -> (Self, Self::Metadata)
+    where
+        <Self as BlockPayload>::Instance: Default,
+    {
+        Self::from_transactions([], &Default::default()).unwrap()
+    }
 
     /// List of transaction commitments.
     fn transaction_commitments(
         &self,
         metadata: &Self::Metadata,
     ) -> Vec<Commitment<Self::Transaction>> {
-        self.get_transactions(metadata)
-            .map(|tx| tx.commit())
-            .collect()
+        self.transactions(metadata).map(|tx| tx.commit()).collect()
     }
 
     /// Number of transactions in the block.
     fn num_transactions(&self, metadata: &Self::Metadata) -> usize {
-        self.get_transactions(metadata).count()
+        self.transactions(metadata).count()
     }
 
     /// Generate commitment that builders use to sign block options.
     fn builder_commitment(&self, metadata: &Self::Metadata) -> BuilderCommitment;
 
     /// Get the transactions in the payload.
-    fn get_transactions<'a>(
+    fn transactions<'a>(
         &'a self,
         metadata: &'a Self::Metadata,
     ) -> impl 'a + Iterator<Item = Self::Transaction>;
@@ -186,6 +195,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
         builder_fee: BuilderFee<TYPES>,
         vid_common: VidCommon,
+        version: Version,
     ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
     /// Build the genesis header, payload, and metadata.

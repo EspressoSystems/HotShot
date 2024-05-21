@@ -17,7 +17,8 @@ use hotshot_types::{
     data::{null_block, Leaf},
     event::{Event, EventType},
     traits::{
-        block_contents::BuilderFee,
+        block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
+        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
@@ -120,12 +121,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
                     error!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.get_leader(view) == self.public_key;
+                    make_block = self.membership.leader(view) == self.public_key;
                 }
                 self.cur_view = view;
 
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
-                if !make_block && self.membership.get_leader(self.cur_view + 1) != self.public_key {
+                if !make_block && self.membership.leader(self.cur_view + 1) != self.public_key {
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
@@ -137,18 +138,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                     block_header,
                 }) = self.wait_for_block().await
                 {
-                    // send the sequenced transactions to VID and DA tasks
-                    let encoded_transactions = match block_data.block_payload.encode() {
-                        Ok(encoded) => encoded,
-                        Err(e) => {
-                            error!("Failed to encode the block payload: {:?}.", e);
-                            return None;
-                        }
-                    };
-
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            encoded_transactions,
+                            block_data.block_payload.encode(),
                             block_data.metadata,
                             block_view,
                             BuilderFee {
@@ -156,6 +148,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                                 fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },
+                            block_header.vid_precompute_data,
                         )),
                         &event_stream,
                     )
@@ -193,6 +186,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                         return None;
                     };
 
+                    let (_, precompute_data) =
+                        precompute_vid_commitment(&[], self.membership.total_nodes());
+
                     // Broadcast the empty block
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
@@ -200,6 +196,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                             metadata,
                             block_view,
                             builder_fee,
+                            precompute_data,
                         )),
                         &event_stream,
                     )
@@ -230,11 +227,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                     .get(&prev_view)
                     .and_then(|view| match view.view_inner {
                         // For a view for which we have a Leaf stored
-                        ViewInner::DA { payload_commitment } => Some(payload_commitment),
+                        ViewInner::Da { payload_commitment } => Some(payload_commitment),
                         ViewInner::Leaf { leaf, .. } => consensus
                             .saved_leaves()
                             .get(&leaf)
-                            .map(Leaf::get_payload_commitment),
+                            .map(Leaf::payload_commitment),
                         ViewInner::Failed => None,
                     })
             {
@@ -244,10 +241,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
         }
 
         // If not found, return commitment for last decided block
-        (
-            prev_view,
-            consensus.get_decided_leaf().get_payload_commitment(),
-        )
+        (prev_view, consensus.decided_leaf().payload_commitment())
     }
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "wait_for_block", level = "error")]
@@ -271,7 +265,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
             match async_compatibility_layer::art::async_timeout(
                 self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                self.get_block_from_builder(parent_comm, view_num, &parent_comm_sig),
+                self.block_from_builder(parent_comm, view_num, &parent_comm_sig),
             )
             .await
             {
@@ -300,8 +294,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
         None
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "get_block_from_builder", level = "error")]
-    async fn get_block_from_builder(
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "block_from_builder", level = "error")]
+    async fn block_from_builder(
         &self,
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
@@ -309,9 +303,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
     ) -> anyhow::Result<BuilderResponses<TYPES>> {
         let available_blocks = self
             .builder_client
-            .get_available_blocks(
+            .available_blocks(
                 parent_comm,
-                view_number.get_u64(),
+                view_number.u64(),
                 self.public_key.clone(),
                 parent_comm_sig,
             )
@@ -352,8 +346,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
         .context("signing block hash")?;
 
         let (block, header_input) = futures::join! {
-            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature),
-            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature)
+            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
+            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
         };
 
         let block_data = block.context("claiming block data")?;

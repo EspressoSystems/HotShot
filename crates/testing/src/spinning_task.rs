@@ -59,12 +59,7 @@ impl<
     > TestTaskState for SpinningTask<TYPES, I>
 where
     I: TestableNodeImplementation<TYPES>,
-    I: NodeImplementation<
-        TYPES,
-        QuorumNetwork = N,
-        CommitteeNetwork = N,
-        Storage = TestStorage<TYPES>,
-    >,
+    I: NodeImplementation<TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage<TYPES>>,
 {
     type Event = Event<TYPES>;
 
@@ -78,7 +73,7 @@ where
         } = event
         {
             let leaf = leaf_chain.first().unwrap().leaf.clone();
-            if leaf.get_view_number() > self.last_decided_leaf.get_view_number() {
+            if leaf.view_number() > self.last_decided_leaf.view_number() {
                 self.last_decided_leaf = leaf;
             }
         } else if let EventType::QuorumProposal {
@@ -86,7 +81,7 @@ where
             sender: _,
         } = event
         {
-            if proposal.data.justify_qc.get_view_number() > self.high_qc.get_view_number() {
+            if proposal.data.justify_qc.view_number() > self.high_qc.view_number() {
                 self.high_qc = proposal.data.justify_qc.clone();
             }
         }

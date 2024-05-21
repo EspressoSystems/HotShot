@@ -7,7 +7,7 @@ use ark_std::{
 };
 use bitvec::prelude::*;
 use generic_array::{ArrayLength, GenericArray};
-use jf_primitives::{errors::PrimitivesError, signatures::AggregateableSignatureSchemes};
+use jf_signature::{AggregateableSignatureSchemes, SignatureError};
 use serde::{Deserialize, Serialize};
 
 /// Trait for validating a QC built from different signatures on the same message
@@ -17,17 +17,17 @@ pub trait QuorumCertificateScheme<
 {
     /// Public parameters for generating the QC
     /// E.g: snark proving/verifying keys, list of (or pointer to) public keys stored in the smart contract.
-    type QCProverParams: Serialize + for<'a> Deserialize<'a>;
+    type QcProverParams: Serialize + for<'a> Deserialize<'a>;
 
     /// Public parameters for validating the QC
     /// E.g: verifying keys, stake table commitment
-    type QCVerifierParams: Serialize + for<'a> Deserialize<'a>;
+    type QcVerifierParams: Serialize + for<'a> Deserialize<'a>;
 
     /// Allows to fix the size of the message at compilation time.
     type MessageLength: ArrayLength<A::MessageUnit>;
 
     /// Type of the actual quorum certificate object
-    type QC;
+    type Qc;
 
     /// Type of the quorum size (e.g. number of votes or accumulated weight of signatures)
     type QuorumSize;
@@ -47,7 +47,7 @@ pub trait QuorumCertificateScheme<
         sk: &A::SigningKey,
         msg: M,
         prng: &mut R,
-    ) -> Result<A::Signature, PrimitivesError> {
+    ) -> Result<A::Signature, SignatureError> {
         A::sign(pp, sk, msg, prng)
     }
 
@@ -61,10 +61,10 @@ pub trait QuorumCertificateScheme<
     /// Will return error if some of the partial signatures provided are invalid or the number of
     /// partial signatures / verifications keys are different.
     fn assemble(
-        qc_pp: &Self::QCProverParams,
+        qc_pp: &Self::QcProverParams,
         signers: &BitSlice,
         sigs: &[A::Signature],
-    ) -> Result<Self::QC, PrimitivesError>;
+    ) -> Result<Self::Qc, SignatureError>;
 
     /// Checks an aggregated signature over some message provided as input
     /// * `qc_vp` - public parameters for validating the QC
@@ -77,10 +77,10 @@ pub trait QuorumCertificateScheme<
     /// Return error if the QC is invalid, either because accumulated weight didn't exceed threshold,
     /// or some partial signatures are invalid.
     fn check(
-        qc_vp: &Self::QCVerifierParams,
+        qc_vp: &Self::QcVerifierParams,
         message: &GenericArray<A::MessageUnit, Self::MessageLength>,
-        qc: &Self::QC,
-    ) -> Result<Self::QuorumSize, PrimitivesError>;
+        qc: &Self::Qc,
+    ) -> Result<Self::QuorumSize, SignatureError>;
 
     /// Trace the list of signers given a qc.
     ///
@@ -88,8 +88,8 @@ pub trait QuorumCertificateScheme<
     ///
     /// Return error if the inputs mismatch (e.g. wrong verifier parameter or original message).
     fn trace(
-        qc_vp: &Self::QCVerifierParams,
+        qc_vp: &Self::QcVerifierParams,
         message: &GenericArray<A::MessageUnit, Self::MessageLength>,
-        qc: &Self::QC,
-    ) -> Result<Vec<A::VerificationKey>, PrimitivesError>;
+        qc: &Self::Qc,
+    ) -> Result<Vec<A::VerificationKey>, SignatureError>;
 }

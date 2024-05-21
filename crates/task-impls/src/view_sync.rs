@@ -243,19 +243,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
-                let view = certificate.get_view_number();
+                let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
-                let view = certificate.get_view_number();
+                let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
-                let view = certificate.get_view_number();
+                let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
@@ -268,8 +268,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
 
             HotShotEvent::ViewSyncPreCommitVoteRecv(ref vote) => {
                 let mut map = self.pre_commit_relay_map.write().await;
-                let vote_view = vote.get_view_number();
-                let relay = vote.get_data().relay;
+                let vote_view = vote.view_number();
+                let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
@@ -285,7 +285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                 }
 
                 // We do not have a relay task already running, so start one
-                if self.membership.get_leader(vote_view + relay) != self.public_key {
+                if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -306,8 +306,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
 
             HotShotEvent::ViewSyncCommitVoteRecv(ref vote) => {
                 let mut map = self.commit_relay_map.write().await;
-                let vote_view = vote.get_view_number();
-                let relay = vote.get_data().relay;
+                let vote_view = vote.view_number();
+                let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
@@ -323,7 +323,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                 }
 
                 // We do not have a relay task already running, so start one
-                if self.membership.get_leader(vote_view + relay) != self.public_key {
+                if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -344,8 +344,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
                 let mut map = self.finalize_relay_map.write().await;
-                let vote_view = vote.get_view_number();
-                let relay = vote.get_data().relay;
+                let vote_view = vote.view_number();
+                let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
@@ -361,7 +361,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                 }
 
                 // We do not have a relay task already running, so start one
-                if self.membership.get_leader(vote_view + relay) != self.public_key {
+                if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -425,9 +425,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                 }
 
                 self.num_timeouts_tracked += 1;
+                let leader = self.membership.leader(view_number);
                 error!(
-                    "Num timeouts tracked since last view change is {}. View {} timed out",
-                    self.num_timeouts_tracked, *view_number
+                    %leader,
+                    leader_mnemonic = cdn_proto::mnemonic(&leader),
+                    view_number = *view_number,
+                    num_timeouts_tracked = self.num_timeouts_tracked,
+                    "view timed out",
                 );
 
                 if self.num_timeouts_tracked >= 3 {
@@ -474,7 +478,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                 let last_seen_certificate = ViewSyncPhase::PreCommit;
 
                 // Ignore certificate if it is for an older round
-                if certificate.get_view_number() < self.next_view {
+                if certificate.view_number() < self.next_view {
                     warn!("We're already in a higher round");
 
                     return None;
@@ -482,24 +486,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.get_data());
+                    error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
                 }
 
                 // If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                if certificate.get_view_number() > self.next_view {
+                if certificate.view_number() > self.next_view {
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.get_data().relay > self.relay {
-                    self.relay = certificate.get_data().relay;
+                if certificate.date().relay > self.relay {
+                    self.relay = certificate.date().relay;
                 }
 
                 let Ok(vote) = ViewSyncCommitVote::<TYPES>::create_signed_vote(
                     ViewSyncCommitData {
-                        relay: certificate.get_data().relay,
+                        relay: certificate.date().relay,
                         round: self.next_view,
                     },
                     self.next_view,
@@ -550,7 +554,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                 let last_seen_certificate = ViewSyncPhase::Commit;
 
                 // Ignore certificate if it is for an older round
-                if certificate.get_view_number() < self.next_view {
+                if certificate.view_number() < self.next_view {
                     warn!("We're already in a higher round");
 
                     return None;
@@ -558,24 +562,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.get_data());
+                    error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
                 }
 
                 // If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                if certificate.get_view_number() > self.next_view {
+                if certificate.view_number() > self.next_view {
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.get_data().relay > self.relay {
-                    self.relay = certificate.get_data().relay;
+                if certificate.date().relay > self.relay {
+                    self.relay = certificate.date().relay;
                 }
 
                 let Ok(vote) = ViewSyncFinalizeVote::<TYPES>::create_signed_vote(
                     ViewSyncFinalizeData {
-                        relay: certificate.get_data().relay,
+                        relay: certificate.date().relay,
                         round: self.next_view,
                     },
                     self.next_view,
@@ -642,7 +646,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 // Ignore certificate if it is for an older round
-                if certificate.get_view_number() < self.next_view {
+                if certificate.view_number() < self.next_view {
                     warn!("We're already in a higher round");
 
                     return None;
@@ -650,19 +654,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.get_data());
+                    error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
                 }
 
                 // If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                if certificate.get_view_number() > self.next_view {
+                if certificate.view_number() > self.next_view {
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.get_data().relay > self.relay {
-                    self.relay = certificate.get_data().relay;
+                if certificate.date().relay > self.relay {
+                    self.relay = certificate.date().relay;
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {

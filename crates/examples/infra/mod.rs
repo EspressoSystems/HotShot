@@ -324,14 +324,14 @@ fn calculate_num_tx_per_round(
 
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
-pub trait RunDA<
+pub trait RunDa<
     TYPES: NodeType<InstanceState = TestInstanceState>,
     DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMNET,
-        CommitteeNetwork = DANET,
+        DaNetwork = DANET,
         Storage = TestStorage<TYPES>,
     >,
 > where
@@ -355,15 +355,15 @@ pub trait RunDA<
         let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
             .expect("Couldn't generate genesis block");
 
-        let config = self.get_config();
+        let config = self.config();
 
         // Get KeyPair for certificate Aggregation
         let pk = config.config.my_own_validator_config.public_key.clone();
         let sk = config.config.my_own_validator_config.private_key.clone();
         let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
 
-        let da_network = self.get_da_channel();
-        let quorum_network = self.get_quorum_channel();
+        let da_network = self.da_channel();
+        let quorum_network = self.quorum_channel();
 
         let networks_bundle = Networks {
             quorum_network: quorum_network.clone().into(),
@@ -423,7 +423,7 @@ pub trait RunDA<
             node_index,
             start_delay_seconds,
             ..
-        } = self.get_config();
+        } = self.config();
 
         let mut total_transactions_committed = 0;
         let mut total_transactions_sent = 0;
@@ -438,7 +438,7 @@ pub trait RunDA<
         info!("Starting HotShot example!");
         let start = Instant::now();
 
-        let mut event_stream = context.get_event_stream();
+        let mut event_stream = context.event_stream();
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
 
@@ -464,15 +464,15 @@ pub trait RunDA<
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
-                                info!("Decide event for leaf: {}", *leaf.get_view_number());
+                                info!("Decide event for leaf: {}", *leaf.view_number());
 
                                 // iterate all the decided transactions to calculate latency
-                                if let Some(block_payload) = &leaf.get_block_payload() {
-                                    for tx in block_payload
-                                        .get_transactions(leaf.get_block_header().metadata())
+                                if let Some(block_payload) = &leaf.block_payload() {
+                                    for tx in
+                                        block_payload.transactions(leaf.block_header().metadata())
                                     {
                                         let restored_timestamp_vec =
-                                            tx.0[tx.0.len() - 8..].to_vec();
+                                            tx.bytes()[tx.bytes().len() - 8..].to_vec();
                                         let restored_timestamp = i64::from_be_bytes(
                                             restored_timestamp_vec.as_slice().try_into().unwrap(),
                                         );
@@ -486,21 +486,21 @@ pub trait RunDA<
                                     }
                                 }
 
-                                let new_anchor = leaf.get_view_number();
+                                let new_anchor = leaf.view_number();
                                 if new_anchor >= anchor_view {
-                                    anchor_view = leaf.get_view_number();
+                                    anchor_view = leaf.view_number();
                                 }
 
                                 // send transactions
                                 for _ in 0..transactions_to_send_per_round {
                                     // append current timestamp to the tx to calc latency
                                     let timestamp = Utc::now().timestamp();
-                                    let mut tx = transactions.remove(0).0;
+                                    let mut tx = transactions.remove(0).into_bytes();
                                     let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
                                     tx.append(&mut timestamp_vec);
 
                                     () = context
-                                        .submit_transaction(TestTransaction(tx))
+                                        .submit_transaction(TestTransaction::new(tx))
                                         .await
                                         .unwrap();
                                     total_transactions_sent += 1;
@@ -532,9 +532,9 @@ pub trait RunDA<
                 }
             }
         }
-        let consensus_lock = context.hotshot.get_consensus();
+        let consensus_lock = context.hotshot.consensus();
         let consensus = consensus_lock.read().await;
-        let total_num_views = usize::try_from(consensus.locked_view.get_u64()).unwrap();
+        let total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         // `failed_num_views` could include uncommitted views
         let failed_num_views = total_num_views - num_successful_commits;
         // When posting to the orchestrator, note that the total number of views also include un-finalized views.
@@ -570,13 +570,13 @@ pub trait RunDA<
     }
 
     /// Returns the da network for this run
-    fn get_da_channel(&self) -> DANET;
+    fn da_channel(&self) -> DANET;
 
     /// Returns the quorum network for this run
-    fn get_quorum_channel(&self) -> QUORUMNET;
+    fn quorum_channel(&self) -> QUORUMNET;
 
     /// Returns the config for this run
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey>;
+    fn config(&self) -> NetworkConfig<TYPES::SignatureKey>;
 }
 
 // Push CDN
@@ -602,10 +602,10 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             QuorumNetwork = PushCdnNetwork<TYPES>,
-            CommitteeNetwork = PushCdnNetwork<TYPES>,
+            DaNetwork = PushCdnNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
         >,
-    > RunDA<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
+    > RunDa<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -628,7 +628,7 @@ where
         // See if we should be DA, subscribe to the DA topic if so
         let mut topics = vec![Topic::Global];
         if config.config.my_own_validator_config.is_da {
-            topics.push(Topic::DA);
+            topics.push(Topic::Da);
         }
 
         // Create the network and await the initial connection
@@ -652,15 +652,15 @@ where
         }
     }
 
-    fn get_da_channel(&self) -> PushCdnNetwork<TYPES> {
+    fn da_channel(&self) -> PushCdnNetwork<TYPES> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> PushCdnNetwork<TYPES> {
+    fn quorum_channel(&self) -> PushCdnNetwork<TYPES> {
         self.quorum_channel.clone()
     }
 
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey> {
+    fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
         self.config.clone()
     }
 }
@@ -668,7 +668,7 @@ where
 // Libp2p
 
 /// Represents a libp2p-based run
-pub struct Libp2pDARun<TYPES: NodeType> {
+pub struct Libp2pDaRun<TYPES: NodeType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
     /// quorum channel
@@ -688,16 +688,16 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-            CommitteeNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+            DaNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
         >,
     >
-    RunDA<
+    RunDa<
         TYPES,
         Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
         Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
         NODE,
-    > for Libp2pDARun<TYPES>
+    > for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -707,7 +707,7 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey>,
         libp2p_advertise_address: Option<SocketAddr>,
-    ) -> Libp2pDARun<TYPES> {
+    ) -> Libp2pDaRun<TYPES> {
         // Extrapolate keys for ease of use
         let keys = config.clone().config.my_own_validator_config;
         let public_key = keys.public_key;
@@ -743,22 +743,22 @@ where
         // Wait for the network to be ready
         libp2p_network.wait_for_ready().await;
 
-        Libp2pDARun {
+        Libp2pDaRun {
             config,
             quorum_channel: libp2p_network.clone(),
             da_channel: libp2p_network,
         }
     }
 
-    fn get_da_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
+    fn da_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
+    fn quorum_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
         self.quorum_channel.clone()
     }
 
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey> {
+    fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
         self.config.clone()
     }
 }
@@ -766,7 +766,7 @@ where
 // Combined network
 
 /// Represents a combined-network-based run
-pub struct CombinedDARun<TYPES: NodeType> {
+pub struct CombinedDaRun<TYPES: NodeType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
     /// quorum channel
@@ -786,10 +786,10 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             QuorumNetwork = CombinedNetworks<TYPES>,
-            CommitteeNetwork = CombinedNetworks<TYPES>,
+            DaNetwork = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
         >,
-    > RunDA<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDARun<TYPES>
+    > RunDa<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -799,10 +799,10 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey>,
         libp2p_advertise_address: Option<SocketAddr>,
-    ) -> CombinedDARun<TYPES> {
+    ) -> CombinedDaRun<TYPES> {
         // Initialize our Libp2p network
-        let libp2p_da_run: Libp2pDARun<TYPES> =
-            <Libp2pDARun<TYPES> as RunDA<
+        let libp2p_da_run: Libp2pDaRun<TYPES> =
+            <Libp2pDaRun<TYPES> as RunDa<
                 TYPES,
                 Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
                 Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
@@ -812,7 +812,7 @@ where
 
         // Initialize our CDN network
         let cdn_da_run: PushCdnDaRun<TYPES> =
-            <PushCdnDaRun<TYPES> as RunDA<
+            <PushCdnDaRun<TYPES> as RunDa<
                 TYPES,
                 PushCdnNetwork<TYPES>,
                 PushCdnNetwork<TYPES>,
@@ -839,22 +839,22 @@ where
         );
 
         // Return the run configuration
-        CombinedDARun {
+        CombinedDaRun {
             config,
             quorum_channel,
             da_channel,
         }
     }
 
-    fn get_da_channel(&self) -> CombinedNetworks<TYPES> {
+    fn da_channel(&self) -> CombinedNetworks<TYPES> {
         self.da_channel.clone()
     }
 
-    fn get_quorum_channel(&self) -> CombinedNetworks<TYPES> {
+    fn quorum_channel(&self) -> CombinedNetworks<TYPES> {
         self.quorum_channel.clone()
     }
 
-    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey> {
+    fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
         self.config.clone()
     }
 }
@@ -874,10 +874,10 @@ pub async fn main_entry_point<
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
-        CommitteeNetwork = DACHANNEL,
+        DaNetwork = DACHANNEL,
         Storage = TestStorage<TYPES>,
     >,
-    RUNDA: RunDA<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
+    RUNDA: RunDa<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
     args: ValidatorArgs,
 ) where
@@ -954,7 +954,7 @@ pub async fn main_entry_point<
     let hotshot = run.initialize_state_and_hotshot().await;
 
     if let Some(task) = builder_task {
-        task.start(Box::new(hotshot.get_event_stream()));
+        task.start(Box::new(hotshot.event_stream()));
     }
 
     // pre-generate transactions
@@ -980,7 +980,7 @@ pub async fn main_entry_point<
 
     for round in 0..rounds {
         for _ in 0..transactions_to_send_per_round {
-            let mut txn = <TYPES::ValidatedState>::create_random_transaction(
+            let txn = <TYPES::ValidatedState>::create_random_transaction(
                 None,
                 &mut txn_rng,
                 transaction_size as u64,
@@ -988,9 +988,10 @@ pub async fn main_entry_point<
 
             // prepend destined view number to transaction
             let view_execute_number: u64 = round as u64 + 4;
-            txn.0[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
+            let mut bytes = txn.into_bytes();
+            bytes[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
 
-            transactions.push(txn);
+            transactions.push(TestTransaction::new(bytes));
         }
     }
     if let NetworkConfigSource::Orchestrator = source {

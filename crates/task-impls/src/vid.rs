@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Tracks state of a VID task
-pub struct VIDTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -43,7 +43,7 @@ pub struct VIDTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error")]
     pub async fn handle(
@@ -52,7 +52,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) => {
+            HotShotEvent::BlockRecv(
+                encoded_transactions,
+                metadata,
+                view_number,
+                fee,
+                precompute_data,
+            ) => {
                 let payload =
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
@@ -60,6 +66,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
+                    Some(precompute_data.clone()),
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
@@ -70,6 +77,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
                         consensus.update_vid_shares(*view_number, disperse);
                     }
                 }
+                drop(consensus);
 
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(
@@ -128,7 +136,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
                 self.cur_view = view;
 
                 // If we are not the next leader, we should exit
-                if self.membership.get_leader(self.cur_view + 1) != self.public_key {
+                if self.membership.leader(self.cur_view + 1) != self.public_key {
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
@@ -149,7 +157,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VIDTaskState<TYPES, I> {
 
 #[async_trait]
 /// task state implementation for VID Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VIDTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VidTaskState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

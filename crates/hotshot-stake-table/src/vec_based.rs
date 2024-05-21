@@ -4,10 +4,8 @@ use ark_std::{collections::HashMap, hash::Hash, rand::SeedableRng};
 use digest::crypto_common::rand_core::CryptoRngCore;
 use ethereum_types::{U256, U512};
 use hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
-use jf_primitives::{
-    crhf::{VariableLengthRescueCRHF, CRHF},
-    rescue::RescueParameter,
-};
+use jf_crhf::CRHF;
+use jf_rescue::{crhf::VariableLengthRescueCRHF, RescueParameter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -146,7 +144,7 @@ where
     }
 
     fn len(&self, version: SnapshotVersion) -> Result<usize, StakeTableError> {
-        Ok(self.get_version(&version)?.bls_keys.len())
+        Ok(self.version(&version)?.bls_keys.len())
     }
 
     fn contains_key(&self, key: &Self::Key) -> bool {
@@ -158,7 +156,7 @@ where
         version: SnapshotVersion,
         key: &Self::Key,
     ) -> Result<Self::Amount, StakeTableError> {
-        let table = self.get_version(&version)?;
+        let table = self.version(&version)?;
         let pos = self.lookup_pos(key)?;
         if pos >= table.bls_keys.len() {
             Err(StakeTableError::KeyNotFound)
@@ -181,7 +179,7 @@ where
         version: SnapshotVersion,
         key: &Self::Key,
     ) -> Result<(Self::Amount, Self::Aux, Self::LookupProof), StakeTableError> {
-        let table = self.get_version(&version)?;
+        let table = self.version(&version)?;
         let pos = self.lookup_pos(key)?;
         if pos >= table.bls_keys.len() {
             Err(StakeTableError::KeyNotFound)
@@ -230,7 +228,7 @@ where
     }
 
     fn try_iter(&self, version: SnapshotVersion) -> Result<Self::IntoIter, StakeTableError> {
-        let table = self.get_version(&version)?;
+        let table = self.version(&version)?;
         let owned = (0..table.bls_keys.len())
             .map(|i| {
                 (
@@ -356,7 +354,7 @@ where
     }
 
     /// returns the snapshot version
-    fn get_version(
+    fn version(
         &self,
         version: &SnapshotVersion,
     ) -> Result<&StakeTableSnapshot<K1, K2>, StakeTableError> {
@@ -385,8 +383,9 @@ mod tests {
     use ark_std::{rand::SeedableRng, vec::Vec};
     use ethereum_types::U256;
     use hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
-    use jf_primitives::signatures::{
-        bls_over_bn254::BLSOverBN254CurveSignatureScheme, SchnorrSignatureScheme, SignatureScheme,
+    use jf_signature::{
+        bls_over_bn254::BLSOverBN254CurveSignatureScheme, schnorr::SchnorrSignatureScheme,
+        SignatureScheme,
     };
 
     use super::{

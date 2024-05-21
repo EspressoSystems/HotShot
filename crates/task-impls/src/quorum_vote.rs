@@ -30,7 +30,7 @@ use hotshot_types::{
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-use jf_primitives::vid::VidScheme;
+use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, trace, warn};
@@ -47,9 +47,9 @@ use crate::{
 enum VoteDependency {
     /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
     QuorumProposal,
-    /// For the `DACertificateRecv` event.
+    /// For the `DaCertificateRecv` event.
     Dac,
-    /// For the `VIDShareRecv` event.
+    /// For the `VidShareRecv` event.
     Vid,
     /// For the `VoteNow` event.
     VoteNow,
@@ -103,14 +103,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     }
                     let parent_commitment = parent_leaf.commit();
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
-                    if proposed_leaf.get_parent_commitment() != parent_commitment {
+                    if proposed_leaf.parent_commitment() != parent_commitment {
                         warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
                         return;
                     }
                     leaf = Some(proposed_leaf);
                 }
-                HotShotEvent::DACertificateValidated(cert) => {
-                    let cert_payload_comm = cert.get_data().payload_commit;
+                HotShotEvent::DaCertificateValidated(cert) => {
+                    let cert_payload_comm = cert.date().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
@@ -120,7 +120,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                         payload_commitment = Some(cert_payload_comm);
                     }
                 }
-                HotShotEvent::VIDShareValidated(share) => {
+                HotShotEvent::VidShareValidated(share) => {
                     let vid_payload_commitment = share.data.payload_commitment;
                     disperse_share = Some(share.clone());
                     if let Some(comm) = payload_commitment {
@@ -189,7 +189,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
         if let GeneralConsensusMessage::Vote(vote) = message {
             debug!(
                 "Sending vote to next quorum leader {:?}",
-                vote.get_view_number() + 1
+                vote.view_number() + 1
             );
             // Add to the storage.
             let Some(disperse) = disperse_share else {
@@ -230,7 +230,7 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_network: Arc<I::QuorumNetwork>,
 
     /// Network for DA committee
-    pub committee_network: Arc<I::CommitteeNetwork>,
+    pub da_network: Arc<I::DaNetwork>,
 
     /// Membership for Quorum certs/votes.
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -270,14 +270,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         }
                     }
                     VoteDependency::Dac => {
-                        if let HotShotEvent::DACertificateValidated(cert) = event {
+                        if let HotShotEvent::DaCertificateValidated(cert) = event {
                             cert.view_number
                         } else {
                             return false;
                         }
                     }
                     VoteDependency::Vid => {
-                        if let HotShotEvent::VIDShareValidated(disperse) = event {
+                        if let HotShotEvent::VidShareValidated(disperse) = event {
                             disperse.data.view_number
                         } else {
                             return false;
@@ -420,7 +420,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     Some(Arc::clone(&event)),
                 );
             }
-            HotShotEvent::DACertificateRecv(cert) => {
+            HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
                 trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -439,14 +439,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .update_saved_da_certs(view, cert.clone());
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::DACertificateValidated(cert.clone())),
+                    Arc::new(HotShotEvent::DaCertificateValidated(cert.clone())),
                     &event_sender.clone(),
                 )
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
-            HotShotEvent::VIDShareRecv(disperse) => {
-                let view = disperse.data.get_view_number();
+            HotShotEvent::VidShareRecv(disperse) => {
+                let view = disperse.data.view_number();
                 trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
@@ -460,14 +460,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 // * Signed by one of the staked DA committee members.
                 if !self
                     .quorum_membership
-                    .get_leader(view)
+                    .leader(view)
                     .validate(&disperse.signature, payload_commitment.as_ref())
                     && !self
                         .public_key
                         .validate(&disperse.signature, payload_commitment.as_ref())
                 {
                     let mut validated = false;
-                    for da_member in self.da_membership.get_staked_committee(view) {
+                    for da_member in self.da_membership.staked_committee(view) {
                         if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
                             validated = true;
                             break;
@@ -500,7 +500,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 }
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::VIDShareValidated(disperse.clone())),
+                    Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
                     &event_sender.clone(),
                 )
                 .await;
