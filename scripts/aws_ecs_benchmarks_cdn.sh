@@ -20,19 +20,19 @@ REMOTE_BROKER_HOST="$2" #"3.135.239.251"
 
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
-# build to get the bin in advance, uncomment the following if built first time
-just async_std example validator-push-cdn -- http://localhost:4444 &
-# remember to sleep enough time if it's built first time
-sleep 3m
-for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
+# # build to get the bin in advance, uncomment the following if built first time
+# just async_std example validator-push-cdn -- http://localhost:4444 &
+# # remember to sleep enough time if it's built first time
+# sleep 3m
+# for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
-# docker build and push
-docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+# # docker build and push
+# docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+# docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
-# ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
+# # ecs deploy
+# ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+# ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &

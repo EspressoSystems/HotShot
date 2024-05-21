@@ -13,7 +13,7 @@ keydb_address=redis://"$ip":6379
 # build to get the bin in advance, uncomment the following if built first time
 just async_std example validator-push-cdn -- http://localhost:4444 &
 # remember to sleep enough time if it's built first time
-sleep 5m
+sleep 3m
 for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
@@ -27,7 +27,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
 # echo DEL brokers | keydb-cli
-# server1 marshal
+# server1: marshal
 echo -e "\e[35mGoing to start cdn-marshal on local server\e[0m"
 just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
 # remember to sleep enough time if it's built first time
@@ -57,7 +57,7 @@ do
                         then
                             for rounds in 100 # 50
                             do
-                                # server1 broker
+                                # server1: broker
                                 echo -e "\e[35mGoing to start cdn-broker on local server\e[0m"
                                 just async_std example cdn-broker -- -d redis://localhost:6379 \
                                     --public-bind-endpoint 0.0.0.0:1740 \
@@ -66,14 +66,12 @@ do
                                     --private-advertise-endpoint local_ip:1741 &
                                 # server2: broker
                                 # make sure you're able to access the remote host from current host
-                                # Sishan TODO:
-                                # REMOTE_USER=[YOUR-ID]
-                                # REMOTE_BROKER_HOST=[PUBLIC-IP]
                                 echo -e "\e[35mGoing to start cdn-broker on remote server\e[0m"
-                                REMOTE_USER="sishan"
-                                REMOTE_BROKER_HOST="3.135.239.251"
-                                COMMAND="cd HotShot && ./scripts/benchmarks_start_cdn_broker.sh ${keydb_address}"
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "$COMMAND exit"
+                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
+cd HotShot
+nohup bash scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
+exit
+EOF
 
                                 # start orchestrator
                                 echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
