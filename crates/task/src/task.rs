@@ -163,6 +163,7 @@ impl NetworkTaskRegistry {
         NetworkTaskRegistry { handles: vec![] }
     }
 
+    #[allow(clippy::unused_async)]
     /// Shuts down all tasks in the registry, performing any associated cleanup.
     pub async fn shutdown(&self) {}
 

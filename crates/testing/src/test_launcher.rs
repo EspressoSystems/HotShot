@@ -11,7 +11,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 
-use super::{test_builder::TestDescription, test_task::TestRunner};
+use super::{test_builder::TestDescription, test_runner::TestRunner};
 
 /// convience type alias for the networks available
 pub type Networks<TYPES, I> = (

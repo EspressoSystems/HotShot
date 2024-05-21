@@ -1,9 +1,8 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use std::sync::Arc;
-use async_lock::RwLock;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_spawn, async_timeout};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;
@@ -13,7 +12,7 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
-use crate::test_task::{TestEvent, Node};
+use crate::{test_runner::Node, test_task::TestEvent};
 
 /// the idea here is to run as long as we want
 

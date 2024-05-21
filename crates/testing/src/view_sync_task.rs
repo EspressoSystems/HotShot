@@ -6,7 +6,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 use snafu::Snafu;
 
-use crate::test_task::{TestResult, TestTask, TestTaskState};
+use crate::test_task::{TestResult, TestTaskState};
 
 // use crate::{test_runner::HotShotTaskCompleted, GlobalTestEvent};
 

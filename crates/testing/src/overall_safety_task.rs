@@ -3,14 +3,11 @@ use std::{
     sync::Arc,
 };
 
-use async_lock::RwLock;
-
-use async_broadcast::Sender;
-use crate::test_task::{TestResult, TestEvent, TestTask, TestTaskState};
-use async_trait::async_trait;
 use anyhow::Result;
+use async_broadcast::Sender;
+use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
-use hotshot_task::task::{Task, TaskState };
 use hotshot_types::{
     data::Leaf,
     error::RoundTimedoutState,
@@ -22,7 +19,10 @@ use hotshot_types::{
 use snafu::Snafu;
 use tracing::error;
 
-use crate::test_task::{ Node};
+use crate::{
+    test_runner::Node,
+    test_task::{TestEvent, TestResult, TestTaskState},
+};
 /// convenience type alias for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -79,7 +79,6 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub error: Option<Box<OverallSafetyTaskErr<TYPES>>>,
     /// sender to test event channel
     pub test_sender: Sender<TestEvent>,
-
 }
 
 #[async_trait]
@@ -88,10 +87,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
 {
     type Event = Event<TYPES>;
 
-
     /// Handles an event from one of multiple receivers.
     async fn handle_event(&mut self, (message, id): (Self::Event, usize)) -> Result<()> {
-    
         let OverallSafetyPropertiesDescription {
             check_leaf,
             check_block,
@@ -103,8 +100,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
         let Event { view_number, event } = message;
         let key = match event {
             EventType::Error { error } => {
-                self
-                    .ctx
+                self.ctx
                     .insert_error_to_context(view_number, id, error.clone());
                 None
             }
@@ -133,29 +129,21 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }
             EventType::ReplicaViewTimeout { view_number } => {
                 let error = Arc::new(HotShotError::<TYPES>::ViewTimeoutError {
-                    view_number: view_number,
+                    view_number,
                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                 });
-                self
-                    .ctx
-                    .insert_error_to_context(view_number, id, error);
+                self.ctx.insert_error_to_context(view_number, id, error);
                 None
             }
             _ => return Ok(()),
         };
 
-
         let len = self.handles.read().await.len();
 
         // update view count
-        let threshold =
-            (threshold_calculator)(len, len);
+        let threshold = (threshold_calculator)(len, len);
 
-        let view = self
-            .ctx
-            .round_results
-            .get_mut(&view_number)
-            .unwrap();
+        let view = self.ctx.round_results.get_mut(&view_number).unwrap();
         if let Some(key) = key {
             view.update_status(
                 threshold,
@@ -169,24 +157,23 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                 ViewStatus::Ok => {
                     self.ctx.successful_views.insert(view_number);
                     if self.ctx.successful_views.len() >= num_successful_views {
-                        self.test_sender.broadcast(TestEvent::Shutdown).await;
+                        let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
                     }
                     return Ok(());
                 }
                 ViewStatus::Failed => {
                     self.ctx.failed_views.insert(view_number);
                     if self.ctx.failed_views.len() > num_failed_views {
-                        self.test_sender.broadcast(TestEvent::Shutdown).await;
-                        self.error = Some(Box::new(
-                            OverallSafetyTaskErr::<TYPES>::TooManyFailures {
+                        let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+                        self.error =
+                            Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                                 failed_views: self.ctx.failed_views.clone(),
-                            },
-                        ));
+                            }));
                     }
                     return Ok(());
                 }
                 ViewStatus::Err(e) => {
-                        self.test_sender.broadcast(TestEvent::Shutdown).await;
+                    let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
                     self.error = Some(Box::new(e));
                     return Ok(());
                 }
@@ -198,58 +185,48 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             view.status = ViewStatus::Failed;
             self.ctx.failed_views.insert(view_number);
             if self.ctx.failed_views.len() > num_failed_views {
-                        self.test_sender.broadcast(TestEvent::Shutdown).await;
-                self.error = Some(Box::new(
-                    OverallSafetyTaskErr::<TYPES>::TooManyFailures {
-                        failed_views: self.ctx.failed_views.clone(),
-                    },
-                ));
+                let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+                self.error = Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
+                    failed_views: self.ctx.failed_views.clone(),
+                }));
             }
             return Ok(());
         }
         Ok(())
     }
 
-
     fn check(&self) -> TestResult {
-      if let Some(e) = &self.error
-      {
-                    return TestResult::Fail(e.clone());
+        if let Some(e) = &self.error {
+            return TestResult::Fail(e.clone());
+        }
 
-      }
+        let OverallSafetyPropertiesDescription {
+            check_leaf: _,
+            check_block: _,
+            num_failed_views: num_failed_rounds_total,
+            num_successful_views,
+            threshold_calculator: _,
+            transaction_threshold: _,
+        }: OverallSafetyPropertiesDescription = self.properties.clone();
 
-                let OverallSafetyPropertiesDescription {
-                    check_leaf: _,
-                    check_block: _,
-                    num_failed_views: num_failed_rounds_total,
-                    num_successful_views,
-                    threshold_calculator: _,
-                    transaction_threshold: _,
-                }: OverallSafetyPropertiesDescription = self.properties.clone();
+        let num_incomplete_views = self.ctx.round_results.len()
+            - self.ctx.successful_views.len()
+            - self.ctx.failed_views.len();
 
-                let num_incomplete_views = self.ctx.round_results.len()
-                    - self.ctx.successful_views.len()
-                    - self.ctx.failed_views.len();
+        if self.ctx.successful_views.len() < num_successful_views {
+            return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
+                got: self.ctx.successful_views.len(),
+                expected: num_successful_views,
+            }));
+        }
 
-                if self.ctx.successful_views.len() < num_successful_views {
-                    return TestResult::Fail(Box::new(
-                        OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
-                            got: self.ctx.successful_views.len(),
-                            expected: num_successful_views,
-                        },
-                    ));
-                }
-
-                if self.ctx.failed_views.len() + num_incomplete_views >= num_failed_rounds_total {
-                    return TestResult::Fail(Box::new(
-                        OverallSafetyTaskErr::<TYPES>::TooManyFailures {
-                            failed_views: self.ctx.failed_views.clone(),
-                        },
-                    ));
-                }
-TestResult::Pass
-            }
-
+        if self.ctx.failed_views.len() + num_incomplete_views >= num_failed_rounds_total {
+            return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
+                failed_views: self.ctx.failed_views.clone(),
+            }));
+        }
+        TestResult::Pass
+    }
 }
 
 /// Result of running a round of consensus

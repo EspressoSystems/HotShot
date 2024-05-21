@@ -1,53 +1,17 @@
-use std::{sync::Arc, time::Duration};
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
-};
-use crate::test_launcher::{Networks, TestLauncher};
-
-use hotshot_example_types::state_types::TestInstanceState;
-use hotshot_example_types::storage_types::TestStorage;
-use hotshot::{
-    traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
-    Memberships, SystemContext,
-};
-use hotshot_types::{
-    consensus::ConsensusMetricsValue,
-    constants::EVENT_CHANNEL_SIZE,
-    data::Leaf,
-    message::Message,
-    simple_certificate::QuorumCertificate,
-    traits::{
-        election::Membership,
-        network::ConnectedNetwork,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    },
-    HotShotConfig, ValidatorConfig,
-};
 use anyhow::Result;
-use async_broadcast::{Receiver, SendError, Sender};
-use async_compatibility_layer::art::async_timeout;
+use async_broadcast::Receiver;
 #[cfg(async_executor_impl = "async-std")]
-use async_std::{
-    sync::RwLock,
-    task::{spawn, JoinHandle},
-};
+use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
-#[cfg(async_executor_impl = "async-std")]
-use futures::future::join_all;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
-use futures::{
-    future::{select, select_all, Either},
-    Future,
-};
-use hotshot_task::task::{Task, TaskEvent, TaskState};
+use futures::future::{select, select_all, Either};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::{
     sync::RwLock,
     task::{spawn, JoinHandle},
 };
-use tracing::{error, warn};
+use tracing::error;
 
 /// enum describing how the tasks completed
 pub enum TestResult {
@@ -114,11 +78,6 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
         }
     }
 
-    /// The state of the task, as a boxed dynamic trait object.
-    fn boxed_state(self) -> Box<dyn TestTaskState<Event = S::Event>> {
-        Box::new(self.state) as Box<dyn TestTaskState<Event = S::Event>>
-    }
-
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
     pub fn run(mut self) -> JoinHandle<TestResult> {
@@ -149,107 +108,5 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                 }
             }
         })
-    }
-}
-
-
-
-/// a node participating in a test
-pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// The node's unique identifier
-    pub node_id: u64,
-    /// The underlying networks belonging to the node
-    pub networks: Networks<TYPES, I>,
-    /// The handle to the node's internals
-    pub handle: SystemContextHandle<TYPES, I>,
-}
-
-/// Either the node context or the parameters to construct the context for nodes that start late.
-pub type LateNodeContext<TYPES, I> = Either<
-    Arc<SystemContext<TYPES, I>>,
-    (
-        <I as NodeImplementation<TYPES>>::Storage,
-        Memberships<TYPES>,
-        HotShotConfig<<TYPES as NodeType>::SignatureKey>,
-    ),
->;
-
-/// A yet-to-be-started node that participates in tests
-pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// The underlying networks belonging to the node
-    pub networks: Networks<TYPES, I>,
-    /// Either the context to which we will use to launch HotShot for initialized node when it's
-    /// time, or the parameters that will be used to initialize the node and launch HotShot.
-    pub context: LateNodeContext<TYPES, I>,
-}
-
-/// The runner of a test network
-/// spin up and down nodes, execute rounds
-pub struct TestRunner<
-    TYPES: NodeType,
-    I: TestableNodeImplementation<TYPES>,
-    N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-> {
-    /// test launcher, contains a bunch of useful metadata and closures
-    pub(crate) launcher: TestLauncher<TYPES, I>,
-    /// nodes in the test
-    pub(crate) nodes: Vec<Node<TYPES, I>>,
-    /// nodes with a late start
-    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
-    /// the next node unique identifier
-    pub(crate) next_node_id: u64,
-    /// Phantom for N
-    pub(crate) _pd: PhantomData<N>,
-}
-
-impl<
-        TYPES: NodeType<InstanceState = TestInstanceState>,
-        I: TestableNodeImplementation<TYPES>,
-        N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    > TestRunner<TYPES, I, N>
-where
-    I: TestableNodeImplementation<TYPES>,
-    I: NodeImplementation<
-        TYPES,
-        QuorumNetwork = N,
-        CommitteeNetwork = N,
-        Storage = TestStorage<TYPES>,
-    >,
-{
-    /// add a specific node with a config
-    /// # Panics
-    /// if unable to initialize the node's `SystemContext` based on the config
-    pub async fn add_node_with_config(
-        node_id: u64,
-        networks: Networks<TYPES, I>,
-        memberships: Memberships<TYPES>,
-        initializer: HotShotInitializer<TYPES>,
-        config: HotShotConfig<TYPES::SignatureKey>,
-        validator_config: ValidatorConfig<TYPES::SignatureKey>,
-        storage: I::Storage,
-    ) -> Arc<SystemContext<TYPES, I>> {
-        // Get key pair for certificate aggregation
-        let private_key = validator_config.private_key.clone();
-        let public_key = validator_config.public_key.clone();
-
-        let network_bundle = hotshot::Networks {
-            quorum_network: networks.0.clone(),
-            da_network: networks.1.clone(),
-            _pd: PhantomData,
-        };
-
-        SystemContext::new(
-            public_key,
-            private_key,
-            node_id,
-            config,
-            memberships,
-            network_bundle,
-            initializer,
-            ConsensusMetricsValue::default(),
-            storage,
-        )
-        .await
-        .expect("Could not init hotshot")
     }
 }

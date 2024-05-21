@@ -5,15 +5,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::test_task::Node;
-
-use async_lock::RwLock;
-
-use crate::test_task::{LateStartNode, TestRunner, TestEvent, TestResult, TestTask};
-
 use async_broadcast::broadcast;
-use futures::future::Either::{self, Left, Right};
-use futures::future::join_all;
+use async_lock::RwLock;
+use futures::future::{
+    join, join_all, Either,
+    Either::{Left, Right},
+};
 use hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
@@ -45,6 +42,7 @@ use crate::{
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
     test_launcher::{Networks, TestLauncher},
+    test_task::{TestResult, TestTask},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
 };
@@ -125,7 +123,7 @@ where
         let txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
-            handles: Arc::clone(&handles),
+                    handles: Arc::clone(&handles),
                     next_node_idx: Some(0),
                     duration,
                     shutdown_chan: rx.clone(),
@@ -174,11 +172,11 @@ where
             ctx: RoundCtx::default(),
             properties: self.launcher.metadata.overall_safety_properties,
             error: None,
-            test_sender, 
+            test_sender,
         };
 
         let safety_task = TestTask::<OverallSafetyTask<TYPES, I>>::new(
-                overall_safety_task_state,
+            overall_safety_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
         );
@@ -221,7 +219,7 @@ where
 
         #[cfg(async_executor_impl = "async-std")]
         {
-            let results = join_all(task_futs).await;
+            let (results, _) = join(join_all(task_futs), join_all(test_generators)).await;
             tracing::info!("test tasks joined");
             for result in results {
                 match result {
@@ -371,4 +369,89 @@ where
 
         results
     }
+
+    /// add a specific node with a config
+    /// # Panics
+    /// if unable to initialize the node's `SystemContext` based on the config
+    pub async fn add_node_with_config(
+        node_id: u64,
+        networks: Networks<TYPES, I>,
+        memberships: Memberships<TYPES>,
+        initializer: HotShotInitializer<TYPES>,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
+        storage: I::Storage,
+    ) -> Arc<SystemContext<TYPES, I>> {
+        // Get key pair for certificate aggregation
+        let private_key = validator_config.private_key.clone();
+        let public_key = validator_config.public_key.clone();
+
+        let network_bundle = hotshot::Networks {
+            quorum_network: networks.0.clone(),
+            da_network: networks.1.clone(),
+            _pd: PhantomData,
+        };
+
+        SystemContext::new(
+            public_key,
+            private_key,
+            node_id,
+            config,
+            memberships,
+            network_bundle,
+            initializer,
+            ConsensusMetricsValue::default(),
+            storage,
+        )
+        .await
+        .expect("Could not init hotshot")
+    }
+}
+
+/// a node participating in a test
+pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The node's unique identifier
+    pub node_id: u64,
+    /// The underlying networks belonging to the node
+    pub networks: Networks<TYPES, I>,
+    /// The handle to the node's internals
+    pub handle: SystemContextHandle<TYPES, I>,
+}
+
+/// Either the node context or the parameters to construct the context for nodes that start late.
+pub type LateNodeContext<TYPES, I> = Either<
+    Arc<SystemContext<TYPES, I>>,
+    (
+        <I as NodeImplementation<TYPES>>::Storage,
+        Memberships<TYPES>,
+        HotShotConfig<<TYPES as NodeType>::SignatureKey>,
+    ),
+>;
+
+/// A yet-to-be-started node that participates in tests
+pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The underlying networks belonging to the node
+    pub networks: Networks<TYPES, I>,
+    /// Either the context to which we will use to launch HotShot for initialized node when it's
+    /// time, or the parameters that will be used to initialize the node and launch HotShot.
+    pub context: LateNodeContext<TYPES, I>,
+}
+
+/// The runner of a test network
+/// spin up and down nodes, execute rounds
+pub struct TestRunner<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES>,
+    N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+> {
+    /// test launcher, contains a bunch of useful metadata and closures
+    pub(crate) launcher: TestLauncher<TYPES, I>,
+    /// nodes in the test
+    pub(crate) nodes: Vec<Node<TYPES, I>>,
+    /// nodes with a late start
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
+    /// the next node unique identifier
+    pub(crate) next_node_id: u64,
+    /// Phantom for N
+    pub(crate) _pd: PhantomData<N>,
 }

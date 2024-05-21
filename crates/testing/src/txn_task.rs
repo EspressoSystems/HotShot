@@ -1,8 +1,8 @@
-use std::time::Duration;
-use std::sync::Arc;
-use async_lock::RwLock;
-use async_broadcast::{Receiver, TryRecvError};
+use std::{sync::Arc, time::Duration};
+
+use async_broadcast::Receiver;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;
@@ -12,7 +12,7 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
-use crate::test_task::{TestEvent, Node};
+use crate::{test_runner::Node, test_task::TestEvent};
 
 // the obvious idea here is to pass in a "stream" that completes every `n` seconds
 // the stream construction can definitely be fancier but that's the baseline idea
@@ -40,11 +40,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
             async_sleep(Duration::from_millis(100)).await;
             loop {
                 async_sleep(self.duration).await;
-                match self.shutdown_chan.try_recv() {
-                    Ok(TestEvent::Shutdown) => {
-                        break ();
-                    }
-                    _ => {}
+                if let Ok(TestEvent::Shutdown) = self.shutdown_chan.try_recv() {
+                    break;
                 }
                 self.submit_tx().await;
             }
