@@ -183,6 +183,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 }
             }
 
+            tracing::error!("Current Chain Length {}", current_chain_length);
             // If we got a 3-chain, we can start our state updates, garbage collection, etc
             if let Some(decided_view) = ret.new_decided_view_number {
                 let mut leaf = leaf.clone();
@@ -241,7 +242,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         parent_leaf = leaf.parent_commitment();
     }
 
-    bail!("Leaf not found");
+    Ok(ret)
 }
 
 /// Handles the `QuorumProposalValidated` event.
