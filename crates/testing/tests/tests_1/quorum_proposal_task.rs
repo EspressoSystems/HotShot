@@ -707,6 +707,27 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
+fn generate_outputs(
+    chain_length: i32,
+    current_view_number: u64,
+) -> Vec<Box<dyn Predicate<Arc<HotShotEvent<TestTypes>>>>> {
+    match chain_length {
+        // This is not - 2 because we start from the parent
+        2 => vec![exact(LockedViewUpdated(ViewNumber::new(
+            current_view_number - 1,
+        )))],
+        // This is not - 3 because we start from the parent
+        3 => vec![
+            exact(LockedViewUpdated(ViewNumber::new(current_view_number - 1))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(
+                current_view_number - 2,
+            ))),
+            leaf_decided(),
+        ],
+        _ => vec![],
+    }
+}
+
 /// This test validates the the ascension of the leaf chain across a large input space with
 /// consistently increasing inputs to ensure that decides and locked view updates
 /// occur as expected.
@@ -747,27 +768,6 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
 async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-
-    fn generate_outputs(
-        chain_length: i32,
-        current_view_number: u64,
-    ) -> Vec<Box<dyn Predicate<Arc<HotShotEvent<TestTypes>>>>> {
-        match chain_length {
-            // This is not - 2 because we start from the parent
-            2 => vec![exact(LockedViewUpdated(ViewNumber::new(
-                current_view_number - 1,
-            )))],
-            // This is not - 3 because we start from the parent
-            3 => vec![
-                exact(LockedViewUpdated(ViewNumber::new(current_view_number - 1))),
-                exact(LastDecidedViewUpdated(ViewNumber::new(
-                    current_view_number - 2,
-                ))),
-                leaf_decided(),
-            ],
-            _ => vec![],
-        }
-    }
 
     let node_id: usize = 1;
     let handle = build_system_handle(node_id.try_into().unwrap()).await.0;
@@ -817,34 +817,15 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
 
 /// This test non-deterministically injects faults into the leaf ascension process where we randomly
 /// drop states, views, etc from the proposals to ensure that we get decide events only when a three
-/// chain is detected.
+/// chain is detected. This is accomplished by simply looking up in the state map and checking if the
+/// parents for a given node indeed exist and, if so, updating the current chain depending on how recent
+/// the dropped parent was.
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_fault_injection_leaf_ascension() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-
-    fn generate_outputs(
-        chain_length: i32,
-        current_view_number: u64,
-    ) -> Vec<Box<dyn Predicate<Arc<HotShotEvent<TestTypes>>>>> {
-        match chain_length {
-            // This is not - 2 because we start from the parent
-            2 => vec![exact(LockedViewUpdated(ViewNumber::new(
-                current_view_number - 1,
-            )))],
-            // This is not - 3 because we start from the parent
-            3 => vec![
-                exact(LockedViewUpdated(ViewNumber::new(current_view_number - 1))),
-                exact(LastDecidedViewUpdated(ViewNumber::new(
-                    current_view_number - 2,
-                ))),
-                leaf_decided(),
-            ],
-            _ => vec![],
-        }
-    }
 
     let node_id: usize = 1;
     let handle = build_system_handle(node_id.try_into().unwrap()).await.0;
