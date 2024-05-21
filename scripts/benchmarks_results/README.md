@@ -1,7 +1,11 @@
 ## How to run the benchmarks
 
 - To run it locally, check out `crates/examples/push-cdn/README.md`.
-- To run it in AWS, take a look at `scripts/aws_ecs_benchmarks_cdn.sh`, make sure you've installed everything needed in the script and have access to needed AWS servers, update `REMOTE_USER` and `REMOTE_HOST`, then start `key-db` in one `tmux` session, run `./scripts/aws_ecs_benchmarks_cdn.sh` in another session. More details in `https://www.notion.so/espressosys/Running-Benchmarks-in-AWS-as-of-Feb-2024-fa680676053044aa8a04d5bccea0b1b4?pvs=4`.
+- To run it in AWS, take a look at `scripts/aws_ecs_benchmarks_cdn.sh`, make sure you've installed everything needed in the script and have access to needed AWS servers, then start `key-db` in one `tmux` session, run `./scripts/aws_ecs_benchmarks_cdn.sh [YOUR_NAME] [REMOTE_BROKER_HOST_PUBLIC_IP]` in another session, have their own `shutdown.sh`. e.g. For the remote server running broker, its `shutdown.sh` should be
+```
+killall -9 cdn-broker
+```
+More details in `https://www.notion.so/espressosys/Running-Benchmarks-in-AWS-as-of-Feb-2024-fa680676053044aa8a04d5bccea0b1b4?pvs=4`.
 - When running on a large group of nodes (1000 etc.), it might take too long for all nodes to post "start", you can use `manual_start` when you think there're enough nodes connected:
 ```
 export ORCHESTRATOR_MANUAL_START_PASSWORD=password
