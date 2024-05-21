@@ -820,6 +820,11 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
 /// chain is detected. This is accomplished by simply looking up in the state map and checking if the
 /// parents for a given node indeed exist and, if so, updating the current chain depending on how recent
 /// the dropped parent was.
+///
+/// We utilize the same method to generate the outputs in both cases since it's quite easy to get a predictable
+/// output set depending on where we are in the chain. Again, we do *not* propose in this method and instead
+/// verify that the leaf ascension is reliable. We also use non-determinism to make sure that our fault
+/// injection is randomized to some degree. This helps smoke out corner cases (i.e. the start and end).
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
