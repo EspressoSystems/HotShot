@@ -13,7 +13,6 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
-        election,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },
@@ -288,7 +287,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         // Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
 
         let old_decided_view = consensus_writer.last_decided_view();
-        // TODO - collect garbage.
+        consensus_writer.collect_garbage(old_decided_view, decided_view_number);
 
         // Set the new decided view.
         consensus_writer.update_last_decided_view(decided_view_number)?;
@@ -325,7 +324,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         // First, send an update to everyone saying that we've reached a decide
         broadcast_event(
             Event {
-                view_number: old_decided_view,
+                view_number: decided_view_number,
                 event: EventType::Decide {
                     leaf_chain: Arc::new(leaf_views),
                     // This is never *not* none if we've reached a new decide, so this is safe to unwrap.

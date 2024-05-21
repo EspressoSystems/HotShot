@@ -108,7 +108,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
             ValidatedStateUpdated(ViewNumber::new(0), create_fake_view_with_leaf(genesis_leaf)),
         ],
         outputs: vec![
-            exact(HighQcUpdated(genesis_cert.clone())),
+            exact(UpdateHighQc(genesis_cert.clone())),
             quorum_proposal_send(),
         ],
         asserts: vec![],
@@ -181,7 +181,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 create_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
-        outputs: vec![exact(HighQcUpdated(genesis_cert.clone()))],
+        outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
         asserts: vec![],
     };
 
@@ -204,7 +204,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 create_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
-        outputs: vec![exact(HighQcUpdated(proposals[1].data.justify_qc.clone()))],
+        outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
         asserts: vec![],
     };
 
@@ -229,7 +229,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         outputs: vec![
             exact(LockedViewUpdated(ViewNumber::new(1))),
-            exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
+            exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
             quorum_proposal_send(),
         ],
         asserts: vec![],
@@ -254,7 +254,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 create_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
-        outputs: vec![exact(HighQcUpdated(proposals[3].data.justify_qc.clone()))],
+        outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
         asserts: vec![],
     };
 
@@ -280,7 +280,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             exact(LockedViewUpdated(ViewNumber::new(3))),
             exact(LastDecidedViewUpdated(ViewNumber::new(2))),
             leaf_decided(),
-            exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
+            exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
         ],
         asserts: vec![],
     };
