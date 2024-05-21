@@ -103,7 +103,7 @@ where
 
         let TestRunner {
             ref launcher,
-            nodes,
+            mut nodes,
             late_start,
             next_node_id: _,
             _pd: _,
@@ -193,7 +193,7 @@ where
         }
 
         // Start hotshot
-        for node in nodes {
+        for node in &nodes {
             if !late_start_nodes.contains(&node.node_id) {
                 node.handle.hotshot.start_consensus().await;
             }
@@ -256,6 +256,10 @@ where
           handle.cancel().await;
         }
         completion_handle.cancel().await;
+
+        for node in &mut nodes {
+          node.handle.shut_down().await;
+        }
 
         assert!(
             error_list.is_empty(),

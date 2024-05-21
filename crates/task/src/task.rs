@@ -165,7 +165,16 @@ impl NetworkTaskRegistry {
 
     #[allow(clippy::unused_async)]
     /// Shuts down all tasks in the registry, performing any associated cleanup.
-    pub async fn shutdown(&self) {}
+    pub async fn shutdown(&self) {
+      let mut handles = self.handles.write().await;
+
+      while let Some(handle) = handles.pop() {
+            #[cfg(async_executor_impl = "async-std")]
+            handle.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            handle.abort();
+      }
+      }
 
     /// Add a task to the registry
     pub async fn register(&self, handle: JoinHandle<()>) {
