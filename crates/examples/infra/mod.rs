@@ -1,5 +1,6 @@
 #![allow(clippy::panic)]
 use std::{
+    collections::HashMap,
     fmt::Debug,
     fs,
     marker::PhantomData,
@@ -928,24 +929,26 @@ pub async fn main_entry_point<
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
                     run_config.random_builder.clone().unwrap_or_default(),
+                    HashMap::new(),
                 )
                 .await;
 
-            run_config.config.builder_url = builder_url;
+            run_config.config.builder_urls = vec1::vec1![builder_url];
 
-            builder_task
+            Some(builder_task)
         }
         BuilderType::Simple => {
             let (builder_task, builder_url) =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
                     (),
+                    HashMap::new(),
                 )
                 .await;
 
-            run_config.config.builder_url = builder_url;
+            run_config.config.builder_urls = vec1::vec1![builder_url];
 
-            builder_task
+            Some(builder_task)
         }
     };
 

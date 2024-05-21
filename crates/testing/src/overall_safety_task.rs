@@ -253,7 +253,7 @@ pub struct RoundResult<TYPES: NodeType> {
     /// block -> # entries decided on that block
     pub block_map: HashMap<VidCommitment, usize>,
 
-    /// node idx -> number transactions
+    /// number transactions -> node idx
     pub num_txns_map: HashMap<u64, usize>,
 }
 
@@ -419,12 +419,12 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         }
 
         if transaction_threshold >= 1 {
-            if self.num_txns_map.len() > 1 {
-                self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentTxnsNum {
-                    map: self.num_txns_map.clone(),
-                });
-                return;
-            }
+            // if self.num_txns_map.len() > 1 {
+            //     self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentTxnsNum {
+            //         map: self.num_txns_map.clone(),
+            //     });
+            //     return;
+            // }
             if *self.num_txns_map.iter().last().unwrap().0 < transaction_threshold {
                 self.status = ViewStatus::Failed;
                 return;
