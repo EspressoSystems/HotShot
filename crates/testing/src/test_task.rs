@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use async_compatibility_layer::art::async_timeout;
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -101,17 +102,19 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     messages.push(receiver.recv());
                 }
 
-                match select_all(messages).await {
-                    (Ok(input), id, _) => {
+                match async_timeout(Duration::from_millis(100), select_all(messages)).await {
+                    Ok((Ok(input), id, _)) => {
                         let _ = S::handle_event(&mut self.state, (input, id))
                             .await
                             .inspect_err(|e| tracing::error!("{e}"));
                     }
-
-                    (Err(e), _, _) => {
-                        error!("Receiver error in test task: {e}");
-                    }
+                    _ => {}
                 }
+
+//                    (Err(e), _, _) => {
+//                        error!("Receiver error in test task: {e}");
+//                    }
+//                }
             }
         })
     }

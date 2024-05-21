@@ -220,7 +220,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }));
         }
 
-        if self.ctx.failed_views.len() + num_incomplete_views >= num_failed_rounds_total {
+        if self.ctx.failed_views.len() + num_incomplete_views > num_failed_rounds_total {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                 failed_views: self.ctx.failed_views.clone(),
             }));
