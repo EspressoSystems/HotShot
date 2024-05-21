@@ -1247,8 +1247,6 @@
 <a href="#1245" id="1245">1245</a>
 <a href="#1246" id="1246">1246</a>
 <a href="#1247" id="1247">1247</a>
-<a href="#1248" id="1248">1248</a>
-<a href="#1249" id="1249">1249</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1833,11 +1831,11 @@
 
 <span class="doccomment">/// TEMPORARY TYPE: Quorum proposal recv task state when using dependency tasks
 </span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = QuorumProposalRecvTaskState&lt;TYPES, I&gt;;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = QuorumProposalRecvTaskState&lt;TYPES, I&gt;;
 
 <span class="doccomment">/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
 </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = ConsensusTaskState&lt;TYPES, I&gt;;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = ConsensusTaskState&lt;TYPES, I&gt;;
 
 <span class="comment">// TODO: Fix `clippy::too_many_lines`.
 </span><span class="doccomment">/// Handle the received quorum proposal.
@@ -1877,13 +1875,11 @@
     }
 
     <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES&gt;(
+    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, I&gt;(
+        task_state,
         view,
         <span class="kw-2">&amp;</span>event_stream,
-        task_state.timeout,
         Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
-        <span class="kw-2">&amp;mut </span>task_state.cur_view,
-        <span class="kw-2">&amp;mut </span>task_state.timeout_task,
         SEND_VIEW_CHANGE_EVENT,
     )
     .<span class="kw">await
