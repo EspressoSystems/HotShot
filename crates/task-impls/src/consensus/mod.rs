@@ -294,6 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     proposal,
                     sender,
                     event_stream.clone(),
+                    self.output_event_stream.clone(),
                     self,
                     version,
                 )
@@ -541,6 +542,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if let Err(e) = update_view::<TYPES>(
                     new_view,
                     &event_stream,
+                    &self.output_event_stream,
                     self.timeout,
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
@@ -552,17 +554,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     tracing::trace!("Failed to update view; error = {e}");
                     return;
                 }
-
-                broadcast_event(
-                    Event {
-                        view_number: old_view_number,
-                        event: EventType::ViewFinished {
-                            view_number: old_view_number,
-                        },
-                    },
-                    &self.output_event_stream,
-                )
-                .await;
             }
             HotShotEvent::Timeout(view) => {
                 let view = *view;

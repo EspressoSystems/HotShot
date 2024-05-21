@@ -9,6 +9,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
+    event::{Event, EventType},
     traits::node_implementation::{ConsensusTime, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -34,6 +35,7 @@ pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
 pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    output_event_stream: &Sender<Event<TYPES>>,
     timeout: u64,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,
@@ -44,6 +46,8 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         new_view > *cur_view,
         "New view is not greater than our current view"
     );
+
+    let old_view = *cur_view;
 
     debug!("Updating view from {} to {}", **cur_view, *new_view);
 
@@ -64,7 +68,18 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     let next_view = *cur_view + 1;
 
     if send_view_change_event {
-        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
+        futures::join! {
+            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
+            broadcast_event(
+                Event {
+                    view_number: old_view,
+                    event: EventType::ViewFinished {
+                        view_number: old_view,
+                    },
+                },
+                output_event_stream,
+            )
+        };
     }
 
     // Spawn a timeout task if we did actually update view

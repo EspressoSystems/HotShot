@@ -597,6 +597,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    output_event_stream: Sender<Event<TYPES>>,
     task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
     version: Version,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
@@ -629,6 +630,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     if let Err(e) = update_view::<TYPES>(
         view,
         &event_stream,
+        &output_event_stream,
         task_state.timeout,
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
