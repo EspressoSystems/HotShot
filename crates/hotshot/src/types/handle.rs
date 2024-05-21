@@ -1,8 +1,12 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
+use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 use futures::Stream;
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
@@ -152,18 +156,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    //     pub async fn shut_down(mut self) {
-    //         self.registry.shutdown_all().await
-    pub fn shut_down<'a, 'b>(&'a mut self) -> BoxSyncFuture<'b, ()>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        boxed_sync(async move {
-            self.hotshot.networks.shut_down_networks().await;
-            self.consensus_registry.shutdown().await;
-            self.network_registry.shutdown().await;
-        })
+    pub async fn shut_down(&mut self) {
+        self.internal_event_stream
+            .0
+            .broadcast(Arc::new(HotShotEvent::Shutdown))
+            .await;
+
+        // Give tasks a chance to process the shutdown event.
+        async_sleep(Duration::from_secs(1)).await;
+
+        // Forcibly shutdown tasks once this fails.
+        //
+        // Note: this is highly destructive and unpredictable, so should be revisited in the future.
+        self.hotshot.networks.shut_down_networks().await;
+        self.consensus_registry.shutdown().await;
+        self.network_registry.shutdown().await;
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

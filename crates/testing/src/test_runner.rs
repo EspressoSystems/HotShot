@@ -4,11 +4,11 @@ use std::{
     marker::PhantomData,
     sync::Arc,
 };
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn_blocking, JoinHandle};
 
 use async_broadcast::broadcast;
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::{spawn_blocking, JoinHandle};
 use futures::future::{
     join, join_all, Either,
     Either::{Left, Right},
@@ -202,10 +202,12 @@ where
         task_futs.push(view_sync_task.run());
         task_futs.push(spinning_task.run());
 
-        // `generator` tasks that do not process events. 
+        // `generator` tasks that do not process events.
         let txn_handle = if let Some(txn) = txn_task {
             Some(txn.run())
-        } else { None };
+        } else {
+            None
+        };
         let completion_handle = completion_task.run();
 
         let mut error_list = vec![];
@@ -253,12 +255,12 @@ where
         }
 
         if let Some(handle) = txn_handle {
-          handle.cancel().await;
+            handle.cancel().await;
         }
         completion_handle.cancel().await;
 
         for node in &mut nodes {
-          node.handle.shut_down().await;
+            node.handle.shut_down().await;
         }
 
         assert!(

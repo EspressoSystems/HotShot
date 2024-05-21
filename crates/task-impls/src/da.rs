@@ -314,8 +314,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 error!("Shutting down because of shutdown signal!");
                 return Some(HotShotTaskCompleted);
             }
-            _ => {
-            }
+            _ => {}
         }
         None
     }

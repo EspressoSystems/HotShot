@@ -147,8 +147,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
             HotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted);
             }
-            _ => {
-            }
+            _ => {}
         }
         None
     }

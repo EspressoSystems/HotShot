@@ -72,7 +72,8 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .register(run_response_task::<TYPES, Version01>(
             state,
             handle.internal_event_stream.1.activate_cloned(),
-        )).await;
+        ))
+        .await;
 }
 /// Add the network task to handle messages and publish events.
 pub async fn add_network_message_task<

@@ -50,6 +50,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> Create
             _phantom: PhantomData,
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
+            spawned_tasks: BTreeMap::new(),
         }
     }
 }

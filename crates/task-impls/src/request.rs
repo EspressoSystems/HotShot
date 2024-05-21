@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -11,6 +12,8 @@ use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -66,6 +69,8 @@ pub struct NetworkRequestState<
     pub id: u64,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
 /// Alias for a signature
@@ -104,7 +109,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         }
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    async fn cancel_subtasks(&mut self) {
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
+
+            for handle in handles {
+                handle.cancel().await;
+            }
+        }
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static>
@@ -112,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
 {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(
-        &self,
+        &mut self,
         view: TYPES::Time,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         bind_version: Ver,
@@ -140,7 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
-        &self,
+        &mut self,
         request: RequestKind<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
@@ -172,7 +187,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
-        async_spawn(requester.run::<Ver>(request, signature));
+        let handle = async_spawn(requester.run::<Ver>(request, signature));
+
+        self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
     /// Signals delayed requesters to finish

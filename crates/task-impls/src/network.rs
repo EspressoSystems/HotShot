@@ -211,7 +211,7 @@ impl<
         let membership = self.membership.clone();
 
         if !(self.filter)(&event) {
-          self.handle(event, &membership).await;
+            self.handle(event, &membership).await;
         }
 
         Ok(())
