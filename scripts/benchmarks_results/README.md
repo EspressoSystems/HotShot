@@ -1,7 +1,7 @@
 ## How to run the benchmarks
 
 - To run it locally, check out `crates/examples/push-cdn/README.md`.
-- To run it in AWS, take a look at `scripts/aws_ecs_benchmarks_cdn.sh`, make sure you've installed everything needed in the script and have access to needed AWS servers, then start `key-db` in one `tmux` session, run `./scripts/aws_ecs_benchmarks_cdn.sh [YOUR_NAME] [REMOTE_BROKER_HOST_PUBLIC_IP]` in another session, have their own `shutdown.sh`. e.g. For the remote server running broker, its `shutdown.sh` should be
+- To run it in AWS, take a look at `scripts/aws_ecs_benchmarks_cdn.sh`, make sure you've installed everything needed in the script and have access to needed AWS servers, then start `key-db` in one `tmux` session, enter `HotShot`, run `./scripts/aws_ecs_benchmarks_cdn.sh [YOUR_NAME] [REMOTE_BROKER_HOST_PUBLIC_IP]` in another session, have their own `shutdown.sh`. e.g. For the remote server running broker, its `shutdown.sh` should be
 ```
 killall -9 cdn-broker
 ```

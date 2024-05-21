@@ -72,7 +72,7 @@ do
                                 echo -e "\e[35mGoing to start cdn-broker on remote server\e[0m"
                                 REMOTE_USER="sishan"
                                 REMOTE_BROKER_HOST="3.135.239.251"
-                                COMMAND="./HotShot/scripts/benchmarks_start_cdn_broker.sh ${keydb_address}"
+                                COMMAND="cd HotShot && ./scripts/benchmarks_start_cdn_broker.sh ${keydb_address}"
                                 ssh $REMOTE_USER@$REMOTE_BROKER_HOST "$COMMAND exit"
 
                                 # start orchestrator
