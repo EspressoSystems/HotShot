@@ -700,7 +700,7 @@
 
                 <span class="comment">// We failed to get a block
                 </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-                    <span class="macro">tracing::warn!</span>(%err, <span class="string">"Couldn't get a block"</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Couldn't get a block: {err:#}"</span>);
                     <span class="comment">// pause a bit
                     </span>async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
