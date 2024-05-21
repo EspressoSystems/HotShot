@@ -176,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 
     /// Signals delayed requesters to finish
-    fn set_shutdown_flag(&self) {
+    pub fn set_shutdown_flag(&self) {
         self.shutdown_flag.store(true, Ordering::Relaxed);
     }
 }

@@ -1,11 +1,11 @@
-use async_broadcast::{Sender, Receiver};
-use hotshot_task::task::Task;
 use std::sync::Arc;
-use tracing::instrument;
-use anyhow::Result;
-use async_trait::async_trait;
 
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
+use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
@@ -17,17 +17,14 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
-
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-
-use crate::{events::HotShotEvent, vote_collection::VoteCollectionTaskState};
+use tracing::instrument;
 
 use self::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
+use crate::{events::HotShotEvent, vote_collection::VoteCollectionTaskState};
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -162,8 +159,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for Consensus2Task
     }
 
     /// Joins all subtasks.
-    async fn cancel_subtasks(&mut self)
-    {
+    async fn cancel_subtasks(&mut self) {
         if let Some(task) = self.timeout_task.take() {
             task.cancel().await;
         }

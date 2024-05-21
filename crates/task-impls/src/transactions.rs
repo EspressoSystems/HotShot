@@ -18,7 +18,6 @@ use hotshot_types::{
     event::{Event, EventType},
     traits::{
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},

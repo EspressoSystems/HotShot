@@ -9,7 +9,6 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 use hotshot_task::task::Task;
 use hotshot_task_impls::{
     consensus::ConsensusTaskState,
-    consensus2::Consensus2TaskState,
     da::DaTaskState,
     events::HotShotEvent,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
