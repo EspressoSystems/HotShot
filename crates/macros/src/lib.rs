@@ -294,11 +294,6 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
         .map(|i| format_ident!("{}_output_index", quote::quote!(#i).to_string()))
         .collect();
 
-    let task_names: Vec<_> = scripts
-        .iter()
-        .map(|i| format_ident!("{}_task", quote::quote!(#i).to_string()))
-        .collect();
-
     let task_expectations: Vec<_> = scripts
         .iter()
         .map(|i| format_ident!("{}_expectations", quote::quote!(#i).to_string()))
@@ -320,21 +315,16 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
     use async_broadcast::broadcast;
     use hotshot_task_impls::events::HotShotEvent;
     use async_compatibility_layer::art::async_timeout;
-    use hotshot_task::task::{Task, TaskRegistry, TaskState};
+    use hotshot_task::task::{Task, TaskState};
     use hotshot_types::traits::node_implementation::NodeType;
     use std::sync::Arc;
 
-    let registry = Arc::new(TaskRegistry::default());
-
     let (test_input, task_receiver) = broadcast(1024);
-    // let (task_input, mut test_receiver) = broadcast(1024);
 
     let task_input = test_input.clone();
     let mut test_receiver = task_receiver.clone();
 
     let mut loop_receiver = task_receiver.clone();
-
-    #(let mut #task_names = Task::new(task_input.clone(), task_receiver.clone(), registry.clone(), #scripts.state);)*
 
     #(let mut #task_expectations = #scripts.expectations;)*
 
@@ -346,12 +336,12 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
         for input in &input_group {
             #(
-                if !#task_names.state().filter(&input.clone().into()) {
                     tracing::debug!("Test sent: {:?}", input);
 
-                    if let Some(res) = #task_names.handle_event(input.clone().into()).await {
-                        #task_names.state().handle_result(&res).await;
-                    }
+                    let _ = #scripts.state
+                        .handle_event(input.clone().into(), &task_input, &task_receiver)
+                        .await
+                        .inspect_err(|e| tracing::info!("{e}"));
 
                     while let Ok(Ok(received_output)) = async_timeout(Duration::from_millis(35), test_receiver.recv_direct()).await {
                         tracing::debug!("Test received: {:?}", received_output);
@@ -368,18 +358,17 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
                         #output_index_names += 1;
                     }
-                }
             )*
         }
 
         while let Ok(input) = loop_receiver.try_recv() {
             #(
-                if !#task_names.state().filter(&input) {
                     tracing::debug!("Test sent: {:?}", input);
 
-                    if let Some(res) = #task_names.handle_event(input.clone()).await {
-                        #task_names.state().handle_result(&res).await;
-                    }
+                    let _ = #scripts.state
+                        .handle_event(input.clone().into(), &task_input, &task_receiver)
+                        .await
+                        .inspect_err(|e| tracing::info!("{e}"));
 
                     while let Ok(Ok(received_output)) = async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
                         tracing::debug!("Test received: {:?}", received_output);
@@ -396,7 +385,6 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
                         #output_index_names += 1;
                     }
-                }
             )*
         }
 
@@ -410,7 +398,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
             let task_state_asserts = &mut #task_expectations[stage_number].task_state_asserts;
 
             for assert in task_state_asserts {
-                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), #task_names.state(), &**assert).await;
+                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), &#scripts.state, &**assert).await;
             }
         )*
     } }

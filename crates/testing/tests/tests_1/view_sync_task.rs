@@ -48,7 +48,6 @@ async fn test_view_sync_task() {
     let view_sync_state = ViewSyncTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
     run_harness(input, output, view_sync_state, false).await;

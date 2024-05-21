@@ -1,11 +1,19 @@
+use std::{sync::Arc, time::Duration};
+
 use anyhow::Result;
-use async_broadcast::Receiver;
+use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
 use futures::future::{select, select_all, Either};
+use hotshot_task_impls::{events::HotShotEvent, network::NetworkMessageTaskState};
+use hotshot_types::{
+    message::{Message, Messages},
+    traits::{network::ConnectedNetwork, node_implementation::NodeType},
+};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::{
     sync::RwLock,
@@ -109,4 +117,41 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
             }
         })
     }
+}
+
+/// Add the network task to handle messages and publish events.
+pub async fn add_network_message_test_task<
+    TYPES: NodeType,
+    NET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+>(
+    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    channel: Arc<NET>,
+) -> JoinHandle<()> {
+    let net = Arc::clone(&channel);
+    let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
+        event_stream: event_stream.clone(),
+    };
+
+    let network = Arc::clone(&net);
+    let mut state = network_state.clone();
+
+    async_spawn(async move {
+        loop {
+            let msgs = match network.recv_msgs().await {
+                Ok(msgs) => Messages(msgs),
+                Err(err) => {
+                    error!("failed to receive messages: {err}");
+
+                    // return zero messages so we sleep and try again
+                    Messages(vec![])
+                }
+            };
+            if msgs.0.is_empty() {
+                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
+                async_sleep(Duration::from_millis(100)).await;
+            } else {
+                state.handle_messages(msgs.0).await;
+            }
+        }
+    })
 }

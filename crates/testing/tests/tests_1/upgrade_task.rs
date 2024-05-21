@@ -229,7 +229,6 @@ async fn test_upgrade_and_consensus_task() {
     let mut upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -265,7 +264,7 @@ async fn test_upgrade_and_consensus_task() {
         ],
     ];
 
-    let consensus_script = TaskScript {
+    let mut consensus_script = TaskScript {
         state: consensus_state,
         expectations: vec![
             Expectations {
@@ -295,7 +294,7 @@ async fn test_upgrade_and_consensus_task() {
         ],
     };
 
-    let upgrade_script = TaskScript {
+    let mut upgrade_script = TaskScript {
         state: upgrade_state,
         expectations: vec![
             Expectations {
@@ -424,7 +423,6 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     let mut upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
 
@@ -516,7 +514,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         ],
     ];
 
-    let consensus_script = TaskScript {
+    let mut consensus_script = TaskScript {
         state: consensus_state,
         expectations: vec![
             Expectations {
@@ -579,7 +577,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         ],
     };
 
-    let upgrade_script = TaskScript {
+    let mut upgrade_script = TaskScript {
         state: upgrade_state,
         expectations: vec![
             Expectations {

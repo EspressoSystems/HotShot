@@ -93,7 +93,7 @@ async fn test_da_task() {
         asserts: vec![],
     };
 
-    let da_state = DATaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
+    let da_state = DATaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let stages = vec![view_1, view_2];
 
     run_test_script(stages, da_state).await;
@@ -180,7 +180,7 @@ async fn test_da_task_storage_failure() {
         asserts: vec![],
     };
 
-    let da_state = DATaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
+    let da_state = DATaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let stages = vec![view_1, view_2, view_3];
 
     run_test_script(stages, da_state).await;

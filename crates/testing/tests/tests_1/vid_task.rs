@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 use hotshot::types::SignatureKey;
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::TestTypes,
+    node_types::{TestTypes, MemoryImpl},
     state_types::TestInstanceState,
 };
 use hotshot_task_impls::{events::HotShotEvent, vid::VIDTaskState};
@@ -120,8 +120,7 @@ async fn test_vid_task() {
         1,
     );
 
-    let vid_state = VIDTaskState {
-        api: handle.clone(),
+    let vid_state = VIDTaskState::<TestTypes, MemoryImpl> {
         consensus: handle.hotshot.get_consensus(),
         cur_view: ViewNumber::new(0),
         vote_collector: None,
