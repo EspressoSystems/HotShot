@@ -538,6 +538,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
+                #[cfg(not(feature = "dependency-tasks"))]
                 if let Err(e) = update_view::<TYPES, _>(
                     self,
                     new_view,

@@ -19,7 +19,7 @@ use hotshot_testing::{
     },
     script::{run_test_script, TestScriptStage},
     task_helpers::{
-        build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share,
+        build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share,build_fake_view_with_leaf
     },
     view_generator::TestViewGenerator,
 };
@@ -782,7 +782,7 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
             let mut consensus_writer = consensus.write().await;
             consensus_writer.update_validated_state_map(
                 ViewNumber::new(view_number),
-                create_fake_view_with_leaf(leaf.clone()),
+                build_fake_view_with_leaf(leaf.clone()),
             );
             consensus_writer.update_saved_leaves(leaf.clone());
             consensus_writer.update_vid_shares(
@@ -867,7 +867,7 @@ async fn test_quorum_proposal_task_fault_injection_leaf_ascension() {
                 // if view_number != 7 && view_number != 13 {
                 consensus_writer.update_validated_state_map(
                     ViewNumber::new(view_number),
-                    create_fake_view_with_leaf(leaf.clone()),
+                    build_fake_view_with_leaf(leaf.clone()),
                 );
                 consensus_writer.update_saved_leaves(leaf.clone());
                 consensus_writer.update_vid_shares(
