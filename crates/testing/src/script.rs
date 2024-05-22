@@ -8,7 +8,7 @@ use hotshot_types::traits::node_implementation::NodeType;
 
 use crate::predicates::{Predicate, PredicateResult};
 
-pub const RECV_TIMEOUT: Duration = Duration::from_millis(250);
+pub const RECV_TIMEOUT: Duration = Duration::from_millis(100);
 
 pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
