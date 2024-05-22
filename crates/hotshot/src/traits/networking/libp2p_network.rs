@@ -880,17 +880,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
-    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
-    where
-        'a: 'b,
-        Self: 'b,
+    async fn shut_down(&self)
     {
-        let closure = async move {
             let _ = self.inner.handle.shutdown().await;
             let _ = self.inner.node_lookup_send.send(None).await;
             let _ = self.inner.kill_switch.send(()).await;
-        };
-        boxed_sync(closure)
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]

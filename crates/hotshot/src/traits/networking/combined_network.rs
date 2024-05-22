@@ -317,15 +317,10 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         );
     }
 
-    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
-    where
-        'a: 'b,
-        Self: 'b,
+    async fn shut_down(&self)
     {
-        let closure = async move {
-            join!(self.primary().shut_down(), self.secondary().shut_down());
-        };
-        boxed_sync(closure)
+        self.secondary().shut_down().await;
+        self.primary().shut_down().await;
     }
 
     async fn broadcast_message<VER: StaticVersionType + 'static>(

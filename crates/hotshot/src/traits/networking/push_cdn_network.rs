@@ -430,12 +430,8 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     /// TODO: shut down the networks. Unneeded for testing.
-    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
-    where
-        'a: 'b,
-        Self: 'b,
+    async fn shut_down(&self)
     {
-        boxed_sync(async move {})
     }
 
     /// Broadcast a message to all members of the quorum.

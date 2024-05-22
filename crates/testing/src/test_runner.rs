@@ -215,7 +215,7 @@ where
         #[cfg(async_executor_impl = "async-std")]
         {
             let results = join_all(task_futs).await;
-            tracing::info!("test tasks joined");
+            tracing::error!("test tasks joined");
             for result in results {
                 match result {
                     TestResult::Pass => {
@@ -260,8 +260,11 @@ where
         completion_handle.cancel().await;
 
         for node in &mut nodes {
+            tracing::error!("shutting down node {}", node.handle.hotshot.id);
             node.handle.shut_down().await;
+            tracing::error!("shutting down node networks 0 {}", node.handle.hotshot.id);
             node.networks.0.shut_down().await;
+            tracing::error!("shutting down node networks 1 {}", node.handle.hotshot.id);
             node.networks.1.shut_down().await;
         }
 

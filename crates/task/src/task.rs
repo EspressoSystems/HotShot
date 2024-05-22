@@ -140,9 +140,11 @@ impl<EVENT> ConsensusTaskRegistry<EVENT> {
     /// Wait for the results of all the tasks registered
     /// # Panics
     /// Panics if one of the tasks panicked
-    pub async fn join_all(self) -> Vec<Box<dyn TaskState<Event = EVENT>>> {
+    pub async fn join_all(&self) -> Vec<Box<dyn TaskState<Event = EVENT>>> {
+        let handles = std::mem::take(&mut *self.task_handles.write().await);
+
         #[cfg(async_executor_impl = "async-std")]
-        let ret = join_all(self.task_handles.into_inner()).await;
+        let ret = join_all(handles).await;
         #[cfg(async_executor_impl = "tokio")]
         let ret = try_join_all(self.task_handles.into_inner()).await.unwrap();
         ret

@@ -161,15 +161,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             .0
             .broadcast(Arc::new(HotShotEvent::Shutdown))
             .await;
-
-        // Give tasks a chance to process the shutdown event.
-        async_sleep(Duration::from_secs(1)).await;
-
+        tracing::error!("Shutting down networks!");
         // Forcibly shutdown tasks once this fails.
         //
         // Note: this is highly destructive and unpredictable, so should be revisited in the future.
         self.hotshot.networks.shut_down_networks().await;
-        self.consensus_registry.shutdown().await;
+        tracing::error!("Shutting down consensus tasks!");
+        self.consensus_registry.join_all().await;
+        tracing::error!("Shutting down network tasks!");
         self.network_registry.shutdown().await;
     }
 
