@@ -1,11 +1,6 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    sync::{atomic::AtomicBool, Arc},
-    time::Duration,
-};
-
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
@@ -19,6 +14,14 @@ use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use vbs::version::StaticVersionType;
 
 use crate::types::SystemContextHandle;
@@ -32,6 +35,28 @@ where
 {
     /// Function to create the task state from a given `SystemContextHandle`.
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Self;
+}
+
+/// A helper function to create a timeout task from a given `SystemContextHandle`.
+fn timeout_task_from_handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    handle: &SystemContextHandle<TYPES, I>,
+) -> JoinHandle<()> {
+    // Clone the event stream that we send the timeout event to
+    let event_stream = handle.internal_event_stream.0.clone();
+    let next_view_timeout = handle.hotshot.config.next_view_timeout;
+
+    // Spawn a task that will sleep for the next view timeout and then send a timeout event
+    // if not cancelled
+    async_spawn({
+        async move {
+            async_sleep(Duration::from_millis(next_view_timeout)).await;
+            broadcast_event(
+                Arc::new(HotShotEvent::Timeout(TYPES::Time::new(1))),
+                &event_stream,
+            )
+            .await;
+        }
+    })
 }
 
 #[async_trait]
@@ -187,22 +212,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> ConsensusTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
-
-        let event_stream = handle.internal_event_stream.0.clone();
-        let next_view_timeout = handle.hotshot.config.next_view_timeout;
-        let timeout_task = async_spawn({
-            // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to it.
-            let view_number = 1;
-            async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
-                broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(TYPES::Time::new(view_number))),
-                    &event_stream,
-                )
-                .await;
-            }
-        });
+        let timeout_task = timeout_task_from_handle(handle);
 
         ConsensusTaskState {
             consensus,
@@ -267,22 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         handle: &SystemContextHandle<TYPES, I>,
     ) -> QuorumProposalTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
-
-        let event_stream = handle.internal_event_stream.0.clone();
-        let next_view_timeout = handle.hotshot.config.next_view_timeout;
-        let timeout_task = async_spawn({
-            // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to it.
-            let view_number = 1;
-            async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
-                broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(TYPES::Time::new(view_number))),
-                    &event_stream,
-                )
-                .await;
-            }
-        });
+        let timeout_task = timeout_task_from_handle(handle);
 
         QuorumProposalTaskState {
             latest_proposed_view: handle.cur_view().await,
@@ -314,22 +309,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         handle: &SystemContextHandle<TYPES, I>,
     ) -> QuorumProposalRecvTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
-
-        let event_stream = handle.internal_event_stream.0.clone();
-        let next_view_timeout = handle.hotshot.config.next_view_timeout;
-        let timeout_task = async_spawn({
-            // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to it.
-            let view_number = 1;
-            async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
-                broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(TYPES::Time::new(view_number))),
-                    &event_stream,
-                )
-                .await;
-            }
-        });
+        let timeout_task = timeout_task_from_handle(handle);
 
         QuorumProposalRecvTaskState {
             public_key: handle.public_key().clone(),
@@ -360,23 +340,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for Consensus2TaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Consensus2TaskState<TYPES, I> {
-        let event_stream = handle.internal_event_stream.0.clone();
-        let next_view_timeout = handle.hotshot.config.next_view_timeout;
-        let timeout_task = async_spawn({
-            // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to it.
-            let view_number = 1;
-            async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
-                broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(TYPES::Time::new(view_number))),
-                    &event_stream,
-                )
-                .await;
-            }
-        });
-
         let consensus = handle.hotshot.consensus();
+        let timeout_task = timeout_task_from_handle(handle);
         Consensus2TaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
