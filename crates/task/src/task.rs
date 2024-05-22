@@ -144,10 +144,11 @@ impl<EVENT> ConsensusTaskRegistry<EVENT> {
         let handles = std::mem::take(&mut *self.task_handles.write().await);
 
         #[cfg(async_executor_impl = "async-std")]
-        let ret = join_all(handles).await;
+        let states = join_all(handles).await;
         #[cfg(async_executor_impl = "tokio")]
-        let ret = try_join_all(self.task_handles.into_inner()).await.unwrap();
-        ret
+        let states = try_join_all(handles).await.unwrap();
+
+        states
     }
 }
 

@@ -536,7 +536,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTask
 
     async fn cancel_subtasks(&mut self) {
         for handle in self.vote_dependencies.drain().map(|(_view, handle)| handle) {
-            let _ = handle.cancel().await;
+            #[cfg(async_executor_impl = "async-std")]
+            handle.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            handle.abort();
         }
     }
 }

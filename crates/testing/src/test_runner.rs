@@ -259,11 +259,6 @@ where
         }
         completion_handle.cancel().await;
 
-        for node in &mut nodes {
-            node.networks.0.shut_down().await;
-            node.networks.1.shut_down().await;
-        }
-
         assert!(
             error_list.is_empty(),
             "TEST FAILED! Results: {error_list:?}"

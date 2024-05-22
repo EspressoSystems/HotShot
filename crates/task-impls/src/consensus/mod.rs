@@ -749,12 +749,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
             };
 
             for handle in handles {
-                handle.cancel().await;
+            #[cfg(async_executor_impl = "async-std")]
+            handle.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            handle.abort();
             }
         }
 
         if let Some(task) = self.timeout_task.take() {
+            #[cfg(async_executor_impl = "async-std")]
             task.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            task.abort();
         }
     }
 }

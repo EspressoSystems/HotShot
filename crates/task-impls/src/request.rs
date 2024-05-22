@@ -14,6 +14,8 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::{spawn_blocking, JoinHandle};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -73,13 +75,13 @@ pub struct NetworkRequestState<
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
-// impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
-//     for NetworkRequestState<TYPES, I, Ver>
-// {
-//   fn drop(&mut self)
-//   { futures::executor::block_on(async move { self.cancel_subtasks().await} );
-//   }
-// }
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
+    for NetworkRequestState<TYPES, I, Ver>
+{
+  fn drop(&mut self)
+  { futures::executor::block_on(async move { self.cancel_subtasks().await} );
+  }
+}
 
 /// Alias for a signature
 type Signature<TYPES> =
@@ -118,15 +120,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 
     async fn cancel_subtasks(&mut self) {
-        // while !self.spawned_tasks.is_empty() {
-        //     let Some((_, handles)) = self.spawned_tasks.pop_first() else {
-        //         break;
-        //     };
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
 
-        //     for handle in handles {
-        //         handle.cancel().await;
-        //     }
-        // }
+            for handle in handles {
+                handle.cancel().await;
+            }
+        }
     }
 }
 
