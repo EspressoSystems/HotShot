@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ProposalDependency"],"struct":["ProposalDependencyHandle","QuorumProposalTaskState"]};
+window.SIDEBAR_ITEMS = {"mod":["dependency_handle","handlers"],"struct":["QuorumProposalTaskState"]};

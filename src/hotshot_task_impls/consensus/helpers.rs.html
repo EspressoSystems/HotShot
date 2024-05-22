@@ -1219,34 +1219,6 @@
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
-<a href="#1220" id="1220">1220</a>
-<a href="#1221" id="1221">1221</a>
-<a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
-<a href="#1225" id="1225">1225</a>
-<a href="#1226" id="1226">1226</a>
-<a href="#1227" id="1227">1227</a>
-<a href="#1228" id="1228">1228</a>
-<a href="#1229" id="1229">1229</a>
-<a href="#1230" id="1230">1230</a>
-<a href="#1231" id="1231">1231</a>
-<a href="#1232" id="1232">1232</a>
-<a href="#1233" id="1233">1233</a>
-<a href="#1234" id="1234">1234</a>
-<a href="#1235" id="1235">1235</a>
-<a href="#1236" id="1236">1236</a>
-<a href="#1237" id="1237">1237</a>
-<a href="#1238" id="1238">1238</a>
-<a href="#1239" id="1239">1239</a>
-<a href="#1240" id="1240">1240</a>
-<a href="#1241" id="1241">1241</a>
-<a href="#1242" id="1242">1242</a>
-<a href="#1243" id="1243">1243</a>
-<a href="#1244" id="1244">1244</a>
-<a href="#1245" id="1245">1245</a>
-<a href="#1246" id="1246">1246</a>
-<a href="#1247" id="1247">1247</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1288,10 +1260,7 @@
 <span class="kw">use </span>tracing::{debug, error, info, warn};
 <span class="kw">use </span>vbs::version::Version;
 
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
-<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal::QuorumProposalTaskState;
+<span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::quorum_proposal_recv::QuorumProposalRecvTaskState;
 <span class="kw">use crate</span>::{
@@ -1566,20 +1535,20 @@
 <span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType&gt;(
     cur_view: TYPES::Time,
-    view: TYPES::Time,
+    view_number: TYPES::Time,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
     <span class="macro">ensure!</span>(
-        quorum_membership.leader(view) == public_key,
-        <span class="string">"Somehow we formed a QC but are not the leader for the next view {view:?}"</span>,
+        quorum_membership.leader(view_number) == public_key,
+        <span class="string">"Somehow we formed a QC but are not the leader for the next view {view_number:?}"</span>,
     );
 
-    <span class="kw">let </span>consensus = consensus.read().<span class="kw">await</span>;
-    <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span>consensus.high_qc().view_number();
-    <span class="kw">let </span>parent_view = consensus.validated_state_map().get(parent_view_number).context(
-        <span class="macro">format!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">**</span>parent_view_number)
+    <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
+    <span class="kw">let </span>parent_view_number = consensus_reader.high_qc().view_number();
+    <span class="kw">let </span>parent_view = consensus_reader.validated_state_map().get(<span class="kw-2">&amp;</span>parent_view_number).context(
+        <span class="macro">format!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">*</span>parent_view_number)
     )<span class="question-mark">?</span>;
 
     <span class="comment">// Leaf hash in view inner does not match high qc hash - Why?
@@ -1587,21 +1556,21 @@
         <span class="macro">format!</span>(<span class="string">"Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}"</span>)
     )<span class="question-mark">?</span>;
 
-    <span class="kw">if </span>leaf_commitment != consensus.high_qc().date().leaf_commit {
+    <span class="kw">if </span>leaf_commitment != consensus_reader.high_qc().date().leaf_commit {
         <span class="comment">// NOTE: This happens on the genesis block
         </span><span class="macro">debug!</span>(
             <span class="string">"They don't equal: {:?}   {:?}"</span>,
             leaf_commitment,
-            consensus.high_qc().date().leaf_commit
+            consensus_reader.high_qc().date().leaf_commit
         );
     }
 
-    <span class="kw">let </span>leaf = consensus
+    <span class="kw">let </span>leaf = consensus_reader
         .saved_leaves()
         .get(<span class="kw-2">&amp;</span>leaf_commitment)
         .context(<span class="string">"Failed to find high QC of parent"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>reached_decided = leaf.view_number() == consensus.last_decided_view();
+    <span class="kw">let </span>reached_decided = leaf.view_number() == consensus_reader.last_decided_view();
     <span class="kw">let </span>parent_leaf = leaf.clone();
     <span class="kw">let </span>original_parent_hash = parent_leaf.commit();
     <span class="kw">let </span><span class="kw-2">mut </span>next_parent_hash = original_parent_hash;
@@ -1609,8 +1578,8 @@
     <span class="comment">// Walk back until we find a decide
     </span><span class="kw">if </span>!reached_decided {
         <span class="macro">debug!</span>(<span class="string">"We have not reached decide from view {:?}"</span>, cur_view);
-        <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus.saved_leaves().get(<span class="kw-2">&amp;</span>next_parent_hash) {
-            <span class="kw">if </span>next_parent_leaf.view_number() &lt;= consensus.last_decided_view() {
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus_reader.saved_leaves().get(<span class="kw-2">&amp;</span>next_parent_hash) {
+            <span class="kw">if </span>next_parent_leaf.view_number() &lt;= consensus_reader.last_decided_view() {
                 <span class="kw">break</span>;
             }
             next_parent_hash = next_parent_leaf.parent_commitment();
@@ -2048,20 +2017,12 @@
     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 }
 
-<span class="doccomment">/// TEMPORARY TYPE: Quorum proposal task state when using dependency tasks
-</span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">type </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt; = QuorumProposalTaskState&lt;TYPES, I&gt;;
-
-<span class="doccomment">/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
-</span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">type </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt; = ConsensusTaskState&lt;TYPES, I&gt;;
-
 <span class="doccomment">/// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">pub async fn </span>handle_quorum_proposal_validated&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>TemporaryProposalValidatedCombinedType&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>view = proposal.view_number();
@@ -2128,15 +2089,7 @@
                                 <span class="string">"Updating consensus state with decided upgrade certificate: {:?}"</span>,
                                 cert
                             );
-                            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-                            </span>{
-                                task_state.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
-                            }
-
-                            <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-                            </span>{
-                                decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
-                            }
+                            task_state.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                         }
                     }
                     <span class="comment">// If the block payload is available for this leaf, include it in
@@ -2259,17 +2212,8 @@
             .metrics
             .last_decided_view
             .set(usize::try_from(consensus.last_decided_view().u64()).unwrap());
-        <span class="kw">let </span>cur_number_of_views_per_decide_event = {
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>{
-                <span class="kw-2">*</span>task_state.cur_view - consensus.last_decided_view().u64()
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-            </span>{
-                <span class="kw-2">*</span>task_state.latest_proposed_view - consensus.last_decided_view().u64()
-            }
-        };
+        <span class="kw">let </span>cur_number_of_views_per_decide_event =
+            <span class="kw-2">*</span>task_state.cur_view - consensus.last_decided_view().u64();
         consensus
             .metrics
             .number_of_views_per_decide_event

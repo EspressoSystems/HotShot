@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/quorum_proposal.rs`."><title>quorum_proposal.rs - source</title><script> if (window.location.protocol !== "file:") document.write(`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2">`)</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0 (9b00956e5 2024-04-29)" data-channel="1.78.0" data-search-js="search-42d8da7a6b9792c2.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/task-impls/src/quorum_proposal/mod.rs`."><title>mod.rs - source</title><script> if (window.location.protocol !== "file:") document.write(`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2">`)</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot_task_impls" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0 (9b00956e5 2024-04-29)" data-channel="1.78.0" data-search-js="search-42d8da7a6b9792c2.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../hotshot_task_impls/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -579,87 +579,6 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -669,199 +588,39 @@
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
-    dependency_task::{DependencyTask, HandleDepOutput},
+    dependency_task::DependencyTask,
     task::{Task, TaskState},
 };
 <span class="kw">use </span>hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::Consensus,
     event::Event,
     traits::{
-        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vote::Certificate,
+    vote::{Certificate, HasViewNumber},
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
 
-<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::handle_quorum_proposal_validated;
 <span class="kw">use crate</span>::{
-    consensus::helpers::publish_proposal_if_able, events::HotShotEvent, helpers::cancel_task,
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
 };
 
-<span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
-</span><span class="attr">#[derive(PartialEq, Debug)]
-</span><span class="kw">enum </span>ProposalDependency {
-    <span class="doccomment">/// For the `SendPayloadCommitmentAndMetadata` event.
-    </span>PayloadAndMetadata,
+<span class="kw">use </span><span class="self">self</span>::{
+    dependency_handle::{ProposalDependency, ProposalDependencyHandle},
+    handlers::handle_quorum_proposal_validated,
+};
 
-    <span class="doccomment">/// For the `QcFormed` event.
-    </span>QC,
+<span class="kw">mod </span>dependency_handle;
 
-    <span class="doccomment">/// For the `ViewSyncFinalizeCertificate2Recv` event.
-    </span>ViewSyncCert,
-
-    <span class="doccomment">/// For the `QcFormed` event timeout branch.
-    </span>TimeoutCert,
-
-    <span class="doccomment">/// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
-    </span>Proposal,
-
-    <span class="doccomment">/// For the `ProposeNow` event.
-    </span>ProposeNow,
-}
-
-<span class="doccomment">/// Handler for the proposal dependency
-</span><span class="kw">struct </span>ProposalDependencyHandle&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Latest view number that has been proposed for.
-    </span>latest_proposed_view: TYPES::Time,
-
-    <span class="doccomment">/// The view number to propose for.
-    </span>view_number: TYPES::Time,
-
-    <span class="doccomment">/// The event sender.
-    </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-
-    <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
-    </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
-
-    <span class="doccomment">/// Immutable instance state
-    </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
-
-    <span class="doccomment">/// Output events to application
-    </span><span class="attr">#[allow(dead_code)]
-    </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// Membership for Timeout votes/certs
-    </span><span class="attr">#[allow(dead_code)]
-    </span>timeout_membership: Arc&lt;TYPES::Membership&gt;,
-
-    <span class="doccomment">/// Membership for Quorum Certs/votes
-    </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
-
-    <span class="doccomment">/// Our public key
-    </span>public_key: TYPES::SignatureKey,
-
-    <span class="doccomment">/// Our Private Key
-    </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-
-    <span class="doccomment">/// View timeout from config.
-    </span><span class="attr">#[allow(dead_code)]
-    </span>timeout: u64,
-
-    <span class="doccomment">/// Round start delay from config, in milliseconds.
-    </span>round_start_delay: u64,
-
-    <span class="doccomment">/// The node's id
-    </span><span class="attr">#[allow(dead_code)]
-    </span>id: u64,
-
-    <span class="doccomment">/// Current version of consensus
-    </span>version: Version,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleDepOutput <span class="kw">for </span>ProposalDependencyHandle&lt;TYPES&gt; {
-    <span class="kw">type </span>Output = Vec&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;;
-
-    <span class="attr">#[allow(clippy::no_effect_underscore_binding)]
-    </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
-        <span class="kw">let </span><span class="kw-2">mut </span>payload_commitment = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>commit_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt; = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>_quorum_certificate = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>_timeout_certificate = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>_view_sync_finalize_cert = <span class="prelude-val">None</span>;
-        <span class="kw">for </span>event <span class="kw">in </span>res.iter().flatten().flatten() {
-            <span class="kw">match </span>event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
-                    <span class="kw">let </span>proposal_payload_comm = proposal.block_header.payload_commitment();
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
-                        <span class="kw">if </span>proposal_payload_comm != comm {
-                            <span class="kw">return</span>;
-                        }
-                    } <span class="kw">else </span>{
-                        payload_commitment = <span class="prelude-val">Some</span>(proposal_payload_comm);
-                    }
-                }
-                HotShotEvent::SendPayloadCommitmentAndMetadata(
-                    payload_commitment,
-                    builder_commitment,
-                    metadata,
-                    view,
-                    fee,
-                ) =&gt; {
-                    commit_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
-                        commitment: <span class="kw-2">*</span>payload_commitment,
-                        builder_commitment: builder_commitment.clone(),
-                        metadata: metadata.clone(),
-                        fee: fee.clone(),
-                        block_view: <span class="kw-2">*</span>view,
-                    });
-                }
-                HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {
-                    either::Right(timeout) =&gt; {
-                        _timeout_certificate = <span class="prelude-val">Some</span>(timeout.clone());
-                    }
-                    either::Left(qc) =&gt; {
-                        _quorum_certificate = <span class="prelude-val">Some</span>(qc.clone());
-                    }
-                },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) =&gt; {
-                    _view_sync_finalize_cert = <span class="prelude-val">Some</span>(cert.clone());
-                }
-                HotShotEvent::ProposeNow(<span class="kw">_</span>, pdd) =&gt; {
-                    commit_and_metadata = <span class="prelude-val">Some</span>(pdd.commitment_and_metadata.clone());
-                    <span class="kw">match </span><span class="kw-2">&amp;</span>pdd.secondary_proposal_information {
-                        hotshot_types::consensus::SecondaryProposalInformation::QuorumProposalAndCertificate(quorum_proposal, quorum_certificate) =&gt; {
-                            _quorum_certificate = <span class="prelude-val">Some</span>(quorum_certificate.clone());
-                            payload_commitment = <span class="prelude-val">Some</span>(quorum_proposal.block_header.payload_commitment());
-                        },
-                        hotshot_types::consensus::SecondaryProposalInformation::Timeout(tc) =&gt; {
-                            _timeout_certificate = <span class="prelude-val">Some</span>(tc.clone());
-                        }
-                        hotshot_types::consensus::SecondaryProposalInformation::ViewSync(vsc) =&gt; {
-                            _view_sync_finalize_cert = <span class="prelude-val">Some</span>(vsc.clone());
-                        },
-                    }
-                }
-                <span class="kw">_ </span>=&gt; {}
-            }
-        }
-
-        <span class="kw">if </span>commit_and_metadata.is_none() {
-            <span class="macro">error!</span>(
-                <span class="string">"Somehow completed the proposal dependency task without a commitment and metadata"
-            </span>);
-            <span class="kw">return</span>;
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = publish_proposal_if_able(
-            <span class="self">self</span>.latest_proposed_view,
-            <span class="self">self</span>.view_number,
-            <span class="self">self</span>.sender,
-            <span class="self">self</span>.quorum_membership,
-            <span class="self">self</span>.public_key,
-            <span class="self">self</span>.private_key,
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
-            <span class="self">self</span>.round_start_delay,
-            <span class="prelude-val">None</span>,
-            <span class="prelude-val">None</span>,
-            commit_and_metadata,
-            <span class="prelude-val">None</span>,
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
-            <span class="self">self</span>.version,
-        )
-        .<span class="kw">await
-        </span>{
-            <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to publish proposal"</span>);
-        }
-    }
-}
+<span class="doccomment">/// Event handlers for [`QuorumProposalTaskState`].
+</span><span class="kw">mod </span>handlers;
 
 <span class="doccomment">/// The state for the quorum proposal task.
 </span><span class="kw">pub struct </span>QuorumProposalTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
@@ -879,9 +638,6 @@
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
-    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -910,9 +666,10 @@
     <span class="doccomment">/// This node's storage ref
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 
-    <span class="comment">// /// most recent decided upgrade certificate
-    // pub decided_upgrade_cert: Option&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    </span><span class="doccomment">/// The node's id
+    <span class="doccomment">/// Shared consensus task state
+    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+
+    <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
 
     <span class="doccomment">/// Current version of consensus
@@ -934,16 +691,16 @@
                 <span class="kw">let </span>event = event.as_ref();
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
                     ProposalDependency::QC =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::QcFormed(either::Left(qc)) = event {
-                            qc.view_number + <span class="number">1
+                        <span class="kw">if let </span>HotShotEvent::UpdateHighQc(qc) = event {
+                            qc.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
                     ProposalDependency::TimeoutCert =&gt; {
                         <span class="kw">if let </span>HotShotEvent::QcFormed(either::Right(timeout)) = event {
-                            timeout.view_number
-                        } <span class="kw">else </span>{
+                            timeout.view_number() + <span class="number">1
+                        </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
@@ -951,7 +708,7 @@
                         <span class="kw">if let </span>HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
                             event
                         {
-                            view_sync_cert.view_number
+                            view_sync_cert.view_number()
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
@@ -959,8 +716,8 @@
 
                     ProposalDependency::Proposal =&gt; {
                         <span class="kw">if let </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) = event {
-                            proposal.view_number
-                        } <span class="kw">else </span>{
+                            proposal.view_number() + <span class="number">1
+                        </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
@@ -969,19 +726,33 @@
                             _payload_commitment,
                             _builder_commitment,
                             _metadata,
-                            view,
+                            view_number,
                             _fee,
                         ) = event
                         {
-                            <span class="kw-2">*</span>view
+                            <span class="kw-2">*</span>view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
                     ProposalDependency::ProposeNow =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::ProposeNow(view, <span class="kw">_</span>) = event {
-                            <span class="kw-2">*</span>view
+                        <span class="kw">if let </span>HotShotEvent::ProposeNow(view_number, <span class="kw">_</span>) = event {
+                            <span class="kw-2">*</span>view_number
                         } <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        }
+                    }
+                    ProposalDependency::VidShare =&gt; {
+                        <span class="kw">if let </span>HotShotEvent::VidShareValidated(vid_share) = event {
+                            vid_share.data.view_number()
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="bool-val">false</span>;
+                        }
+                    }
+                    ProposalDependency::ValidatedState =&gt; {
+                        <span class="kw">if let </span>HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) = event {
+                            <span class="kw-2">*</span>view_number + <span class="number">1
+                        </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
@@ -1035,6 +806,18 @@
         <span class="kw">let </span><span class="kw-2">mut </span>propose_now_dependency = <span class="self">self</span>.create_event_dependency(
             ProposalDependency::ProposeNow,
             view_number,
+            event_receiver.clone(),
+        );
+
+        <span class="kw">let </span><span class="kw-2">mut </span>vid_share_dependency = <span class="self">self</span>.create_event_dependency(
+            ProposalDependency::VidShare,
+            view_number,
+            event_receiver.clone(),
+        );
+
+        <span class="kw">let </span><span class="kw-2">mut </span>validated_state_update_dependency = <span class="self">self</span>.create_event_dependency(
+            ProposalDependency::ValidatedState,
+            view_number,
             event_receiver,
         );
 
@@ -1053,11 +836,20 @@
                     timeout_dependency.mark_as_completed(event);
                 }
                 Either::Left(<span class="kw">_</span>) =&gt; {
-                    qc_dependency.mark_as_completed(event);
-                }
+                    <span class="comment">// qc_dependency.mark_as_completed(event);
+                </span>}
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>) =&gt; {
                 view_sync_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::VidShareValidated(<span class="kw">_</span>) =&gt; {
+                vid_share_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::ValidatedStateUpdated(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                validated_state_update_dependency.mark_as_completed(event);
+            }
+            HotShotEvent::UpdateHighQc(<span class="kw">_</span>) =&gt; {
+                qc_dependency.mark_as_completed(event);
             }
             <span class="kw">_ </span>=&gt; {}
         };
@@ -1085,6 +877,8 @@
             AndDependency::from_deps(<span class="macro">vec!</span>[
                 OrDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[
                     payload_commitment_dependency,
+                    vid_share_dependency,
+                    validated_state_update_dependency,
                 ])]),
                 OrDependency::from_deps(secondary_deps),
             ]),
@@ -1106,11 +900,13 @@
     ) {
         <span class="comment">// Don't even bother making the task if we are not entitled to propose anyay.
         </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view_number) != <span class="self">self</span>.public_key {
+            <span class="macro">tracing::trace!</span>(<span class="string">"We are not the leader of the next view"</span>);
             <span class="kw">return</span>;
         }
 
         <span class="comment">// Don't try to propose twice for the same view.
         </span><span class="kw">if </span>view_number &lt;= <span class="self">self</span>.latest_proposed_view {
+            <span class="macro">tracing::trace!</span>(<span class="string">"We have already proposed for this view"</span>);
             <span class="kw">return</span>;
         }
 
@@ -1129,16 +925,12 @@
                 latest_proposed_view: <span class="self">self</span>.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                consensus: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
-                output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
-                timeout_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.timeout_membership),
                 quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
-                timeout: <span class="self">self</span>.timeout,
                 round_start_delay: <span class="self">self</span>.round_start_delay,
-                id: <span class="self">self</span>.id,
                 instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+                consensus: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
                 version: <span class="self">self</span>.version,
             },
         );
@@ -1182,62 +974,50 @@
             HotShotEvent::VersionUpgrade(version) =&gt; {
                 <span class="self">self</span>.version = <span class="kw-2">*</span>version;
             }
-            HotShotEvent::ProposeNow(view, <span class="kw">_</span>) =&gt; {
+            HotShotEvent::ProposeNow(view_number, <span class="kw">_</span>) =&gt; {
                 <span class="self">self</span>.create_dependency_task_if_new(
-                    <span class="kw-2">*</span>view,
+                    <span class="kw-2">*</span>view_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
-            HotShotEvent::QcFormed(cert) =&gt; {
-                <span class="kw">match </span>cert.clone() {
-                    either::Right(timeout_cert) =&gt; {
-                        <span class="kw">let </span>view = timeout_cert.view_number + <span class="number">1</span>;
+            HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert.clone() {
+                either::Right(timeout_cert) =&gt; {
+                    <span class="kw">let </span>view_number = timeout_cert.view_number + <span class="number">1</span>;
 
-                        <span class="self">self</span>.create_dependency_task_if_new(
-                            view,
-                            event_receiver,
-                            event_sender,
-                            Arc::clone(<span class="kw-2">&amp;</span>event),
-                        );
-                    }
-                    either::Left(qc) =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.update_high_qc(qc.clone()).<span class="kw">await
-                        </span>{
-                            <span class="macro">warn!</span>(<span class="string">"Failed to store High QC of QC we formed; error = {:?}"</span>, e);
-                        }
-
-                        <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_high_qc(qc.clone()) {
-                            <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
-                        }
-
-                        <span class="comment">// We need to drop our handle here to make the borrow checker happy.
-                        </span>drop(consensus);
-
-                        <span class="kw">let </span>view = qc.view_number + <span class="number">1</span>;
-
-                        <span class="self">self</span>.create_dependency_task_if_new(
-                            view,
-                            event_receiver,
-                            event_sender,
-                            Arc::clone(<span class="kw-2">&amp;</span>event),
-                        );
-                    }
+                    <span class="self">self</span>.create_dependency_task_if_new(
+                        view_number,
+                        event_receiver,
+                        event_sender,
+                        Arc::clone(<span class="kw-2">&amp;</span>event),
+                    );
                 }
-            }
+                either::Left(qc) =&gt; {
+                    <span class="comment">// Only update if the qc is from a newer view
+                    </span><span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
+                    <span class="kw">if </span>qc.view_number &lt;= consensus_reader.high_qc().view_number {
+                        <span class="macro">tracing::trace!</span>(
+                            <span class="string">"Received a QC for a view that was not &gt; than our current high QC"
+                        </span>);
+                    }
+
+                    <span class="comment">// We need to gate on this data actually existing in the consensus shared state.
+                    // So we broadcast here and handle *before* we make the task.
+                    </span>broadcast_event(HotShotEvent::UpdateHighQc(qc).into(), <span class="kw-2">&amp;</span>event_sender).<span class="kw">await</span>;
+                }
+            },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 _payload_commitment,
                 _builder_commitment,
                 _metadata,
-                view,
+                view_number,
                 _fee,
             ) =&gt; {
-                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
+                <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
 
                 <span class="self">self</span>.create_dependency_task_if_new(
-                    view,
+                    view_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
@@ -1252,21 +1032,27 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>view = certificate.view_number;
+                <span class="kw">let </span>view_number = certificate.view_number;
 
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, event_sender, event);
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view_number,
+                    event_receiver,
+                    event_sender,
+                    event,
+                );
             }
-            <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-            </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
+            HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>new_view = proposal.view_number;
 
-                <span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(new_view).<span class="kw">await </span>{
+                <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of olde.
+                </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(new_view).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
-                    handle_quorum_proposal_validated(proposal, event_sender.clone(), <span class="self">self</span>).<span class="kw">await
+                <span class="comment">// Handle the event before creating the dependency task.
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
+                    handle_quorum_proposal_validated(proposal, <span class="kw-2">&amp;</span>event_sender, <span class="self">self</span>).<span class="kw">await
                 </span>{
                     <span class="macro">debug!</span>(<span class="string">"Failed to handle QuorumProposalValidated event; error = {e:#}"</span>);
                 }
@@ -1285,6 +1071,55 @@
                     <span class="kw">return</span>;
                 }
             }
+            HotShotEvent::VidShareValidated(vid_share) =&gt; {
+                <span class="kw">let </span>view_number = vid_share.data.view_number();
+
+                <span class="comment">// Update the vid shares map if we need to include the new value.
+                </span><span class="kw">let </span>share = vid_share.clone();
+                <span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_vid_shares(view_number, share.clone());
+
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view_number,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
+                );
+            }
+            HotShotEvent::ValidatedStateUpdated(view_number, view) =&gt; {
+                <span class="comment">// Update the internal validated state map.
+                </span><span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_validated_state_map(<span class="kw-2">*</span>view_number, view.clone());
+
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    <span class="kw-2">*</span>view_number + <span class="number">1</span>,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
+                );
+            }
+            HotShotEvent::UpdateHighQc(qc) =&gt; {
+                <span class="comment">// First, update the high QC.
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.consensus.write().<span class="kw">await</span>.update_high_qc(qc.clone()) {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update high qc; error = {e}"</span>);
+                }
+
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.update_high_qc(qc.clone()).<span class="kw">await </span>{
+                    <span class="macro">warn!</span>(<span class="string">"Failed to store High QC of QC we formed; error = {:?}"</span>, e);
+                }
+
+                <span class="kw">let </span>view_number = qc.view_number() + <span class="number">1</span>;
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view_number,
+                    event_receiver,
+                    event_sender,
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
+                );
+            }
             <span class="kw">_ </span>=&gt; {}
         }
     }
@@ -1295,7 +1130,7 @@
 {
     <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
     <span class="kw">type </span>Output = ();
-    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
+    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
         !<span class="macro">matches!</span>(
             event.as_ref(),
             HotShotEvent::QuorumProposalValidated(..)
@@ -1304,7 +1139,10 @@
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
                 | HotShotEvent::ProposeNow(..)
                 | HotShotEvent::QuorumProposalSend(..)
-                | HotShotEvent::Shutdown,
+                | HotShotEvent::VidShareValidated(<span class="kw">_</span>)
+                | HotShotEvent::ValidatedStateUpdated(..)
+                | HotShotEvent::UpdateHighQc(<span class="kw">_</span>)
+                | HotShotEvent::Shutdown
         )
     }
     <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;
