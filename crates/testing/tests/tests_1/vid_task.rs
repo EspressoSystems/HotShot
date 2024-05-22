@@ -1,7 +1,6 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
-use hotshot::tasks::task_state::CreateTaskState;
-use hotshot::types::SignatureKey;
+use hotshot::{tasks::task_state::CreateTaskState, types::SignatureKey};
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
@@ -14,7 +13,7 @@ use hotshot_testing::{
     task_helpers::{build_system_handle, vid_scheme_from_view_number},
 };
 use hotshot_types::{
-    data::{null_block, DaProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    data::{null_block, DaProposal, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -27,7 +26,6 @@ use jf_vid::{precomputable::Precomputable, VidScheme};
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_task() {
-    use hotshot_task_impls::harness::run_harness;
     use hotshot_types::message::Proposal;
 
     async_compatibility_layer::logging::setup_logging();
@@ -74,15 +72,6 @@ async fn test_vid_task() {
         signature: message.signature.clone(),
         _pd: PhantomData,
     };
-    let vid_share_proposals: Vec<_> = VidDisperseShare::from_vid_disperse(vid_disperse.clone())
-        .into_iter()
-        .map(|vid_disperse_share| {
-            vid_disperse_share
-                .to_proposal(handle.private_key())
-                .expect("Failed to sign block payload!")
-        })
-        .collect();
-    let vid_share_proposal = vid_share_proposals[0].clone();
 
     let view_1 = TestScriptStage {
         inputs: vec![ViewChange(ViewNumber::new(1))],

@@ -2,6 +2,7 @@
 #![allow(unused_imports)]
 
 use std::time::Duration;
+use hotshot_testing::script::RECV_TIMEOUT;
 
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
@@ -260,6 +261,8 @@ async fn test_upgrade_and_consensus_task() {
     ];
 
     let mut consensus_script = TaskScript {
+        timeout: RECV_TIMEOUT,
+        ignore_trailing: false,
         state: consensus_state,
         expectations: vec![
             Expectations {
@@ -290,6 +293,8 @@ async fn test_upgrade_and_consensus_task() {
     };
 
     let mut upgrade_script = TaskScript {
+        timeout: RECV_TIMEOUT,
+        ignore_trailing: false,
         state: upgrade_state,
         expectations: vec![
             Expectations {
@@ -311,7 +316,7 @@ async fn test_upgrade_and_consensus_task() {
         ],
     };
 
-    test_scripts![inputs, consensus_script, upgrade_script];
+    test_scripts![inputs, consensus_script, upgrade_script].await;
 }
 
 #[cfg(not(feature = "dependency-tasks"))]
@@ -510,6 +515,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     ];
 
     let mut consensus_script = TaskScript {
+        timeout: RECV_TIMEOUT,
+        ignore_trailing: false,
         state: consensus_state,
         expectations: vec![
             Expectations {
@@ -573,6 +580,8 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     };
 
     let mut upgrade_script = TaskScript {
+        timeout: RECV_TIMEOUT,
+        ignore_trailing: false,
         state: upgrade_state,
         expectations: vec![
             Expectations {
@@ -606,5 +615,5 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         ],
     };
 
-    test_scripts![inputs, consensus_script, upgrade_script];
+    test_scripts![inputs, consensus_script, upgrade_script].await;
 }
