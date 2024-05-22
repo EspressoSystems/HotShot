@@ -44,6 +44,7 @@ fn timeout_task_from_handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     // Clone the event stream that we send the timeout event to
     let event_stream = handle.internal_event_stream.0.clone();
     let next_view_timeout = handle.hotshot.config.next_view_timeout;
+    let start_view = handle.hotshot.start_view;
 
     // Spawn a task that will sleep for the next view timeout and then send a timeout event
     // if not cancelled
@@ -51,7 +52,7 @@ fn timeout_task_from_handle<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         async move {
             async_sleep(Duration::from_millis(next_view_timeout)).await;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::Time::new(1))),
+                Arc::new(HotShotEvent::Timeout(start_view + 1)),
                 &event_stream,
             )
             .await;
