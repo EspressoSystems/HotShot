@@ -749,10 +749,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
             };
 
             for handle in handles {
-            #[cfg(async_executor_impl = "async-std")]
-            handle.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            handle.abort();
+                #[cfg(async_executor_impl = "async-std")]
+                handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
             }
         }
 

@@ -6,11 +6,8 @@ use std::{
 };
 
 use async_broadcast::broadcast;
-use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn_blocking, JoinHandle};
 use futures::future::{
-    join, join_all, Either,
+    join_all, Either,
     Either::{Left, Right},
 };
 use hotshot::{
@@ -103,7 +100,7 @@ where
 
         let TestRunner {
             ref launcher,
-            mut nodes,
+            nodes,
             late_start,
             next_node_id: _,
             _pd: _,
@@ -203,11 +200,7 @@ where
         task_futs.push(spinning_task.run());
 
         // `generator` tasks that do not process events.
-        let txn_handle = if let Some(txn) = txn_task {
-            Some(txn.run())
-        } else {
-            None
-        };
+        let txn_handle = txn_task.map(|txn| txn.run());
         let completion_handle = completion_task.run();
 
         let mut error_list = vec![];
@@ -227,6 +220,10 @@ where
                     }
                 }
             }
+            if let Some(handle) = txn_handle {
+                handle.cancel().await;
+            }
+            completion_handle.cancel().await;
         }
 
         #[cfg(async_executor_impl = "tokio")]
@@ -238,10 +235,10 @@ where
                 match result {
                     Ok(res) => {
                         match res {
-                            HotShotTaskCompleted::ShutDown => {
+                            TestResult::Pass => {
                                 info!("Task shut down successfully");
                             }
-                            HotShotTaskCompleted::Error(e) => error_list.push(e),
+                            TestResult::Fail(e) => error_list.push(e),
                             _ => {
                                 panic!("Future impl for task abstraction failed! This should never happen");
                             }
@@ -252,12 +249,12 @@ where
                     }
                 }
             }
-        }
 
-        if let Some(handle) = txn_handle {
-            handle.cancel().await;
+            if let Some(handle) = txn_handle {
+                handle.abort();
+            }
+            completion_handle.abort();
         }
-        completion_handle.cancel().await;
 
         assert!(
             error_list.is_empty(),

@@ -32,7 +32,6 @@ use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 use hotshot_types::{
-    boxed_sync,
     constants::{Version01, VERSION_0_1},
     data::ViewNumber,
     message::Message,
@@ -42,7 +41,6 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
     utils::bincode_opts,
-    BoxSyncFuture,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "hotshot-testing")]
@@ -430,9 +428,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     }
 
     /// TODO: shut down the networks. Unneeded for testing.
-    async fn shut_down(&self)
-    {
-    }
+    async fn shut_down(&self) {}
 
     /// Broadcast a message to all members of the quorum.
     ///

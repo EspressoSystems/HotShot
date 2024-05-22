@@ -47,7 +47,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
-    BoxSyncFuture,
 };
 use libp2p_identity::{
     ed25519::{self, SecretKey},
@@ -880,11 +879,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
-    async fn shut_down(&self)
-    {
-            let _ = self.inner.handle.shutdown().await;
-            let _ = self.inner.node_lookup_send.send(None).await;
-            let _ = self.inner.kill_switch.send(()).await;
+    async fn shut_down(&self) {
+        let _ = self.inner.handle.shutdown().await;
+        let _ = self.inner.node_lookup_send.send(None).await;
+        let _ = self.inner.kill_switch.send(()).await;
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]

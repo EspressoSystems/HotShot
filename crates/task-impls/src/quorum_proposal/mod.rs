@@ -10,7 +10,7 @@ use either::Either;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
-    task::{TaskState},
+    task::TaskState,
 };
 use hotshot_types::{
     consensus::Consensus,
@@ -28,14 +28,13 @@ use tokio::task::JoinHandle;
 use tracing::{debug, instrument, warn};
 use vbs::version::Version;
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
-
 use self::{
     dependency_handle::{ProposalDependency, ProposalDependencyHandle},
     handlers::handle_quorum_proposal_validated,
+};
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
 };
 
 mod dependency_handle;
@@ -569,11 +568,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
             .drain()
             .map(|(_view, handle)| handle)
         {
-            let _ = handle.cancel().await;
+            #[cfg(async_executor_impl = "async-std")]
+            handle.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            handle.abort();
         }
 
         if let Some(task) = self.timeout_task.take() {
+            #[cfg(async_executor_impl = "async-std")]
             task.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            task.abort();
         }
     }
 }

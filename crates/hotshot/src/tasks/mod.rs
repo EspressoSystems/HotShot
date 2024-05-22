@@ -27,7 +27,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use tracing::error;
 use vbs::version::StaticVersionType;
 
 use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
@@ -96,7 +95,7 @@ pub async fn add_network_message_task<
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => Messages(msgs),
                 Err(err) => {
-                    // error!("failed to receive messages: {err}");
+                    tracing::error!("failed to receive messages: {err}");
 
                     // return zero messages so we sleep and try again
                     Messages(vec![])

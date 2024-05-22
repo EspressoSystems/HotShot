@@ -2,23 +2,18 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
-#[cfg(async_executor_impl = "tokio")]
-use futures::future::try_join_all;
-use futures::future::{select, select_all, Either};
+use futures::future::select_all;
 use hotshot_task_impls::{events::HotShotEvent, network::NetworkMessageTaskState};
 use hotshot_types::{
     message::{Message, Messages},
     traits::{network::ConnectedNetwork, node_implementation::NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
-use tokio::{
-    sync::RwLock,
-    task::{spawn, JoinHandle},
-};
+use tokio::task::{spawn, JoinHandle};
 use tracing::error;
 
 /// enum describing how the tasks completed
@@ -101,19 +96,16 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     messages.push(receiver.recv());
                 }
 
-                match async_timeout(Duration::from_millis(100), select_all(messages)).await {
-                    Ok((Ok(input), id, _)) => {
+                match select_all(messages).await {
+                    (Ok(input), id, _) => {
                         let _ = S::handle_event(&mut self.state, (input, id))
                             .await
                             .inspect_err(|e| tracing::error!("{e}"));
                     }
-                    _ => {}
+                    (Err(e), _, _) => {
+                        error!("Receiver error in test task: {e}");
+                    }
                 }
-
-                //                    (Err(e), _, _) => {
-                //                        error!("Receiver error in test task: {e}");
-                //                    }
-                //                }
             }
         })
     }

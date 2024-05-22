@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::Result;
 use async_broadcast::Sender;
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
 use hotshot_types::{

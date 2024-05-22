@@ -14,8 +14,6 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::{spawn_blocking, JoinHandle};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -31,6 +29,8 @@ use hotshot_types::{
 };
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
@@ -78,9 +78,9 @@ pub struct NetworkRequestState<
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
     for NetworkRequestState<TYPES, I, Ver>
 {
-  fn drop(&mut self)
-  { futures::executor::block_on(async move { self.cancel_subtasks().await} );
-  }
+    fn drop(&mut self) {
+        futures::executor::block_on(async move { self.cancel_subtasks().await });
+    }
 }
 
 /// Alias for a signature
@@ -126,7 +126,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             };
 
             for handle in handles {
+                #[cfg(async_executor_impl = "async-std")]
                 handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
             }
         }
     }
