@@ -44,7 +44,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 pub struct NetworkRequestState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    Ver: StaticVersionType,
+    Ver: StaticVersionType + 'static,
 > {
     /// Network to send requests over
     pub network: Arc<I::QuorumNetwork>,
@@ -71,6 +71,14 @@ pub struct NetworkRequestState<
     pub shutdown_flag: Arc<AtomicBool>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
+    for NetworkRequestState<TYPES, I, Ver>
+{
+  fn drop(&mut self)
+  { futures::executor::block_on(async move { self.cancel_subtasks().await} );
+  }
 }
 
 /// Alias for a signature
