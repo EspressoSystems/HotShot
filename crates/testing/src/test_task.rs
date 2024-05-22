@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
@@ -96,15 +96,12 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     messages.push(receiver.recv());
                 }
 
-                match select_all(messages).await {
-                    (Ok(input), id, _) => {
-                        let _ = S::handle_event(&mut self.state, (input, id))
-                            .await
-                            .inspect_err(|e| tracing::error!("{e}"));
-                    }
-                    (Err(e), _, _) => {
-                        error!("Receiver error in test task: {e}");
-                    }
+                if let Ok((Ok(input), id, _)) =
+                    async_timeout(Duration::from_millis(50), select_all(messages)).await
+                {
+                    let _ = S::handle_event(&mut self.state, (input, id))
+                        .await
+                        .inspect_err(|e| tracing::error!("{e}"));
                 }
             }
         })
