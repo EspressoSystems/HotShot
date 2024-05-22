@@ -299,11 +299,6 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
         .map(|i| format_ident!("{}_expectations", quote::quote!(#i).to_string()))
         .collect();
 
-    let script_completed_names: Vec<_> = scripts
-        .iter()
-        .map(|i| format_ident!("{}_completed", quote::quote!(#i).to_string()))
-        .collect();
-
     let script_names: Vec<_> = scripts
         .iter()
         .map(|i| quote::quote!(#i).to_string())
@@ -374,17 +369,9 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
             )*
         }
 
-        #( let mut #script_completed_names = false; )*
-
         while let Ok(input) = loop_receiver.try_recv() {
             #(
                     tracing::debug!("Test sent: {:?}", input);
-
-                    // If this particular script has been marked as completed,
-                    // we completely skip re-broadcasting events.
-                    if #script_completed_names {
-                      continue;
-                    }
 
                     to_task
                         .broadcast(input.clone().into())
@@ -404,21 +391,12 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                         let output_asserts = &mut #task_expectations[stage_number].output_asserts;
 
                         if #output_index_names >= output_asserts.len() {
-                            // If we've seen all output events without a panic,
-                            // we mark the script as completed and ignore further events.
-                            if #scripts.ignore_trailing {
-                              #script_completed_names = true;
-                              break;
-                            } else {
                               panic_extra_output_in_script(stage_number, #script_names.to_string(), &received_output);
-                            }
                         };
 
-                        if #output_index_names < output_asserts.len() {
-                          let mut assert = &mut output_asserts[#output_index_names];
+                        let mut assert = &mut output_asserts[#output_index_names];
 
-                          validate_output_or_panic_in_script(stage_number, #script_names.to_string(), &received_output, &**assert).await;
-                        }
+                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), &received_output, &**assert).await;
 
                         #output_index_names += 1;
                     }
