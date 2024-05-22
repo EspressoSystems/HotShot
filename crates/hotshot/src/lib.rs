@@ -331,26 +331,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             });
         #[cfg(feature = "dependency-tasks")]
         {
-            #[allow(clippy::panic)]
-            self.internal_event_stream
-                .0
-                .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                    TYPES::Time::new(*self.start_view),
-                    consensus
-                        .validated_state_map()
-                        .get(&self.start_view)
-                        .unwrap_or_else(|| {
-                            panic!("Failed to find the state for view {:?}", self.start_view)
-                        })
-                        .clone(),
-                )))
-                .await
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
-                        self.start_view,
-                    )
-                });
+            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
+                #[allow(clippy::panic)]
+                self.internal_event_stream
+                    .0
+                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
+                        TYPES::Time::new(*self.start_view),
+                        validated_state.clone(),
+                    )))
+                    .await
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
+                            self.start_view,
+                        )
+                    });
+            }
         }
         #[allow(clippy::panic)]
         self.internal_event_stream
