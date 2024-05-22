@@ -8,20 +8,12 @@ use std::{
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_trait::async_trait;
 use hotshot_task_impls::{
-    builder::BuilderClient,
-    consensus::ConsensusTaskState,
-    consensus2::Consensus2TaskState,
-    da::DaTaskState,
-    events::HotShotEvent,
-    helpers::broadcast_event,
-    quorum_proposal::QuorumProposalTaskState,
-    quorum_proposal_recv::QuorumProposalRecvTaskState,
-    quorum_vote::QuorumVoteTaskState,
-    request::NetworkRequestState,
-    transactions::TransactionTaskState,
-    upgrade::UpgradeTaskState,
-    vid::VidTaskState,
-    view_sync::{ViewSyncReplicaTaskState, ViewSyncTaskState},
+    builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
+    da::DaTaskState, events::HotShotEvent, helpers::broadcast_event,
+    quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
+    quorum_vote::QuorumVoteTaskState, request::NetworkRequestState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
+    view_sync::ViewSyncTaskState,
 };
 use hotshot_types::traits::{
     consensus_api::ConsensusApi,
@@ -200,7 +192,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         let next_view_timeout = handle.hotshot.config.next_view_timeout;
         let timeout_task = async_spawn({
             // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to transition to it.
+            // not seen evidence to transition to it.
             let view_number = 1;
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
@@ -280,7 +272,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         let next_view_timeout = handle.hotshot.config.next_view_timeout;
         let timeout_task = async_spawn({
             // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to transition to it.
+            // not seen evidence to transition to it.
             let view_number = 1;
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
@@ -327,7 +319,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         let next_view_timeout = handle.hotshot.config.next_view_timeout;
         let timeout_task = async_spawn({
             // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to transition to it.
+            // not seen evidence to transition to it.
             let view_number = 1;
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
@@ -372,7 +364,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         let next_view_timeout = handle.hotshot.config.next_view_timeout;
         let timeout_task = async_spawn({
             // Nuance: We timeout on the 1 here because that means that we have
-            // not seen evidence to transition to transition to it.
+            // not seen evidence to transition to it.
             let view_number = 1;
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
