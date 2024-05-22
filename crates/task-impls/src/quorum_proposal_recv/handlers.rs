@@ -1,4 +1,3 @@
-// TODO - delete this after dependency tasks merges.
 #![allow(dead_code)]
 
 use anyhow::{bail, Context, Result};
@@ -158,6 +157,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
         &mut task_state.timeout_task,
+        &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
     )
     .await

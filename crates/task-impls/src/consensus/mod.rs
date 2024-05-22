@@ -545,6 +545,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
                     &mut self.timeout_task,
+                    &self.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
                 )
                 .await
@@ -552,17 +553,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     tracing::trace!("Failed to update view; error = {e}");
                     return;
                 }
-
-                broadcast_event(
-                    Event {
-                        view_number: old_view_number,
-                        event: EventType::ViewFinished {
-                            view_number: old_view_number,
-                        },
-                    },
-                    &self.output_event_stream,
-                )
-                .await;
             }
             HotShotEvent::Timeout(view) => {
                 let view = *view;

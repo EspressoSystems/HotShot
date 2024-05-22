@@ -580,14 +580,6 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     }
 }
 
-/// TEMPORARY TYPE: Quorum proposal recv task state when using dependency tasks
-#[cfg(feature = "dependency-tasks")]
-type TemporaryProposalRecvCombinedType<TYPES, I> = QuorumProposalRecvTaskState<TYPES, I>;
-
-/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
-#[cfg(not(feature = "dependency-tasks"))]
-type TemporaryProposalRecvCombinedType<TYPES, I> = ConsensusTaskState<TYPES, I>;
-
 // TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
 ///
@@ -597,7 +589,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
+    task_state: &mut ConsensusTaskState<TYPES, I>,
     version: Version,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
@@ -633,6 +625,7 @@ pub async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
         &mut task_state.timeout_task,
+        &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
     )
     .await

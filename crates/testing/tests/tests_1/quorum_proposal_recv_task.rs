@@ -62,10 +62,10 @@ async fn test_quorum_proposal_recv_task() {
         inputs: vec![QuorumProposalRecv(proposals[1].clone(), leaders[1])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(2))),
-            exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
+            exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
             exact(QuorumProposalValidated(
                 proposals[1].data.clone(),
-                leaves[1].clone(),
+                leaves[0].clone(),
             )),
         ],
         asserts: vec![],

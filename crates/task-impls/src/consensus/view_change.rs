@@ -1,18 +1,20 @@
 use core::time::Duration;
 use std::sync::Arc;
 
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
+
 use anyhow::{ensure, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use hotshot_types::{
     consensus::Consensus,
+    event::{Event, EventType},
     traits::node_implementation::{ConsensusTime, NodeType},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
 use tracing::{debug, error};
 
 use crate::{
@@ -31,6 +33,8 @@ pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
 ///
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
+/// TODO: Remove args when we merge dependency tasks.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -38,6 +42,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,
     timeout_task: &mut Option<JoinHandle<()>>,
+    output_event_stream: &Sender<Event<TYPES>>,
     send_view_change_event: bool,
 ) -> Result<()> {
     ensure!(
@@ -45,9 +50,11 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         "New view is not greater than our current view"
     );
 
-    debug!("Updating view from {} to {}", **cur_view, *new_view);
+    let old_view = *cur_view;
 
-    if **cur_view / 100 != *new_view / 100 {
+    debug!("Updating view from {} to {}", *old_view, *new_view);
+
+    if *old_view / 100 != *new_view / 100 {
         // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
         // switch to info! when INFO logs become less cluttered
         error!("Progress: entered view {:>6}", *new_view);
@@ -64,7 +71,18 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     let next_view = *cur_view + 1;
 
     if send_view_change_event {
-        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream).await;
+        futures::join! {
+            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
+            broadcast_event(
+                Event {
+                    view_number: old_view,
+                    event: EventType::ViewFinished {
+                        view_number: old_view,
+                    },
+                },
+                output_event_stream,
+            )
+        };
     }
 
     // Spawn a timeout task if we did actually update view
@@ -73,8 +91,9 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
         let view_number = next_view;
+        let timeout = Duration::from_millis(timeout);
         async move {
-            async_sleep(Duration::from_millis(timeout)).await;
+            async_sleep(timeout).await;
             broadcast_event(
                 Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
                 &stream,
@@ -82,6 +101,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
             .await;
         }
     }));
+
     let consensus = consensus.upgradable_read().await;
     consensus
         .metrics

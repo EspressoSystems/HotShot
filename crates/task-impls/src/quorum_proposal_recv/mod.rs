@@ -9,8 +9,8 @@ use async_std::task::JoinHandle;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
-    data::{QuorumProposal, ViewChangeEvidence},
+    consensus::Consensus,
+    data::ViewChangeEvidence,
     event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
