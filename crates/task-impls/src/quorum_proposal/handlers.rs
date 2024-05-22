@@ -13,7 +13,6 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
-        election,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         BlockPayload,
     },

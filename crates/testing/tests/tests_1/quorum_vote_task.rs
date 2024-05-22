@@ -1,8 +1,8 @@
 #![allow(clippy::panic)]
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_testing::task_helpers::vid_share;
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_testing::task_helpers::{build_fake_view_with_leaf,vid_share};
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime,vote::HasViewNumber};
 
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -43,6 +43,10 @@ async fn test_quorum_vote_task_success() {
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
             DaCertificateRecv(dacs[1].clone()),
             VidShareRecv(vids[1].0[0].clone()),
+            ValidatedStateUpdated(
+                proposals[1].data.view_number(),
+                build_fake_view_with_leaf(leaves[1].clone()),
+            ),
         ],
         outputs: vec![
             exact(DaCertificateValidated(dacs[1].clone())),

@@ -12,7 +12,7 @@ use hotshot::{
 use hotshot_example_types::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestInstanceState,
+    state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -27,6 +27,7 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
+    utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
 };
@@ -306,4 +307,14 @@ pub async fn build_vote(
     )
     .expect("Failed to create quorum vote");
     GeneralConsensusMessage::<TestTypes>::Vote(vote)
+}
+
+pub fn build_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
+    View {
+        view_inner: ViewInner::Leaf {
+            leaf: leaf.commit(),
+            state: TestValidatedState::default().into(),
+            delta: None,
+        },
+    }
 }
