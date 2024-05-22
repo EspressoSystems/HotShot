@@ -379,7 +379,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
         while let Ok(input) = loop_receiver.try_recv() {
             #(
                     tracing::debug!("Test sent: {:?}", input);
-                    
+
                     // If this particular script has been marked as completed,
                     // we completely skip re-broadcasting events.
                     if #script_completed_names {
@@ -413,7 +413,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                               panic_extra_output_in_script(stage_number, #script_names.to_string(), &received_output);
                             }
                         };
-                        
+
                         if #output_index_names < output_asserts.len() {
                           let mut assert = &mut output_asserts[#output_index_names];
 

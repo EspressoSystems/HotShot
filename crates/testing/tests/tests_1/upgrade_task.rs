@@ -261,7 +261,7 @@ async fn test_upgrade_and_consensus_task() {
     ];
 
     let mut consensus_script = TaskScript {
-        timeout: RECV_TIMEOUT,
+        timeout: Duration::from_millis(35),
         ignore_trailing: false,
         state: consensus_state,
         expectations: vec![
@@ -293,7 +293,7 @@ async fn test_upgrade_and_consensus_task() {
     };
 
     let mut upgrade_script = TaskScript {
-        timeout: RECV_TIMEOUT,
+        timeout: Duration::from_millis(35),
         ignore_trailing: false,
         state: upgrade_state,
         expectations: vec![
@@ -515,7 +515,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     ];
 
     let mut consensus_script = TaskScript {
-        timeout: RECV_TIMEOUT,
+        timeout: Duration::from_millis(35),
         ignore_trailing: false,
         state: consensus_state,
         expectations: vec![
@@ -580,7 +580,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     };
 
     let mut upgrade_script = TaskScript {
-        timeout: RECV_TIMEOUT,
+        timeout: Duration::from_millis(35),
         ignore_trailing: false,
         state: upgrade_state,
         expectations: vec![

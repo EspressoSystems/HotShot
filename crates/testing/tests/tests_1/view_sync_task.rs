@@ -73,6 +73,5 @@ async fn test_view_sync_task() {
         }],
     };
 
-//    async_timeout(Duration::from_secs(30), test_scripts![inputs, consensus_script, view_sync_script]).await;
     test_scripts![inputs, consensus_script, view_sync_script].await;
 }
