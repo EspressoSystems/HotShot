@@ -10,8 +10,19 @@ orchestrator_url=http://"$ip":4444
 cdn_marshal_address="$ip":9000
 keydb_address=redis://"$ip":6379
 
+# Check if at least two arguments are provided
+if [ $# -lt 3 ]; then
+    echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST> <REMOTE_GPU_HOST>"
+    exit 1
+fi
+REMOTE_USER="$1" #"sishan"
+REMOTE_BROKER_HOST="$2" #"3.135.239.251"
+REMOTE_GPU_HOST="$3" #"18.220.24.72"
+# this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
+ulimit -n 65536 
+
 # build to get the bin in advance, uncomment the following if built first time
-just async_std example validator-push-cdn -- http://localhost:4444 &
+just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
 # remember to sleep enough time if it's built first time
 sleep 3m
 for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
@@ -41,21 +52,21 @@ round_up() {
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
 # see `aws_ecs_benchmarks_webserver.sh` for an example
-for total_nodes in 10 # 50 100 200 500 1000
+for total_nodes in 10 50 100 200 500 1000
 do
-    for da_committee_size in 5 # 10 50 100
+    for da_committee_size in 5 10 50 100
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 # 10 50 100
+            for transactions_per_round in 1 10
             do
-                for transaction_size in 1000000 # 100000 1000000 10000000 20000000 # 512 4096
+                for transaction_size in 100000 1000000 10000000 20000000
                 do
-                    for fixed_leader_for_gpuvid in 1 # 5 10 50 100
+                    for fixed_leader_for_gpuvid in 1 5 10
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
-                            for rounds in 100 # 50
+                            for rounds in 100
                             do
                                 # server1: broker
                                 echo -e "\e[35mGoing to start cdn-broker on local server\e[0m"
@@ -84,16 +95,20 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha random_tx &
+                                                                                --commit_sha cdn_with_gpu &
                                 sleep 30
 
                                 # start leaders need to run on GPU FIRST
                                 # and WAIT for enough time till it registerred at orchestrator
                                 # make sure you're able to access the remote nvidia gpu server
                                 echo -e "\e[35mGoing to start leaders on remote gpu server\e[0m"
-                                REMOTE_GPU_HOST="18.220.24.72"
-                                COMMAND_GPU_LEADER="./HotShot/scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url}"
-                                ssh $REMOTE_USER@$REMOTE_GPU_HOST "$COMMAND_GPU_LEADER exit"
+                                
+                                ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
+cd HotShot
+nohup bash scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url} > nohup.out 2>&1 &
+exit
+EOF
+
                                 sleep 1m
 
                                 # start validators
@@ -102,7 +117,7 @@ EOF
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
-                                sleep_time=$(( ($rounds + $total_nodes) * $mul ))
+                                sleep_time=$(( ($rounds + $total_nodes / 2) * $mul ))
                                 echo -e "\e[35msleep_time: $sleep_time\e[0m"
                                 sleep $sleep_time
 
@@ -118,7 +133,7 @@ EOF
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"
                                 killall -9 cdn-broker
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "./HotShot/scripts/shutdown.sh exit"
+                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
                                 # remove brokers from keydb
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli

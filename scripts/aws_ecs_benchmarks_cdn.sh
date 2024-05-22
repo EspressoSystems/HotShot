@@ -12,7 +12,7 @@ keydb_address=redis://"$ip":6379
 
 # Check if at least two arguments are provided
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <REMOTE_USER> <REMOTE_HOST>"
+    echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST>"
     exit 1
 fi
 REMOTE_USER="$1" #"sishan"
@@ -20,19 +20,19 @@ REMOTE_BROKER_HOST="$2" #"3.135.239.251"
 
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
-# # build to get the bin in advance, uncomment the following if built first time
-# just async_std example validator-push-cdn -- http://localhost:4444 &
-# # remember to sleep enough time if it's built first time
-# sleep 3m
-# for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
+# build to get the bin in advance, uncomment the following if built first time
+just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
+# remember to sleep enough time if it's built first time
+sleep 3m
+for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
-# # docker build and push
-# docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-# docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+# docker build and push
+docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
-# # ecs deploy
-# ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-# ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
+# ecs deploy
+ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -93,7 +93,7 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha cdn_simple_builder &
+                                                                                --commit_sha cdn_simple_builder_fixed_leader &
                                 sleep 30
 
                                 # start validators
