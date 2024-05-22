@@ -11,15 +11,16 @@ cdn_marshal_address="$ip":9000
 keydb_address=redis://"$ip":6379
 
 # Check if at least two arguments are provided
-if [ $# -lt 2 ]; then
-    echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST>"
+if [ $# -lt 3 ]; then
+    echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST> <REMOTE_GPU_HOST>"
     exit 1
 fi
 REMOTE_USER="$1" #"sishan"
 REMOTE_BROKER_HOST="$2" #"3.135.239.251"
-
+REMOTE_GPU_HOST="$3" #"18.220.24.72"
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
+
 # build to get the bin in advance, uncomment the following if built first time
 just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
 # remember to sleep enough time if it's built first time
@@ -36,6 +37,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
+# echo DEL brokers | keydb-cli
 # server1: marshal
 echo -e "\e[35mGoing to start cdn-marshal on local server\e[0m"
 just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
@@ -56,11 +58,11 @@ do
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10 50 # 100
+            for transactions_per_round in 1 10
             do
-                for transaction_size in 100000 1000000 10000000 20000000 # 512 4096
+                for transaction_size in 100000 1000000 10000000 20000000
                 do
-                    for fixed_leader_for_gpuvid in 1 5 10 50 100
+                    for fixed_leader_for_gpuvid in 1 5 10
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
@@ -93,22 +95,40 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha cdn_simple_builder_fixed_leader &
+                                                                                --commit_sha cdn_with_gpu &
                                 sleep 30
 
+                                # start leaders need to run on GPU FIRST
+                                # and WAIT for enough time till it registerred at orchestrator
+                                # make sure you're able to access the remote nvidia gpu server
+                                echo -e "\e[35mGoing to start leaders on remote gpu server\e[0m"
+                                
+                                ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
+cd HotShot
+nohup bash scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url} > nohup.out 2>&1 &
+exit
+EOF
+
+                                sleep 1m
+
                                 # start validators
-                                echo -e "\e[35mGoing to start validators on remote servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
+                                echo -e "\e[35mGoing to start validators on remote cpu servers\e[0m"
+                                ecs scale --region us-east-2 hotshot hotshot_centralized $(($total_nodes - $fixed_leader_for_gpuvid)) --timeout -1
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
-                                sleep_time=$(( ($rounds + $total_nodes / 2 ) * $mul ))
+                                sleep_time=$(( ($rounds + $total_nodes / 2) * $mul ))
                                 echo -e "\e[35msleep_time: $sleep_time\e[0m"
                                 sleep $sleep_time
 
                                 # kill them
-                                echo -e "\e[35mGoing to stop validators on remote servers\e[0m"
+                                # shut down nodes
+                                echo -e "\e[35mGoing to stop validators on remote cpu servers\e[0m"
                                 ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
+                                # shut down leaders on gpu
+                                echo -e "\e[35mGoing to stop leaders on remote gpu server\e[0m"
+                                ssh $REMOTE_GPU_USER@$REMOTE_GPU_HOST "./HotShot/scripts/shutdown.sh exit"
+                                echo -e "\e[35mGoing to stop orchestrator\e[0m"
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"
@@ -117,7 +137,7 @@ EOF
                                 # remove brokers from keydb
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli
-                                # make sure you sleep at least 1 min
+                                # make sure you sleep at least 1 min to wait for DB to forget brokers and marshals
                                 sleep $(( $total_nodes + 60))
                             done
                         fi

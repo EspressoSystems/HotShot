@@ -42,7 +42,6 @@ do
     sleep 30
 
     # start orchestrator
-    #just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml --orchestrator_url http://0.0.0.0:4444 --webserver_url http://172.31.28.184:80 --da_webserver_url http://172.31.44.172:81 --total_nodes 10 --da_committee_size 5 --transactions_per_round 1 --transaction_size 1000000 --rounds 20 --commit_sha test_orchestrator
     just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                     --orchestrator_url http://0.0.0.0:4444 \
                                                     --webserver_url ${webserver_url} \
