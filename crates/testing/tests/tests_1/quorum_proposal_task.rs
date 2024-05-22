@@ -830,7 +830,6 @@ async fn test_quorum_proposal_task_fault_injection_leaf_ascension() {
 
             // Update the consensus shared state with a 10% failure rate
             if rand::random::<f32>() < 0.9 {
-                // if view_number != 7 && view_number != 13 {
                 consensus_writer.update_validated_state_map(
                     ViewNumber::new(view_number),
                     create_fake_view_with_leaf(leaf.clone()),
