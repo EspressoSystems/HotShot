@@ -149,10 +149,10 @@ where
                             }
                         }
                         UpDown::Down => {
-                            // if let Some(node) = self.handles.get_mut(idx) {
-                            //     tracing::error!("Node {} shutting down", idx);
-                            //     node.handle.shut_down().await;
-                            // }
+                            if let Some(node) = self.handles.get_mut(idx) {
+                                tracing::error!("Node {} shutting down", idx);
+                                node.handle.shut_down().await;
+                            }
                         }
                         UpDown::NetworkUp => {
                             if let Some(handle) = self.handles.get(idx) {

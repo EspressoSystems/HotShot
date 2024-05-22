@@ -260,11 +260,7 @@ where
         completion_handle.cancel().await;
 
         for node in &mut nodes {
-            tracing::error!("shutting down node {}", node.handle.hotshot.id);
-            node.handle.shut_down().await;
-            tracing::error!("shutting down node networks 0 {}", node.handle.hotshot.id);
             node.networks.0.shut_down().await;
-            tracing::error!("shutting down node networks 1 {}", node.handle.hotshot.id);
             node.networks.1.shut_down().await;
         }
 

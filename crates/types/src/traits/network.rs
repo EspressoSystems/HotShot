@@ -245,7 +245,6 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     async fn wait_for_ready(&self);
 
     /// Blocks until the network is shut down
-    /// then returns true
     async fn shut_down(&self);
 
     /// broadcast message to some subset of nodes
