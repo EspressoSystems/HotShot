@@ -2187,7 +2187,7 @@
     </span><span class="kw">if </span>new_decide_reached {
         <span class="kw">let </span>decide_sent = broadcast_event(
             Event {
-                view_number: task_state.consensus.read().<span class="kw">await</span>.last_decided_view(),
+                view_number: new_anchor_view,
                 event: EventType::Decide {
                     leaf_chain: Arc::new(leaf_views),
                     qc: Arc::new(new_decide_qc.unwrap()),

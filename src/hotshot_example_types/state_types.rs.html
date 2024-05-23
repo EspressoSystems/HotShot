@@ -117,6 +117,13 @@
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations for examples and tests only
 </span><span class="kw">use </span>std::fmt::Debug;
 
@@ -131,6 +138,7 @@
     },
     vid::VidCommon,
 };
+<span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>vbs::version::Version;
 
@@ -223,15 +231,21 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&lt;BlockPayload = TestBlockPayload&gt;&gt; TestableState&lt;TYPES&gt; <span class="kw">for </span>TestValidatedState {
     <span class="kw">fn </span>create_random_transaction(
         _state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
-        _rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+        rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
         <span class="doccomment">/// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         </span><span class="kw">const </span>RANDOM_TX_BASE_SIZE: usize = <span class="number">8</span>;
-        TestTransaction::new(<span class="macro">vec!</span>[
-            <span class="number">0</span>;
-            RANDOM_TX_BASE_SIZE + usize::try_from(padding).unwrap()
-        ])
+
+        <span class="comment">// Generate a random transaction
+        </span><span class="kw">let </span><span class="kw-2">mut </span>tx = rng.gen::&lt;[u8; RANDOM_TX_BASE_SIZE]&gt;().to_vec();
+
+        <span class="comment">// Create and add padding to the transaction
+        </span><span class="kw">let </span>padding = <span class="macro">vec!</span>[<span class="number">0</span>; padding.try_into().expect(<span class="string">"transaction padding too large"</span>)];
+        tx.extend(padding);
+
+        <span class="comment">// Return the transaction
+        </span>TestTransaction::new(tx)
     }
 }
 </code></pre></div></section></main></body></html>
