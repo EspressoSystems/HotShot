@@ -30,6 +30,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    BoxSyncFuture,
 };
 use rand::Rng;
 use snafu::ResultExt;
@@ -226,8 +227,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::shut_down")]
-    async fn shut_down(&self) {
-        *self.inner.input.write().await = None;
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            *self.inner.input.write().await = None;
+        };
+        boxed_sync(closure)
     }
 
     #[instrument(name = "MemoryNetwork::broadcast_message")]

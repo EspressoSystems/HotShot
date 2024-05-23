@@ -27,6 +27,7 @@ use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 use hotshot_types::{
+    boxed_sync,
     constants::{COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES},
     data::ViewNumber,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
@@ -34,6 +35,7 @@ use hotshot_types::{
         network::{ConnectedNetwork, ResponseChannel, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
     },
+    BoxSyncFuture,
 };
 use lru::LruCache;
 #[cfg(async_executor_impl = "tokio")]
@@ -318,9 +320,15 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         );
     }
 
-    async fn shut_down(&self) {
-        self.secondary().shut_down().await;
-        self.primary().shut_down().await;
+    fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
+    where
+        'a: 'b,
+        Self: 'b,
+    {
+        let closure = async move {
+            join!(self.primary().shut_down(), self.secondary().shut_down());
+        };
+        boxed_sync(closure)
     }
 
     async fn broadcast_message<VER: StaticVersionType + 'static>(

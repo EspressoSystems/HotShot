@@ -162,21 +162,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(&mut self) {
+        self.hotshot.networks.shut_down_networks().await;
+        // this is required because `SystemContextHandle` holds an inactive receiver and
+        // `broadcast_direct` below can wait indefinitely
+        self.internal_event_stream.0.set_await_active(false);
         let _ = self
             .internal_event_stream
             .0
-            .broadcast(Arc::new(HotShotEvent::Shutdown))
+            .broadcast_direct(Arc::new(HotShotEvent::Shutdown))
             .await
             .inspect_err(|err| tracing::error!("Failed to send shutdown event: {err}"));
 
         tracing::error!("Shutting down consensus tasks!");
         self.consensus_registry.shutdown().await;
-
-        tracing::error!("Shutting down network tasks!");
-        self.network_registry.shutdown().await;
-
-        tracing::error!("Shutting down networks!");
-        self.hotshot.networks.shut_down_networks().await;
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

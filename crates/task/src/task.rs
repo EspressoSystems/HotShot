@@ -124,9 +124,9 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
         let mut handles = self.task_handles.write().await;
 
         while let Some(handle) = handles.pop() {
-          let mut task_state = handle.await;
+            let mut task_state = handle.await;
 
-          task_state.cancel_subtasks().await;
+            task_state.cancel_subtasks().await;
         }
     }
     /// Take a task, run it, and register it
