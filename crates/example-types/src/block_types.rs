@@ -134,7 +134,7 @@ impl Display for TestBlockPayload {
     }
 }
 
-impl TestableBlock for TestBlockPayload {
+impl<TYPES: NodeType> TestableBlock<TYPES> for TestBlockPayload {
     fn genesis() -> Self {
         Self::genesis()
     }
@@ -159,7 +159,7 @@ impl EncodeBytes for TestBlockPayload {
     }
 }
 
-impl BlockPayload for TestBlockPayload {
+impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     type Error = BlockError;
     type Instance = TestInstanceState;
     type Transaction = TestTransaction;
@@ -167,6 +167,7 @@ impl BlockPayload for TestBlockPayload {
 
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
+        _validated_state: &TYPES::ValidatedState,
         _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
@@ -239,7 +240,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         _builder_fee: BuilderFee<TYPES>,
         _vid_common: VidCommon,
         _version: Version,
@@ -264,7 +265,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
@@ -282,7 +283,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         self.payload_commitment
     }
 
-    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata {
         &TestMetadata
     }
 
