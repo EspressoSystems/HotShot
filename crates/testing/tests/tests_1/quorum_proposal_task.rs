@@ -17,7 +17,7 @@ use hotshot_testing::{
     },
     script::{run_test_script, TestScriptStage},
     task_helpers::{
-        build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share,build_fake_view_with_leaf
+        build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share, build_fake_view_with_leaf,
     },
     view_generator::TestViewGenerator,
 };
@@ -496,7 +496,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(0),
-                create_fake_view_with_leaf(genesis_leaf.clone()),
+                build_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -519,7 +519,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
-                create_fake_view_with_leaf(leaves[0].clone()),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -544,7 +544,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[1].data.view_number(),
-                create_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![
@@ -570,7 +570,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[2].data.view_number(),
-                create_fake_view_with_leaf(leaves[2].clone()),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -592,7 +592,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[3].data.view_number(),
-                create_fake_view_with_leaf(leaves[3].clone()),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![

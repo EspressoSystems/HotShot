@@ -23,12 +23,12 @@ where
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`].
-pub fn create_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
-    create_fake_view_with_leaf_and_state(leaf, TestValidatedState::default())
+pub fn build_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
+    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default())
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.
-pub fn create_fake_view_with_leaf_and_state(
+pub fn build_fake_view_with_leaf_and_state(
     leaf: Leaf<TestTypes>,
     state: TestValidatedState,
 ) -> View<TestTypes> {
