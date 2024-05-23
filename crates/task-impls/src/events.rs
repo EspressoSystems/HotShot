@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use either::Either;
 use hotshot_types::{
-    consensus::ProposalDependencyData,
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
@@ -149,8 +148,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
+
     /// Initiate a proposal right now for a provided view.
-    ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
+    LivenessCheckProposalRecv(QuorumProposal<TYPES>),
+
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 
