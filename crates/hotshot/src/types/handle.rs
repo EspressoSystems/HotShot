@@ -51,12 +51,6 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) storage: Arc<RwLock<I::Storage>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for SystemContextHandle<TYPES, I> {
-    fn drop(&mut self) {
-        futures::executor::block_on(async move { self.shut_down().await });
-    }
-}
-
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
     pub async fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(

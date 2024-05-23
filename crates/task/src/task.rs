@@ -124,7 +124,10 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
         let mut handles = self.task_handles.write().await;
 
         while let Some(handle) = handles.pop() {
+            #[cfg(async_executor_impl = "async-std")]
             let mut task_state = handle.await;
+            #[cfg(async_executor_impl = "tokio")]
+            let mut task_state = handle.await.unwrap();
 
             task_state.cancel_subtasks().await;
         }

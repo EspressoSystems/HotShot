@@ -3,9 +3,11 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
+    time::Duration,
 };
 
 use async_broadcast::broadcast;
+use async_compatibility_layer::art::async_timeout;
 use futures::future::{
     join_all, Either,
     Either::{Left, Right},
@@ -260,6 +262,13 @@ where
             error_list.is_empty(),
             "TEST FAILED! Results: {error_list:?}"
         );
+
+        let _ = async_timeout(Duration::from_secs(10), async {
+            for mut node in nodes {
+                node.handle.shut_down().await;
+            }
+        })
+        .await;
     }
 
     /// Add nodes.
