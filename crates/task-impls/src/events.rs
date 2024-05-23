@@ -149,8 +149,9 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
 
-    /// Initiate a proposal right now for a provided view.
-    LivenessCheckProposalRecv(QuorumProposal<TYPES>),
+    /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
+    /// This is distinct from [`QuorumProposalValidated`] due to the fact that it is 
+    QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
 
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),

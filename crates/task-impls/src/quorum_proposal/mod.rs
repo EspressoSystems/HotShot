@@ -136,7 +136,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     ProposalDependency::Proposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
                             proposal.view_number() + 1
-                        } else if let HotShotEvent::LivenessCheckProposalRecv(proposal) = event {
+                        } else if let HotShotEvent::QuorumProposalLivenessValidated(proposal) =
+                            event
+                        {
                             proposal.view_number() + 1
                         } else {
                             return false;
@@ -235,7 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             // All proposals are equivalent in this case.
             HotShotEvent::QuorumProposalValidated(..)
-            | HotShotEvent::LivenessCheckProposalRecv(_) => {
+            | HotShotEvent::QuorumProposalLivenessValidated(_) => {
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
@@ -380,7 +382,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::VersionUpgrade(version) => {
                 self.version = *version;
             }
-            HotShotEvent::LivenessCheckProposalRecv(proposal) => {
+            HotShotEvent::QuorumProposalLivenessValidated(proposal) => {
                 // We may not be able to propose off of this, but we still spin up an event just in case
                 // the other data is already here, we're still proposing for view + 1 here.
                 self.create_dependency_task_if_new(
@@ -545,7 +547,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 | HotShotEvent::QcFormed(_)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::LivenessCheckProposalRecv(..)
+                | HotShotEvent::QuorumProposalLivenessValidated(..)
                 | HotShotEvent::QuorumProposalSend(..)
                 | HotShotEvent::VidShareValidated(_)
                 | HotShotEvent::ValidatedStateUpdated(..)
