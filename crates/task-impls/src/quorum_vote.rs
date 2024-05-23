@@ -130,7 +130,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                 }
                 HotShotEvent::VoteNow(_, vote_dependency_data) => {
                     leaf = Some(vote_dependency_data.parent_leaf.clone());
-                    vid_share = Some(vote_dependency_data.disperse_share.clone());
+                    vid_share = Some(vote_dependency_data.vid_share.clone());
                 }
                 _ => {}
             }
