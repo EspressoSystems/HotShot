@@ -1014,10 +1014,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     Ok(())
 }
 
-/// TEMPORARY TYPE: Private key, latest decided upgrade certificate, committee membership, and
-/// event stream, for sending the vote.
+/// Private key, latest decided upgrade certificate, committee membership, and event stream, for
+/// sending the vote.
 #[cfg(not(feature = "dependency-tasks"))]
-type TemporaryVoteInfo<TYPES> = (
+type VoteInfo<TYPES> = (
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
     Option<UpgradeCertificate<TYPES>>,
     Arc<<TYPES as NodeType>::Membership>,
@@ -1038,7 +1038,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     storage: Arc<RwLock<I::Storage>>,
     quorum_membership: Arc<TYPES::Membership>,
     instance_state: Arc<TYPES::InstanceState>,
-    vote_info: TemporaryVoteInfo<TYPES>,
+    vote_info: VoteInfo<TYPES>,
     version: Version,
 ) -> bool {
     use hotshot_types::simple_vote::QuorumVote;
