@@ -53,7 +53,6 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for SystemContextHandle<TYPES, I> {
     fn drop(&mut self) {
-        futures::executor::block_on(async move { self.shut_down().await });
     }
 }
 
