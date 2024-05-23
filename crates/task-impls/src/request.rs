@@ -111,20 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         }
     }
 
-    async fn cancel_subtasks(&mut self) {
-        while !self.spawned_tasks.is_empty() {
-            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
-                break;
-            };
-
-            for handle in handles {
-                #[cfg(async_executor_impl = "async-std")]
-                handle.cancel().await;
-                #[cfg(async_executor_impl = "tokio")]
-                handle.abort();
-            }
-        }
-    }
+    async fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static>
