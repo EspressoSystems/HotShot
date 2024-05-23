@@ -661,7 +661,7 @@
     </span><span class="kw">pub </span>round_start_delay: u64,
 
     <span class="doccomment">/// timeout task handle
-    </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>timeout_task: JoinHandle&lt;()&gt;,
 
     <span class="doccomment">/// This node's storage ref
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,

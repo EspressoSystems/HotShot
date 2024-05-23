@@ -118,6 +118,9 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -171,11 +174,6 @@
         </span><span class="macro">error!</span>(<span class="string">"Progress: entered view {:&gt;6}"</span>, <span class="kw-2">*</span>new_view);
     }
 
-    <span class="comment">// cancel the old timeout task
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = task_state.timeout_task.take() {
-        cancel_task(timeout_task).<span class="kw">await</span>;
-    }
-
     task_state.cur_view = new_view;
 
     <span class="comment">// The next view is just the current view + 1
@@ -197,7 +195,7 @@
     }
 
     <span class="comment">// Spawn a timeout task if we did actually update view
-    </span>task_state.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
+    </span><span class="kw">let </span>new_timeout_task = async_spawn({
         <span class="kw">let </span>stream = event_stream.clone();
         <span class="comment">// Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
@@ -211,7 +209,15 @@
             )
             .<span class="kw">await</span>;
         }
-    }));
+    });
+
+    <span class="comment">// Cancel the old timeout task
+    </span>cancel_task(std::mem::replace(
+        <span class="kw-2">&amp;mut </span>task_state.timeout_task,
+        new_timeout_task,
+    ))
+    .<span class="kw">await</span>;
+
     <span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
     consensus
         .metrics

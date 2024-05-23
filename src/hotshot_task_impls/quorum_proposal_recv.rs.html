@@ -278,7 +278,7 @@
     </span><span class="kw">pub </span>timeout_membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// timeout task handle
-    </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>timeout_task: JoinHandle&lt;()&gt;,
 
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,

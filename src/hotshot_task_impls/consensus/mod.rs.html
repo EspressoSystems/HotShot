@@ -874,7 +874,7 @@
         RwLock&lt;VoteCollectorOption&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// timeout task handle
-    </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>timeout_task: JoinHandle&lt;()&gt;,
 
     <span class="doccomment">/// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale

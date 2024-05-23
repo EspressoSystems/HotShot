@@ -332,13 +332,14 @@
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    sync::{atomic::AtomicBool, Arc},
-};
-
-<span class="kw">use </span>async_trait::async_trait;
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
     da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
@@ -350,6 +351,12 @@
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
+<span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc},
+};
+
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
@@ -518,6 +525,7 @@
 {
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; ConsensusTaskState&lt;TYPES, I&gt; {
         <span class="kw">let </span>consensus = handle.hotshot.consensus();
+        <span class="kw">let </span>timeout_task = handle.spawn_initial_timeout_task();
 
         ConsensusTaskState {
             consensus,
@@ -528,7 +536,7 @@
             payload_commitment_and_metadata: <span class="prelude-val">None</span>,
             vote_collector: <span class="prelude-val">None</span>.into(),
             timeout_vote_collector: <span class="prelude-val">None</span>.into(),
-            timeout_task: <span class="prelude-val">None</span>,
+            timeout_task,
             spawned_tasks: BTreeMap::new(),
             formed_upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_cert: <span class="prelude-val">None</span>,
@@ -582,6 +590,8 @@
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; QuorumProposalTaskState&lt;TYPES, I&gt; {
         <span class="kw">let </span>consensus = handle.hotshot.consensus();
+        <span class="kw">let </span>timeout_task = handle.spawn_initial_timeout_task();
+
         QuorumProposalTaskState {
             latest_proposed_view: handle.cur_view().<span class="kw">await</span>,
             propose_dependencies: HashMap::new(),
@@ -596,7 +606,7 @@
             private_key: handle.private_key().clone(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
-            timeout_task: <span class="prelude-val">None</span>,
+            timeout_task,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             version: <span class="kw-2">*</span>handle.hotshot.version.read().<span class="kw">await</span>,
@@ -612,6 +622,8 @@
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
     ) -&gt; QuorumProposalRecvTaskState&lt;TYPES, I&gt; {
         <span class="kw">let </span>consensus = handle.hotshot.consensus();
+        <span class="kw">let </span>timeout_task = handle.spawn_initial_timeout_task();
+
         QuorumProposalRecvTaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -620,7 +632,7 @@
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            timeout_task: <span class="prelude-val">None</span>,
+            timeout_task,
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
@@ -642,6 +654,8 @@
 {
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; Consensus2TaskState&lt;TYPES, I&gt; {
         <span class="kw">let </span>consensus = handle.hotshot.consensus();
+        <span class="kw">let </span>timeout_task = handle.spawn_initial_timeout_task();
+
         Consensus2TaskState {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -656,7 +670,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             cur_view: handle.cur_view().<span class="kw">await</span>,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
-            timeout_task: <span class="prelude-val">None</span>,
+            timeout_task,
             timeout: handle.hotshot.config.next_view_timeout,
             consensus,
             last_decided_view: handle.cur_view().<span class="kw">await</span>,

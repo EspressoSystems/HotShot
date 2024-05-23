@@ -462,6 +462,31 @@
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -797,6 +822,11 @@
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>builder_task, builder_url) =
             B::start(config.num_nodes_with_stake.into(), B::Config::default()).<span class="kw">await</span>;
+
+        <span class="comment">// Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
+        </span><span class="kw">let </span><span class="kw-2">mut </span>uninitialized_nodes = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>networks_ready = Vec::new();
+
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
             <span class="kw">let </span><span class="kw-2">mut </span>config = config.clone();
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
@@ -829,6 +859,17 @@
 
             <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
+
+            <span class="comment">// Create a future that waits for the networks to be ready
+            </span><span class="kw">let </span>network0 = networks.<span class="number">0</span>.clone();
+            <span class="kw">let </span>network1 = networks.<span class="number">1</span>.clone();
+            <span class="kw">let </span>networks_ready_future = <span class="kw">async move </span>{
+                network0.wait_for_ready().<span class="kw">await</span>;
+                network1.wait_for_ready().<span class="kw">await</span>;
+            };
+
+            <span class="comment">// Collect it so we can wait for all networks to be ready before starting the tasks
+            </span>networks_ready.push(networks_ready_future);
 
             <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late &amp;&amp; late_start.contains(<span class="kw-2">&amp;</span>node_id) {
                 <span class="self">self</span>.late_start.insert(
@@ -867,21 +908,30 @@
                         },
                     );
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>handle = hotshot.run_tasks().<span class="kw">await</span>;
-                    <span class="kw">if </span>node_id == <span class="number">1 </span>{
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task.take() {
-                            task.start(Box::new(handle.event_stream()))
-                        }
-                    }
-
-                    <span class="self">self</span>.nodes.push(Node {
-                        node_id,
-                        networks,
-                        handle,
-                    });
+                    uninitialized_nodes.push((node_id, networks, hotshot));
                 }
             }
+
             results.push(node_id);
+        }
+
+        <span class="comment">// Wait for all networks to be ready
+        </span>join_all(networks_ready).<span class="kw">await</span>;
+
+        <span class="comment">// Then start the necessary tasks
+        </span><span class="kw">for </span>(node_id, networks, hotshot) <span class="kw">in </span>uninitialized_nodes {
+            <span class="kw">let </span>handle = hotshot.run_tasks().<span class="kw">await</span>;
+            <span class="kw">if </span>node_id == <span class="number">1 </span>{
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task.take() {
+                    task.start(Box::new(handle.event_stream()))
+                }
+            }
+
+            <span class="self">self</span>.nodes.push(Node {
+                node_id,
+                networks,
+                handle,
+            });
         }
 
         results

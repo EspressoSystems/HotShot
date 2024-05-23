@@ -253,7 +253,7 @@
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Timeout task handle
-    </span><span class="kw">pub </span>timeout_task: <span class="prelude-ty">Option</span>&lt;JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>timeout_task: JoinHandle&lt;()&gt;,
 
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,
