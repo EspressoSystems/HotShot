@@ -15,6 +15,8 @@ use hotshot_types::{
     traits::{election::Membership, node_implementation::NodeType},
     BoxSyncFuture,
 };
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 

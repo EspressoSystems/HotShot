@@ -106,7 +106,7 @@ impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> TestableState<TYPES> for 
         _state: Option<&Self>,
         _rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
+    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
         TestTransaction::new(vec![

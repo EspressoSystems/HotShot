@@ -5,7 +5,7 @@ use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestInstanceState,
+    state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
@@ -61,9 +61,17 @@ impl TestView {
         let transactions = Vec::new();
 
         let (block_payload, metadata) =
-            TestBlockPayload::from_transactions(transactions.clone(), &TestInstanceState {})
-                .unwrap();
-        let builder_commitment = block_payload.builder_commitment(&metadata);
+            <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
+                transactions.clone(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap();
+
+        let builder_commitment = <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
+            &block_payload,
+            &metadata,
+        );
 
         let (private_key, public_key) = key_pair_for_id(*genesis_view);
 
@@ -181,9 +189,16 @@ impl TestView {
         let leader_public_key = public_key;
 
         let (block_payload, metadata) =
-            TestBlockPayload::from_transactions(transactions.clone(), &TestInstanceState {})
-                .unwrap();
-        let builder_commitment = block_payload.builder_commitment(&metadata);
+            <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
+                transactions.clone(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap();
+        let builder_commitment = <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(
+            &block_payload,
+            &metadata,
+        );
 
         let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 

@@ -1,5 +1,7 @@
-[registries]
-translucence = { index = "https://dl.cloudsmith.io/basic/translucence/tl/cargo/index.git" }
-
 [net]
 git-fetch-with-cli = true
+
+[build]
+target = "x86_64-unknown-linux-gnu"
+rustflags = ["--cfg=async_executor_impl=\"async-std\"", "--cfg=async_channel_impl=\"async-std\""]
+jobs = 8

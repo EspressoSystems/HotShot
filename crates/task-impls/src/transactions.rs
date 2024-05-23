@@ -165,9 +165,12 @@ impl<
                         .number_of_empty_blocks_proposed
                         .add(1);
 
+                    let validated_state = self.consensus.read().await.decided_state();
+
                     // Calculate the builder fee for the empty block
                     let Some(builder_fee) = null_block::builder_fee(
                         self.membership.total_nodes(),
+                        validated_state.as_ref(),
                         self.instance_state.as_ref(),
                     ) else {
                         error!("Failed to get builder fee");
@@ -177,6 +180,7 @@ impl<
                     // Create an empty block payload and metadata
                     let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
                         vec![],
+                        validated_state.as_ref(),
                         &self.instance_state,
                     ) else {
                         error!("Failed to create empty block payload");

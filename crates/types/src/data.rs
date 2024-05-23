@@ -113,11 +113,12 @@ impl std::ops::Sub<u64> for ViewNumber {
 
 /// A proposal to start providing data availability for a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound = "TYPES: NodeType")]
 pub struct DaProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
     pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
@@ -369,7 +370,7 @@ pub trait TestableLeaf {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction;
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<Self::NodeType>>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -458,7 +459,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     #[must_use]
     pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
         let (payload, metadata) =
-            TYPES::BlockPayload::from_transactions([], instance_state).unwrap();
+            TYPES::BlockPayload::from_transactions([], &Default::default(), instance_state)
+                .unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
@@ -604,7 +606,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
     TYPES::ValidatedState: TestableState<TYPES>,
-    TYPES::BlockPayload: TestableBlock,
+    TYPES::BlockPayload: TestableBlock<TYPES>,
 {
     type NodeType = TYPES;
 
@@ -612,7 +614,8 @@ where
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<Self::NodeType>>::Transaction
+    {
         TYPES::ValidatedState::create_random_transaction(None, rng, padding)
     }
 }
@@ -730,7 +733,8 @@ pub mod null_block {
     #[must_use]
     pub fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
-        instance_state: &<TYPES::BlockPayload as BlockPayload>::Instance,
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Instance,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
@@ -741,7 +745,12 @@ pub mod null_block {
             );
 
         let (_null_block, null_block_metadata) =
-            <TYPES::BlockPayload as BlockPayload>::from_transactions([], instance_state).ok()?;
+            <TYPES::BlockPayload as BlockPayload<TYPES>>::from_transactions(
+                [],
+                validated_state,
+                instance_state,
+            )
+            .ok()?;
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,

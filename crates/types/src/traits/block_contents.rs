@@ -44,7 +44,7 @@ pub trait Transaction:
 ///   * Must have a transaction type that can be compared for equality, serialized and serialized,
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
-pub trait BlockPayload:
+pub trait BlockPayload<TYPES: NodeType>:
     Serialize
     + Clone
     + Debug
@@ -81,6 +81,7 @@ pub trait BlockPayload:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
+        validated_state: &TYPES::ValidatedState,
         instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 
@@ -89,7 +90,13 @@ pub trait BlockPayload:
     fn from_bytes(encoded_transactions: &[u8], metadata: &Self::Metadata) -> Self;
 
     /// Build the genesis payload and metadata.
-    fn genesis() -> (Self, Self::Metadata);
+    #[must_use]
+    fn genesis() -> (Self, Self::Metadata)
+    where
+        <Self as BlockPayload<TYPES>>::Instance: Default,
+    {
+        Self::from_transactions([], &Default::default(), &Default::default()).unwrap()
+    }
 
     /// List of transaction commitments.
     fn transaction_commitments(
@@ -115,7 +122,7 @@ pub trait BlockPayload:
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: BlockPayload + Debug {
+pub trait TestableBlock<TYPES: NodeType>: BlockPayload<TYPES> + Debug {
     /// generate a genesis block
     fn genesis() -> Self;
 
@@ -186,7 +193,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         builder_fee: BuilderFee<TYPES>,
         vid_common: VidCommon,
         version: Version,
@@ -197,7 +204,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     ) -> Self;
 
     /// Get the block number.
@@ -207,7 +214,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn payload_commitment(&self) -> VidCommitment;
 
     /// Get the metadata.
-    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata;
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata;
 
     /// Get the builder commitment
     fn builder_commitment(&self) -> BuilderCommitment;
