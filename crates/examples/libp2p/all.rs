@@ -10,6 +10,7 @@ use async_compatibility_layer::{
 };
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
+use surf_disco::Url;
 use tracing::instrument;
 
 use crate::{
@@ -46,12 +47,20 @@ async fn main() {
             IpAddr::V4(Ipv4Addr::LOCALHOST),
             8000 + (u16::try_from(i).expect("failed to create advertise address")),
         );
+
+        let builder_address = Url::parse(&format!(
+            "http://localhost:{}",
+            9000 + (u16::try_from(i).expect("failed to create builder address"))
+        ))
+        .unwrap();
+
         let orchestrator_url = orchestrator_url.clone();
         let node = async_spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs {
                     url: orchestrator_url,
                     advertise_address: Some(advertise_address),
+                    builder_address: Some(builder_address),
                     network_config_file: None,
                 },
             )
