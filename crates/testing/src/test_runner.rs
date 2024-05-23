@@ -27,6 +27,7 @@ use hotshot_types::{
     },
     HotShotConfig, ValidatorConfig,
 };
+use tide_disco::Url;
 #[allow(deprecated)]
 use tracing::info;
 
@@ -331,8 +332,15 @@ where
         let config = self.launcher.resource_generator.config.clone();
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
-        let (mut builder_task, builder_url) =
-            B::start(config.num_nodes_with_stake.into(), B::Config::default()).await;
+        let builder_port = portpicker::pick_unused_port().expect("No free ports");
+        let builder_url =
+            Url::parse(&format!("http://localhost:{builder_port}")).expect("Valid URL");
+        let mut builder_task = B::start(
+            config.num_nodes_with_stake.into(),
+            builder_url.clone(),
+            B::Config::default(),
+        )
+        .await;
         for i in 0..total {
             let mut config = config.clone();
             let node_id = self.next_node_id;

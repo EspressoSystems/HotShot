@@ -43,7 +43,8 @@ use hotshot_orchestrator::{
     },
 };
 use hotshot_testing::block_builder::{
-    RandomBuilderImplementation, SimpleBuilderImplementation, TestBuilderImplementation,
+    BuilderTask, RandomBuilderImplementation, SimpleBuilderImplementation,
+    TestBuilderImplementation,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -921,33 +922,7 @@ pub async fn main_entry_point<
     .await
     .expect("failed to get config");
 
-    let builder_task = match run_config.builder {
-        BuilderType::External => None,
-        BuilderType::Random => {
-            let (builder_task, builder_url) =
-                <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                    run_config.config.num_nodes_with_stake.into(),
-                    run_config.random_builder.clone().unwrap_or_default(),
-                )
-                .await;
-
-            run_config.config.builder_url = builder_url;
-
-            builder_task
-        }
-        BuilderType::Simple => {
-            let (builder_task, builder_url) =
-                <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                    run_config.config.num_nodes_with_stake.into(),
-                    (),
-                )
-                .await;
-
-            run_config.config.builder_url = builder_url;
-
-            builder_task
-        }
-    };
+    let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
 
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
@@ -1011,4 +986,71 @@ pub async fn main_entry_point<
         )
         .await;
     orchestrator_client.post_bench_results(bench_results).await;
+}
+
+/// Sets correct builder_url and registers a builder with orchestrator if this node is running one.
+/// Returns a `BuilderTask` if this node is going to be running a builder.
+async fn initialize_builder<
+    TYPES: NodeType<
+        Transaction = TestTransaction,
+        BlockPayload = TestBlockPayload,
+        BlockHeader = TestBlockHeader,
+        InstanceState = TestInstanceState,
+    >,
+>(
+    run_config: &mut NetworkConfig<<TYPES as NodeType>::SignatureKey>,
+    args: &ValidatorArgs,
+    orchestrator_client: &OrchestratorClient,
+) -> Option<Box<dyn BuilderTask<TYPES>>>
+where
+    <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
+    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    Leaf<TYPES>: TestableLeaf,
+{
+    let mut builder_task = None;
+
+    if run_config.config.my_own_validator_config.is_da {
+        match run_config.builder {
+            BuilderType::External => {}
+            BuilderType::Random => {
+                let builder_address = args.builder_address.clone().expect(
+                    "Node is supposed to run a builder, but no builder address is specified",
+                );
+                run_config.config.builder_url = builder_address.clone();
+                orchestrator_client
+                    .post_builder_address(builder_address.clone())
+                    .await;
+
+                builder_task =
+                    <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                        run_config.config.num_nodes_with_stake.into(),
+                        builder_address,
+                        run_config.random_builder.clone().unwrap_or_default(),
+                    )
+                    .await;
+            }
+            BuilderType::Simple => {
+                let builder_address = args.builder_address.clone().expect(
+                    "Node is supposed to run a builder, but no builder address is specified",
+                );
+                run_config.config.builder_url = builder_address.clone();
+                orchestrator_client
+                    .post_builder_address(builder_address.clone())
+                    .await;
+
+                builder_task =
+                    <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                        run_config.config.num_nodes_with_stake.into(),
+                        builder_address,
+                        (),
+                    )
+                    .await;
+            }
+        }
+    } else {
+        run_config.config.builder_url = orchestrator_client
+            .get_builder_address(run_config.node_index)
+            .await;
+    }
+    builder_task
 }

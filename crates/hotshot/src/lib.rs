@@ -57,15 +57,13 @@ use tasks::{add_request_network_task, add_response_task, add_vid_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::tasks::add_consensus_task;
 #[cfg(feature = "dependency-tasks")]
 use crate::tasks::{
     add_consensus2_task, add_quorum_proposal_recv_task, add_quorum_proposal_task,
     add_quorum_vote_task,
 };
-
-#[cfg(not(feature = "dependency-tasks"))]
-use crate::tasks::add_consensus_task;
-
 use crate::{
     tasks::{
         add_da_task, add_network_event_task, add_network_message_task, add_transaction_task,

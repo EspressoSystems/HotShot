@@ -9,6 +9,7 @@ use std::{collections::HashMap, fs::OpenOptions, io, io::ErrorKind};
 
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
+use config::BuilderType;
 use csv::Writer;
 use futures::FutureExt;
 use hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
@@ -84,11 +85,18 @@ struct OrchestratorState<KEY: SignatureKey> {
     manual_start_allowed: bool,
     /// Whether we are still accepting new keys for registration
     accepting_new_keys: bool,
+    /// Builder address pool
+    builders: Vec<Url>,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
     /// create a new [`OrchestratorState`]
     pub fn new(network_config: NetworkConfig<KEY>) -> Self {
+        let builders = if matches!(network_config.builder, BuilderType::External) {
+            vec![network_config.config.builder_url.clone()]
+        } else {
+            vec![]
+        };
         OrchestratorState {
             latest_index: 0,
             tmp_latest_index: 0,
@@ -101,6 +109,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             nodes_post_results: 0,
             manual_start_allowed: true,
             accepting_new_keys: true,
+            builders,
         }
     }
 
@@ -211,6 +220,14 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// # Errors
     /// if unable to serve
     fn post_manual_start(&mut self, password_bytes: Vec<u8>) -> Result<(), ServerError>;
+    /// post endpoint for registering a builder with the orchestrator
+    /// # Errors
+    /// if unable to serve
+    fn post_builder(&mut self, builder: Url) -> Result<(), ServerError>;
+    /// get endpoint for a builder
+    /// # Errors
+    /// if not all builders are registered yet
+    fn get_builder(&self, node_index: usize) -> Result<Url, ServerError>;
 }
 
 impl<KEY> OrchestratorApi<KEY> for OrchestratorState<KEY>
@@ -494,9 +511,33 @@ where
         }
         Ok(())
     }
+
+    fn post_builder(&mut self, builder: Url) -> Result<(), ServerError> {
+        self.builders.push(builder);
+        Ok(())
+    }
+
+    fn get_builder(&self, node_index: usize) -> Result<Url, ServerError> {
+        if !matches!(self.config.builder, BuilderType::External)
+            && self.builders.len() != self.config.config.da_staked_committee_size
+        {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::NotFound,
+                message: "Not all builders are registered yet".to_string(),
+            });
+        }
+        let builder_idx = node_index
+            .checked_rem(self.builders.len())
+            .ok_or(ServerError {
+                status: tide_disco::StatusCode::NotFound,
+                message: "Builder pool is empty".to_string(),
+            })?;
+        Ok(self.builders[builder_idx].clone())
+    }
 }
 
 /// Sets up all API routes
+#[allow(clippy::too_many_lines)]
 fn define_api<KEY, State, VER>() -> Result<Api<State, ServerError, VER>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
@@ -589,6 +630,30 @@ where
         async move {
             let metrics: Result<BenchResults, RequestError> = req.body_json();
             state.post_run_results(metrics.unwrap())
+        }
+        .boxed()
+    })?
+    .post("post_builder", |req, state| {
+        async move {
+            // Read the bytes from the body
+            let mut body_bytes = req.body_bytes();
+            body_bytes.drain(..12);
+
+            let Ok(builder_url) = vbs::Serializer::<Version01>::deserialize(&body_bytes) else {
+                return Err(ServerError {
+                    status: tide_disco::StatusCode::BadRequest,
+                    message: "Malformed body".to_string(),
+                });
+            };
+
+            state.post_builder(builder_url)
+        }
+        .boxed()
+    })?
+    .get("get_builder", |req, state| {
+        async move {
+            let node_index: usize = req.integer_param("node_index")?;
+            state.get_builder(node_index)
         }
         .boxed()
     })?;

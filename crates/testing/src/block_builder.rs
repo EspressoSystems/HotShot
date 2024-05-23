@@ -45,8 +45,9 @@ where
 
     async fn start(
         num_storage_nodes: usize,
+        url: Url,
         options: Self::Config,
-    ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url);
+    ) -> Option<Box<dyn BuilderTask<TYPES>>>;
 }
 
 pub struct RandomBuilderImplementation;
@@ -61,12 +62,11 @@ where
 
     async fn start(
         num_storage_nodes: usize,
+        url: Url,
         config: RandomBuilderConfig,
-    ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
-        let port = portpicker::pick_unused_port().expect("No free ports");
-        let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
+    ) -> Option<Box<dyn BuilderTask<TYPES>>> {
         run_random_builder::<TYPES>(url.clone(), num_storage_nodes, config);
-        (None, url)
+        None
     }
 }
 
@@ -81,10 +81,9 @@ where
 
     async fn start(
         num_storage_nodes: usize,
+        url: Url,
         _config: Self::Config,
-    ) -> (Option<Box<dyn BuilderTask<TYPES>>>, Url) {
-        let port = portpicker::pick_unused_port().expect("No free ports");
-        let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
+    ) -> Option<Box<dyn BuilderTask<TYPES>>> {
         let (source, task) = make_simple_builder(num_storage_nodes).await;
 
         let builder_api = hotshot_builder_api::builder::define_api::<
@@ -99,7 +98,7 @@ where
             .expect("Failed to register the builder API");
 
         async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
-        (Some(Box::new(task)), url)
+        Some(Box::new(task))
     }
 }
 
