@@ -166,9 +166,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             .broadcast_direct(Arc::new(HotShotEvent::Shutdown))
             .await
             .inspect_err(|err| tracing::error!("Failed to send shutdown event: {err}"));
-
-        tracing::error!("Shutting down consensus tasks!");
-        self.consensus_registry.shutdown().await;
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

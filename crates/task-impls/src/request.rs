@@ -75,14 +75,6 @@ pub struct NetworkRequestState<
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
-    for NetworkRequestState<TYPES, I, Ver>
-{
-    fn drop(&mut self) {
-        futures::executor::block_on(async move { self.cancel_subtasks().await });
-    }
-}
-
 /// Alias for a signature
 type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;

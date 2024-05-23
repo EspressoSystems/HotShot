@@ -120,6 +120,10 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
         self.task_handles.write().await.push(handle);
     }
     /// Try to cancel/abort the task this registry has
+    ///
+    /// # Panics
+    ///
+    /// Should not panic, unless awaiting on the JoinHandle in tokio fails.
     pub async fn shutdown(&self) {
         let mut handles = self.task_handles.write().await;
 
