@@ -249,11 +249,13 @@ where
             internal_event_rxs,
         );
 
+        println!("Waiting for networks to be ready");
         // wait for networks to be ready
         for node in &nodes {
             node.networks.0.wait_for_ready().await;
             node.networks.1.wait_for_ready().await;
         }
+        println!("Networks are ready");
 
         // Start hotshot
         for node in nodes {
