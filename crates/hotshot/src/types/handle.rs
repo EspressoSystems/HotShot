@@ -46,6 +46,12 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) storage: Arc<RwLock<I::Storage>>,
 }
 
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for SystemContextHandle<TYPES, I> {
+    fn drop(&mut self) {
+        futures::executor::block_on(async move { self.shut_down().await });
+    }
+}
+
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
     pub async fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(
@@ -158,14 +164,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             .await
             .inspect_err(|err| tracing::error!("Failed to send shutdown event: {err}"));
 
-        tracing::error!("Shutting down networks!");
-        self.hotshot.networks.shut_down_networks().await;
-
         tracing::error!("Shutting down consensus tasks!");
         self.consensus_registry.join_all().await;
 
         tracing::error!("Shutting down network tasks!");
         self.network_registry.shutdown().await;
+
+        tracing::error!("Shutting down networks!");
+        self.hotshot.networks.shut_down_networks().await;
     }
 
     /// return the timeout for a view of the underlying `SystemContext`
