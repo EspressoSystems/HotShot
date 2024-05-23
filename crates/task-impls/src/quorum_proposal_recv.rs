@@ -57,7 +57,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub timeout_membership: Arc<TYPES::Membership>,
 
     /// timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
+    pub timeout_task: JoinHandle<()>,
 
     /// View timeout from config.
     pub timeout: u64,
@@ -225,13 +225,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 #[cfg(async_executor_impl = "tokio")]
                 handle.abort();
             }
-        }
-
-        if let Some(task) = self.timeout_task.take() {
-            #[cfg(async_executor_impl = "async-std")]
-            task.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            task.abort();
         }
     }
 }

@@ -81,7 +81,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub round_start_delay: u64,
 
     /// timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
+    pub timeout_task: JoinHandle<()>,
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
@@ -572,13 +572,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
             handle.cancel().await;
             #[cfg(async_executor_impl = "tokio")]
             handle.abort();
-        }
-
-        if let Some(task) = self.timeout_task.take() {
-            #[cfg(async_executor_impl = "async-std")]
-            task.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            task.abort();
         }
     }
 }

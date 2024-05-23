@@ -162,14 +162,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {
-        if let Some(task) = self.timeout_task.take() {
-            #[cfg(async_executor_impl = "async-std")]
-            task.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            task.abort();
-        }
-    }
+    async fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> {

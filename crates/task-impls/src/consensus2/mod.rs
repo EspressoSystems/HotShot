@@ -76,7 +76,7 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// Timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
+    pub timeout_task: JoinHandle<()>,
 
     /// View timeout from config.
     pub timeout: u64,
@@ -159,12 +159,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for Consensus2Task
     }
 
     /// Joins all subtasks.
-    async fn cancel_subtasks(&mut self) {
-        if let Some(task) = self.timeout_task.take() {
-            #[cfg(async_executor_impl = "async-std")]
-            task.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            task.abort();
-        }
-    }
+    async fn cancel_subtasks(&mut self) {}
 }

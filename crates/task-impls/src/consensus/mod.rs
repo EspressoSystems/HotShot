@@ -109,7 +109,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
         RwLock<VoteCollectorOption<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>>,
 
     /// timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
+    pub timeout_task: JoinHandle<()>,
 
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
@@ -754,13 +754,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ConsensusTaskS
                 #[cfg(async_executor_impl = "tokio")]
                 handle.abort();
             }
-        }
-
-        if let Some(task) = self.timeout_task.take() {
-            #[cfg(async_executor_impl = "async-std")]
-            task.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            task.abort();
         }
     }
 }
