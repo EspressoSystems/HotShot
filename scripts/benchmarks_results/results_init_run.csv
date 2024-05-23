@@ -183,6 +183,8 @@ cdn_with_gpu,50,10,1,1,1000016,100,fixed-leader-election,Full,1,1,6,2666709,96,3
 commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
 cdn_with_gpu,50,10,1,10,1000016,100,fixed-leader-election,Full,4,1,6,8275994,960,117,100,0
 commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
+cdn_with_gpu,50,10,5,10,1000016,100,fixed-leader-election,Full,8,4,13,4363706,960,221,100,0
+commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
 cdn_with_gpu,100,10,1,1,1000016,100,fixed-leader-election,Full,1,1,6,1920030,96,50,100,0
 commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
 cdn_with_gpu,100,10,1,1,10000016,100,fixed-leader-election,Full,5,5,9,6442963,96,149,100,0
