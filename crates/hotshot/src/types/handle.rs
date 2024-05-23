@@ -53,6 +53,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for SystemContextHandle<TYPES, I> {
     fn drop(&mut self) {
+        futures::executor::block_on(async move { self.shut_down().await });
     }
 }
 
@@ -169,7 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             .inspect_err(|err| tracing::error!("Failed to send shutdown event: {err}"));
 
         tracing::error!("Shutting down consensus tasks!");
-        self.consensus_registry.join_all().await;
+        self.consensus_registry.shutdown().await;
 
         tracing::error!("Shutting down network tasks!");
         self.network_registry.shutdown().await;

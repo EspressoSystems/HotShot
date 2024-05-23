@@ -107,7 +107,7 @@ pub struct ConsensusTaskRegistry<EVENT> {
     task_handles: RwLock<Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>>,
 }
 
-impl<EVENT> ConsensusTaskRegistry<EVENT> {
+impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     #[must_use]
     /// Create a new task registry
     pub fn new() -> Self {
@@ -122,11 +122,11 @@ impl<EVENT> ConsensusTaskRegistry<EVENT> {
     /// Try to cancel/abort the task this registry has
     pub async fn shutdown(&self) {
         let mut handles = self.task_handles.write().await;
+
         while let Some(handle) = handles.pop() {
-            #[cfg(async_executor_impl = "async-std")]
-            handle.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            handle.abort();
+          let mut task_state = handle.await;
+
+          task_state.cancel_subtasks().await;
         }
     }
     /// Take a task, run it, and register it
