@@ -9,7 +9,7 @@ use hotshot_task_impls::{
 use hotshot_testing::{
     predicates::event::{exact, vote_now},
     script::{run_test_script, TestScriptStage},
-    task_helpers::build_system_handle,
+    helpers::build_system_handle,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
@@ -19,7 +19,7 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_recv_task() {
-    use hotshot_testing::test_helpers::build_fake_view_with_leaf;
+    use hotshot_testing::helpers::build_fake_view_with_leaf;
     use hotshot_types::data::Leaf;
 
     async_compatibility_layer::logging::setup_logging();
@@ -82,7 +82,7 @@ async fn test_quorum_proposal_recv_task() {
 async fn test_quorum_proposal_recv_task_liveness_check() {
     use hotshot::traits::ValidatedState;
     use hotshot_example_types::state_types::TestValidatedState;
-    use hotshot_testing::test_helpers::{
+    use hotshot_testing::helpers::{
         build_fake_view_with_leaf, build_fake_view_with_leaf_and_state,
     };
     use hotshot_types::{

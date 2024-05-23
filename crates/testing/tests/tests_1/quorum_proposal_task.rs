@@ -16,7 +16,7 @@ use hotshot_testing::{
         Predicate,
     },
     script::{run_test_script, TestScriptStage},
-    task_helpers::{
+    helpers::{
         build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share, build_fake_view_with_leaf,
     },
     view_generator::TestViewGenerator,
@@ -29,7 +29,7 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
-    utils::{BuilderCommitment},
+    utils::BuilderCommitment,
     vid::VidSchemeType,
     vote::HasViewNumber,
 };

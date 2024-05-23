@@ -1,7 +1,7 @@
 #![allow(clippy::panic)]
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_testing::task_helpers::{build_fake_view_with_leaf,vid_share};
+use hotshot_testing::helpers::{build_fake_view_with_leaf,vid_share};
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime,vote::HasViewNumber};
 
 #[cfg(test)]
@@ -12,7 +12,7 @@ async fn test_quorum_vote_task_success() {
     use hotshot_testing::{
         predicates::event::{exact, quorum_vote_send},
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
 
@@ -71,7 +71,7 @@ async fn test_quorum_vote_task_vote_now() {
     use hotshot_testing::{
         predicates::event::{exact, quorum_vote_send},
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
     use hotshot_types::vote::VoteDependencyData;
@@ -119,7 +119,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     use hotshot_testing::{
         predicates::event::exact,
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
 
@@ -219,7 +219,7 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     use hotshot_testing::{
         predicates::event::exact,
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
 

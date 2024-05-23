@@ -7,7 +7,7 @@ use hotshot_example_types::{
     state_types::TestInstanceState,
 };
 use hotshot_task_impls::{events::HotShotEvent, vid::VidTaskState};
-use hotshot_testing::task_helpers::{build_system_handle, vid_scheme_from_view_number};
+use hotshot_testing::helpers::{build_system_handle, vid_scheme_from_view_number};
 use hotshot_types::{
     data::{null_block, DaProposal, VidDisperse, VidDisperseShare, ViewNumber},
     traits::{
