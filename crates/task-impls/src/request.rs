@@ -296,8 +296,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                     warn!("Request to other node timed out");
                 }
             }
-
-            async_sleep(self.delay).await;
         }
     }
     /// Returns true if we got the data we wanted, or the view has moved on.
