@@ -15,13 +15,12 @@ use hotshot_types::{
 };
 use tracing::debug;
 
+use super::Consensus2TaskState;
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},
 };
-
-use super::Consensus2TaskState;
 
 /// Handle a `QuorumVoteRecv` event.
 pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -59,7 +58,7 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
         let result = collector
             .as_mut()
             .unwrap()
-            .handle_event(Arc::clone(&event), sender)
+            .handle_vote_event(Arc::clone(&event), sender)
             .await;
 
         if result == Some(HotShotTaskCompleted) {
@@ -106,7 +105,7 @@ pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementat
         let result = collector
             .as_mut()
             .unwrap()
-            .handle_event(Arc::clone(&event), sender)
+            .handle_vote_event(Arc::clone(&event), sender)
             .await;
 
         if result == Some(HotShotTaskCompleted) {

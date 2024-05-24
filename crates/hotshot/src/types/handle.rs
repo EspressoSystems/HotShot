@@ -1,6 +1,6 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -8,28 +8,25 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::Stream;
-use hotshot_task::task::TaskRegistry;
+use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
-    boxed_sync,
     consensus::Consensus,
     data::Leaf,
     error::HotShotError,
     traits::{election::Membership, node_implementation::NodeType},
-    BoxSyncFuture,
 };
-use std::time::Duration;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 
+#[derive(Clone)]
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-#[derive(Clone)]
 pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](Sender) and [receiver](Receiver),
     /// to allow the application to communicate with HotShot.
@@ -41,8 +38,11 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
         Sender<Arc<HotShotEvent<TYPES>>>,
         InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     ),
-    /// registry for controlling tasks
-    pub(crate) registry: Arc<TaskRegistry>,
+    /// registry for controlling consensus tasks
+    pub(crate) consensus_registry: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
+
+    /// registry for controlling network tasks
+    pub(crate) network_registry: Arc<NetworkTaskRegistry>,
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,
@@ -52,6 +52,20 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
+    /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
+    pub async fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(
+        &mut self,
+        task_state: S,
+    ) {
+        let task = Task::new(
+            task_state,
+            self.internal_event_stream.0.clone(),
+            self.internal_event_stream.1.activate_cloned(),
+        );
+
+        self.consensus_registry.run_task(task).await;
+    }
+
     /// obtains a stream to expose to the user
     pub fn event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
         self.output_event_stream.1.activate_cloned()
@@ -141,25 +155,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
-    //     pub async fn shut_down(mut self) {
-    //         self.registry.shutdown_all().await
-    pub fn shut_down<'a, 'b>(&'a mut self) -> BoxSyncFuture<'b, ()>
-    where
-        'a: 'b,
-        Self: 'b,
-    {
-        boxed_sync(async move {
-            self.hotshot.networks.shut_down_networks().await;
-            // this is required because `SystemContextHandle` holds an inactive receiver and
-            // `broadcast_direct` below can wait indefinitely
-            self.internal_event_stream.0.set_await_active(false);
-            let _ = self
-                .internal_event_stream
-                .0
-                .broadcast_direct(Arc::new(HotShotEvent::Shutdown))
-                .await;
-            self.registry.shutdown().await;
-        })
+    pub async fn shut_down(&mut self) {
+        // this is required because `SystemContextHandle` holds an inactive receiver and
+        // `broadcast_direct` below can wait indefinitely
+        self.internal_event_stream.0.set_await_active(false);
+        let _ = self
+            .internal_event_stream
+            .0
+            .broadcast_direct(Arc::new(HotShotEvent::Shutdown))
+            .await
+            .inspect_err(|err| tracing::error!("Failed to send shutdown event: {err}"));
+        tracing::error!("Shutting down network tasks!");
+        self.network_registry.shutdown().await;
+
+        tracing::error!("Shutting down networks!");
+        self.hotshot.networks.shut_down_networks().await;
+
+        tracing::error!("Shutting down consensus!");
+        self.consensus_registry.shutdown().await;
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

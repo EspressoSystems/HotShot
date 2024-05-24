@@ -1,14 +1,15 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
     data::VidDisperseShare,
     message::Proposal,
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -23,17 +24,9 @@ use crate::{
 };
 
 /// Tracks state of a VID task
-pub struct VidTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
-    /// The state's api
-    pub api: A,
-
+pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
-
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// Network for all nodes
@@ -50,9 +43,7 @@ pub struct VidTaskState<
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    VidTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error")]
     pub async fn handle(
@@ -156,40 +147,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
             HotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted);
             }
-            _ => {
-                error!("unexpected event {:?}", event);
-            }
+            _ => {}
         }
         None
     }
 }
 
+#[async_trait]
 /// task state implementation for VID Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for VidTaskState<TYPES, I, A>
-{
-    type Event = Arc<HotShotEvent<TYPES>>;
-
-    type Output = HotShotTaskCompleted;
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VidTaskState<TYPES, I> {
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
-        event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
+        Ok(())
     }
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::Shutdown
-                | HotShotEvent::BlockRecv(_, _, _, _, _)
-                | HotShotEvent::BlockReady(_, _)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
+
+    async fn cancel_subtasks(&mut self) {}
 }
