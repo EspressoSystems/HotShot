@@ -27,6 +27,8 @@ use crate::{
     utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
 };
+use crate::data::VidDisperse;
+use crate::traits::signature_key::SignatureKey;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -476,6 +478,28 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.state_and_delta(decided_view_num)
             .0
             .expect("Decided state not found! Consensus internally inconsistent")
+    }
+
+    /// Calculates `VidDisperse` based on the view, the txns and the membership,
+    /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
+    /// Returned `Option` indicates whether the update has actually happened or not.
+    pub async fn calculate_and_update_vid(
+        &mut self,
+        view: <TYPES as NodeType>::Time,
+        membership: Arc<TYPES::Membership>,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Option<()>{
+        let txns = self.saved_payloads().get(&view)?;
+        let vid =
+            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None)
+                .await;
+        let shares = VidDisperseShare::from_vid_disperse(vid);
+        for share in shares {
+            if let Some(prop) = share.to_proposal(private_key) {
+                self.update_vid_shares(view, prop);
+            }
+        }
+        Some(())
     }
 }
 
