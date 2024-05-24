@@ -510,7 +510,7 @@ async fn test_view_sync_finalize_vote() {
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will NOT vote when the certificate matches a different view number.
 async fn test_view_sync_finalize_vote_fail_view_number() {
-    use async_std::stream::StreamExt;
+    use futures::StreamExt;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
