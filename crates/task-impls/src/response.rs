@@ -22,7 +22,6 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
-use hotshot_types::data::VidDisperse;
 
 use crate::events::HotShotEvent;
 
@@ -132,7 +131,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .is_some_and(|m| m.contains_key(key));
         if !contained {
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-            consensus.calculate_and_update_vid(view, Arc::clone(&self.quorum), &self.private_key).await;
+            consensus
+                .calculate_and_update_vid(view, Arc::clone(&self.quorum), &self.private_key)
+                .await;
             return consensus.vid_shares().get(&view)?.get(key).cloned();
         }
         consensus.vid_shares().get(&view)?.get(key).cloned()

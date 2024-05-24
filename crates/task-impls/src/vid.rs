@@ -5,7 +5,7 @@ use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    data::VidDisperseShare,
+    data::{VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
         consensus_api::ConsensusApi,
@@ -16,7 +16,6 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error, instrument, warn};
-use hotshot_types::data::VidDisperse;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},

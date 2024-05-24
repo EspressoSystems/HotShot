@@ -11,7 +11,7 @@ use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf, QuorumProposal, VidDisperseShare},
+    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::{
@@ -22,13 +22,12 @@ use crate::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::NodeType,
+        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
 };
-use crate::data::VidDisperse;
-use crate::traits::signature_key::SignatureKey;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -488,11 +487,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         view: <TYPES as NodeType>::Time,
         membership: Arc<TYPES::Membership>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    ) -> Option<()>{
+    ) -> Option<()> {
         let txns = self.saved_payloads().get(&view)?;
         let vid =
-            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None)
-                .await;
+            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {

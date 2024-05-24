@@ -40,10 +40,9 @@ use crate::{
         BlockPayload,
     },
     utils::bincode_opts,
-    vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
-use crate::vid::{vid_scheme, VidPrecomputeData};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -200,9 +199,9 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
                 .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
         }).await;
         #[cfg(async_executor_impl = "tokio")]
-            // Tokio's JoinHandle's `Output` is `Result<T, JoinError>`, while in async-std it's just `T`
-            // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
-            let vid_disperse = vid_disperse.unwrap();
+        // Tokio's JoinHandle's `Output` is `Result<T, JoinError>`, while in async-std it's just `T`
+        // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
+        let vid_disperse = vid_disperse.unwrap();
 
         Self::from_membership(view, vid_disperse, membership.as_ref())
     }

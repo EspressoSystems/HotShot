@@ -1,14 +1,6 @@
-use std::sync::Arc;
-
 use async_broadcast::{SendError, Sender};
 #[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn_blocking, JoinHandle};
-use hotshot_types::{
-    data::VidDisperse,
-    traits::{election::Membership, node_implementation::NodeType},
-    vid::{vid_scheme, VidPrecomputeData},
-};
-use jf_vid::{precomputable::Precomputable, VidScheme};
+use async_std::task::JoinHandle;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn_blocking, JoinHandle};
 

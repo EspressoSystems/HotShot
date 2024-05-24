@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::Sender;
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 use hotshot_task::task::{Task, TaskState};
@@ -16,6 +16,7 @@ use hotshot_types::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
@@ -27,8 +28,6 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
-use hotshot_types::data::{VidDisperse, VidDisperseShare};
-use hotshot_types::traits::network::ConnectedNetwork;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -223,7 +222,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
                     tracing::error!("lrzasik: DaProposalValidated, primary is down");
-                    consensus.calculate_and_update_vid(view, Arc::clone(&self.quorum_membership), &self.private_key).await;
+                    consensus
+                        .calculate_and_update_vid(
+                            view,
+                            Arc::clone(&self.quorum_membership),
+                            &self.private_key,
+                        )
+                        .await;
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
