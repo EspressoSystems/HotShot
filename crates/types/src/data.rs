@@ -13,6 +13,7 @@ use std::{
 
 use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+#[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 use bincode::Options;
 use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
@@ -21,6 +22,8 @@ use jf_vid::{precomputable::Precomputable, VidDisperse as JfVidDisperse, VidSche
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::spawn_blocking;
 use tracing::error;
 
 use crate::{
