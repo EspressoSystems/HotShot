@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
+use hotshot::{tasks::task_state::CreateTaskState};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
@@ -95,7 +95,7 @@ async fn test_da_task() {
         asserts: vec![],
     };
 
-    let da_state = DaTaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
+    let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let stages = vec![view_1, view_2];
 
     run_test_script(stages, da_state).await;
@@ -183,7 +183,7 @@ async fn test_da_task_storage_failure() {
         asserts: vec![],
     };
 
-    let da_state = DaTaskState::<TestTypes, MemoryImpl, SystemContextHandle<TestTypes, MemoryImpl>>::create_from(&handle).await;
+    let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let stages = vec![view_1, view_2, view_3];
 
     run_test_script(stages, da_state).await;

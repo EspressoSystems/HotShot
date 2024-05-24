@@ -8,8 +8,8 @@ cargo fmt --all
 cargo clippy --workspace --all-targets --features=full-ci -- -D warnings
 cargo audit --deny warnings
 cargo check --features=async-std-executor
-cargo build --verbose --workspace --all-targets --features=full-ci --profile=release-lto
+cargo build --workspace --all-targets --features=full-ci --profile=release-lto
 ulimit -n 4096
-cargo test --verbose --profile=release-lto --lib --bins --tests --benches ---features=full-ci --workspace --no-fail-fast -- --test-threads=1
+cargo test --profile=release-lto --lib --bins --tests --benches ---features=full-ci --workspace --no-fail-fast -- --test-threads=1
 ulimit -n 4096
-cargo test --verbose --profile=release-lto --workspace --features=full-ci --no-fail-fast -- test_stress --test-threads=1 --ignored
+cargo test --profile=release-lto --workspace --features=full-ci --no-fail-fast -- test_stress --test-threads=1 --ignored

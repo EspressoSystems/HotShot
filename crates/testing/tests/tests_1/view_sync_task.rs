@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
+use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
@@ -47,7 +47,6 @@ async fn test_view_sync_task() {
     let view_sync_state = ViewSyncTaskState::<
         TestTypes,
         MemoryImpl,
-        SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
     run_harness(input, output, view_sync_state, false).await;

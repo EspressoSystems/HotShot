@@ -161,7 +161,7 @@ nix develop .#perfShell
 
 # show the executable we need run
 # and build all test executables (required for subsequent steps)
-cargo test --verbose --release --lib --bins --tests --benches --workspace -- --test-threads=1
+cargo test --release --lib --bins --tests --benches --workspace -- --test-threads=1
 # the output cargo test contains the tests path:
 #       Running `/home/jrestivo/work/crosscross/target/release/deps/counter-880b1ff53ee21dea test_stress --test-threads=1 --ignored`
 #       running 7 tests

@@ -70,4 +70,4 @@ jobs:
         working-directory: sequencer
         run: |
           export RUSTFLAGS='--cfg async_executor_impl="async-std" --cfg async_channel_impl="async-std" --cfg hotshot_example'
-          cargo test --release --workspace --all-features --verbose -- --test-threads 1 --nocapture
+          cargo test --release --workspace --all-features -- --test-threads 1 --nocapture
