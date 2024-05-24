@@ -21,18 +21,18 @@ REMOTE_BROKER_HOST="$2" #"3.135.239.251"
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
 # build to get the bin in advance, uncomment the following if built first time
-just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
-# remember to sleep enough time if it's built first time
-sleep 3m
-for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
+# just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
+# # remember to sleep enough time if it's built first time
+# sleep 3m
+# for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
-# # docker build and push
-# docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-# docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+# docker build and push
+docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
-# # ecs deploy
-# ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-# ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
+# ecs deploy
+ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -50,17 +50,17 @@ round_up() {
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
 # see `aws_ecs_benchmarks_webserver.sh` for an example
-for total_nodes in 10 50 100 200 500 1000
+for total_nodes in 10
 do
-    for da_committee_size in 5 10 50 100
+    for da_committee_size in 5
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10 50 # 100
+            for transactions_per_round in 1
             do
-                for transaction_size in 100000 1000000 10000000 20000000 # 512 4096
+                for transaction_size in 1000000
                 do
-                    for fixed_leader_for_gpuvid in 1 5 10 50 100
+                    for fixed_leader_for_gpuvid in 1 5
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
