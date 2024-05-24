@@ -513,7 +513,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
     pub async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
-        let consensus_registry = Arc::new(ConsensusTaskRegistry::new());
+        let consensus_registry = ConsensusTaskRegistry::new();
         let network_registry = Arc::new(NetworkTaskRegistry::new());
 
         let output_event_stream = self.external_event_stream.clone();
@@ -527,7 +527,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let view_sync_membership = self.memberships.view_sync_membership.clone();
 
         let mut handle = SystemContextHandle {
-            consensus_registry: Arc::clone(&consensus_registry),
+            consensus_registry,
             network_registry,
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),

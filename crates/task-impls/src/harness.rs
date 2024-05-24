@@ -35,7 +35,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
 ) where
     TYPES: NodeType,
 {
-    let registry = ConsensusTaskRegistry::new();
+    let mut registry = ConsensusTaskRegistry::new();
     // set up two broadcast channels so the test sends to the task and the task back to the test
     let (to_task, from_test) = broadcast(1024);
     let (to_test, mut from_task) = broadcast(1024);
@@ -57,7 +57,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
         }
     };
 
-    registry.register(handle).await;
+    registry.register(handle);
 
     for event in input {
         to_task.broadcast_direct(Arc::new(event)).await.unwrap();

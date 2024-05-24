@@ -3,11 +3,9 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
-    time::Duration,
 };
 
 use async_broadcast::broadcast;
-use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
 use futures::future::{
     join_all, Either,

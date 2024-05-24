@@ -58,10 +58,10 @@ async fn test_network_task() {
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
-    let task_reg = Arc::new(ConsensusTaskRegistry::new());
+    let mut task_reg = ConsensusTaskRegistry::new();
 
     let task = Task::new(network_state, tx.clone(), rx);
-    task_reg.run_task(task).await;
+    task_reg.run_task(task);
 
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().unwrap();
@@ -121,10 +121,10 @@ async fn test_network_storage_fail() {
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
-    let task_reg = Arc::new(ConsensusTaskRegistry::new());
+    let mut task_reg = ConsensusTaskRegistry::new();
 
     let task = Task::new(network_state, tx.clone(), rx);
-    task_reg.run_task(task).await;
+    task_reg.run_task(task);
 
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().unwrap();

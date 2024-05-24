@@ -104,7 +104,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
 /// A collection of tasks which can handle shutdown
 pub struct ConsensusTaskRegistry<EVENT> {
     /// Tasks this registry controls
-    task_handles: RwLock<Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>>,
+    task_handles: Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>,
 }
 
 impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
@@ -112,20 +112,20 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     /// Create a new task registry
     pub fn new() -> Self {
         ConsensusTaskRegistry {
-            task_handles: RwLock::new(vec![]),
+            task_handles: vec![],
         }
     }
     /// Add a task to the registry
-    pub async fn register(&self, handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>) {
-        self.task_handles.write().await.push(handle);
+    pub fn register(&mut self, handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>) {
+        self.task_handles.push(handle);
     }
     /// Try to cancel/abort the task this registry has
     ///
     /// # Panics
     ///
     /// Should not panic, unless awaiting on the JoinHandle in tokio fails.
-    pub async fn shutdown(&self) {
-        let mut handles = self.task_handles.write().await;
+    pub async fn shutdown(&mut self) {
+        let handles = &mut self.task_handles;
 
         while let Some(handle) = handles.pop() {
             #[cfg(async_executor_impl = "async-std")]
@@ -137,23 +137,21 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
         }
     }
     /// Take a task, run it, and register it
-    pub async fn run_task<S>(&self, task: Task<S>)
+    pub fn run_task<S>(&mut self, task: Task<S>)
     where
         S: TaskState<Event = EVENT> + Send + 'static,
     {
-        self.register(task.run()).await;
+        self.register(task.run());
     }
 
     /// Wait for the results of all the tasks registered
     /// # Panics
     /// Panics if one of the tasks panicked
-    pub async fn join_all(&self) -> Vec<Box<dyn TaskState<Event = EVENT>>> {
-        let handles = std::mem::take(&mut *self.task_handles.write().await);
-
+    pub async fn join_all(self) -> Vec<Box<dyn TaskState<Event = EVENT>>> {
         #[cfg(async_executor_impl = "async-std")]
-        let states = join_all(handles).await;
+        let states = join_all(self.task_handles).await;
         #[cfg(async_executor_impl = "tokio")]
-        let states = try_join_all(handles).await.unwrap();
+        let states = try_join_all(self.task_handles).await.unwrap();
 
         states
     }

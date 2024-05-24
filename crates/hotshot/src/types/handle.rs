@@ -38,7 +38,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
         InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     ),
     /// registry for controlling consensus tasks
-    pub(crate) consensus_registry: Arc<ConsensusTaskRegistry<HotShotEvent<TYPES>>>,
+    pub(crate) consensus_registry: ConsensusTaskRegistry<HotShotEvent<TYPES>>,
 
     /// registry for controlling network tasks
     pub(crate) network_registry: Arc<NetworkTaskRegistry>,
@@ -52,17 +52,14 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
     /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
-    pub async fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(
-        &mut self,
-        task_state: S,
-    ) {
+    pub fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(&mut self, task_state: S) {
         let task = Task::new(
             task_state,
             self.internal_event_stream.0.clone(),
             self.internal_event_stream.1.activate_cloned(),
         );
 
-        self.consensus_registry.run_task(task).await;
+        self.consensus_registry.run_task(task);
     }
 
     /// obtains a stream to expose to the user

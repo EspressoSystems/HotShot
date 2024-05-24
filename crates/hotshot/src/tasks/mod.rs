@@ -51,7 +51,7 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
     );
-    handle.consensus_registry.run_task(task).await;
+    handle.consensus_registry.run_task(task);
 }
 
 /// Add a task which responds to requests on the network.
@@ -135,7 +135,7 @@ pub async fn add_network_event_task<
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
     );
-    handle.consensus_registry.run_task(task).await;
+    handle.consensus_registry.run_task(task);
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
@@ -146,37 +146,17 @@ pub async fn add_consensus_tasks<
 >(
     handle: &mut SystemContextHandle<TYPES, I>,
 ) {
-    handle
-        .add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await)
-        .await;
-    handle
-        .add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await)
-        .await;
-    handle
-        .add_task(VidTaskState::<TYPES, I>::create_from(handle).await)
-        .await;
-    handle
-        .add_task(DaTaskState::<TYPES, I>::create_from(handle).await)
-        .await;
-    handle
-        .add_task(TransactionTaskState::<TYPES, I, VERSION>::create_from(handle).await)
-        .await;
-    handle
-        .add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await)
-        .await;
+    handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(TransactionTaskState::<TYPES, I, VERSION>::create_from(handle).await);
+    handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
     {
         #![cfg(feature = "dependency-tasks")]
-        handle
-            .add_task(QuorumProposalTaskState::<TYPES, I>::create_from(handle).await)
-            .await;
-        handle
-            .add_task(QuorumVoteTaskState::<TYPES, I>::create_from(handle).await)
-            .await;
-        handle
-            .add_task(QuorumProposalRecvTaskState::<TYPES, I>::create_from(handle).await)
-            .await;
-        handle
-            .add_task(Consensus2TaskState::<TYPES, I>::create_from(handle).await)
-            .await;
+        handle.add_task(QuorumProposalTaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(QuorumVoteTaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(QuorumProposalRecvTaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(Consensus2TaskState::<TYPES, I>::create_from(handle).await);
     }
 }
