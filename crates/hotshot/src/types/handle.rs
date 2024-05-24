@@ -41,7 +41,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) consensus_registry: ConsensusTaskRegistry<HotShotEvent<TYPES>>,
 
     /// registry for controlling network tasks
-    pub(crate) network_registry: Arc<NetworkTaskRegistry>,
+    pub(crate) network_registry: NetworkTaskRegistry,
 
     /// Internal reference to the underlying [`SystemContext`]
     pub hotshot: Arc<SystemContext<TYPES, I>>,

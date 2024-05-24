@@ -514,7 +514,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     #[allow(clippy::too_many_lines)]
     pub async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
         let consensus_registry = ConsensusTaskRegistry::new();
-        let network_registry = Arc::new(NetworkTaskRegistry::new());
+        let network_registry = NetworkTaskRegistry::new();
 
         let output_event_stream = self.external_event_stream.clone();
         let internal_event_stream = self.internal_event_stream.clone();

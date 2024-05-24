@@ -3,10 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 #[cfg(async_executor_impl = "async-std")]
-use async_std::{
-    sync::RwLock,
-    task::{spawn, JoinHandle},
-};
+use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
 #[cfg(async_executor_impl = "async-std")]
 use futures::future::join_all;
@@ -161,22 +158,20 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
 /// A collection of tasks which can handle shutdown
 pub struct NetworkTaskRegistry {
     /// Tasks this registry controls
-    pub handles: RwLock<Vec<JoinHandle<()>>>,
+    pub handles: Vec<JoinHandle<()>>,
 }
 
 impl NetworkTaskRegistry {
     #[must_use]
     /// Create a new task registry
     pub fn new() -> Self {
-        NetworkTaskRegistry {
-            handles: RwLock::new(vec![]),
-        }
+        NetworkTaskRegistry { handles: vec![] }
     }
 
     #[allow(clippy::unused_async)]
     /// Shuts down all tasks in the registry, performing any associated cleanup.
-    pub async fn shutdown(&self) {
-        let mut handles = self.handles.write().await;
+    pub async fn shutdown(&mut self) {
+        let handles = &mut self.handles;
 
         while let Some(handle) = handles.pop() {
             #[cfg(async_executor_impl = "async-std")]
@@ -187,7 +182,7 @@ impl NetworkTaskRegistry {
     }
 
     /// Add a task to the registry
-    pub async fn register(&self, handle: JoinHandle<()>) {
-        self.handles.write().await.push(handle);
+    pub fn register(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
     }
 }
