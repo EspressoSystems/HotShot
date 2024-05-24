@@ -108,16 +108,18 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
             )
             .await;
         }
+
+        return Some(proposal.data.clone());
     }
 
-    Some(proposal.data.clone())
+    None
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
 /// evaluating if a liveness check is needed for the proposal, which runs when the proposal cannot be
 /// found in the internal state map.
 ///
-/// # Errors
+/// This code can fail when:
 /// - The justify qc is invalid.
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
