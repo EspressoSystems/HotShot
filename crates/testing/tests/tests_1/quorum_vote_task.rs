@@ -249,7 +249,7 @@ async fn test_quorum_vote_task_incorrect_dependency() {
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
             DaCertificateRecv(dacs[1].clone()),
             VidShareRecv(vids[1].0[0].clone()),
-            // The validated validated state is for an earlier view.
+            // The validated state is for an earlier view.
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
                 build_fake_view_with_leaf(leaves[0].clone()),
