@@ -172,7 +172,9 @@ impl<
                         self.membership.total_nodes(),
                         validated_state.as_ref(),
                         self.instance_state.as_ref(),
-                    ) else {
+                    )
+                    .await
+                    else {
                         error!("Failed to get builder fee");
                         return None;
                     };
@@ -182,7 +184,9 @@ impl<
                         vec![],
                         validated_state.as_ref(),
                         &self.instance_state,
-                    ) else {
+                    )
+                    .await
+                    else {
                         error!("Failed to create empty block payload");
                         return None;
                     };

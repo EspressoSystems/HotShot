@@ -353,6 +353,7 @@ pub trait RunDa<
     /// Note: sequencing leaf does not have state, so does not return state
     async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
         let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+            .await
             .expect("Couldn't generate genesis block");
 
         let config = self.config();

@@ -566,6 +566,7 @@ where
         &Default::default(),
         &Default::default(),
     )
+    .await
     .expect("failed to build block payload from transactions");
 
     let commitment = block_payload.builder_commitment(&metadata);

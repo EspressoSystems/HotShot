@@ -213,8 +213,8 @@ where
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf::genesis(&TestInstanceState {}),
-            high_qc: QuorumCertificate::genesis(&TestInstanceState {}),
+            last_decided_leaf: Leaf::genesis(&TestInstanceState {}).await,
+            high_qc: QuorumCertificate::genesis(&TestInstanceState {}).await,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, I>, SpinningTask<TYPES, I>>::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
@@ -391,8 +391,9 @@ where
                     },
                 );
             } else {
-                let initializer =
-                    HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {}).unwrap();
+                let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+                    .await
+                    .unwrap();
 
                 // See whether or not we should be DA
                 let is_da = node_id < config.da_staked_committee_size as u64;

@@ -342,7 +342,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                                 Some(Arc::new(state_delta)),
                                 None,
                             )]),
-                            qc: Arc::new(QuorumCertificate::genesis(self.instance_state.as_ref())),
+                            qc: Arc::new(
+                                QuorumCertificate::genesis(self.instance_state.as_ref()).await,
+                            ),
                             block_size: None,
                         },
                     },
@@ -765,14 +767,16 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
+    pub async fn from_genesis(
+        instance_state: TYPES::InstanceState,
+    ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
         Ok(Self {
-            inner: Leaf::genesis(&instance_state),
+            inner: Leaf::genesis(&instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::genesis(&instance_state),
+            high_qc: QuorumCertificate::genesis(&instance_state).await,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,

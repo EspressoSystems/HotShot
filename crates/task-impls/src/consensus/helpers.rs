@@ -403,6 +403,7 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
         validated_state.as_ref(),
         instance_state.as_ref(),
     )
+    .await
     .context("Failed to build null block payload and metadata")?;
 
     let builder_commitment = payload.builder_commitment(&metadata);
@@ -414,6 +415,7 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
         validated_state.as_ref(),
         instance_state.as_ref(),
     )
+    .await
     .context("Failed to calculate null block fee info")?;
 
     Ok(async_spawn(async move {

@@ -102,7 +102,14 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
     }
 }
 
-impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> TestableState<TYPES> for TestValidatedState {
+impl<
+        TYPES: NodeType<
+            BlockPayload = TestBlockPayload,
+            ValidatedState = TestValidatedState,
+            Transaction = TestTransaction,
+        >,
+    > TestableState<TYPES> for TestValidatedState
+{
     fn create_random_transaction(
         _state: Option<&Self>,
         rng: &mut dyn rand::RngCore,

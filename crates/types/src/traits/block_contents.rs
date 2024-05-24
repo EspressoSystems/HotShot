@@ -12,6 +12,7 @@ use std::{
 };
 
 use committable::{Commitment, Committable};
+use futures::future::BoxFuture;
 use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
@@ -85,7 +86,7 @@ pub trait BlockPayload<TYPES: NodeType>:
         transactions: impl IntoIterator<Item = Self::Transaction>,
         validated_state: &Self::ValidatedState,
         instance_state: &Self::Instance,
-    ) -> Result<(Self, Self::Metadata), Self::Error>;
+    ) -> BoxFuture<'static, Result<(Self, Self::Metadata), Self::Error>>;
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
@@ -93,11 +94,15 @@ pub trait BlockPayload<TYPES: NodeType>:
 
     /// Build the genesis payload and metadata.
     #[must_use]
-    fn genesis() -> (Self, Self::Metadata)
+    fn genesis() -> BoxFuture<'static, (Self, Self::Metadata)>
     where
         <Self as BlockPayload<TYPES>>::Instance: Default,
     {
-        Self::from_transactions([], &Default::default(), &Default::default()).unwrap()
+        Box::pin(async {
+            Self::from_transactions([], &Default::default(), &Default::default())
+                .await
+                .unwrap()
+        })
     }
 
     /// List of transaction commitments.

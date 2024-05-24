@@ -434,9 +434,9 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 impl<TYPES: NodeType> QuorumCertificate<TYPES> {
     #[must_use]
     /// Creat the Genesis certificate
-    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+    pub async fn genesis(instance_state: &TYPES::InstanceState) -> Self {
         let data = QuorumData {
-            leaf_commit: Leaf::genesis(instance_state).commit(),
+            leaf_commit: Leaf::genesis(instance_state).await.commit(),
         };
         let commit = data.commit();
         Self {
@@ -457,9 +457,10 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     #[must_use]
-    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+    pub async fn genesis(instance_state: &TYPES::InstanceState) -> Self {
         let (payload, metadata) =
             TYPES::BlockPayload::from_transactions([], &Default::default(), instance_state)
+                .await
                 .unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
@@ -731,7 +732,7 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn builder_fee<TYPES: NodeType>(
+    pub async fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
         validated_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Instance,
@@ -750,6 +751,7 @@ pub mod null_block {
                 validated_state,
                 instance_state,
             )
+            .await
             .ok()?;
 
         match TYPES::BuilderSignatureKey::sign_fee(
