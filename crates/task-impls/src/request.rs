@@ -75,6 +75,14 @@ pub struct NetworkRequestState<
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
+    for NetworkRequestState<TYPES, I, Ver>
+{
+    fn drop(&mut self) {
+        futures::executor::block_on(async move { self.cancel_subtasks().await });
+    }
+}
+
 /// Alias for a signature
 type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;
@@ -111,7 +119,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         }
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    async fn cancel_subtasks(&mut self) {
+        self.set_shutdown_flag();
+
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
+
+            for handle in handles {
+                #[cfg(async_executor_impl = "async-std")]
+                handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
+            }
+        }
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static>
@@ -273,6 +296,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                     warn!("Request to other node timed out");
                 }
             }
+
+            async_sleep(self.delay).await;
         }
     }
     /// Returns true if we got the data we wanted, or the view has moved on.
