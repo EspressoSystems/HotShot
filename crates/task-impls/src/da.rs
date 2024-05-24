@@ -221,7 +221,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
-                    tracing::error!("lrzasik: DaProposalValidated, primary is down");
                     consensus
                         .calculate_and_update_vid(
                             view,
