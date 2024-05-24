@@ -452,10 +452,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let new_view = proposal.view_number();
+                let view_number = proposal.view_number();
 
                 // All nodes get the latest proposed view as a proxy of `cur_view` of olde.
-                if !self.update_latest_proposed_view(new_view).await {
+                if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
                     return;
                 }
@@ -468,7 +468,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
 
                 self.create_dependency_task_if_new(
-                    new_view + 1,
+                    view_number + 1,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
