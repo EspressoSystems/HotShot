@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -44,6 +45,7 @@ pub trait Transaction:
 ///   * Must have a transaction type that can be compared for equality, serialized and serialized,
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
+#[async_trait]
 pub trait BlockPayload<TYPES: NodeType>:
     Serialize
     + Clone
@@ -78,15 +80,14 @@ pub trait BlockPayload<TYPES: NodeType>:
         + EncodeBytes;
 
     /// Build a payload and associated metadata with the transactions.
-    ///
+    /// This function is asynchronous because it may need to request updated state from the peers via GET requests.
     /// # Errors
     /// If the transaction length conversion fails.
-
-    fn from_transactions(
-        transactions: impl IntoIterator<Item = Self::Transaction>,
+    async fn from_transactions(
+        transactions: impl IntoIterator<Item = Self::Transaction> + Send,
         validated_state: &Self::ValidatedState,
         instance_state: &Self::Instance,
-    ) -> impl Future<Output = Result<(Self, Self::Metadata), Self::Error>> + Send + 'static;
+    ) -> Result<(Self, Self::Metadata), Self::Error>;
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
@@ -94,15 +95,13 @@ pub trait BlockPayload<TYPES: NodeType>:
 
     /// Build the genesis payload and metadata.
     #[must_use]
-    fn genesis() -> impl Future<Output = (Self, Self::Metadata)> + Send + 'static
+    async fn genesis() -> (Self, Self::Metadata)
     where
         <Self as BlockPayload<TYPES>>::Instance: Default,
     {
-        async {
-            Self::from_transactions([], &Default::default(), &Default::default())
-                .await
-                .unwrap()
-        }
+        Self::from_transactions([], &Default::default(), &Default::default())
+            .await
+            .unwrap()
     }
 
     /// List of transaction commitments.

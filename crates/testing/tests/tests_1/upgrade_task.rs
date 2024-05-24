@@ -3,6 +3,7 @@
 
 use std::time::Duration;
 
+use futures::StreamExt;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
@@ -31,7 +32,6 @@ use vbs::version::Version;
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
 async fn test_consensus_task_upgrade() {
-    use futures::StreamExt;
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
@@ -167,7 +167,6 @@ async fn test_consensus_task_upgrade() {
 async fn test_upgrade_and_consensus_task() {
     use std::sync::Arc;
 
-    use futures::StreamExt;
     use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -336,7 +335,6 @@ async fn test_upgrade_and_consensus_task() {
 ///   - we correctly propose with a null block payload in view 6, even if we have indications to do otherwise (via SendPayloadCommitmentAndMetadata, VID etc).
 ///   - we correctly reject a QuorumProposal with a non-null block payload in view 7.
 async fn test_upgrade_and_consensus_task_blank_blocks() {
-    use futures::StreamExt;
     use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::task_helpers::build_system_handle;
 

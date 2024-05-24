@@ -4,8 +4,8 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
-use futures::Future;
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
@@ -163,6 +163,7 @@ impl EncodeBytes for TestBlockPayload {
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     type Error = BlockError;
     type Instance = TestInstanceState;
@@ -170,20 +171,18 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     type Metadata = TestMetadata;
     type ValidatedState = TestValidatedState;
 
-    fn from_transactions(
-        transactions: impl IntoIterator<Item = Self::Transaction>,
+    async fn from_transactions(
+        transactions: impl IntoIterator<Item = Self::Transaction> + Send,
         _validated_state: &Self::ValidatedState,
         _instance_state: &Self::Instance,
-    ) -> impl Future<Output = Result<(Self, Self::Metadata), Self::Error>> + Send + 'static {
+    ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
-        async {
-            Ok((
-                Self {
-                    transactions: txns_vec,
-                },
-                TestMetadata,
-            ))
-        }
+        Ok((
+            Self {
+                transactions: txns_vec,
+            },
+            TestMetadata,
+        ))
     }
 
     fn from_bytes(encoded_transactions: &[u8], _metadata: &Self::Metadata) -> Self {
