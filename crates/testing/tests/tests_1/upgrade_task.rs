@@ -31,6 +31,7 @@ use vbs::version::Version;
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
 async fn test_consensus_task_upgrade() {
+    use futures::StreamExt;
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
@@ -63,7 +64,7 @@ async fn test_consensus_task_upgrade() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -73,7 +74,7 @@ async fn test_consensus_task_upgrade() {
 
     generator.add_upgrade(upgrade_data);
 
-    for view in generator.take(4) {
+    for view in generator.take(4).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -166,6 +167,7 @@ async fn test_consensus_task_upgrade() {
 async fn test_upgrade_and_consensus_task() {
     use std::sync::Arc;
 
+    use futures::StreamExt;
     use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -199,7 +201,7 @@ async fn test_upgrade_and_consensus_task() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -210,7 +212,7 @@ async fn test_upgrade_and_consensus_task() {
 
     generator.add_upgrade(upgrade_data.clone());
 
-    for view in generator.take(4) {
+    for view in generator.take(4).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -259,6 +261,7 @@ async fn test_upgrade_and_consensus_task() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
             QcFormed(either::Either::Left(proposals[2].data.justify_qc.clone())),
@@ -333,6 +336,7 @@ async fn test_upgrade_and_consensus_task() {
 ///   - we correctly propose with a null block payload in view 6, even if we have indications to do otherwise (via SendPayloadCommitmentAndMetadata, VID etc).
 ///   - we correctly reject a QuorumProposal with a non-null block payload in view 7.
 async fn test_upgrade_and_consensus_task_blank_blocks() {
+    use futures::StreamExt;
     use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::task_helpers::build_system_handle;
 
@@ -364,7 +368,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -375,7 +379,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
 
     generator.add_upgrade(upgrade_data.clone());
 
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -388,7 +392,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     // Our node should vote affirmatively on this.
     generator.add_transactions(vec![]);
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -400,7 +404,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     // We set the transactions to something not null for view 6, but we expect the node to emit a quorum proposal where they are still null.
     generator.add_transactions(vec![TestTransaction::new(vec![0])]);
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -412,7 +416,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     // For view 7, we set the transactions to something not null. The node should fail to vote on this.
     generator.add_transactions(vec![TestTransaction::new(vec![0])]);
 
-    for view in generator.take(1) {
+    for view in generator.take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
@@ -451,6 +455,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
         ],
@@ -467,6 +472,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
@@ -484,6 +490,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
@@ -501,6 +508,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
@@ -518,6 +526,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
             QcFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
@@ -535,6 +544,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),

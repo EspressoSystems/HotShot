@@ -734,7 +734,7 @@ pub mod null_block {
     #[must_use]
     pub async fn builder_fee<TYPES: NodeType>(
         num_storage_nodes: usize,
-        validated_state: &TYPES::ValidatedState,
+        validated_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::ValidatedState,
         instance_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Instance,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder

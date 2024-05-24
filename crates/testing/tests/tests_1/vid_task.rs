@@ -44,6 +44,7 @@ async fn test_vid_task() {
         &TestValidatedState::default(),
         &TestInstanceState {},
     )
+    .await
     .unwrap();
     let builder_commitment =
         <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata);
@@ -101,6 +102,7 @@ async fn test_vid_task() {
             &TestValidatedState::default(),
             &TestInstanceState {},
         )
+        .await
         .unwrap(),
         vid_precompute,
     ));
@@ -129,6 +131,7 @@ async fn test_vid_task() {
                 &TestValidatedState::default(),
                 &TestInstanceState {},
             )
+            .await
             .unwrap(),
         ),
         1,

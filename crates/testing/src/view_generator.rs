@@ -1,6 +1,13 @@
-use std::{cmp::max, marker::PhantomData, sync::Arc};
+use std::{
+    cmp::max,
+    marker::PhantomData,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use committable::Committable;
+use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
@@ -496,6 +503,30 @@ impl TestViewGenerator {
             self.current_view = Some(view.next_view_from_ancestor(ancestor).await)
         } else {
             tracing::error!("Cannot attach ancestor to genesis view.");
+        }
+    }
+}
+
+impl Stream for TestViewGenerator {
+    type Item = TestView;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let qm = &self.quorum_membership.clone();
+        let da = &self.da_membership.clone();
+        let curr_view = &self.current_view.clone();
+
+        let mut fut = if let Some(ref view) = curr_view {
+            async move { TestView::next_view(view).await }.boxed()
+        } else {
+            async move { TestView::genesis(qm, da).await }.boxed()
+        };
+
+        match fut.as_mut().poll(cx) {
+            Poll::Ready(test_view) => {
+                self.current_view = Some(test_view.clone());
+                Poll::Ready(Some(test_view))
+            }
+            Poll::Pending => Poll::Pending,
         }
     }
 }

@@ -82,6 +82,7 @@ pub trait BlockPayload<TYPES: NodeType>:
     ///
     /// # Errors
     /// If the transaction length conversion fails.
+    #[allow(clippy::type_complexity)]
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
         validated_state: &Self::ValidatedState,

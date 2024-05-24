@@ -31,7 +31,7 @@ use hotshot::{
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{Libp2pImpl, PushCdnImpl},
-    state_types::{TestInstanceState, TestValidatedState},
+    state_types::TestInstanceState,
     storage_types::TestStorage,
 };
 use hotshot_orchestrator::{
@@ -866,10 +866,8 @@ where
 pub async fn main_entry_point<
     TYPES: NodeType<
         Transaction = TestTransaction,
-        BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
-        ValidatedState = TestValidatedState,
     >,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,

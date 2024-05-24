@@ -8,6 +8,7 @@ use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_success() {
+    use futures::StreamExt;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         predicates::event::{exact, quorum_vote_send},
@@ -29,7 +30,7 @@ async fn test_quorum_vote_task_success() {
     let mut leaves = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaves.push(view.leaf.clone());
         dacs.push(view.da_certificate.clone());
@@ -63,6 +64,7 @@ async fn test_quorum_vote_task_success() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_vote_now() {
+    use futures::StreamExt;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         predicates::event::{exact, quorum_vote_send},
@@ -81,7 +83,7 @@ async fn test_quorum_vote_task_vote_now() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
-    generator.next();
+    generator.next().await;
     let view = generator.current_view.clone().unwrap();
 
     let vote_dependency_data = VoteDependencyData {
@@ -111,6 +113,7 @@ async fn test_quorum_vote_task_vote_now() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_vote_task_miss_dependency() {
+    use futures::StreamExt;
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         predicates::event::exact,
@@ -134,7 +137,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));

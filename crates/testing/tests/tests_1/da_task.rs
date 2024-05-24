@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use futures::StreamExt;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
@@ -49,7 +50,7 @@ async fn test_da_task() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_da_vote(DaData { payload_commit }, &handle));
@@ -59,7 +60,7 @@ async fn test_da_task() {
 
     generator.add_transactions(vec![TestTransaction::new(vec![0])]);
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_da_vote(DaData { payload_commit }, &handle));
@@ -81,6 +82,7 @@ async fn test_da_task() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
                 precompute,
             ),
@@ -135,7 +137,7 @@ async fn test_da_task_storage_failure() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_da_vote(DaData { payload_commit }, &handle));
@@ -145,7 +147,7 @@ async fn test_da_task_storage_failure() {
 
     generator.add_transactions(transactions);
 
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_da_vote(DaData { payload_commit }, &handle));
@@ -167,6 +169,7 @@ async fn test_da_task_storage_failure() {
                     &TestValidatedState::default(),
                     &TestInstanceState {},
                 )
+                .await
                 .unwrap(),
                 precompute,
             ),
