@@ -10,14 +10,14 @@ use futures::future::join_all;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
 #[cfg(async_executor_impl = "tokio")]
-use tokio::{
-    sync::RwLock,
-    task::{spawn, JoinHandle},
-};
+use tokio::task::{spawn, JoinHandle};
 
 /// Trait for events that long-running tasks handle
 pub trait TaskEvent: PartialEq {
     /// The shutdown signal for this event type
+    ///
+    /// Note that this is necessarily uniform across all tasks.
+    /// Exiting the task loop is handled by the task spawner, rather than the task individually.
     fn shutdown_event() -> Self;
 }
 
@@ -40,14 +40,13 @@ pub trait TaskState: Send {
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
-/// and then handles them using it's state
-/// It sends events to other `Task`s through `event_sender`
+/// and then handles them using its state
+/// It sends events to other `Task`s through `sender`
 /// This should be used as the primary building block for long running
 /// or medium running tasks (i.e. anything that can't be described as a dependency task)
 pub struct Task<S: TaskState> {
-    /// The state of the task.  It is fed events from `event_sender`
-    /// and mutates it state ocordingly.  Also it signals the task
-    /// if it is complete/should shutdown
+    /// The state of the task.  It is fed events from `receiver`
+    /// and mutated via `handle_event`.
     state: S,
     /// Sends events all tasks including itself
     sender: Sender<Arc<S::Event>>,

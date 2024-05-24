@@ -22,15 +22,6 @@ pub enum TestResult {
     Pass,
     /// the test task failed with an error
     Fail(Box<dyn snafu::Error + Send + Sync>),
-    /// the streams the task was listening for died
-    StreamsDied,
-    /// we somehow lost the state
-    /// this is definitely a bug.
-    LostState,
-    /// lost the return value somehow
-    LostReturnValue,
-    /// Stream exists but missing handler
-    MissingHandler,
 }
 
 #[async_trait]

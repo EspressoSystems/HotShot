@@ -223,9 +223,6 @@ where
                         info!("Task shut down successfully");
                     }
                     TestResult::Fail(e) => error_list.push(e),
-                    _ => {
-                        panic!("Future impl for task abstraction failed! This should never happen");
-                    }
                 }
             }
             if let Some(handle) = txn_handle {
@@ -241,17 +238,12 @@ where
             tracing::error!("test tasks joined");
             for result in results {
                 match result {
-                    Ok(res) => {
-                        match res {
-                            TestResult::Pass => {
-                                info!("Task shut down successfully");
-                            }
-                            TestResult::Fail(e) => error_list.push(e),
-                            _ => {
-                                panic!("Future impl for task abstraction failed! This should never happen");
-                            }
+                    Ok(res) => match res {
+                        TestResult::Pass => {
+                            info!("Task shut down successfully");
                         }
-                    }
+                        TestResult::Fail(e) => error_list.push(e),
+                    },
                     Err(e) => {
                         tracing::error!("Error Joining the test task {:?}", e);
                     }
