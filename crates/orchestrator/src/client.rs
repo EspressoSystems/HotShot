@@ -126,6 +126,8 @@ pub struct ValidatorArgs {
     pub url: Url,
     /// The optional advertise address to use for Libp2p
     pub advertise_address: Option<SocketAddr>,
+    /// Optional address to run builder on. Address must be accessible by other nodes
+    pub builder_address: Option<Url>,
     /// An optional network config file to save to/load from
     /// Allows for rejoining the network on a complete state loss
     #[arg(short, long)]
@@ -176,6 +178,7 @@ impl ValidatorArgs {
         Self {
             url: multi_args.url,
             advertise_address: multi_args.advertise_address,
+            builder_address: None,
             network_config_file: multi_args
                 .network_config_file
                 .map(|s| format!("{s}-{node_index}")),
@@ -305,6 +308,54 @@ impl OrchestratorClient {
         // Loop until successful
         self.wait_for_fn_from_orchestrator(get_config_after_collection)
             .await
+    }
+
+    /// Registers a builder URL with the orchestrator
+    ///
+    /// # Panics
+    /// if unable to serialize `address`
+    pub async fn post_builder_address(&self, address: Url) {
+        let send_builder_f = |client: Client<ClientError, OrchestratorVersion>| {
+            let request_body = vbs::Serializer::<Version01>::serialize(&address)
+                .expect("Failed to serialize request");
+
+            async move {
+                let result: Result<_, ClientError> = client
+                    .post("api/builder")
+                    .body_binary(&request_body)
+                    .unwrap()
+                    .send()
+                    .await
+                    .inspect_err(|err| tracing::error!("{err}"));
+                result
+            }
+            .boxed()
+        };
+        self.wait_for_fn_from_orchestrator::<_, _, ()>(send_builder_f)
+            .await;
+    }
+
+    /// Requests a builder URL from orchestrator
+    pub async fn get_builder_address(&self, node_index: u64) -> Url {
+        // Define the request for post-register configurations
+        let get_builder = |client: Client<ClientError, OrchestratorVersion>| {
+            async move {
+                let result = client
+                    .get(&format!("api/builder/{node_index}"))
+                    .send()
+                    .await;
+
+                if let Err(ref err) = result {
+                    tracing::error!("{err}");
+                }
+
+                result
+            }
+            .boxed()
+        };
+
+        // Loop until successful
+        self.wait_for_fn_from_orchestrator(get_builder).await
     }
 
     /// Sends my public key to the orchestrator so that it can collect all public keys
