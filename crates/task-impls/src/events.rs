@@ -150,7 +150,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     VersionUpgrade(Version),
 
     /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
-    /// This is distinct from [`QuorumProposalValidated`] due to the fact that it is in a
+    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
     /// different state than what we'd typically see with a fully validated proposal and,
     /// as a result, it need to be its own event.
     QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
