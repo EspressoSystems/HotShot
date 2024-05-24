@@ -22,6 +22,7 @@ use jf_vid::{precomputable::Precomputable, VidScheme};
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_task() {
+    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_task_impls::harness::run_harness;
     use hotshot_types::message::Proposal;
 
@@ -37,9 +38,15 @@ async fn test_vid_task() {
 
     let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(0));
     let transactions = vec![TestTransaction::new(vec![0])];
-    let (payload, metadata) =
-        TestBlockPayload::from_transactions(transactions.clone(), &TestInstanceState {}).unwrap();
-    let builder_commitment = payload.builder_commitment(&metadata);
+
+    let (payload, metadata) = <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
+        transactions.clone(),
+        &TestValidatedState::default(),
+        &TestInstanceState {},
+    )
+    .unwrap();
+    let builder_commitment =
+        <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata);
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let (_, vid_precompute) = vid.commit_only_precompute(&encoded_transactions).unwrap();
@@ -89,7 +96,12 @@ async fn test_vid_task() {
         encoded_transactions,
         TestMetadata,
         ViewNumber::new(2),
-        null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {}).unwrap(),
+        null_block::builder_fee(
+            quorum_membership.total_nodes(),
+            &TestValidatedState::default(),
+            &TestInstanceState {},
+        )
+        .unwrap(),
         vid_precompute,
     ));
     input.push(HotShotEvent::BlockReady(
@@ -112,8 +124,12 @@ async fn test_vid_task() {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(2),
-            null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            null_block::builder_fee(
+                quorum_membership.total_nodes(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap(),
         ),
         1,
     );

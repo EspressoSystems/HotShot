@@ -205,6 +205,7 @@ pub trait NodeType:
         Self,
         Instance = Self::InstanceState,
         Transaction = Self::Transaction,
+        ValidatedState = Self::ValidatedState,
     >;
     /// The signature key that this hotshot setup is using.
     type SignatureKey: SignatureKey;

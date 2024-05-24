@@ -110,8 +110,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(ViewNumber::new(0), create_fake_view_with_leaf(genesis_leaf)),
@@ -181,8 +185,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
@@ -204,8 +212,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
@@ -227,8 +239,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
@@ -254,8 +270,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
@@ -276,8 +296,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
@@ -354,8 +378,12 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[2].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
@@ -434,8 +462,12 @@ async fn test_quorum_proposal_task_view_sync() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             VidShareValidated(vid_share(&vids[1].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
@@ -492,8 +524,12 @@ async fn test_quorum_proposal_task_propose_now() {
             commitment: payload_commitment,
             builder_commitment: builder_commitment.clone(),
             metadata: TestMetadata,
-            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            fee: null_block::builder_fee(
+                quorum_membership.total_nodes(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -555,8 +591,12 @@ async fn test_quorum_proposal_task_propose_now_timeout() {
             commitment: payload_commitment,
             builder_commitment: builder_commitment.clone(),
             metadata: TestMetadata,
-            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            fee: null_block::builder_fee(
+                quorum_membership.total_nodes(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:
@@ -629,8 +669,12 @@ async fn test_quorum_proposal_task_propose_now_view_sync() {
             commitment: payload_commitment,
             builder_commitment,
             metadata: TestMetadata,
-            fee: null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            fee: null_block::builder_fee(
+                quorum_membership.total_nodes(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap(),
             block_view: ViewNumber::new(2),
         },
         secondary_proposal_information:

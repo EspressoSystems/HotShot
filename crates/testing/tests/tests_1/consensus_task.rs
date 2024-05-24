@@ -14,9 +14,7 @@ use hotshot_testing::{
         exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
-    task_helpers::{
-        build_system_handle, vid_share, key_pair_for_id, vid_scheme_from_view_number,
-    },
+    task_helpers::{build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share},
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
@@ -34,7 +32,7 @@ use sha2::Digest;
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_example_types::block_types::TestMetadata;
+    use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
     use hotshot_types::data::null_block;
 
     async_compatibility_layer::logging::setup_logging();
@@ -97,8 +95,12 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
         ],
         outputs: vec![
@@ -259,7 +261,7 @@ async fn test_consensus_vote_with_permuted_dac() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
-    use hotshot_example_types::block_types::TestMetadata;
+    use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
     use hotshot_types::data::null_block;
 
     async_compatibility_layer::logging::setup_logging();
@@ -376,7 +378,8 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4, &TestInstanceState {}).unwrap(),
+                null_block::builder_fee(4, &TestValidatedState::default(), &TestInstanceState {})
+                    .unwrap(),
             ),
         ],
         outputs: vec![

@@ -11,7 +11,7 @@ use hotshot_example_types::{
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     predicates::event::{all_predicates, exact, quorum_proposal_send, quorum_proposal_validated},
-    task_helpers::{vid_share, vid_scheme_from_view_number},
+    task_helpers::{vid_scheme_from_view_number, vid_share},
     test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
@@ -27,6 +27,7 @@ use sha2::Digest;
 /// This proposal should happen no matter how the `input_permutation` is specified.
 #[cfg(not(feature = "dependency-tasks"))]
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
+    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
         task_helpers::build_system_handle,
@@ -92,21 +93,19 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(node_id),
-            null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            null_block::builder_fee(
+                quorum_membership.total_nodes(),
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .unwrap(),
         ),
     ];
 
     let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
     view_2_inputs.insert(0, DaCertificateRecv(dacs[1].clone()));
-    view_2_inputs.insert(
-        0,
-        VidShareRecv(vid_share(&vids[2].0, handle.public_key())),
-    );
-    view_2_inputs.insert(
-        0,
-        VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
-    );
+    view_2_inputs.insert(0, VidShareRecv(vid_share(&vids[2].0, handle.public_key())));
+    view_2_inputs.insert(0, VidShareRecv(vid_share(&vids[1].0, handle.public_key())));
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {

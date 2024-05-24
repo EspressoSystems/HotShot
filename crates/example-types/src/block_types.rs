@@ -21,7 +21,10 @@ use snafu::Snafu;
 use time::OffsetDateTime;
 use vbs::version::Version;
 
-use crate::{node_types::TestTypes, state_types::TestInstanceState};
+use crate::{
+    node_types::TestTypes,
+    state_types::{TestInstanceState, TestValidatedState},
+};
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -164,10 +167,11 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     type Instance = TestInstanceState;
     type Transaction = TestTransaction;
     type Metadata = TestMetadata;
+    type ValidatedState = TestValidatedState;
 
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        _validated_state: &TYPES::ValidatedState,
+        _validated_state: &Self::ValidatedState,
         _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
@@ -198,6 +202,10 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
         }
 
         Self { transactions }
+    }
+
+    fn genesis() -> (Self, Self::Metadata) {
+        (Self::genesis(), TestMetadata)
     }
 
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {

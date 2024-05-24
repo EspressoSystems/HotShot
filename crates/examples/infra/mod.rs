@@ -31,7 +31,7 @@ use hotshot::{
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{Libp2pImpl, PushCdnImpl},
-    state_types::TestInstanceState,
+    state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
 use hotshot_orchestrator::{
@@ -336,7 +336,7 @@ pub trait RunDa<
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     TYPES: NodeType<Transaction = TestTransaction>,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
@@ -608,7 +608,7 @@ impl<
     > RunDa<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
 {
@@ -700,7 +700,7 @@ impl<
     > for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
 {
@@ -792,7 +792,7 @@ impl<
     > RunDa<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
     Self: Sync,
 {
@@ -868,6 +868,7 @@ pub async fn main_entry_point<
         BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
+        ValidatedState = TestValidatedState,
     >,
     DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
@@ -882,7 +883,7 @@ pub async fn main_entry_point<
     args: ValidatorArgs,
 ) where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
-    <TYPES as NodeType>::BlockPayload: TestableBlock,
+    <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
     setup_logging();

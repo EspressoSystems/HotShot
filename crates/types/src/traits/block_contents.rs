@@ -64,6 +64,8 @@ pub trait BlockPayload<TYPES: NodeType>:
     type Instance: InstanceState;
     /// The type of the transitions we are applying
     type Transaction: Transaction;
+    /// Validated State
+    type ValidatedState: ValidatedState<TYPES>;
     /// Data created during block building which feeds into the block header
     type Metadata: Clone
         + Debug
@@ -81,7 +83,7 @@ pub trait BlockPayload<TYPES: NodeType>:
     /// If the transaction length conversion fails.
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
-        validated_state: &TYPES::ValidatedState,
+        validated_state: &Self::ValidatedState,
         instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error>;
 

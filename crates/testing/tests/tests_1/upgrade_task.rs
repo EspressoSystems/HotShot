@@ -166,6 +166,7 @@ async fn test_consensus_task_upgrade() {
 async fn test_upgrade_and_consensus_task() {
     use std::sync::Arc;
 
+    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -253,8 +254,12 @@ async fn test_upgrade_and_consensus_task() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             QcFormed(either::Either::Left(proposals[2].data.justify_qc.clone())),
         ],
@@ -328,6 +333,7 @@ async fn test_upgrade_and_consensus_task() {
 ///   - we correctly propose with a null block payload in view 6, even if we have indications to do otherwise (via SendPayloadCommitmentAndMetadata, VID etc).
 ///   - we correctly reject a QuorumProposal with a non-null block payload in view 7.
 async fn test_upgrade_and_consensus_task_blank_blocks() {
+    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::task_helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
@@ -440,8 +446,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[1].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
         ],
         vec![
@@ -452,8 +462,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
         ],
@@ -465,8 +479,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[3].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             QuorumProposalRecv(proposals[3].clone(), leaders[3]),
         ],
@@ -478,8 +496,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[4].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             QuorumProposalRecv(proposals[4].clone(), leaders[4]),
         ],
@@ -491,8 +513,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[5].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(6),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             QcFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
@@ -504,8 +530,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 proposals[6].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(7),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    &TestValidatedState::default(),
+                    &TestInstanceState {},
+                )
+                .unwrap(),
             ),
             QuorumProposalRecv(proposals[6].clone(), leaders[6]),
         ],
