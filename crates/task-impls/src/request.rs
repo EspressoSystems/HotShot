@@ -291,6 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 }
                 Ok(Err(e)) => {
                     warn!("Error Sending request.  Error: {:?}", e);
+                    async_sleep(REQUEST_TIMEOUT).await;
                 }
                 Err(_) => {
                     warn!("Request to other node timed out");
