@@ -21,7 +21,6 @@ use tokio::task::JoinHandle;
 
 use crate::{traits::NodeImplementation, types::Event, SystemContext};
 
-#[derive(Clone)]
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,

@@ -3,6 +3,8 @@ use std::{
     sync::Arc,
 };
 
+use async_lock::RwLock;
+
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_trait::async_trait;
@@ -69,7 +71,7 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
 /// Data availability task state
 pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// handles
-    pub handles: Vec<Node<TYPES, I>>,
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
     /// ctx
     pub ctx: RoundCtx<TYPES>,
     /// configure properties
@@ -137,7 +139,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             _ => return Ok(()),
         };
 
-        let len = self.handles.len();
+        let len = self.handles.read().await.len();
 
         // update view count
         let threshold = (threshold_calculator)(len, len);

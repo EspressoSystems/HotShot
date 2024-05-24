@@ -1,5 +1,7 @@
 use std::time::Duration;
+use std::sync::Arc;
 
+use async_lock::RwLock;
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
@@ -24,7 +26,7 @@ pub struct TxnTaskErr {}
 pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     // TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
     /// Handles for all nodes.
-    pub handles: Vec<Node<TYPES, I>>,
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
     /// Optional index of the next node.
     pub next_node_idx: Option<usize>,
     /// time to wait between txns
@@ -48,7 +50,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
     }
     async fn submit_tx(&mut self) {
         if let Some(idx) = self.next_node_idx {
-            let handles = &self.handles;
+            let handles = &self.handles.read().await;
             // submit to idx handle
             // increment state
             self.next_node_idx = Some((idx + 1) % handles.len());

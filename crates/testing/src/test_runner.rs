@@ -8,6 +8,7 @@ use std::{
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::async_timeout;
+use async_lock::RwLock;
 use futures::future::{
     join_all, Either,
     Either::{Left, Right},
@@ -111,10 +112,12 @@ where
         let mut task_futs = vec![];
         let meta = launcher.metadata.clone();
 
+        let handles = Arc::new(RwLock::new(nodes));
+
         let txn_task =
             if let TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 let txn_task = TxnTask {
-                    handles: nodes.clone(),
+                    handles: Arc::clone(&handles),
                     next_node_idx: Some(0),
                     duration,
                     shutdown_chan: test_receiver.clone(),
@@ -130,7 +133,7 @@ where
         let completion_task = CompletionTask {
             tx: test_sender.clone(),
             rx: test_receiver.clone(),
-            handles: nodes.clone(),
+            handles: Arc::clone(&handles),
             duration: time_based.duration,
         };
 
@@ -145,7 +148,7 @@ where
         }
 
         let spinning_task_state = SpinningTask {
-            handles: nodes.clone(),
+            handles: Arc::clone(&handles),
             late_start,
             latest_view: None,
             changes,
@@ -159,7 +162,7 @@ where
         );
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
-            handles: nodes.clone(),
+            handles: Arc::clone(&handles),
             ctx: RoundCtx::default(),
             properties: self.launcher.metadata.overall_safety_properties,
             error: None,
@@ -185,18 +188,23 @@ where
             test_receiver.clone(),
         );
 
+        let nodes = handles.read().await;
+
         // wait for networks to be ready
-        for node in &nodes {
+        for node in &*nodes {
             node.networks.0.wait_for_ready().await;
             node.networks.1.wait_for_ready().await;
         }
 
         // Start hotshot
-        for node in &nodes {
+        for node in &*nodes {
             if !late_start_nodes.contains(&node.node_id) {
                 node.handle.hotshot.start_consensus().await;
             }
         }
+
+        drop(nodes);
+
         task_futs.push(safety_task.run());
         task_futs.push(view_sync_task.run());
         task_futs.push(spinning_task.run());
@@ -263,8 +271,10 @@ where
             "TEST FAILED! Results: {error_list:?}"
         );
 
-        let _ = async_timeout(Duration::from_secs(10), async {
-            for mut node in nodes {
+        let _ = async_timeout(Duration::from_secs(10), async move {
+            let mut nodes = handles.write().await;
+
+            for node in &mut *nodes {
                 node.handle.shut_down().await;
             }
         })
@@ -437,7 +447,6 @@ where
     }
 }
 
-#[derive(Clone)]
 /// a node participating in a test
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The node's unique identifier

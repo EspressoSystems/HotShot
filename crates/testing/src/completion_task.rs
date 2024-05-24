@@ -1,4 +1,7 @@
 use std::time::Duration;
+use std::sync::Arc;
+
+use async_lock::RwLock;
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_spawn, async_timeout};
@@ -25,7 +28,7 @@ pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 
     pub rx: Receiver<TestEvent>,
     /// handles to the nodes in the test
-    pub(crate) handles: Vec<Node<TYPES, I>>,
+    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
     /// Duration of the task.
     pub duration: Duration,
 }
@@ -40,7 +43,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES
                 broadcast_event(TestEvent::Shutdown, &self.tx).await;
             }
 
-            for node in &mut self.handles.iter_mut() {
+            for node in &mut self.handles.write().await.iter_mut() {
                 node.handle.shut_down().await;
             }
         })
