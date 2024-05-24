@@ -1,10 +1,8 @@
-use std::time::Duration;
-use std::sync::Arc;
-
-use async_lock::RwLock;
+use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_spawn, async_timeout};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;

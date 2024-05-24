@@ -271,14 +271,11 @@ where
             "TEST FAILED! Results: {error_list:?}"
         );
 
-        let _ = async_timeout(Duration::from_secs(10), async move {
-            let mut nodes = handles.write().await;
+        let mut nodes = handles.write().await;
 
-            for node in &mut *nodes {
-                node.handle.shut_down().await;
-            }
-        })
-        .await;
+        for node in &mut *nodes {
+            node.handle.shut_down().await;
+        }
     }
 
     /// Add nodes.

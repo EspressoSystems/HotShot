@@ -1,9 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
-
-use std::sync::Arc;
-use async_lock::RwLock;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use anyhow::Result;
+use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::Either::{Left, Right};
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
