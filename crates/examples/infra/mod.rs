@@ -17,6 +17,7 @@ use cdn_broker::reexports::crypto::signature::KeyPair;
 use chrono::Utc;
 use clap::{value_parser, Arg, Command, Parser};
 use futures::StreamExt;
+use get_if_addrs::get_if_addrs;
 use hotshot::{
     traits::{
         implementations::{
@@ -894,7 +895,7 @@ pub async fn main_entry_point<
     >,
     RUNDA: RunDa<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
-    args: ValidatorArgs,
+    mut args: ValidatorArgs,
 ) where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock,
@@ -935,6 +936,28 @@ pub async fn main_entry_point<
     )
     .await
     .expect("failed to get config");
+
+    match get_if_addrs() {
+        Ok(interfaces) => {
+            for interface in interfaces {
+                if let IpAddr::V4(ipv4_addr) = interface.addr.ip() {
+                    // Exclude loopback addresses
+                    if !ipv4_addr.is_loopback() {
+                        println!("Local IPv4 Address: {:?}", ipv4_addr);
+                    }
+                } else if let IpAddr::V6(ipv6_addr) = interface.addr.ip() {
+                    // Exclude loopback addresses
+                    if !ipv6_addr.is_loopback() {
+                        println!("Local IPv6 Address: {:?}", ipv6_addr);
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+        }
+    }
+    args.builder_address = Some(Url::parse(&format!("http://localhost:5678")).unwrap());
 
     let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
 

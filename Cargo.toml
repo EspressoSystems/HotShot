@@ -90,6 +90,7 @@ memoize = { version = "0.4", features = ["full"] }
 vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 url = { version = "2.5.0", features = ["serde"] }
+get_if_addrs = "0.5.3"
 
 libp2p = { package = "libp2p", version = "0.53", features = [
   "macros",
