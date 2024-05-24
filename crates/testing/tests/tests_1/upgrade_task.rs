@@ -2,7 +2,6 @@
 #![allow(unused_imports)]
 
 use std::time::Duration;
-use hotshot_testing::script::RECV_TIMEOUT;
 
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
@@ -16,7 +15,7 @@ use hotshot_task_impls::{
 };
 use hotshot_testing::{
     predicates::{event::*, upgrade::*},
-    script::{Expectations, TaskScript},
+    script::{Expectations, TaskScript, RECV_TIMEOUT},
     task_helpers::vid_share,
     view_generator::TestViewGenerator,
 };
@@ -118,9 +117,11 @@ async fn test_consensus_task_upgrade() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
-            quorum_proposal_validated(),
-            leaf_decided(),
-            exact(QuorumVoteSend(votes[2].clone())),
+            all_predicates(vec![
+                quorum_proposal_validated(),
+                leaf_decided(),
+                exact(QuorumVoteSend(votes[2].clone())),
+            ]),
         ],
         asserts: vec![no_decided_upgrade_cert()],
     };
@@ -133,9 +134,11 @@ async fn test_consensus_task_upgrade() {
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(4))),
-            quorum_proposal_validated(),
-            leaf_decided(),
-            exact(QuorumVoteSend(votes[3].clone())),
+            all_predicates(vec![
+                quorum_proposal_validated(),
+                leaf_decided(),
+                exact(QuorumVoteSend(votes[3].clone())),
+            ]),
         ],
         asserts: vec![no_decided_upgrade_cert()],
     };
@@ -144,8 +147,7 @@ async fn test_consensus_task_upgrade() {
         inputs: vec![QuorumProposalRecv(proposals[4].clone(), leaders[4])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(5))),
-            quorum_proposal_validated(),
-            leaf_decided(),
+            all_predicates(vec![quorum_proposal_validated(), leaf_decided()]),
         ],
         asserts: vec![decided_upgrade_cert()],
     };
@@ -224,11 +226,7 @@ async fn test_upgrade_and_consensus_task() {
         .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    let mut upgrade_state = UpgradeTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let mut upgrade_state = UpgradeTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     upgrade_state.should_vote = |_| true;
 
@@ -418,11 +416,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     }
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    let mut upgrade_state = UpgradeTaskState::<
-        TestTypes,
-        MemoryImpl,
-    >::create_from(&handle)
-    .await;
+    let mut upgrade_state = UpgradeTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     upgrade_state.should_vote = |_| true;
 
