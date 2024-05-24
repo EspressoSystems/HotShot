@@ -5,7 +5,7 @@ use std::{
 };
 
 use committable::{Commitment, Committable, RawCommitmentBuilder};
-use futures::{future::BoxFuture, FutureExt};
+use futures::Future;
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
@@ -174,16 +174,16 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
         transactions: impl IntoIterator<Item = Self::Transaction>,
         _validated_state: &Self::ValidatedState,
         _instance_state: &Self::Instance,
-    ) -> BoxFuture<'static, Result<(Self, Self::Metadata), Self::Error>> {
+    ) -> impl Future<Output = Result<(Self, Self::Metadata), Self::Error>> + Send + 'static {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
-        Box::pin(async {
+        async {
             Ok((
                 Self {
                     transactions: txns_vec,
                 },
                 TestMetadata,
             ))
-        })
+        }
     }
 
     fn from_bytes(encoded_transactions: &[u8], _metadata: &Self::Metadata) -> Self {
@@ -207,8 +207,8 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
         Self { transactions }
     }
 
-    fn genesis() -> BoxFuture<'static, (Self, Self::Metadata)> {
-        async { (Self::genesis(), TestMetadata) }.boxed()
+    async fn genesis() -> (Self, Self::Metadata) {
+        (Self::genesis(), TestMetadata)
     }
 
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {

@@ -12,7 +12,6 @@ use std::{
 };
 
 use committable::{Commitment, Committable};
-use futures::future::BoxFuture;
 use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
@@ -82,12 +81,12 @@ pub trait BlockPayload<TYPES: NodeType>:
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    #[allow(clippy::type_complexity)]
+
     fn from_transactions(
         transactions: impl IntoIterator<Item = Self::Transaction>,
         validated_state: &Self::ValidatedState,
         instance_state: &Self::Instance,
-    ) -> BoxFuture<'static, Result<(Self, Self::Metadata), Self::Error>>;
+    ) -> impl Future<Output = Result<(Self, Self::Metadata), Self::Error>> + Send + 'static;
 
     /// Build a payload with the encoded transaction bytes, metadata,
     /// and the associated number of VID storage nodes
@@ -95,15 +94,15 @@ pub trait BlockPayload<TYPES: NodeType>:
 
     /// Build the genesis payload and metadata.
     #[must_use]
-    fn genesis() -> BoxFuture<'static, (Self, Self::Metadata)>
+    fn genesis() -> impl Future<Output = (Self, Self::Metadata)> + Send + 'static
     where
         <Self as BlockPayload<TYPES>>::Instance: Default,
     {
-        Box::pin(async {
+        async {
             Self::from_transactions([], &Default::default(), &Default::default())
                 .await
                 .unwrap()
-        })
+        }
     }
 
     /// List of transaction commitments.
