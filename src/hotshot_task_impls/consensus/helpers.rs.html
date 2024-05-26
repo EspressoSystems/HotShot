@@ -1217,8 +1217,6 @@
 <a href="#1215" id="1215">1215</a>
 <a href="#1216" id="1216">1216</a>
 <a href="#1217" id="1217">1217</a>
-<a href="#1218" id="1218">1218</a>
-<a href="#1219" id="1219">1219</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1271,9 +1269,12 @@
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
+///
+/// TODO - This should just take the QuorumProposalRecv task state after
+/// we merge the dependency tasks.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-</span><span class="kw">async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
@@ -1798,24 +1799,16 @@
     </span>}
 }
 
-<span class="doccomment">/// TEMPORARY TYPE: Quorum proposal recv task state when using dependency tasks
-</span><span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = QuorumProposalRecvTaskState&lt;TYPES, I&gt;;
-
-<span class="doccomment">/// TEMPORARY TYPE: Consensus task state when not using dependency tasks
-</span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt; = ConsensusTaskState&lt;TYPES, I&gt;;
-
 <span class="comment">// TODO: Fix `clippy::too_many_lines`.
 </span><span class="doccomment">/// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
-</span><span class="kw">pub async fn </span>handle_quorum_proposal_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>TemporaryProposalRecvCombinedType&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
     version: Version,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumProposal&lt;TYPES&gt;&gt;&gt; {
     <span class="kw">let </span>sender = sender.clone();
@@ -1844,11 +1837,14 @@
     }
 
     <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, I&gt;(
-        task_state,
+    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES&gt;(
         view,
         <span class="kw-2">&amp;</span>event_stream,
+        task_state.timeout,
         Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
+        <span class="kw-2">&amp;mut </span>task_state.cur_view,
+        <span class="kw-2">&amp;mut </span>task_state.timeout_task,
+        <span class="kw-2">&amp;</span>task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
     )
     .<span class="kw">await

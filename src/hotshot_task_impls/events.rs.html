@@ -172,11 +172,14 @@
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_types::{
-    consensus::ProposalDependencyData,
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
@@ -323,8 +326,13 @@
     </span>UpgradeCertificateFormed(UpgradeCertificate&lt;TYPES&gt;),
     <span class="doccomment">/// HotShot was upgraded, with a new network version.
     </span>VersionUpgrade(Version),
-    <span class="doccomment">/// Initiate a proposal right now for a provided view.
-    </span>ProposeNow(TYPES::Time, ProposalDependencyData&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Initiate a proposal for a proposal without a parent, but passing the liveness check.
+    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
+    /// different state than what we'd typically see with a fully validated proposal and,
+    /// as a result, it need to be its own event.
+    </span>QuorumProposalLivenessValidated(QuorumProposal&lt;TYPES&gt;),
+
     <span class="doccomment">/// Initiate a vote right now for the designated view.
     </span>VoteNow(TYPES::Time, VoteDependencyData&lt;TYPES&gt;),
 

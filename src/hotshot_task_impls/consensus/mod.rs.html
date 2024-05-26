@@ -764,6 +764,9 @@
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
 <a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1304,11 +1307,14 @@
                 <span class="comment">// update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, <span class="kw">_</span>&gt;(
-                    <span class="self">self</span>,
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES&gt;(
                     new_view,
                     <span class="kw-2">&amp;</span>event_stream,
+                    <span class="self">self</span>.timeout,
                     Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+                    <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view,
+                    <span class="kw-2">&amp;mut </span><span class="self">self</span>.timeout_task,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
                 )
                 .<span class="kw">await

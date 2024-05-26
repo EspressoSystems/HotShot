@@ -244,6 +244,16 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, sync::Arc};
 
 <span class="kw">use </span>async_lock::RwLock;
@@ -486,6 +496,16 @@
     <span class="kw">let </span>info = <span class="string">"TimeoutVoteSend"</span>.to_string();
     <span class="kw">let </span>check: EventCallback&lt;TYPES&gt; =
         Arc::new(<span class="kw">move </span>|e: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), TimeoutVoteSend(..)));
+    Box::new(EventPredicate { check, info })
+}
+
+<span class="kw">pub fn </span>vote_now&lt;TYPES&gt;() -&gt; Box&lt;EventPredicate&lt;TYPES&gt;&gt;
+<span class="kw">where
+    </span>TYPES: NodeType,
+{
+    <span class="kw">let </span>info = <span class="string">"VoteNow"</span>.to_string();
+    <span class="kw">let </span>check: EventCallback&lt;TYPES&gt; =
+        Arc::new(<span class="kw">move </span>|e: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), VoteNow(..)));
     Box::new(EventPredicate { check, info })
 }
 </code></pre></div></section></main></body></html>

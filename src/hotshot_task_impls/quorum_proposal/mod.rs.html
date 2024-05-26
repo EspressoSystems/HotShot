@@ -570,15 +570,6 @@
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -717,6 +708,10 @@
                     ProposalDependency::Proposal =&gt; {
                         <span class="kw">if let </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) = event {
                             proposal.view_number() + <span class="number">1
+                        </span>} <span class="kw">else if let </span>HotShotEvent::QuorumProposalLivenessValidated(proposal) =
+                            event
+                        {
+                            proposal.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
@@ -730,13 +725,6 @@
                             _fee,
                         ) = event
                         {
-                            <span class="kw-2">*</span>view_number
-                        } <span class="kw">else </span>{
-                            <span class="kw">return </span><span class="bool-val">false</span>;
-                        }
-                    }
-                    ProposalDependency::ProposeNow =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::ProposeNow(view_number, <span class="kw">_</span>) = event {
                             <span class="kw-2">*</span>view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -803,12 +791,6 @@
             event_receiver.clone(),
         );
 
-        <span class="kw">let </span><span class="kw-2">mut </span>propose_now_dependency = <span class="self">self</span>.create_event_dependency(
-            ProposalDependency::ProposeNow,
-            view_number,
-            event_receiver.clone(),
-        );
-
         <span class="kw">let </span><span class="kw-2">mut </span>vid_share_dependency = <span class="self">self</span>.create_event_dependency(
             ProposalDependency::VidShare,
             view_number,
@@ -822,13 +804,12 @@
         );
 
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::ProposeNow(..) =&gt; {
-                propose_now_dependency.mark_as_completed(Arc::clone(<span class="kw-2">&amp;</span>event));
-            }
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) =&gt; {
                 payload_commitment_dependency.mark_as_completed(Arc::clone(<span class="kw-2">&amp;</span>event));
             }
-            HotShotEvent::QuorumProposalValidated(..) =&gt; {
+            <span class="comment">// All proposals are equivalent in this case.
+            </span>HotShotEvent::QuorumProposalValidated(..)
+            | HotShotEvent::QuorumProposalLivenessValidated(<span class="kw">_</span>) =&gt; {
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QcFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
@@ -873,7 +854,6 @@
         }
 
         AndDependency::from_deps(<span class="macro">vec!</span>[OrDependency::from_deps(<span class="macro">vec!</span>[
-            AndDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[propose_now_dependency])]),
             AndDependency::from_deps(<span class="macro">vec!</span>[
                 OrDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[
                     payload_commitment_dependency,
@@ -974,9 +954,11 @@
             HotShotEvent::VersionUpgrade(version) =&gt; {
                 <span class="self">self</span>.version = <span class="kw-2">*</span>version;
             }
-            HotShotEvent::ProposeNow(view_number, <span class="kw">_</span>) =&gt; {
-                <span class="self">self</span>.create_dependency_task_if_new(
-                    <span class="kw-2">*</span>view_number,
+            HotShotEvent::QuorumProposalLivenessValidated(proposal) =&gt; {
+                <span class="comment">// We may not be able to propose off of this, but we still spin up an event just in case
+                // the other data is already here, we're still proposing for view + 1 here.
+                </span><span class="self">self</span>.create_dependency_task_if_new(
+                    proposal.view_number() + <span class="number">1</span>,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
@@ -1042,10 +1024,10 @@
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>new_view = proposal.view_number;
+                <span class="kw">let </span>view_number = proposal.view_number();
 
                 <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of olde.
-                </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(new_view).<span class="kw">await </span>{
+                </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view_number).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
                     <span class="kw">return</span>;
                 }
@@ -1058,14 +1040,14 @@
                 }
 
                 <span class="self">self</span>.create_dependency_task_if_new(
-                    new_view + <span class="number">1</span>,
+                    view_number + <span class="number">1</span>,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
             HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>view = proposal.data.view_number;
+                <span class="kw">let </span>view = proposal.data.view_number();
                 <span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
                     <span class="kw">return</span>;
@@ -1137,7 +1119,7 @@
                 | HotShotEvent::QcFormed(<span class="kw">_</span>)
                 | HotShotEvent::SendPayloadCommitmentAndMetadata(..)
                 | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
-                | HotShotEvent::ProposeNow(..)
+                | HotShotEvent::QuorumProposalLivenessValidated(..)
                 | HotShotEvent::QuorumProposalSend(..)
                 | HotShotEvent::VidShareValidated(<span class="kw">_</span>)
                 | HotShotEvent::ValidatedStateUpdated(..)

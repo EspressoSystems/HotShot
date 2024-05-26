@@ -811,6 +811,40 @@
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -1121,25 +1155,59 @@
         <span class="prelude-val">Ok</span>(inner)
     }
 
-    <span class="doccomment">/// "Starts" consensus by sending a `QcFormed` event
+    <span class="doccomment">/// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="attr">#[cfg(feature = <span class="string">"dependncy-tasks"</span>)]
+        </span><span class="macro">error!</span>(<span class="string">"HotShot is running with the dependency tasks feature enabled!!"</span>);
         <span class="macro">debug!</span>(<span class="string">"Starting Consensus"</span>);
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="self">self</span>.internal_event_stream
+
+        <span class="attr">#[allow(clippy::panic)]
+        </span><span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.start_view)))
             .<span class="kw">await
-            </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
-        <span class="self">self</span>.internal_event_stream
+            </span>.unwrap_or_else(|<span class="kw">_</span>| {
+                <span class="macro">panic!</span>(
+                    <span class="string">"Genesis Broadcast failed; event = ViewChange({:?})"</span>,
+                    <span class="self">self</span>.start_view
+                )
+            });
+        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+        </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(validated_state) = consensus.validated_state_map().get(<span class="kw-2">&amp;</span><span class="self">self</span>.start_view) {
+                <span class="attr">#[allow(clippy::panic)]
+                </span><span class="self">self</span>.internal_event_stream
+                    .<span class="number">0
+                    </span>.broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
+                        TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.start_view),
+                        validated_state.clone(),
+                    )))
+                    .<span class="kw">await
+                    </span>.unwrap_or_else(|<span class="kw">_</span>| {
+                        <span class="macro">panic!</span>(
+                            <span class="string">"Genesis Broadcast failed; event = ValidatedStateUpdated({:?})"</span>,
+                            <span class="self">self</span>.start_view,
+                        )
+                    });
+            }
+        }
+        <span class="attr">#[allow(clippy::panic)]
+        </span><span class="self">self</span>.internal_event_stream
             .<span class="number">0
             </span>.broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
                 consensus.high_qc().clone(),
             ))))
             .<span class="kw">await
-            </span>.expect(<span class="string">"Genesis Broadcast failed"</span>);
+            </span>.unwrap_or_else(|<span class="kw">_</span>| {
+                <span class="macro">panic!</span>(
+                    <span class="string">"Genesis Broadcast failed; event = QcFormed(either::Left({:?}))"</span>,
+                    consensus.high_qc()
+                )
+            });
 
         {
             <span class="comment">// Some applications seem to expect a leaf decide event for the genesis leaf,

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_Consensus"],"enum":["SecondaryProposalInformation"],"struct":["CommitmentAndMetadata","Consensus","ConsensusMetricsValue","ProposalDependencyData"],"type":["CommitmentMap","VidShares"]};
+window.SIDEBAR_ITEMS = {"constant":["_DERIVE_core_fmt_Debug_FOR_Consensus"],"struct":["CommitmentAndMetadata","Consensus","ConsensusMetricsValue"],"type":["CommitmentMap","VidShares"]};
