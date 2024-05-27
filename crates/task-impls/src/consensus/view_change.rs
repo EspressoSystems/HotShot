@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use crate::{
-    consensus::helpers::TemporaryProposalRecvCombinedType,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use anyhow::{ensure, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -14,12 +14,14 @@ use core::time::Duration;
 use hotshot_types::{
     consensus::Consensus,
     event::{Event, EventType},
-    traits::{
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-    },
+    traits::node_implementation::{ConsensusTime, NodeType},
 };
 use tracing::{debug, error};
+
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+};
 
 /// Constant which tells [`update_view`] to send a view change event when called.
 pub(crate) const SEND_VIEW_CHANGE_EVENT: bool = true;
@@ -32,19 +34,24 @@ pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
 ///
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
-pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    task_state: &mut TemporaryProposalRecvCombinedType<TYPES, I>,
+/// TODO: Remove args when we merge dependency tasks.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    timeout: u64,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
+    cur_view: &mut TYPES::Time,
+    timeout_task: &mut JoinHandle<()>,
+    output_event_stream: &Sender<Event<TYPES>>,
     send_view_change_event: bool,
 ) -> Result<()> {
     ensure!(
-        new_view > task_state.cur_view,
+        new_view > *cur_view,
         "New view is not greater than our current view"
     );
 
-    let old_view = task_state.cur_view;
+    let old_view = *cur_view;
 
     debug!("Updating view from {} to {}", *old_view, *new_view);
 
@@ -54,10 +61,10 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         error!("Progress: entered view {:>6}", *new_view);
     }
 
-    task_state.cur_view = new_view;
+    *cur_view = new_view;
 
     // The next view is just the current view + 1
-    let next_view = task_state.cur_view + 1;
+    let next_view = *cur_view + 1;
 
     if send_view_change_event {
         futures::join! {
@@ -69,7 +76,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                         view_number: old_view,
                     },
                 },
-                &task_state.output_event_stream,
+                output_event_stream,
             )
         };
     }
@@ -80,7 +87,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
         let view_number = next_view;
-        let timeout = Duration::from_millis(task_state.timeout);
+        let timeout = Duration::from_millis(timeout);
         async move {
             async_sleep(timeout).await;
             broadcast_event(
@@ -91,19 +98,15 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         }
     });
 
-    // Cancel the old timeout task
-    cancel_task(std::mem::replace(
-        &mut task_state.timeout_task,
-        new_timeout_task,
-    ))
-    .await;
+    // cancel the old timeout task
+    cancel_task(std::mem::replace(timeout_task, new_timeout_task)).await;
 
     let consensus = consensus.upgradable_read().await;
     consensus
         .metrics
         .current_view
-        .set(usize::try_from(task_state.cur_view.u64()).unwrap());
-    let cur_view_time = Utc::now().timestamp();
+        .set(usize::try_from(cur_view.u64()).unwrap());
+let cur_view_time = Utc::now().timestamp();
     if task_state.quorum_membership.leader(old_view) == task_state.public_key {
         #[allow(clippy::cast_precision_loss)]
         consensus
@@ -115,11 +118,11 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    if usize::try_from(task_state.cur_view.u64()).unwrap()
+    if usize::try_from(cur_view.u64()).unwrap()
         > usize::try_from(consensus.last_decided_view().u64()).unwrap()
     {
         consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
+            usize::try_from(cur_view.u64()).unwrap()
                 - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
         );
     }
