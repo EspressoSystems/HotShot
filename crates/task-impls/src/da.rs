@@ -229,11 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                         consensus
                             .write()
                             .await
-                            .calculate_and_update_vid(
-                                view,
-                                membership,
-                                &pk,
-                            )
+                            .calculate_and_update_vid(view, membership, &pk)
                             .await;
                     });
                 }
