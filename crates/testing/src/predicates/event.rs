@@ -57,28 +57,7 @@ pub fn all<TYPES>(events: Vec<HotShotEvent<TYPES>>) -> Box<TestPredicate<Arc<Hot
 where
     TYPES: NodeType,
 {
-    let info = format!("{:?}", events);
-
-    // Remove duplicate events.
-    let mut events = events;
-    events.dedup();
-
-    let function =
-        move |e: &Arc<HotShotEvent<TYPES>>| match events.iter().find(|x| *x == e.as_ref()) {
-            Some(_) => {
-                if events.is_empty() {
-                    PredicateResult::Pass
-                } else {
-                    PredicateResult::Incomplete
-                }
-            }
-            None => PredicateResult::Fail,
-        };
-
-    Box::new(TestPredicate {
-        function: Arc::new(RwLock::new(function)),
-        info,
-    })
+    all_predicates(events.into_iter().map(exact).collect())
 }
 
 pub fn all_predicates<TYPES: NodeType>(
