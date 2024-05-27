@@ -132,7 +132,10 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc, time::Duration};
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
@@ -144,7 +147,7 @@
 <span class="doccomment">/// The state for the test harness task. Keeps track of which events and how many we expect to get
 </span><span class="kw">pub struct </span>TestHarnessState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The expected events we get from the test.  Maps an event to the number of times we expect to see it
-    </span>expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
+    </span>expected_output: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// If true we won't fail the test if extra events come in
     </span>allow_extra_output: bool,
 }
@@ -180,7 +183,7 @@
 #[allow(clippy::panic)]
 </span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
     input: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    expected_output: HashMap&lt;HotShotEvent&lt;TYPES&gt;, usize&gt;,
+    expected_output: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     state: S,
     allow_extra_output: bool,
 ) <span class="kw">where
@@ -245,17 +248,20 @@
     // * We haven't received all expected outputs yet.
     </span><span class="kw">if </span>!allow_extra_output || !state.expected_output.is_empty() {
         <span class="macro">assert!</span>(
-            state.expected_output.contains_key(<span class="kw-2">&amp;</span>event),
+            state.expected_output.contains(<span class="kw-2">&amp;</span>event),
             <span class="string">"Got an unexpected event: {event:?}"</span>,
         );
     }
 
-    <span class="kw">let </span>num_expected = state.expected_output.get_mut(<span class="kw-2">&amp;</span>event).unwrap();
-    <span class="kw">if </span><span class="kw-2">*</span>num_expected == <span class="number">1 </span>{
-        state.expected_output.remove(<span class="kw-2">&amp;</span>event);
-    } <span class="kw">else </span>{
-        <span class="kw-2">*</span>num_expected -= <span class="number">1</span>;
-    }
+    <span class="comment">// NOTE: We only care about finding a single instance of the output event, and we just
+    // iteratively remove the entries until they're gone.
+    </span><span class="kw">let </span>idx = state
+        .expected_output
+        .iter()
+        .position(|x| <span class="kw-2">*</span>x == <span class="kw-2">*</span>event)
+        .unwrap();
+
+    state.expected_output.remove(idx);
 
     <span class="kw">if </span>state.expected_output.is_empty() {
         <span class="macro">tracing::info!</span>(<span class="string">"test harness task completed"</span>);
