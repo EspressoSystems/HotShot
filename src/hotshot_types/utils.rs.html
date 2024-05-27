@@ -232,7 +232,7 @@
 };
 
 <span class="doccomment">/// A view's state
-</span><span class="attr">#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub enum </span>ViewInner&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// A pending view with an available block but not leaf proposal yet.
@@ -341,7 +341,7 @@
 }
 
 <span class="doccomment">/// This exists so we can perform state transitions mutably
-</span><span class="attr">#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub struct </span>View&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view data. Wrapped in a struct so we can mutate

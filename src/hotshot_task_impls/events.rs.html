@@ -200,11 +200,11 @@
 <span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="doccomment">/// Marker that the task completed
-</span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+</span><span class="attr">#[derive(Eq, PartialEq, Debug, Clone)]
 </span><span class="kw">pub struct </span>HotShotTaskCompleted;
 
 <span class="doccomment">/// All of the possible events that can be passed between Sequecning `HotShot` tasks
-</span><span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+</span><span class="attr">#[derive(Eq, PartialEq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 </span><span class="kw">pub enum </span>HotShotEvent&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Shutdown the task
