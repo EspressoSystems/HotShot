@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_task_impls::{
