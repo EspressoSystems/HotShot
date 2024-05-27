@@ -434,9 +434,14 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 impl<TYPES: NodeType> QuorumCertificate<TYPES> {
     #[must_use]
     /// Creat the Genesis certificate
-    pub async fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+    pub async fn genesis(
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &TYPES::InstanceState,
+    ) -> Self {
         let data = QuorumData {
-            leaf_commit: Leaf::genesis(instance_state).await.commit(),
+            leaf_commit: Leaf::genesis(validated_state, instance_state)
+                .await
+                .commit(),
         };
         let commit = data.commit();
         Self {
@@ -457,9 +462,12 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     #[must_use]
-    pub async fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+    pub async fn genesis(
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &TYPES::InstanceState,
+    ) -> Self {
         let (payload, metadata) =
-            TYPES::BlockPayload::from_transactions([], &Default::default(), instance_state)
+            TYPES::BlockPayload::from_transactions([], validated_state, instance_state)
                 .await
                 .unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
@@ -732,11 +740,7 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub async fn builder_fee<TYPES: NodeType>(
-        num_storage_nodes: usize,
-        validated_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::ValidatedState,
-        instance_state: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Instance,
-    ) -> Option<BuilderFee<TYPES>> {
+    pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
 
@@ -746,13 +750,7 @@ pub mod null_block {
             );
 
         let (_null_block, null_block_metadata) =
-            <TYPES::BlockPayload as BlockPayload<TYPES>>::from_transactions(
-                [],
-                validated_state,
-                instance_state,
-            )
-            .await
-            .ok()?;
+            <TYPES::BlockPayload as BlockPayload<TYPES>>::empty();
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,

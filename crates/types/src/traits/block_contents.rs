@@ -93,16 +93,8 @@ pub trait BlockPayload<TYPES: NodeType>:
     /// and the associated number of VID storage nodes
     fn from_bytes(encoded_transactions: &[u8], metadata: &Self::Metadata) -> Self;
 
-    /// Build the genesis payload and metadata.
-    #[must_use]
-    async fn genesis() -> (Self, Self::Metadata)
-    where
-        <Self as BlockPayload<TYPES>>::Instance: Default,
-    {
-        Self::from_transactions([], &Default::default(), &Default::default())
-            .await
-            .unwrap()
-    }
+    /// Build the payload and metadata for genesis/null block.
+    fn empty() -> (Self, Self::Metadata);
 
     /// List of transaction commitments.
     fn transaction_commitments(

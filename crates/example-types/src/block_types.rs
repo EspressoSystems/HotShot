@@ -206,7 +206,7 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
         Self { transactions }
     }
 
-    async fn genesis() -> (Self, Self::Metadata) {
+    fn empty() -> (Self, Self::Metadata) {
         (Self::genesis(), TestMetadata)
     }
 

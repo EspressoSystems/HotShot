@@ -97,13 +97,7 @@ async fn test_vid_task() {
         encoded_transactions,
         TestMetadata,
         ViewNumber::new(2),
-        null_block::builder_fee(
-            quorum_membership.total_nodes(),
-            &TestValidatedState::default(),
-            &TestInstanceState {},
-        )
-        .await
-        .unwrap(),
+        null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         vid_precompute,
     ));
     input.push(HotShotEvent::BlockReady(
@@ -126,13 +120,7 @@ async fn test_vid_task() {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(2),
-            null_block::builder_fee(
-                quorum_membership.total_nodes(),
-                &TestValidatedState::default(),
-                &TestInstanceState {},
-            )
-            .await
-            .unwrap(),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         ),
         1,
     );

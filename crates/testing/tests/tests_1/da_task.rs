@@ -5,7 +5,6 @@ use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_task_impls::{da::DaTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
@@ -77,13 +76,7 @@ async fn test_da_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    &TestValidatedState::default(),
-                    &TestInstanceState {},
-                )
-                .await
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
                 precompute,
             ),
         ],
@@ -164,13 +157,7 @@ async fn test_da_task_storage_failure() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    &TestValidatedState::default(),
-                    &TestInstanceState {},
-                )
-                .await
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
                 precompute,
             ),
         ],

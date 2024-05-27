@@ -96,13 +96,7 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    &TestValidatedState::default(),
-                    &TestInstanceState {},
-                )
-                .await
-                .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
         ],
         outputs: vec![
@@ -380,9 +374,7 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4, &TestValidatedState::default(), &TestInstanceState {})
-                    .await
-                    .unwrap(),
+                null_block::builder_fee(4).unwrap(),
             ),
         ],
         outputs: vec![

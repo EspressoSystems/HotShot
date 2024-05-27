@@ -12,7 +12,10 @@ use hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
 };
-use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+use hotshot_example_types::{
+    state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
+};
 use hotshot_task::task::{Task, TaskRegistry, TestTask};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -114,7 +117,7 @@ pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
 impl<
-        TYPES: NodeType<InstanceState = TestInstanceState>,
+        TYPES: NodeType<InstanceState = TestInstanceState, ValidatedState = TestValidatedState>,
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestRunner<TYPES, I, N>
@@ -213,8 +216,13 @@ where
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf::genesis(&TestInstanceState {}).await,
-            high_qc: QuorumCertificate::genesis(&TestInstanceState {}).await,
+            last_decided_leaf: Leaf::genesis(&TestValidatedState::default(), &TestInstanceState {})
+                .await,
+            high_qc: QuorumCertificate::genesis(
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .await,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, I>, SpinningTask<TYPES, I>>::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),

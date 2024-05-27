@@ -6,7 +6,6 @@ use std::{
 use anyhow::{bail, Context};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
@@ -166,56 +165,32 @@ impl<
                         .number_of_empty_blocks_proposed
                         .add(1);
 
-                    let validated_state = {
-                        let consensus_read = self.consensus.read().await;
-                        consensus_read.decided_state()
-                    };
                     let membership_total_nodes = self.membership.total_nodes();
-                    let instance_state =
-                        Arc::<<TYPES as NodeType>::InstanceState>::clone(&self.instance_state);
 
-                    async_spawn(async move {
-                        // Calculate the builder fee for the empty block
-                        let Some(builder_fee) = null_block::builder_fee(
-                            membership_total_nodes,
-                            validated_state.as_ref(),
-                            instance_state.as_ref(),
-                        )
-                        .await
-                        else {
-                            error!("Failed to get builder fee");
-                            return;
-                        };
+                    // Calculate the builder fee for the empty block
+                    let Some(builder_fee) = null_block::builder_fee(membership_total_nodes) else {
+                        error!("Failed to get builder fee");
+                        return None;
+                    };
 
-                        // Create an empty block payload and metadata
-                        let Ok((_, metadata)) =
-                            <TYPES as NodeType>::BlockPayload::from_transactions(
-                                vec![],
-                                validated_state.as_ref(),
-                                &instance_state,
-                            )
-                            .await
-                        else {
-                            error!("Failed to create empty block payload");
-                            return;
-                        };
+                    // Create an empty block payload and metadata
+                    let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
 
-                        let (_, precompute_data) =
-                            precompute_vid_commitment(&[], membership_total_nodes);
+                    let (_, precompute_data) =
+                        precompute_vid_commitment(&[], membership_total_nodes);
 
-                        // Broadcast the empty block
-                        broadcast_event(
-                            Arc::new(HotShotEvent::BlockRecv(
-                                vec![].into(),
-                                metadata,
-                                block_view,
-                                builder_fee,
-                                precompute_data,
-                            )),
-                            &event_stream,
-                        )
-                        .await;
-                    });
+                    // Broadcast the empty block
+                    broadcast_event(
+                        Arc::new(HotShotEvent::BlockRecv(
+                            vec![].into(),
+                            metadata,
+                            block_view,
+                            builder_fee,
+                            precompute_data,
+                        )),
+                        &event_stream,
+                    )
+                    .await;
                 };
 
                 return None;

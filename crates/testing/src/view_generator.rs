@@ -113,7 +113,11 @@ impl TestView {
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(&TestInstanceState {}).await,
+            justify_qc: QuorumCertificate::genesis(
+                &TestValidatedState::default(),
+                &TestInstanceState {},
+            )
+            .await,
             upgrade_certificate: None,
             proposal_certificate: None,
         };

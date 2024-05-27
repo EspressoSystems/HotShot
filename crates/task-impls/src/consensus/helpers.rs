@@ -410,17 +410,10 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     let null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context("Failed to calculate null block commitment")?;
 
+    let null_block_fee = null_block::builder_fee::<TYPES>(quorum_membership.total_nodes())
+        .context("Failed to calculate null block fee info")?;
+
     Ok(async_spawn(async move {
-        let Some(null_block_fee) = null_block::builder_fee::<TYPES>(
-            quorum_membership.total_nodes(),
-            validated_state.as_ref(),
-            instance_state.as_ref(),
-        )
-        .await
-        else {
-            error!("Failed to calculate null block fee info");
-            return;
-        };
         create_and_send_proposal(
             public_key,
             private_key,
