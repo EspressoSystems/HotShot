@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -58,18 +58,22 @@ where
     TYPES: NodeType,
 {
     let info = format!("{:?}", events);
-    let mut set: HashSet<_> = events.into_iter().collect();
 
-    let function = move |e: &Arc<HotShotEvent<TYPES>>| match set.take(e.as_ref()) {
-        Some(_) => {
-            if set.is_empty() {
-                PredicateResult::Pass
-            } else {
-                PredicateResult::Incomplete
+    // Remove duplicate events.
+    let mut events = events;
+    events.dedup();
+
+    let function =
+        move |e: &Arc<HotShotEvent<TYPES>>| match events.iter().find(|x| *x == e.as_ref()) {
+            Some(_) => {
+                if events.is_empty() {
+                    PredicateResult::Pass
+                } else {
+                    PredicateResult::Incomplete
+                }
             }
-        }
-        None => PredicateResult::Fail,
-    };
+            None => PredicateResult::Fail,
+        };
 
     Box::new(TestPredicate {
         function: Arc::new(RwLock::new(function)),
