@@ -1,22 +1,25 @@
-use core::time::Duration;
 use std::sync::Arc;
-
-use anyhow::{ensure, Result};
-use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
-use hotshot_types::{
-    consensus::Consensus,
-    event::{Event, EventType},
-    traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-};
-use tracing::{debug, error};
 
 use crate::{
     consensus::helpers::TemporaryProposalRecvCombinedType,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
+use anyhow::{ensure, Result};
+use async_broadcast::Sender;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use chrono::Utc;
+use core::time::Duration;
+use hotshot_types::{
+    consensus::Consensus,
+    event::{Event, EventType},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+    },
+};
+use tracing::{debug, error};
 
 /// Constant which tells [`update_view`] to send a view change event when called.
 pub(crate) const SEND_VIEW_CHANGE_EVENT: bool = true;
@@ -100,6 +103,15 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
+    let cur_view_time = Utc::now().timestamp();
+    if task_state.quorum_membership.leader(old_view) == task_state.public_key {
+        #[allow(clippy::cast_precision_loss)]
+        consensus
+            .metrics
+            .view_duration_as_leader
+            .add_point((cur_view_time - task_state.cur_view_time) as f64);
+    }
+    task_state.cur_view_time = cur_view_time;
 
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.

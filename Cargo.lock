@@ -3107,6 +3107,7 @@ dependencies = [
  "cdn-broker",
  "cdn-client",
  "cdn-marshal",
+ "chrono",
  "clap",
  "committable",
  "custom_debug",

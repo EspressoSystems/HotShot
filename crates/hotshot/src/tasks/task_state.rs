@@ -1,4 +1,6 @@
+use crate::types::SystemContextHandle;
 use async_trait::async_trait;
+use chrono::Utc;
 use hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
     da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
@@ -10,15 +12,13 @@ use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
+use vbs::version::StaticVersionType;
+
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
-
-use vbs::version::StaticVersionType;
-
-use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]
@@ -192,6 +192,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
             cur_view: handle.cur_view().await,
+            cur_view_time: Utc::now().timestamp(),
             payload_commitment_and_metadata: None,
             vote_collector: None.into(),
             timeout_vote_collector: None.into(),
@@ -328,6 +329,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_vote_collector: None.into(),
             storage: Arc::clone(&handle.storage),
             cur_view: handle.cur_view().await,
+            cur_view_time: Utc::now().timestamp(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             timeout_task,
             timeout: handle.hotshot.config.next_view_timeout,
