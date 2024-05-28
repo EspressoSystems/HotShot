@@ -156,7 +156,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         // We will defer broadcast until all states are updated to avoid holding onto the lock during a network call.
         let mut consensus_writer = self.consensus.write().await;
 
-        // Note: There's a potential inconsistency here between `self.view_number` and `leaf.data.view_number()`.
         let view = View {
             view_inner: ViewInner::Leaf {
                 leaf: proposed_leaf.commit(),
@@ -164,7 +163,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
                 delta: Some(Arc::clone(&delta)),
             },
         };
-        consensus_writer.update_validated_state_map(self.view_number, view.clone());
+        consensus_writer.update_validated_state_map(proposed_leaf.view_number(), view.clone());
         consensus_writer.update_saved_leaves(proposed_leaf.clone());
 
         // Kick back our updated structures for downstream usage.
