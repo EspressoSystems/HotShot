@@ -15,8 +15,9 @@ use hotshot_testing::{
         exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
-    task_helpers::{build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share},
-    test_helpers::permute_input_with_index_order,
+    helpers::{
+        build_system_handle, vid_share, key_pair_for_id, vid_scheme_from_view_number, permute_input_with_index_order
+    },
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -121,7 +122,7 @@ async fn test_consensus_vote() {
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
 
