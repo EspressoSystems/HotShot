@@ -138,9 +138,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             if let None = consensus
                 .calculate_and_update_vid(view, Arc::clone(&self.quorum), &self.private_key)
                 .await {
-                /// Drop the lock so the txns can be modified
+                // Drop the lock so the txns can be modified
                 drop(consensus);
-                /// Sleep in hope we receive txns in the meantime
+                // Sleep in hope we receive txns in the meantime
                 async_sleep(TXNS_TIMEOUT).await;
                 consensus = self.consensus.write().await;
                 consensus
