@@ -237,6 +237,17 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_lock::RwLock;
@@ -367,6 +378,17 @@
     <span class="kw">let </span>info = <span class="string">"LeafDecided"</span>.to_string();
     <span class="kw">let </span>check: EventCallback&lt;TYPES&gt; =
         Arc::new(<span class="kw">move </span>|e: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), LeafDecided(<span class="kw">_</span>)));
+
+    Box::new(EventPredicate { check, info })
+}
+
+<span class="kw">pub fn </span>upgrade_decided&lt;TYPES&gt;() -&gt; Box&lt;EventPredicate&lt;TYPES&gt;&gt;
+<span class="kw">where
+    </span>TYPES: NodeType,
+{
+    <span class="kw">let </span>info = <span class="string">"UpgradeDecided"</span>.to_string();
+    <span class="kw">let </span>check: EventCallback&lt;TYPES&gt; =
+        Arc::new(<span class="kw">move </span>|e: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="macro">matches!</span>(e.as_ref(), UpgradeDecided(<span class="kw">_</span>)));
 
     Box::new(EventPredicate { check, info })
 }

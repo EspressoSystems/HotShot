@@ -302,6 +302,7 @@
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -526,8 +527,9 @@
                             old_version: Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>},
                             new_version: Version { major: <span class="number">1</span>, minor: <span class="number">0 </span>},
                             new_version_hash: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>],
-                            old_version_last_block: TYPES::Time::new(<span class="number">15</span>),
-                            new_version_first_block: TYPES::Time::new(<span class="number">18</span>),
+                            old_version_last_view: TYPES::Time::new(<span class="number">15</span>),
+                            new_version_first_view: TYPES::Time::new(<span class="number">18</span>),
+                            decide_by: TYPES::Time::new(<span class="number">12</span>),
                         };
 
                         <span class="kw">let </span>upgrade_proposal = UpgradeProposal {

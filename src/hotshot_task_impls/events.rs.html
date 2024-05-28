@@ -176,6 +176,8 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>either::Either;
@@ -324,6 +326,8 @@
     </span>UpgradeVoteSend(UpgradeVote&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade certificate has been sent to the network
     </span>UpgradeCertificateFormed(UpgradeCertificate&lt;TYPES&gt;),
+    <span class="doccomment">/// A HotShot upgrade was decided
+    </span>UpgradeDecided(UpgradeCertificate&lt;TYPES&gt;),
     <span class="doccomment">/// HotShot was upgraded, with a new network version.
     </span>VersionUpgrade(Version),
 

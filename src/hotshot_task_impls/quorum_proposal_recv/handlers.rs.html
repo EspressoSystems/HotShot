@@ -240,16 +240,14 @@
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
-</span><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
+</span><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>async_broadcast::{broadcast, Sender};
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>tracing::{debug, warn};
-
-<span class="kw">use </span>async_broadcast::{broadcast, Sender};
 <span class="kw">use </span>hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -263,7 +261,9 @@
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>tracing::{debug, warn};
 
+<span class="kw">use </span><span class="kw">super</span>::QuorumProposalRecvTaskState;
 <span class="kw">use crate</span>::{
     consensus::{
         helpers::{validate_proposal_safety_and_liveness, validate_proposal_view_and_certs},
@@ -272,8 +272,6 @@
     events::HotShotEvent,
     helpers::broadcast_event,
 };
-
-<span class="kw">use </span><span class="kw">super</span>::QuorumProposalRecvTaskState;
 
 <span class="doccomment">/// Broadcast the proposal in the event that the parent state is not found for
 /// a given `proposal`, but it still passes the liveness check. Optionally return

@@ -215,6 +215,7 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implementations of the simple certificate type.  Used for Quorum, DA, and Timeout Certificates
 
 </span><span class="kw">use </span>std::{
@@ -406,8 +407,9 @@
         }
     }
 
-    <span class="doccomment">/// Test whether a view is in the interim period prior to the new version taking effect.
-    </span><span class="kw">pub fn </span>in_interim(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; bool {
+    <span class="doccomment">/// Given an upgrade certificate and a view, tests whether the view is in the period
+    /// where we are upgrading, which requires that we propose with null blocks.
+    </span><span class="kw">pub fn </span>upgrading_in(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; bool {
         view &gt; <span class="self">self</span>.data.old_version_last_view &amp;&amp; view &lt; <span class="self">self</span>.data.new_version_first_view
     }
 }

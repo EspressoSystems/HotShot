@@ -336,6 +336,7 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -509,6 +510,7 @@
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
             builder_client: BuilderClient::new(handle.hotshot.config.builder_url.clone()),
+            decided_upgrade_certificate: <span class="prelude-val">None</span>,
         }
     }
 }
