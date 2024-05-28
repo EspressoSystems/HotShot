@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hotshot::{tasks::task_state::CreateTaskState};
+use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
@@ -8,9 +8,9 @@ use hotshot_example_types::{
 };
 use hotshot_task_impls::{da::DaTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
+    helpers::build_system_handle,
     predicates::event::exact,
     script::{run_test_script, TestScriptStage},
-    task_helpers::build_system_handle,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{

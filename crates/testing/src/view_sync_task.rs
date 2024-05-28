@@ -8,8 +8,6 @@ use snafu::Snafu;
 
 use crate::test_task::{TestResult, TestTaskState};
 
-// use crate::{test_runner::HotShotTaskCompleted, GlobalTestEvent};
-
 /// `ViewSync` Task error
 #[derive(Snafu, Debug, Clone)]
 pub struct ViewSyncTaskErr {

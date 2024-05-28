@@ -2,15 +2,17 @@ use std::{sync::Arc, time::Duration};
 
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
-use hotshot::{traits::implementations::MemoryNetwork};
-use hotshot_testing::test_task::add_network_message_test_task;
+use hotshot::traits::implementations::MemoryNetwork;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_task::task::{Task, ConsensusTaskRegistry};
+use hotshot_task::task::{ConsensusTaskRegistry, Task};
 use hotshot_task_impls::{
     events::HotShotEvent,
     network::{self, NetworkEventTaskState},
 };
-use hotshot_testing::{test_builder::TestDescription, view_generator::TestViewGenerator};
+use hotshot_testing::{
+    test_builder::TestDescription, test_task::add_network_message_test_task,
+    view_generator::TestViewGenerator,
+};
 use hotshot_types::{
     constants::BASE_VERSION,
     data::ViewNumber,

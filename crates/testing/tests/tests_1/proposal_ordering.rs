@@ -10,9 +10,8 @@ use hotshot_example_types::{
 };
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
+    helpers::{permute_input_with_index_order, vid_scheme_from_view_number, vid_share},
     predicates::event::{all_predicates, exact, quorum_proposal_send, quorum_proposal_validated},
-    task_helpers::{vid_share, vid_scheme_from_view_number},
-    test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -28,8 +27,8 @@ use sha2::Digest;
 #[cfg(not(feature = "dependency-tasks"))]
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     use hotshot_testing::{
+        helpers::build_system_handle,
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
     };
 
     async_compatibility_layer::logging::setup_logging();
@@ -99,14 +98,8 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
 
     let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
     view_2_inputs.insert(0, DaCertificateRecv(dacs[1].clone()));
-    view_2_inputs.insert(
-        0,
-        VidShareRecv(vid_share(&vids[2].0, handle.public_key())),
-    );
-    view_2_inputs.insert(
-        0,
-        VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
-    );
+    view_2_inputs.insert(0, VidShareRecv(vid_share(&vids[2].0, handle.public_key())));
+    view_2_inputs.insert(0, VidShareRecv(vid_share(&vids[1].0, handle.public_key())));
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {

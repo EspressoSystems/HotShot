@@ -14,9 +14,9 @@ use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState,
 };
 use hotshot_testing::{
+    helpers::vid_share,
     predicates::{event::*, upgrade::*},
-    script::{Expectations, TaskScript, RECV_TIMEOUT},
-    task_helpers::vid_share,
+    script::{Expectations, TaskScript},
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -32,8 +32,8 @@ use vbs::version::Version;
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
 async fn test_consensus_task_upgrade() {
     use hotshot_testing::{
+        helpers::build_system_handle,
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
     };
 
     async_compatibility_layer::logging::setup_logging();
@@ -169,7 +169,7 @@ async fn test_consensus_task_upgrade() {
 async fn test_upgrade_and_consensus_task() {
     use std::sync::Arc;
 
-    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_testing::helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
@@ -328,7 +328,7 @@ async fn test_upgrade_and_consensus_task() {
 ///   - we correctly propose with a null block payload in view 6, even if we have indications to do otherwise (via SendPayloadCommitmentAndMetadata, VID etc).
 ///   - we correctly reject a QuorumProposal with a non-null block payload in view 7.
 async fn test_upgrade_and_consensus_task_blank_blocks() {
-    use hotshot_testing::task_helpers::build_system_handle;
+    use hotshot_testing::helpers::build_system_handle;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
