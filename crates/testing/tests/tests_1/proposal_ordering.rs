@@ -26,6 +26,8 @@ use sha2::Digest;
 /// This proposal should happen no matter how the `input_permutation` is specified.
 #[cfg(not(feature = "dependency-tasks"))]
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
+    use futures::StreamExt;
+    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::{
         helpers::build_system_handle,
         script::{run_test_script, TestScriptStage},
@@ -55,7 +57,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         leaders.push(view.leader_public_key);
@@ -91,8 +93,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(node_id),
-            null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         ),
     ];
 

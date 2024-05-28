@@ -38,7 +38,7 @@ async fn test_quorum_proposal_recv_task() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -106,7 +106,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(4) {
+    for view in (&mut generator).take(4).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));

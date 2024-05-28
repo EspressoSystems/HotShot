@@ -16,6 +16,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
+    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         election::Membership,
@@ -83,6 +84,8 @@ pub struct TransactionTaskState<
     pub instance_state: Arc<TYPES::InstanceState>,
     /// This state's ID
     pub id: u64,
+    /// Decided upgrade certificate
+    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
@@ -110,6 +113,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
                 return None;
             }
+            HotShotEvent::UpgradeDecided(cert) => {
+                self.decided_upgrade_certificate = Some(cert.clone());
+            }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
                 debug!("view change in transactions to view {:?}", view);
@@ -131,11 +137,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                 }
                 let block_view = if make_block { view } else { view + 1 };
 
+                // Request a block from the builder unless we are between versions.
+                let block = {
+                    if self
+                        .decided_upgrade_certificate
+                        .as_ref()
+                        .is_some_and(|cert| cert.upgrading_in(block_view))
+                    {
+                        None
+                    } else {
+                        self.wait_for_block().await
+                    }
+                };
+
                 if let Some(BuilderResponses {
                     block_data,
                     blocks_initial_info,
                     block_header,
-                }) = self.wait_for_block().await
+                }) = block
                 {
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
@@ -167,26 +186,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                         .number_of_empty_blocks_proposed
                         .add(1);
 
+                    let membership_total_nodes = self.membership.total_nodes();
+
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) = null_block::builder_fee(
-                        self.membership.total_nodes(),
-                        self.instance_state.as_ref(),
-                    ) else {
+                    let Some(builder_fee) = null_block::builder_fee(membership_total_nodes) else {
                         error!("Failed to get builder fee");
                         return None;
                     };
 
                     // Create an empty block payload and metadata
-                    let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
-                        vec![],
-                        &self.instance_state,
-                    ) else {
-                        error!("Failed to create empty block payload");
-                        return None;
-                    };
+                    let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
 
                     let (_, precompute_data) =
-                        precompute_vid_commitment(&[], self.membership.total_nodes());
+                        precompute_vid_commitment(&[], membership_total_nodes);
 
                     // Broadcast the empty block
                     broadcast_event(

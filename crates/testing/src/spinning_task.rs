@@ -8,7 +8,10 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::Either::{Left, Right};
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
-use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+use hotshot_example_types::{
+    state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
+};
 use hotshot_types::{
     data::Leaf,
     event::Event,
@@ -53,7 +56,7 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<
-        TYPES: NodeType<InstanceState = TestInstanceState>,
+        TYPES: NodeType<InstanceState = TestInstanceState, ValidatedState = TestValidatedState>,
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
     > TestTaskState for SpinningTask<TYPES, I>

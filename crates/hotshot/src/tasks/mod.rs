@@ -145,12 +145,15 @@ pub async fn add_consensus_tasks<
 >(
     handle: &mut SystemContextHandle<TYPES, I>,
 ) {
-    handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(TransactionTaskState::<TYPES, I, VERSION>::create_from(handle).await);
     handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+    {
+        #![cfg(not(feature = "dependency-tasks"))]
+        handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
+    }
     {
         #![cfg(feature = "dependency-tasks")]
         handle.add_task(QuorumProposalTaskState::<TYPES, I>::create_from(handle).await);

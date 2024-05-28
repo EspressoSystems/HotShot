@@ -1,4 +1,5 @@
 #![allow(clippy::panic)]
+use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_testing::helpers::{build_fake_view_with_leaf, vid_share};
@@ -31,7 +32,7 @@ async fn test_quorum_vote_task_success() {
     let mut leaves = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaves.push(view.leaf.clone());
         dacs.push(view.da_certificate.clone());
@@ -87,7 +88,7 @@ async fn test_quorum_vote_task_vote_now() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
-    generator.next();
+    generator.next().await;
     let view = generator.current_view.clone().unwrap();
 
     let vote_dependency_data = VoteDependencyData {
@@ -140,7 +141,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(5) {
+    for view in (&mut generator).take(5).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -243,7 +244,7 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     let mut leaves = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaves.push(view.leaf.clone());
         dacs.push(view.da_certificate.clone());

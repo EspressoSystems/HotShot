@@ -117,14 +117,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
     SendPayloadCommitmentAndMetadata(
         VidCommitment,
         BuilderCommitment,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(
         Arc<[u8]>,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
         VidPrecomputeData,
@@ -153,6 +153,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
+    /// A HotShot upgrade was decided
+    UpgradeDecided(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
 
