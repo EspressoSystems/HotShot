@@ -1,7 +1,10 @@
 #![cfg(feature = "dependency-tasks")]
 
 use committable::Committable;
+use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
+use hotshot::traits::ValidatedState;
+use hotshot_example_types::state_types::TestValidatedState;
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
@@ -21,7 +24,6 @@ use hotshot_testing::{
         Predicate,
     },
     script::{run_test_script, TestScriptStage},
-    test_helpers::create_fake_view_with_leaf,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -84,12 +86,21 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         consensus_writer
             .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
     }
-    drop(consensus_writer);
 
     // We must send the genesis cert here to initialize hotshot successfully.
-    let genesis_cert = QuorumCertificate::genesis(&*handle.hotshot.instance_state());
-    let genesis_leaf = Leaf::genesis(&*handle.hotshot.instance_state());
+    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<
+        TestTypes,
+    >>::genesis(&*handle.hotshot.instance_state());
+    let genesis_cert = proposals[0].data.justify_qc.clone();
+    let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+    // Special case: the genesis validated state is already
+    // present
+    consensus_writer.update_validated_state_map(
+        ViewNumber::new(0),
+        build_fake_view_with_leaf(genesis_leaf.clone()),
+    );
+    drop(consensus_writer);
 
     let view = TestScriptStage {
         inputs: vec![
@@ -102,7 +113,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
-            ValidatedStateUpdated(ViewNumber::new(0), build_fake_view_with_leaf(genesis_leaf)),
+            ValidatedStateUpdated(
+                proposals[0].data.view_number(),
+                build_fake_view_with_leaf(leaves[0].clone()),
+            ),
         ],
         outputs: vec![
             exact(UpdateHighQc(genesis_cert.clone())),
@@ -122,8 +136,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
-    use hotshot_types::vote::HasViewNumber;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -140,7 +152,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let mut vids = Vec::new();
     let consensus = handle.hotshot.consensus();
     let mut consensus_writer = consensus.write().await;
-    for view in (&mut generator).take(5) {
+    for view in (&mut generator).take(5).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
@@ -151,15 +163,26 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         consensus_writer
             .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
     }
-    drop(consensus_writer);
-
-    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
 
+    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<
+        TestTypes,
+    >>::genesis(&*handle.hotshot.instance_state());
     let genesis_cert = proposals[0].data.justify_qc.clone();
-    let genesis_leaf = Leaf::genesis(&*handle.hotshot.instance_state());
+    let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
+
+    // Special case: the genesis validated state is already
+    // present
+    consensus_writer.update_validated_state_map(
+        ViewNumber::new(0),
+        build_fake_view_with_leaf(genesis_leaf.clone()),
+    );
+
+    drop(consensus_writer);
+
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let genesis_view = TestScriptStage {
         inputs: vec![
@@ -173,8 +196,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
-                ViewNumber::new(0),
-                build_fake_view_with_leaf(genesis_leaf.clone()),
+                proposals[0].data.view_number(),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -195,8 +218,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                proposals[1].data.view_number(),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -217,8 +240,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                proposals[2].data.view_number(),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![
@@ -243,8 +266,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                proposals[3].data.view_number(),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -264,8 +287,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
+                proposals[4].data.view_number(),
+                build_fake_view_with_leaf(leaves[4].clone()),
             ),
         ],
         outputs: vec![
@@ -341,8 +364,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
             ),
             VidShareValidated(vid_share(&vids[2].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
-                ViewNumber::new(2),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                proposals[2].data.view_number(),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -420,7 +443,7 @@ async fn test_quorum_proposal_task_view_sync() {
             ),
             VidShareValidated(vid_share(&vids[1].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
-                ViewNumber::new(1),
+                proposals[1].data.view_number(),
                 build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
@@ -474,8 +497,11 @@ async fn test_quorum_proposal_livness_check_proposal() {
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
 
+    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<
+        TestTypes,
+    >>::genesis(&*handle.hotshot.instance_state());
     let genesis_cert = proposals[0].data.justify_qc.clone();
-    let genesis_leaf = Leaf::genesis(&*handle.hotshot.instance_state());
+    let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
 
     let genesis_view = TestScriptStage {
         inputs: vec![
@@ -489,8 +515,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
-                ViewNumber::new(0),
-                build_fake_view_with_leaf(genesis_leaf.clone()),
+                proposals[0].data.view_number(),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -511,8 +537,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                proposals[1].data.view_number(),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -524,7 +550,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
     // the QuorumProposalRecv task tests.
     let view_2 = TestScriptStage {
         inputs: vec![
-            LivenessCheckProposalRecv(proposals[1].data.clone()),
+            QuorumProposalLivenessValidated(proposals[1].data.clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(3)),
@@ -535,8 +561,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                proposals[2].data.view_number(),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![
@@ -560,8 +586,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                proposals[3].data.view_number(),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -581,8 +607,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
+                proposals[4].data.view_number(),
+                build_fake_view_with_leaf(leaves[4].clone()),
             ),
         ],
         outputs: vec![
@@ -720,7 +746,7 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
             current_chain_length = 3;
         }
         // This unwrap is safe here
-        let view = generator.next().unwrap();
+        let view = generator.next().await.unwrap();
         let proposal = view.quorum_proposal.clone();
 
         // This intentionally grabs the wrong leaf since it *really* doesn't
@@ -788,7 +814,7 @@ async fn test_quorum_proposal_task_fault_injection_leaf_ascension() {
             current_chain_length = 3;
         }
         // This unwrap is safe here
-        let view = generator.next().unwrap();
+        let view = generator.next().await.unwrap();
         let proposal = view.quorum_proposal.clone();
 
         // This intentionally grabs the wrong leaf since it *really* doesn't

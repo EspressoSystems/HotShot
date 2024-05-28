@@ -57,6 +57,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         },
     };
 
+    tracing::error!("Updating validated state map");
     consensus_write.update_validated_state_map(view_number, view.clone());
     consensus_write.update_saved_leaves(leaf.clone());
 
@@ -205,6 +206,12 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
             tracing::trace!("{e:?}");
         }
+
+        broadcast_event(
+            HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+            event_sender,
+        )
+        .await;
     }
 
     let Some((parent_leaf, _parent_state)) = parent else {
@@ -216,12 +223,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             validate_proposal_liveness(proposal, event_sender, &justify_qc, task_state).await,
         );
     };
-
-    broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
-        event_sender,
-    )
-    .await;
 
     // Validate the proposal
     validate_proposal_safety_and_liveness(

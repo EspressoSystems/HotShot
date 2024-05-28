@@ -267,6 +267,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         // Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
 
         let old_decided_view = consensus_writer.last_decided_view();
+        tracing::error!("COLLECTING GARBAGE");
         consensus_writer.collect_garbage(old_decided_view, decided_view_number);
 
         // Set the new decided view.

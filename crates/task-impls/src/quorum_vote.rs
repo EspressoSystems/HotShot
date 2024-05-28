@@ -1,4 +1,6 @@
+use anyhow::{bail, ensure, Context, Result};
 use std::{collections::HashMap, sync::Arc};
+use vbs::version::Version;
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -12,9 +14,9 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
+    data::{Leaf, QuorumProposal, VidDisperseShare},
     event::Event,
-    message::GeneralConsensusMessage,
+    message::{GeneralConsensusMessage, Proposal},
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
@@ -22,7 +24,9 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
+        ValidatedState,
     },
+    utils::{View, ViewInner},
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
@@ -70,12 +74,168 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     view_number: TYPES::Time,
     /// Event sender.
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    /// The current version of HotShot
+    version: Version,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHandle<TYPES, I> {
+    async fn update_shared_state(
+        &self,
+        proposal: &QuorumProposal<TYPES>,
+        proposed_leaf: &Leaf<TYPES>,
+        vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
+    ) -> Result<()> {
+        let consensus_reader = self.consensus.read().await;
+        let justify_qc = &proposal.justify_qc;
+
+        // Justify qc's leaf commitment should be the same as the parent's leaf commitment.
+        let parent = consensus_reader
+            .saved_leaves()
+            .get(&justify_qc.date().leaf_commit)
+            .cloned()
+            .context(format!(
+                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
+                justify_qc.date().leaf_commit,
+                proposal.view_number,
+            ))?;
+
+        let (Some(parent_state), _) = consensus_reader.state_and_delta(parent.view_number()) else {
+            bail!("Parent state not found! Consensus internally inconsistent")
+        };
+
+        drop(consensus_reader);
+
+        let (validated_state, state_delta) = parent_state
+            .validate_and_apply_header(
+                &self.instance_state,
+                &parent,
+                &proposal.block_header.clone(),
+                vid_share.data.common.clone(),
+                self.version,
+            )
+            .await
+            .context("Block header doesn't extend the proposal!")?;
+
+        let state = Arc::new(validated_state);
+        let delta = Arc::new(state_delta);
+
+        // TODO Upgrades
+        // Validate the DAC.
+        // let message = if cert.is_valid_cert(Upgrade Certificate) {
+        //     // Validate the block payload commitment for non-genesis DAC.
+        //     if cert.date().payload_commit != proposal.block_header.payload_commitment() {
+        //         warn!(
+        //             "Block payload commitment does not equal da cert payload commitment. View = {}",
+        //             *view
+        //         );
+        //         return false;
+        //     }
+        //     if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
+        //         QuorumData {
+        //             leaf_commit: proposed_leaf.commit(),
+        //         },
+        //         view,
+        //         &public_key,
+        //         &self.private_key
+        //     ) {
+        //         GeneralConsensusMessage::<TYPES>::Vote(vote)
+        //     } else {
+        //         error!("Unable to sign quorum vote!");
+        //         return false;
+        //     }
+        // } else {
+        //     error!(
+        //         "Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}",
+        //         cert, cur_view
+        //     );
+        //     return false;
+        // };
+
+        // Now that we've rounded everyone up, we need to update the shared state and broadcast our events.
+        // We will defer broadcast until all states are updated to avoid holding onto the lock during a network call.
+        let mut consensus_writer = self.consensus.write().await;
+
+        // Note: There's a potential inconsistency here between `self.view_number` and `leaf.data.view_number()`.
+        let view = View {
+            view_inner: ViewInner::Leaf {
+                leaf: proposed_leaf.commit(),
+                state: Arc::clone(&state),
+                delta: Some(Arc::clone(&delta)),
+            },
+        };
+        consensus_writer.update_validated_state_map(self.view_number, view.clone());
+        consensus_writer.update_saved_leaves(proposed_leaf.clone());
+
+        // Kick back our updated structures for downstream usage.
+        let new_leaves = consensus_writer.saved_leaves().clone();
+        let new_state = consensus_writer.validated_state_map().clone();
+        drop(consensus_writer);
+
+        // Broadcast now that the lock is dropped.
+        broadcast_event(
+            HotShotEvent::ValidatedStateUpdated(self.view_number, view).into(),
+            &self.sender,
+        )
+        .await;
+
+        // Send the new state up to the sequencer.
+        self.storage
+            .write()
+            .await
+            .update_undecided_state(new_leaves, new_state)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn submit_vote(
+        &self,
+        leaf: Leaf<TYPES>,
+        vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    ) -> Result<()> {
+        ensure!(
+            self.quorum_membership.has_stake(&self.public_key),
+            format!(
+                "We were not chosen for quorum committee on {:?}",
+                self.view_number
+            ),
+        );
+
+        // Create and send the vote.
+        let vote = QuorumVote::<TYPES>::create_signed_vote(
+            QuorumData {
+                leaf_commit: leaf.commit(),
+            },
+            self.view_number,
+            &self.public_key,
+            &self.private_key,
+        )
+        .context("Failed to sign vote")?;
+        let message = GeneralConsensusMessage::<TYPES>::Vote(vote);
+        if let GeneralConsensusMessage::Vote(vote) = message {
+            debug!(
+                "Sending vote to next quorum leader {:?}",
+                vote.view_number() + 1
+            );
+            // Add to the storage.
+            self.storage
+                .write()
+                .await
+                .append_vid(&vid_share)
+                .await
+                .context("Failed to store VID share")?;
+            broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
+        }
+
+        Ok(())
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
     for VoteDependencyHandle<TYPES, I>
 {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
+
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
         #[allow(unused_variables)]
@@ -131,6 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                 HotShotEvent::VoteNow(_, vote_dependency_data) => {
                     leaf = Some(vote_dependency_data.parent_leaf.clone());
                     vid_share = Some(vote_dependency_data.vid_share.clone());
+                    cur_proposal = Some(vote_dependency_data.quorum_proposal.clone());
                 }
                 _ => {}
             }
@@ -143,15 +304,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
         )
         .await;
 
-        if !self.quorum_membership.has_stake(&self.public_key) {
-            debug!(
-                "We were not chosen for quorum committee on {:?}",
+        let Some(vid_share) = vid_share else {
+            error!(
+                "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",
                 self.view_number
             );
             return;
-        }
+        };
 
-        // Create and send the vote.
         let Some(leaf) = leaf else {
             error!(
                 "We don't have the leaf for this view {:?}, but we should, because the vote dependencies have completed.",
@@ -159,37 +319,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
             );
             return;
         };
-        let message = if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
-            QuorumData {
-                leaf_commit: leaf.commit(),
-            },
-            self.view_number,
-            &self.public_key,
-            &self.private_key,
-        ) {
-            GeneralConsensusMessage::<TYPES>::Vote(vote)
-        } else {
-            error!("Unable to sign quorum vote!");
+
+        let Some(cur_proposal) = cur_proposal else {
+            error!("We don't have the Quorum Proposal for this view {:?}, but we should, ecause the vote dependencies have completed.", self.view_number);
             return;
         };
-        if let GeneralConsensusMessage::Vote(vote) = message {
-            debug!(
-                "Sending vote to next quorum leader {:?}",
-                vote.view_number() + 1
-            );
-            // Add to the storage.
-            let Some(vid_share) = vid_share else {
-                error!(
-                        "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",
-                        self.view_number
-                    );
-                return;
-            };
-            if let Err(e) = self.storage.write().await.append_vid(&vid_share).await {
-                error!("Failed to store VID share with error {:?}", e);
-                return;
-            }
-            broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
+
+        // Update internal state
+        if let Err(e) = self
+            .update_shared_state(&cur_proposal, &leaf, &vid_share)
+            .await
+        {
+            error!("Failed to update shared consensus state; error = {e:#}");
+            return;
+        }
+
+        if let Err(e) = self.submit_vote(leaf, vid_share).await {
+            debug!("Failed to vote; error = {e:#}");
         }
     }
 }
@@ -236,6 +382,9 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// The curent version of HotShot
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
@@ -307,7 +456,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         event: Option<Arc<HotShotEvent<TYPES>>>,
     ) {
+        if view_number <= self.latest_voted_view {
+            tracing::trace!("We have already voted for this view");
+            return;
+        }
+
+        debug!(
+            "Attempting to make vote dependency task for view {view_number:?} and event {event:?}"
+        );
         if self.vote_dependencies.contains_key(&view_number) {
+            debug!("Task already exists");
             return;
         }
 
@@ -371,6 +529,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 storage: Arc::clone(&self.storage),
                 view_number,
                 sender: event_sender.clone(),
+                version: self.version.clone(),
             },
         );
         self.vote_dependencies
