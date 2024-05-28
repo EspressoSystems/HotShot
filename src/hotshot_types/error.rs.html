@@ -154,7 +154,7 @@
     </span><span class="attr">#[snafu(display(<span class="string">"Failed to build or verify a block: {source}"</span>))]
     </span>BlockError {
         <span class="doccomment">/// The underlying block error.
-        </span>source: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Error,
+        </span>source: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Error,
     },
     <span class="doccomment">/// Failure in networking layer
     </span><span class="attr">#[snafu(display(<span class="string">"Failure in networking layer: {source}"</span>))]

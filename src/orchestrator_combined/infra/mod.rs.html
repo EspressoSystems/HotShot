@@ -1352,7 +1352,7 @@
     &gt;,
 &gt; <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
     TYPES: NodeType&lt;Transaction = TestTransaction&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
@@ -1369,7 +1369,8 @@
     /// Note: sequencing leaf does not have state, so does not return state
     </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE&gt; {
         <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
-            .expect(<span class="string">"Couldn't generate genesis block"</span>);
+            .<span class="kw">await
+            </span>.expect(<span class="string">"Couldn't generate genesis block"</span>);
 
         <span class="kw">let </span>config = <span class="self">self</span>.config();
 
@@ -1624,7 +1625,7 @@
     &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
 {
@@ -1716,7 +1717,7 @@
     &gt; <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
 {
@@ -1808,7 +1809,7 @@
     &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
     <span class="self">Self</span>: Sync,
 {
@@ -1881,7 +1882,6 @@
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
     TYPES: NodeType&lt;
         Transaction = TestTransaction,
-        BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     &gt;,
@@ -1898,7 +1898,7 @@
     args: ValidatorArgs,
 ) <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
 {
     setup_logging();

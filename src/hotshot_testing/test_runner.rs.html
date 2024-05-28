@@ -487,6 +487,15 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -501,7 +510,10 @@
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
 };
-<span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+<span class="kw">use </span>hotshot_example_types::{
+    state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
+};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TestTask};
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -603,7 +615,7 @@
 <span class="kw">impl</span>&lt;T: std::error::Error + Sync + Send + <span class="lifetime">'static</span>&gt; TaskErr <span class="kw">for </span>T {}
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
+        TYPES: NodeType&lt;InstanceState = TestInstanceState, ValidatedState = TestValidatedState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
         N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     &gt; TestRunner&lt;TYPES, I, N&gt;
@@ -702,8 +714,13 @@
             late_start,
             latest_view: <span class="prelude-val">None</span>,
             changes,
-            last_decided_leaf: Leaf::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
-            high_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
+            last_decided_leaf: Leaf::genesis(<span class="kw-2">&amp;</span>TestValidatedState::default(), <span class="kw-2">&amp;</span>TestInstanceState {})
+                .<span class="kw">await</span>,
+            high_qc: QuorumCertificate::genesis(
+                <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                <span class="kw-2">&amp;</span>TestInstanceState {},
+            )
+            .<span class="kw">await</span>,
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;, SpinningTask&lt;TYPES, I&gt;&gt;::new(
             Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
@@ -880,8 +897,9 @@
                     },
                 );
             } <span class="kw">else </span>{
-                <span class="kw">let </span>initializer =
-                    HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {}).unwrap();
+                <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
+                    .<span class="kw">await
+                    </span>.unwrap();
 
                 <span class="comment">// See whether or not we should be DA
                 </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;

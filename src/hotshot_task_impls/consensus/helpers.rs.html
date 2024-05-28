@@ -1203,6 +1203,8 @@
 <a href="#1201" id="1201">1201</a>
 <a href="#1202" id="1202">1202</a>
 <a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1603,21 +1605,23 @@
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
+    <span class="kw">let </span>validated_state = consensus.read().<span class="kw">await</span>.decided_state();
     <span class="comment">// Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
     </span><span class="macro">ensure!</span>(upgrade_cert.in_interim(cur_view), <span class="string">"Cert is not in interim"</span>);
-    <span class="kw">let </span>(payload, metadata) = &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::from_transactions(
+    <span class="kw">let </span>(payload, metadata) = &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::from_transactions(
         Vec::new(),
+        validated_state.as_ref(),
         instance_state.as_ref(),
     )
-    .context(<span class="string">"Failed to build null block payload and metadata"</span>)<span class="question-mark">?</span>;
+    .<span class="kw">await
+    </span>.context(<span class="string">"Failed to build null block payload and metadata"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
     <span class="kw">let </span>null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context(<span class="string">"Failed to calculate null block commitment"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>null_block_fee =
-        null_block::builder_fee::&lt;TYPES&gt;(quorum_membership.total_nodes(), instance_state.as_ref())
-            .context(<span class="string">"Failed to calculate null block fee info"</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>null_block_fee = null_block::builder_fee::&lt;TYPES&gt;(quorum_membership.total_nodes())
+        .context(<span class="string">"Failed to calculate null block fee info"</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(async_spawn(<span class="kw">async move </span>{
         create_and_send_proposal(

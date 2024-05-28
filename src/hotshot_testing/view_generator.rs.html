@@ -501,14 +501,56 @@
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{cmp::max, marker::PhantomData, sync::Arc};
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    cmp::max,
+    marker::PhantomData,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 <span class="kw">use </span>committable::Committable;
+<span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestInstanceState,
+    state_types::{TestInstanceState, TestValidatedState},
 };
 <span class="kw">use </span>hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
@@ -555,7 +597,7 @@
 }
 
 <span class="kw">impl </span>TestView {
-    <span class="kw">pub fn </span>genesis(
+    <span class="kw">pub async fn </span>genesis(
         quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
         da_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     ) -&gt; <span class="self">Self </span>{
@@ -564,9 +606,18 @@
         <span class="kw">let </span>transactions = Vec::new();
 
         <span class="kw">let </span>(block_payload, metadata) =
-            TestBlockPayload::from_transactions(transactions.clone(), <span class="kw-2">&amp;</span>TestInstanceState {})
-                .unwrap();
-        <span class="kw">let </span>builder_commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
+            &lt;TestBlockPayload <span class="kw">as </span>BlockPayload&lt;TestTypes&gt;&gt;::from_transactions(
+                transactions.clone(),
+                <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                <span class="kw-2">&amp;</span>TestInstanceState {},
+            )
+            .<span class="kw">await
+            </span>.unwrap();
+
+        <span class="kw">let </span>builder_commitment = &lt;TestBlockPayload <span class="kw">as </span>BlockPayload&lt;TestTypes&gt;&gt;::builder_commitment(
+            <span class="kw-2">&amp;</span>block_payload,
+            <span class="kw-2">&amp;</span>metadata,
+        );
 
         <span class="kw">let </span>(private_key, public_key) = key_pair_for_id(<span class="kw-2">*</span>genesis_view);
 
@@ -600,7 +651,11 @@
         <span class="kw">let </span>quorum_proposal_inner = QuorumProposal::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>TestInstanceState {}),
+            justify_qc: QuorumCertificate::genesis(
+                <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                <span class="kw-2">&amp;</span>TestInstanceState {},
+            )
+            .<span class="kw">await</span>,
             upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_certificate: <span class="prelude-val">None</span>,
         };
@@ -660,7 +715,7 @@
     /// this method can be used to start from an ancestor (whose view is at least one view older
     /// than the current view) and construct valid views without the data structures in the task
     /// failing by expecting views that they has never seen.
-    </span><span class="kw">pub fn </span>next_view_from_ancestor(<span class="kw-2">&amp;</span><span class="self">self</span>, ancestor: TestView) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub async fn </span>next_view_from_ancestor(<span class="kw-2">&amp;</span><span class="self">self</span>, ancestor: TestView) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>old = ancestor;
         <span class="kw">let </span>old_view = old.view_number;
 
@@ -684,9 +739,17 @@
         <span class="kw">let </span>leader_public_key = public_key;
 
         <span class="kw">let </span>(block_payload, metadata) =
-            TestBlockPayload::from_transactions(transactions.clone(), <span class="kw-2">&amp;</span>TestInstanceState {})
-                .unwrap();
-        <span class="kw">let </span>builder_commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
+            &lt;TestBlockPayload <span class="kw">as </span>BlockPayload&lt;TestTypes&gt;&gt;::from_transactions(
+                transactions.clone(),
+                <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                <span class="kw-2">&amp;</span>TestInstanceState {},
+            )
+            .<span class="kw">await
+            </span>.unwrap();
+        <span class="kw">let </span>builder_commitment = &lt;TestBlockPayload <span class="kw">as </span>BlockPayload&lt;TestTypes&gt;&gt;::builder_commitment(
+            <span class="kw-2">&amp;</span>block_payload,
+            <span class="kw-2">&amp;</span>metadata,
+        );
 
         <span class="kw">let </span>payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
@@ -851,9 +914,9 @@
         }
     }
 
-    <span class="kw">pub fn </span>next_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.next_view_from_ancestor(<span class="self">self</span>.clone())
-    }
+    <span class="kw">pub async fn </span>next_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.next_view_from_ancestor(<span class="self">self</span>.clone()).<span class="kw">await
+    </span>}
 
     <span class="kw">pub fn </span>create_quorum_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -977,29 +1040,36 @@
         }
     }
 
-    <span class="kw">pub fn </span>next_from_anscestor_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ancestor: TestView) {
+    <span class="kw">pub async fn </span>next_from_anscestor_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ancestor: TestView) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = <span class="self">self</span>.current_view {
-            <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(view.next_view_from_ancestor(ancestor))
+            <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(view.next_view_from_ancestor(ancestor).<span class="kw">await</span>)
         } <span class="kw">else </span>{
             <span class="macro">tracing::error!</span>(<span class="string">"Cannot attach ancestor to genesis view."</span>);
         }
     }
 }
 
-<span class="kw">impl </span>Iterator <span class="kw">for </span>TestViewGenerator {
+<span class="kw">impl </span>Stream <span class="kw">for </span>TestViewGenerator {
     <span class="kw">type </span>Item = TestView;
 
-    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_view {
-            <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(TestView::next_view(view));
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(TestView::genesis(
-                <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.da_membership,
-            ));
-        }
+    <span class="kw">fn </span>poll_next(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
+        <span class="kw">let </span>qm = <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership.clone();
+        <span class="kw">let </span>da = <span class="kw-2">&amp;</span><span class="self">self</span>.da_membership.clone();
+        <span class="kw">let </span>curr_view = <span class="kw-2">&amp;</span><span class="self">self</span>.current_view.clone();
 
-        <span class="self">self</span>.current_view.clone()
+        <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = curr_view {
+            <span class="kw">async move </span>{ TestView::next_view(view).<span class="kw">await </span>}.boxed()
+        } <span class="kw">else </span>{
+            <span class="kw">async move </span>{ TestView::genesis(qm, da).<span class="kw">await </span>}.boxed()
+        };
+
+        <span class="kw">match </span>fut.as_mut().poll(cx) {
+            Poll::Ready(test_view) =&gt; {
+                <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(test_view.clone());
+                Poll::Ready(<span class="prelude-val">Some</span>(test_view))
+            }
+            Poll::Pending =&gt; Poll::Pending,
+        }
     }
 }
 </code></pre></div></section></main></body></html>

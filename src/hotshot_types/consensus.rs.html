@@ -1024,7 +1024,7 @@
     <span class="doccomment">/// Builder Commitment
     </span><span class="kw">pub </span>builder_commitment: BuilderCommitment,
     <span class="doccomment">/// Metadata for the block payload
-    </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     <span class="doccomment">/// Builder fee data
     </span><span class="kw">pub </span>fee: BuilderFee&lt;TYPES&gt;,
     <span class="doccomment">/// View number this block is for

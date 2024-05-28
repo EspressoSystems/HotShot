@@ -171,16 +171,13 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>async_broadcast::Sender;
-<span class="kw">use </span>hotshot_task::task::Task;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>tracing::instrument;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_task::task::TaskState;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
+<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     event::Event,
@@ -191,17 +188,14 @@
         signature_key::SignatureKey,
     },
 };
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-
-<span class="kw">use crate</span>::{events::HotShotEvent, vote_collection::VoteCollectionTaskState};
+<span class="kw">use </span>tracing::instrument;
 
 <span class="kw">use </span><span class="self">self</span>::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
+<span class="kw">use crate</span>::{events::HotShotEvent, vote_collection::VoteCollectionTaskState};
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
 </span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;

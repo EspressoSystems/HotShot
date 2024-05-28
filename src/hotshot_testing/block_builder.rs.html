@@ -615,6 +615,10 @@
 <a href="#613" id="613">613</a>
 <a href="#614" id="614">614</a>
 <a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -1178,9 +1182,13 @@
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
 {
-    <span class="kw">let </span>(block_payload, metadata) =
-        TYPES::BlockPayload::from_transactions(transactions, <span class="kw-2">&amp;</span>Default::default())
-            .expect(<span class="string">"failed to build block payload from transactions"</span>);
+    <span class="kw">let </span>(block_payload, metadata) = TYPES::BlockPayload::from_transactions(
+        transactions,
+        <span class="kw-2">&amp;</span>Default::default(),
+        <span class="kw-2">&amp;</span>Default::default(),
+    )
+    .<span class="kw">await
+    </span>.expect(<span class="string">"failed to build block payload from transactions"</span>);
 
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
 

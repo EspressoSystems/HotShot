@@ -223,6 +223,11 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -290,7 +295,7 @@
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::ValidatedState&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction;
 
     <span class="doccomment">/// Creates random transaction if possible
     /// otherwise panics
@@ -299,7 +304,7 @@
         leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction;
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction;
 
     <span class="doccomment">/// generate a genesis block
     </span><span class="kw">fn </span>block_genesis() -&gt; TYPES::BlockPayload;
@@ -321,7 +326,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TestableNodeImplementation&lt;TYPES&gt; <span class="kw">for </span>I
 <span class="kw">where
     </span>TYPES::ValidatedState: TestableState&lt;TYPES&gt;,
-    TYPES::BlockPayload: TestableBlock,
+    TYPES::BlockPayload: TestableBlock&lt;TYPES&gt;,
     I::QuorumNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
     I::DaNetwork: TestableNetworkingImplementation&lt;TYPES&gt;,
 {
@@ -329,7 +334,7 @@
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>TYPES::ValidatedState&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction {
         &lt;TYPES::ValidatedState <span class="kw">as </span>TestableState&lt;TYPES&gt;&gt;::create_random_transaction(
             state, rng, padding,
         )
@@ -339,16 +344,16 @@
         leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction {
         Leaf::create_random_transaction(leaf, rng, padding)
     }
 
     <span class="kw">fn </span>block_genesis() -&gt; TYPES::BlockPayload {
-        &lt;TYPES::BlockPayload <span class="kw">as </span>TestableBlock&gt;::genesis()
+        &lt;TYPES::BlockPayload <span class="kw">as </span>TestableBlock&lt;TYPES&gt;&gt;::genesis()
     }
 
     <span class="kw">fn </span>txn_count(block: <span class="kw-2">&amp;</span>TYPES::BlockPayload) -&gt; u64 {
-        &lt;TYPES::BlockPayload <span class="kw">as </span>TestableBlock&gt;::txn_count(block)
+        &lt;TYPES::BlockPayload <span class="kw">as </span>TestableBlock&lt;TYPES&gt;&gt;::txn_count(block)
     }
 
     <span class="kw">fn </span>gen_networks(
@@ -426,7 +431,12 @@
     <span class="doccomment">/// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.
-    </span><span class="kw">type </span>BlockPayload: BlockPayload&lt;Instance = <span class="self">Self</span>::InstanceState, Transaction = <span class="self">Self</span>::Transaction&gt;;
+    </span><span class="kw">type </span>BlockPayload: BlockPayload&lt;
+        <span class="self">Self</span>,
+        Instance = <span class="self">Self</span>::InstanceState,
+        Transaction = <span class="self">Self</span>::Transaction,
+        ValidatedState = <span class="self">Self</span>::ValidatedState,
+    &gt;;
     <span class="doccomment">/// The signature key that this hotshot setup is using.
     </span><span class="kw">type </span>SignatureKey: SignatureKey;
     <span class="doccomment">/// The transaction type that this hotshot setup is using.

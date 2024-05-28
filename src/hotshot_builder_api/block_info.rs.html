@@ -69,7 +69,7 @@
 #[serde(bound = <span class="string">""</span>)]
 </span><span class="kw">pub struct </span>AvailableBlockData&lt;TYPES: NodeType&gt; {
     <span class="kw">pub </span>block_payload: TYPES::BlockPayload,
-    <span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+    <span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     <span class="kw">pub </span>signature:
         &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
     <span class="kw">pub </span>sender: &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey,

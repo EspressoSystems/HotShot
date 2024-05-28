@@ -219,7 +219,6 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -233,6 +232,7 @@
     sync::Arc,
 };
 
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidScheme};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -266,7 +266,8 @@
 ///   * Must have a transaction type that can be compared for equality, serialized and serialized,
 ///     sent between threads, and can have a hash produced of it
 ///   * Must be hashable
-</span><span class="kw">pub trait </span>BlockPayload:
+</span><span class="attr">#[async_trait]
+</span><span class="kw">pub trait </span>BlockPayload&lt;TYPES: NodeType&gt;:
     Serialize
     + Clone
     + Debug
@@ -286,6 +287,8 @@
     </span><span class="kw">type </span>Instance: InstanceState;
     <span class="doccomment">/// The type of the transitions we are applying
     </span><span class="kw">type </span>Transaction: Transaction;
+    <span class="doccomment">/// Validated State
+    </span><span class="kw">type </span>ValidatedState: ValidatedState&lt;TYPES&gt;;
     <span class="doccomment">/// Data created during block building which feeds into the block header
     </span><span class="kw">type </span>Metadata: Clone
         + Debug
@@ -298,11 +301,12 @@
         + EncodeBytes;
 
     <span class="doccomment">/// Build a payload and associated metadata with the transactions.
-    ///
+    /// This function is asynchronous because it may need to request updated state from the peers via GET requests.
     /// # Errors
     /// If the transaction length conversion fails.
-    </span><span class="kw">fn </span>from_transactions(
-        transactions: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="self">Self</span>::Transaction&gt;,
+    </span><span class="kw">async fn </span>from_transactions(
+        transactions: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="self">Self</span>::Transaction&gt; + Send,
+        validated_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Metadata), <span class="self">Self</span>::Error&gt;;
 
@@ -310,14 +314,8 @@
     /// and the associated number of VID storage nodes
     </span><span class="kw">fn </span>from_bytes(encoded_transactions: <span class="kw-2">&amp;</span>[u8], metadata: <span class="kw-2">&amp;</span><span class="self">Self</span>::Metadata) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Build the genesis payload and metadata.
-    </span><span class="attr">#[must_use]
-    </span><span class="kw">fn </span>genesis() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata)
-    <span class="kw">where
-        </span>&lt;<span class="self">Self </span><span class="kw">as </span>BlockPayload&gt;::Instance: Default,
-    {
-        <span class="self">Self</span>::from_transactions([], <span class="kw-2">&amp;</span>Default::default()).unwrap()
-    }
+    <span class="doccomment">/// Build the payload and metadata for genesis/null block.
+    </span><span class="kw">fn </span>empty() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Metadata);
 
     <span class="doccomment">/// List of transaction commitments.
     </span><span class="kw">fn </span>transaction_commitments(
@@ -343,7 +341,7 @@
 }
 
 <span class="doccomment">/// extra functions required on block to be usable by hotshot-testing
-</span><span class="kw">pub trait </span>TestableBlock: BlockPayload + Debug {
+</span><span class="kw">pub trait </span>TestableBlock&lt;TYPES: NodeType&gt;: BlockPayload&lt;TYPES&gt; + Debug {
     <span class="doccomment">/// generate a genesis block
     </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self</span>;
 
@@ -414,7 +412,7 @@
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         builder_fee: BuilderFee&lt;TYPES&gt;,
         vid_common: VidCommon,
         version: Version,
@@ -425,7 +423,7 @@
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Get the block number.
@@ -435,7 +433,7 @@
     </span><span class="kw">fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment;
 
     <span class="doccomment">/// Get the metadata.
-    </span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata;
+    </span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata;
 
     <span class="doccomment">/// Get the builder commitment
     </span><span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BuilderCommitment;

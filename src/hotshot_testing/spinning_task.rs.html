@@ -229,11 +229,17 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::{BTreeMap, HashMap};
 
 <span class="kw">use </span>either::{Left, Right};
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
-<span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+<span class="kw">use </span>hotshot_example_types::{
+    state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
+};
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
@@ -293,7 +299,7 @@
 }
 
 <span class="kw">impl</span>&lt;
-        TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
+        TYPES: NodeType&lt;InstanceState = TestInstanceState, ValidatedState = TestValidatedState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
         N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
     &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt;

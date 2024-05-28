@@ -288,14 +288,14 @@
     </span>SendPayloadCommitmentAndMetadata(
         VidCommitment,
         BuilderCommitment,
-        &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         TYPES::Time,
         BuilderFee&lt;TYPES&gt;,
     ),
     <span class="doccomment">/// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     </span>BlockRecv(
         Arc&lt;[u8]&gt;,
-        &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Metadata,
+        &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         TYPES::Time,
         BuilderFee&lt;TYPES&gt;,
         VidPrecomputeData,

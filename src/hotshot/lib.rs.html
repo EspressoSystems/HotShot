@@ -845,6 +845,14 @@
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -904,15 +912,13 @@
 <span class="kw">use </span>tracing::{debug, instrument, trace};
 <span class="kw">use </span>vbs::version::Version;
 
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">crate</span>::tasks::add_consensus_task;
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::tasks::{
     add_consensus2_task, add_quorum_proposal_recv_task, add_quorum_proposal_task,
     add_quorum_vote_task,
 };
-
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::tasks::add_consensus_task;
-
 <span class="kw">use crate</span>::{
     tasks::{
         add_da_task, add_network_event_task, add_network_message_task, add_transaction_task,
@@ -1215,6 +1221,12 @@
             </span><span class="kw">if </span><span class="self">self</span>.anchored_leaf.view_number() == TYPES::Time::genesis() {
                 <span class="kw">let </span>(validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
+
+                <span class="kw">let </span>qc = Arc::new(
+                    QuorumCertificate::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="self">self</span>.instance_state.as_ref())
+                        .<span class="kw">await</span>,
+                );
+
                 broadcast_event(
                     Event {
                         view_number: <span class="self">self</span>.anchored_leaf.view_number(),
@@ -1225,7 +1237,7 @@
                                 <span class="prelude-val">Some</span>(Arc::new(state_delta)),
                                 <span class="prelude-val">None</span>,
                             )]),
-                            qc: Arc::new(QuorumCertificate::genesis(<span class="self">self</span>.instance_state.as_ref())),
+                            qc,
                             block_size: <span class="prelude-val">None</span>,
                         },
                     },
@@ -1648,14 +1660,18 @@
     <span class="doccomment">/// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    </span><span class="kw">pub fn </span>from_genesis(instance_state: TYPES::InstanceState) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub async fn </span>from_genesis(
+        instance_state: TYPES::InstanceState,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
+        <span class="kw">let </span>high_qc = QuorumCertificate::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
+
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf::genesis(<span class="kw-2">&amp;</span>instance_state),
+            inner: Leaf::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::Time::new(<span class="number">0</span>),
-            high_qc: QuorumCertificate::genesis(<span class="kw-2">&amp;</span>instance_state),
+            high_qc,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,

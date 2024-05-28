@@ -346,6 +346,8 @@
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -402,7 +404,9 @@
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(TestInstanceState {}).unwrap();
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(TestInstanceState {})
+        .<span class="kw">await
+        </span>.unwrap();
 
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();

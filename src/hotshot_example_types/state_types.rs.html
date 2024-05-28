@@ -233,7 +233,7 @@
         _state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
-    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&gt;::Transaction {
+    ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction {
         <span class="doccomment">/// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         </span><span class="kw">const </span>RANDOM_TX_BASE_SIZE: usize = <span class="number">8</span>;
 

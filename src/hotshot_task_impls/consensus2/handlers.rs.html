@@ -248,7 +248,6 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
@@ -266,13 +265,12 @@
 };
 <span class="kw">use </span>tracing::debug;
 
+<span class="kw">use </span><span class="kw">super</span>::Consensus2TaskState;
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},
 };
-
-<span class="kw">use </span><span class="kw">super</span>::Consensus2TaskState;
 
 <span class="doccomment">/// Handle a `QuorumVoteRecv` event.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_vote_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
