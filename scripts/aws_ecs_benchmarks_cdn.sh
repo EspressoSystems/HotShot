@@ -21,7 +21,7 @@ REMOTE_BROKER_HOST="$2" #"3.135.239.251"
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
 # build to get the bin in advance, uncomment the following if built first time
-# just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
+# just async_std example validator-push-cdn -- http://localhost:4444 &
 # # remember to sleep enough time if it's built first time
 # sleep 3m
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
@@ -60,7 +60,7 @@ do
             do
                 for transaction_size in 1000000
                 do
-                    for fixed_leader_for_gpuvid in 1 5
+                    for fixed_leader_for_gpuvid in 1
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
@@ -84,7 +84,7 @@ EOF
 
                                 # start orchestrator
                                 echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
-                                just async_std example_fixed_leader orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
+                                just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                                                 --orchestrator_url http://0.0.0.0:4444 \
                                                                                 --total_nodes ${total_nodes} \
                                                                                 --da_committee_size ${da_committee_size} \
@@ -93,7 +93,7 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha cdn_simple_builder_fixed_leader &
+                                                                                --commit_sha builder_fix &
                                 sleep 30
 
                                 # start validators

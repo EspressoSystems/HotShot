@@ -943,12 +943,15 @@ pub async fn main_entry_point<
                 if let IpAddr::V4(ipv4_addr) = interface.addr.ip() {
                     // Exclude loopback addresses
                     if !ipv4_addr.is_loopback() {
-                        println!("Local IPv4 Address: {:?}", ipv4_addr);
+                        if ipv4_addr.to_string().starts_with("172.31.") {
+                            args.builder_address = Some(Url::parse(&format!("http://{}:5678", ipv4_addr)).unwrap());
+                        }
                     }
                 } else if let IpAddr::V6(ipv6_addr) = interface.addr.ip() {
                     // Exclude loopback addresses
                     if !ipv6_addr.is_loopback() {
                         println!("Local IPv6 Address: {:?}", ipv6_addr);
+                        args.builder_address = Some(Url::parse(&format!("http://{}:5678", ipv6_addr)).unwrap());
                     }
                 }
             }
@@ -957,7 +960,8 @@ pub async fn main_entry_point<
             eprintln!("Error: {:?}", e);
         }
     }
-    args.builder_address = Some(Url::parse(&format!("http://localhost:5678")).unwrap());
+    // only when builder_address is not set 
+    println!(" now, args.builder_address = {:?}", args.builder_address);
 
     let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
 
