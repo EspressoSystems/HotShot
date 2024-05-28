@@ -190,7 +190,7 @@
 <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    data::VidDisperseShare,
+    data::{VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
         election::Membership,
@@ -203,7 +203,7 @@
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, calculate_vid_disperse},
+    helpers::broadcast_event,
 };
 
 <span class="doccomment">/// Tracks state of a VID task
@@ -246,7 +246,7 @@
                 <span class="kw">let </span>payload =
                     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_bytes(encoded_transactions, metadata);
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
-                <span class="kw">let </span>vid_disperse = calculate_vid_disperse(
+                <span class="kw">let </span>vid_disperse = VidDisperse::calculate_vid_disperse(
                     Arc::clone(encoded_transactions),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
