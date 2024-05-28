@@ -135,17 +135,16 @@ impl<
                 }
                 let block_view = if make_block { view } else { view + 1 };
 
-                // Request a block from the builder unless we are proposing with a null block anyway.
+                // Request a block from the builder unless we are between versions.
                 let block = {
-                    if self.decided_upgrade_certificate.is_none()
-                        || self
-                            .decided_upgrade_certificate
-                            .as_ref()
-                            .is_some_and(|cert| !cert.upgrading_in(block_view))
+                    if self
+                        .decided_upgrade_certificate
+                        .as_ref()
+                        .is_some_and(|cert| cert.upgrading_in(block_view))
                     {
-                        self.wait_for_block().await
-                    } else {
                         None
+                    } else {
+                        self.wait_for_block().await
                     }
                 };
 
