@@ -395,8 +395,9 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     )
     .await?;
 
+    ensure!(upgrade_cert.upgrading_in(view), "Cert is not in interim");
+
     // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
-    ensure!(upgrade_cert.in_interim(cur_view), "Cert is not in interim");
     let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions(
         Vec::new(),
         instance_state.as_ref(),
@@ -541,21 +542,41 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
 ) -> Result<JoinHandle<()>> {
-    if let Some(upgrade_cert) = decided_upgrade_cert {
-        publish_proposal_from_upgrade_cert(
-            cur_view,
-            view,
-            sender,
-            quorum_membership,
-            public_key,
-            private_key,
-            consensus,
-            upgrade_cert,
-            delay,
-            instance_state,
-            version,
-        )
-        .await
+    if let Some(ref upgrade_cert) = decided_upgrade_cert {
+        if upgrade_cert.upgrading_in(view) {
+            publish_proposal_from_upgrade_cert(
+                cur_view,
+                view,
+                sender,
+                quorum_membership,
+                public_key,
+                private_key,
+                consensus,
+                upgrade_cert.clone(),
+                delay,
+                instance_state,
+                version,
+            )
+            .await
+        } else {
+            publish_proposal_from_commitment_and_metadata(
+                cur_view,
+                view,
+                sender,
+                quorum_membership,
+                public_key,
+                private_key,
+                consensus,
+                delay,
+                formed_upgrade_certificate,
+                decided_upgrade_cert,
+                commitment_and_metadata,
+                proposal_cert,
+                instance_state,
+                version,
+            )
+            .await
+        }
     } else {
         publish_proposal_from_commitment_and_metadata(
             cur_view,
@@ -861,14 +882,17 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                             .set(usize::try_from(leaf.height()).unwrap_or(0));
                     }
                     if let Some(cert) = leaf.upgrade_certificate() {
-                        if cert.data.decide_by < view {
-                            warn!("Failed to decide an upgrade certificate in time. Ignoring.");
-                        } else {
-                            info!(
+                        if leaf.upgrade_certificate() != task_state.decided_upgrade_cert {
+                            if cert.data.decide_by < view {
+                                warn!("Failed to decide an upgrade certificate in time. Ignoring.");
+                            } else {
+                                info!(
                                 "Updating consensus state with decided upgrade certificate: {:?}",
                                 cert
                             );
-                            task_state.decided_upgrade_cert = Some(cert.clone());
+                                task_state.decided_upgrade_cert = Some(cert.clone());
+                                decided_upgrade_cert = Some(cert.clone());
+                            }
                         }
                     }
                     // If the block payload is available for this leaf, include it in
@@ -912,6 +936,12 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         }
     }
     drop(consensus);
+
+    if let Some(cert) = decided_upgrade_cert {
+        let _ = event_stream
+            .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
+            .await;
+    }
 
     let included_txns_set: HashSet<_> = if new_decide_reached {
         included_txns
@@ -1071,7 +1101,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     #[cfg(not(feature = "dependency-tasks"))]
     {
         if let Some(upgrade_cert) = &vote_info.1 {
-            if upgrade_cert.in_interim(cur_view)
+            if upgrade_cert.upgrading_in(cur_view)
                 && Some(proposal.block_header.payload_commitment())
                     != null_block::commitment(quorum_membership.total_nodes())
             {
