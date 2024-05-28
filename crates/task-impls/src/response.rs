@@ -135,9 +135,11 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .is_some_and(|m| m.contains_key(key));
         if !contained {
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-            if let None = consensus
+            if consensus
                 .calculate_and_update_vid(view, Arc::clone(&self.quorum), &self.private_key)
-                .await {
+                .await
+                .is_none()
+            {
                 // Drop the lock so the txns can be modified
                 drop(consensus);
                 // Sleep in hope we receive txns in the meantime
