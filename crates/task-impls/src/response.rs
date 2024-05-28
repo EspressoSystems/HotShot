@@ -24,7 +24,7 @@ use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
+use crate::events::HotShotEvent;
 
 /// Type alias for consensus state wrapped in a lock.
 type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
@@ -120,7 +120,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         }
     }
 
-    /// Get the VID share from conensus storage, or calculate it from a the payload for
+    /// Get the VID share from consensus storage, or calculate it from the payload for
     /// the view, if we have the payload.  Stores all the shares calculated from the payload
     /// if the calculation was done
     async fn get_or_calc_vid_share(
@@ -128,32 +128,24 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         view: TYPES::Time,
         key: &TYPES::SignatureKey,
     ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
-        let mut consensus = self.consensus.upgradable_read().await;
+        let consensus = self.consensus.upgradable_read().await;
         let contained = consensus
             .vid_shares()
             .get(&view)
             .is_some_and(|m| m.contains_key(key));
         if !contained {
-            let txns = match consensus.saved_payloads().get(&view) {
-                Some(txns) => txns,
-                None => {
-                    /// Drop the lock so the txns can be changed
-                    drop(consensus);
-                    /// Sleep in hope we receive txns in the meantime
-                    async_sleep(Duration::from_millis(100)).await;
-                    consensus = self.consensus.upgradable_read().await;
-                    consensus.saved_payloads().get(&view)?
-                }
-            };
-            let vid =
-                calculate_vid_disperse(Arc::clone(txns), &Arc::clone(&self.quorum), view, None)
-                    .await;
-            let shares = VidDisperseShare::from_vid_disperse(vid);
             let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-            for share in shares {
-                if let Some(prop) = share.to_proposal(&self.private_key) {
-                    consensus.update_vid_shares(view, prop);
-                }
+            if let None = consensus
+                .calculate_and_update_vid(view, Arc::clone(&self.quorum), &self.private_key)
+                .await {
+                /// Drop the lock so the txns can be modified
+                drop(consensus);
+                /// Sleep in hope we receive txns in the meantime
+                async_sleep(TXNS_TIMEOUT).await;
+                consensus = self.consensus.write().await;
+                consensus
+                    .calculate_and_update_vid(view, Arc::clone(&self.quorum), &self.private_key)
+                    .await?;
             }
             return consensus.vid_shares().get(&view)?.get(key).cloned();
         }

@@ -14,13 +14,11 @@ use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::Committable;
 use futures::FutureExt;
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::simple_vote::QuorumData;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::{GeneralConsensusMessage, Proposal},
+    message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader,
@@ -34,6 +32,8 @@ use hotshot_types::{
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::{message::GeneralConsensusMessage, simple_vote::QuorumData};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
@@ -398,21 +398,23 @@ pub(crate) async fn publish_proposal_from_upgrade_cert<TYPES: NodeType>(
     )
     .await?;
 
+    let validated_state = consensus.read().await.decided_state();
     // Special case: if we have a decided upgrade certificate AND it does not apply a version to the current view, we MUST propose with a null block.
     ensure!(upgrade_cert.in_interim(cur_view), "Cert is not in interim");
-    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload>::from_transactions(
+    let (payload, metadata) = <TYPES::BlockPayload as BlockPayload<TYPES>>::from_transactions(
         Vec::new(),
+        validated_state.as_ref(),
         instance_state.as_ref(),
     )
+    .await
     .context("Failed to build null block payload and metadata")?;
 
     let builder_commitment = payload.builder_commitment(&metadata);
     let null_block_commitment = null_block::commitment(quorum_membership.total_nodes())
         .context("Failed to calculate null block commitment")?;
 
-    let null_block_fee =
-        null_block::builder_fee::<TYPES>(quorum_membership.total_nodes(), instance_state.as_ref())
-            .context("Failed to calculate null block fee info")?;
+    let null_block_fee = null_block::builder_fee::<TYPES>(quorum_membership.total_nodes())
+        .context("Failed to calculate null block fee info")?;
 
     Ok(async_spawn(async move {
         create_and_send_proposal(
@@ -1014,14 +1016,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     Ok(())
 }
 
-/// TEMPORARY TYPE: Dummy type for sending the vote.
-#[cfg(feature = "dependency-tasks")]
-type TemporaryVoteInfo<TYPES> = PhantomData<TYPES>;
-
-/// TEMPORARY TYPE: Private key, latest decided upgrade certificate, committee membership, and
-/// event stream, for sending the vote.
+/// Private key, latest decided upgrade certificate, committee membership, and event stream, for
+/// sending the vote.
 #[cfg(not(feature = "dependency-tasks"))]
-type TemporaryVoteInfo<TYPES> = (
+type VoteInfo<TYPES> = (
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
     Option<UpgradeCertificate<TYPES>>,
     Arc<<TYPES as NodeType>::Membership>,
@@ -1031,6 +1029,7 @@ type TemporaryVoteInfo<TYPES> = (
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
 #[allow(unused_variables)]
+#[cfg(not(feature = "dependency-tasks"))]
 /// Check if we are able to vote, like whether the proposal is valid,
 /// whether we have DAC and VID share, and if so, vote.
 pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
@@ -1041,10 +1040,9 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     storage: Arc<RwLock<I::Storage>>,
     quorum_membership: Arc<TYPES::Membership>,
     instance_state: Arc<TYPES::InstanceState>,
-    vote_info: TemporaryVoteInfo<TYPES>,
+    vote_info: VoteInfo<TYPES>,
     version: Version,
 ) -> bool {
-    #[cfg(not(feature = "dependency-tasks"))]
     use hotshot_types::simple_vote::QuorumVote;
 
     if !quorum_membership.has_stake(&public_key) {
@@ -1066,16 +1064,13 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         return false;
     };
 
-    #[cfg(not(feature = "dependency-tasks"))]
-    {
-        if let Some(upgrade_cert) = &vote_info.1 {
-            if upgrade_cert.in_interim(cur_view)
-                && Some(proposal.block_header.payload_commitment())
-                    != null_block::commitment(quorum_membership.total_nodes())
-            {
-                info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
-                return false;
-            }
+    if let Some(upgrade_cert) = &vote_info.1 {
+        if upgrade_cert.in_interim(cur_view)
+            && Some(proposal.block_header.payload_commitment())
+                != null_block::commitment(quorum_membership.total_nodes())
+        {
+            info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
+            return false;
         }
     }
 
@@ -1130,41 +1125,37 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         return false;
     }
 
-    let message: GeneralConsensusMessage<TYPES>;
-
-    #[cfg(not(feature = "dependency-tasks"))]
-    {
-        // Validate the DAC.
-        message = if cert.is_valid_cert(vote_info.2.as_ref()) {
-            // Validate the block payload commitment for non-genesis DAC.
-            if cert.date().payload_commit != proposal.block_header.payload_commitment() {
-                warn!(
-                    "Block payload commitment does not equal da cert payload commitment. View = {}",
-                    *view
-                );
-                return false;
-            }
-            if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
-                QuorumData {
-                    leaf_commit: proposed_leaf.commit(),
-                },
-                view,
-                &public_key,
-                &vote_info.0,
-            ) {
-                GeneralConsensusMessage::<TYPES>::Vote(vote)
-            } else {
-                error!("Unable to sign quorum vote!");
-                return false;
-            }
-        } else {
-            error!(
-                "Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}",
-                cert, cur_view
+    // Validate the DAC.
+    let message = if cert.is_valid_cert(vote_info.2.as_ref()) {
+        // Validate the block payload commitment for non-genesis DAC.
+        if cert.date().payload_commit != proposal.block_header.payload_commitment() {
+            warn!(
+                "Block payload commitment does not equal da cert payload commitment. View = {}",
+                *view
             );
             return false;
-        };
-    }
+        }
+        if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
+            QuorumData {
+                leaf_commit: proposed_leaf.commit(),
+            },
+            view,
+            &public_key,
+            &vote_info.0,
+        ) {
+            GeneralConsensusMessage::<TYPES>::Vote(vote)
+        } else {
+            error!("Unable to sign quorum vote!");
+            return false;
+        }
+    } else {
+        error!(
+            "Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}",
+            cert, cur_view
+        );
+        return false;
+    };
+
     let mut consensus = consensus.write().await;
     consensus.update_validated_state_map(
         cur_view,
@@ -1190,28 +1181,25 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         error!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
-    #[cfg(not(feature = "dependency-tasks"))]
-    {
-        if let GeneralConsensusMessage::Vote(vote) = message {
-            debug!(
-                "Sending vote to next quorum leader {:?}",
-                vote.view_number() + 1
-            );
-            // Add to the storage that we have received the VID disperse for a specific view
-            if let Err(e) = storage.write().await.append_vid(&vid_share).await {
-                warn!(
-                    "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
-                    e
-                );
-                return false;
-            }
-            broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &vote_info.3).await;
-            return true;
-        }
+    if let GeneralConsensusMessage::Vote(vote) = message {
         debug!(
-            "Received VID share, but couldn't find DAC cert for view {:?}",
-            *proposal.view_number(),
+            "Sending vote to next quorum leader {:?}",
+            vote.view_number() + 1
         );
+        // Add to the storage that we have received the VID disperse for a specific view
+        if let Err(e) = storage.write().await.append_vid(&vid_share).await {
+            warn!(
+                "Failed to store VID Disperse Proposal with error {:?}, aborting vote",
+                e
+            );
+            return false;
+        }
+        broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &vote_info.3).await;
+        return true;
     }
+    debug!(
+        "Received VID share, but couldn't find DAC cert for view {:?}",
+        *proposal.view_number(),
+    );
     false
 }
