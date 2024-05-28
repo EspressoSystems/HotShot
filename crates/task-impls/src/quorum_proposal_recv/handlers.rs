@@ -57,7 +57,6 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         },
     };
 
-    tracing::error!("Updating validated state map");
     consensus_write.update_validated_state_map(view_number, view.clone());
     consensus_write.update_saved_leaves(leaf.clone());
 

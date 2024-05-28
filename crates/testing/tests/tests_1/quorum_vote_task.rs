@@ -82,7 +82,7 @@ async fn test_quorum_vote_task_vote_now() {
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
     use hotshot_testing::{
         helpers::build_system_handle,
-        predicates::event::{exact, quorum_vote_send, validated_state_updated},
+        predicates::event::{exact, quorum_vote_send},
         script::{run_test_script, TestScriptStage},
         view_generator::TestViewGenerator,
     };
