@@ -11,17 +11,15 @@ use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf, QuorumProposal, VidDisperseShare},
+    data::{Leaf, VidDisperse, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
-    simple_certificate::{
-        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
-    },
+    simple_certificate::{DaCertificate, QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::NodeType,
+        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{BuilderCommitment, StateAndDelta, Terminator},
@@ -477,6 +475,27 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .0
             .expect("Decided state not found! Consensus internally inconsistent")
     }
+
+    /// Calculates `VidDisperse` based on the view, the txns and the membership,
+    /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
+    /// Returned `Option` indicates whether the update has actually happened or not.
+    pub async fn calculate_and_update_vid(
+        &mut self,
+        view: <TYPES as NodeType>::Time,
+        membership: Arc<TYPES::Membership>,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Option<()> {
+        let txns = self.saved_payloads().get(&view)?;
+        let vid =
+            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
+        let shares = VidDisperseShare::from_vid_disperse(vid);
+        for share in shares {
+            if let Some(prop) = share.to_proposal(private_key) {
+                self.update_vid_shares(view, prop);
+            }
+        }
+        Some(())
+    }
 }
 
 /// Alias for the block payload commitment and the associated metadata. The primary data
@@ -488,29 +507,9 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Builder Commitment
     pub builder_commitment: BuilderCommitment,
     /// Metadata for the block payload
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// Builder fee data
     pub fee: BuilderFee<TYPES>,
     /// View number this block is for
     pub block_view: TYPES::Time,
-}
-
-/// Helper type to hold the optional secondary information required to propose.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub enum SecondaryProposalInformation<TYPES: NodeType> {
-    /// The quorum proposal and certificate needed to propose.
-    QuorumProposalAndCertificate(QuorumProposal<TYPES>, QuorumCertificate<TYPES>),
-    /// The timeout certificate which we can propose from.
-    Timeout(TimeoutCertificate<TYPES>),
-    /// The view sync certificate which we can propose from.
-    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
-}
-
-/// Dependency data required to submit a proposal
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub struct ProposalDependencyData<TYPES: NodeType> {
-    /// The primary data in a proposal.
-    pub commitment_and_metadata: CommitmentAndMetadata<TYPES>,
-    /// The secondary data in a proposal
-    pub secondary_proposal_information: SecondaryProposalInformation<TYPES>,
 }

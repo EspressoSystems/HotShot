@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use either::Either;
 use hotshot_types::{
-    consensus::ProposalDependencyData,
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
@@ -23,11 +22,11 @@ use vbs::version::Version;
 use crate::view_sync::ViewSyncPhase;
 
 /// Marker that the task completed
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct HotShotTaskCompleted;
 
 /// All of the possible events that can be passed between Sequecning `HotShot` tasks
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum HotShotEvent<TYPES: NodeType> {
     /// Shutdown the task
@@ -111,14 +110,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
     SendPayloadCommitmentAndMetadata(
         VidCommitment,
         BuilderCommitment,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(
         Arc<[u8]>,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
         VidPrecomputeData,
@@ -151,8 +150,13 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeDecided(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
-    /// Initiate a proposal right now for a provided view.
-    ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
+
+    /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
+    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
+    /// different state than what we'd typically see with a fully validated proposal and,
+    /// as a result, it need to be its own event.
+    QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
+
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 

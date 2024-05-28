@@ -5,10 +5,9 @@ use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::Consensus,
-    data::VidDisperseShare,
+    data::{VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -19,18 +18,11 @@ use tracing::{debug, error, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, calculate_vid_disperse},
+    helpers::broadcast_event,
 };
 
 /// Tracks state of a VID task
-pub struct VidTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
-    /// The state's api
-    pub api: A,
-
+pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
@@ -50,9 +42,7 @@ pub struct VidTaskState<
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    VidTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error")]
     pub async fn handle(
@@ -71,7 +61,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let payload =
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
-                let vid_disperse = calculate_vid_disperse(
+                let vid_disperse = VidDisperse::calculate_vid_disperse(
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
@@ -165,9 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 }
 
 /// task state implementation for VID Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for VidTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VidTaskState<TYPES, I> {
     type Event = Arc<HotShotEvent<TYPES>>;
 
     type Output = HotShotTaskCompleted;

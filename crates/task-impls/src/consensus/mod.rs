@@ -108,7 +108,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
         RwLock<VoteCollectorOption<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>>,
 
     /// timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
+    pub timeout_task: JoinHandle<()>,
 
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
@@ -538,11 +538,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // update the view in state to the one in the message
                 // Publish a view change event to the application
                 // Returns if the view does not need updating.
-                if let Err(e) = update_view::<TYPES, _>(
-                    self,
+                if let Err(e) = update_view::<TYPES>(
                     new_view,
                     &event_stream,
+                    self.timeout,
                     Arc::clone(&self.consensus),
+                    &mut self.cur_view,
+                    &mut self.timeout_task,
+                    &self.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
                 )
                 .await

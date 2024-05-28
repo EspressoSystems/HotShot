@@ -306,25 +306,59 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(inner)
     }
 
-    /// "Starts" consensus by sending a `QcFormed` event
+    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
+        #[cfg(feature = "dependncy-tasks")]
+        error!("HotShot is running with the dependency tasks feature enabled!!");
         debug!("Starting Consensus");
         let consensus = self.consensus.read().await;
+
+        #[allow(clippy::panic)]
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
             .await
-            .expect("Genesis Broadcast failed");
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Genesis Broadcast failed; event = ViewChange({:?})",
+                    self.start_view
+                )
+            });
+        #[cfg(feature = "dependency-tasks")]
+        {
+            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
+                #[allow(clippy::panic)]
+                self.internal_event_stream
+                    .0
+                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
+                        TYPES::Time::new(*self.start_view),
+                        validated_state.clone(),
+                    )))
+                    .await
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
+                            self.start_view,
+                        )
+                    });
+            }
+        }
+        #[allow(clippy::panic)]
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
                 consensus.high_qc().clone(),
             ))))
             .await
-            .expect("Genesis Broadcast failed");
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Genesis Broadcast failed; event = QcFormed(either::Left({:?}))",
+                    consensus.high_qc()
+                )
+            });
 
         {
             // Some applications seem to expect a leaf decide event for the genesis leaf,
@@ -332,6 +366,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             if self.anchored_leaf.view_number() == TYPES::Time::genesis() {
                 let (validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(&self.instance_state);
+
+                let qc = Arc::new(
+                    QuorumCertificate::genesis(&validated_state, self.instance_state.as_ref())
+                        .await,
+                );
+
                 broadcast_event(
                     Event {
                         view_number: self.anchored_leaf.view_number(),
@@ -342,7 +382,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                                 Some(Arc::new(state_delta)),
                                 None,
                             )]),
-                            qc: Arc::new(QuorumCertificate::genesis(self.instance_state.as_ref())),
+                            qc,
                             block_size: None,
                         },
                     },
@@ -765,14 +805,18 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
+    pub async fn from_genesis(
+        instance_state: TYPES::InstanceState,
+    ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
+        let high_qc = QuorumCertificate::genesis(&validated_state, &instance_state).await;
+
         Ok(Self {
-            inner: Leaf::genesis(&instance_state),
+            inner: Leaf::genesis(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::genesis(&instance_state),
+            high_qc,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,

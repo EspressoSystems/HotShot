@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
@@ -14,10 +15,9 @@ use hotshot_testing::{
         exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
     },
     script::{run_test_script, TestScriptStage},
-    task_helpers::{
-        build_system_handle, vid_share, key_pair_for_id, vid_scheme_from_view_number,
+    helpers::{
+        build_system_handle, vid_share, key_pair_for_id, vid_scheme_from_view_number, permute_input_with_index_order
     },
-    test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -34,7 +34,7 @@ use sha2::Digest;
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_example_types::block_types::TestMetadata;
+    use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
     use hotshot_types::data::null_block;
 
     async_compatibility_layer::logging::setup_logging();
@@ -59,7 +59,7 @@ async fn test_consensus_task() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -97,8 +97,7 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
         ],
         outputs: vec![
@@ -123,7 +122,7 @@ async fn test_consensus_vote() {
     use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
     use hotshot_testing::{
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
+        helpers::build_system_handle,
         view_generator::TestViewGenerator,
     };
 
@@ -142,7 +141,7 @@ async fn test_consensus_vote() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -191,7 +190,7 @@ async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -259,7 +258,7 @@ async fn test_consensus_vote_with_permuted_dac() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
-    use hotshot_example_types::block_types::TestMetadata;
+    use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
     use hotshot_types::data::null_block;
 
     async_compatibility_layer::logging::setup_logging();
@@ -290,7 +289,7 @@ async fn test_view_sync_finalize_propose() {
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
 
-    generator.next();
+    generator.next().await;
     let view = generator.current_view.clone().unwrap();
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
@@ -305,7 +304,7 @@ async fn test_view_sync_finalize_propose() {
     generator.add_view_sync_finalize(view_sync_finalize_data);
 
     // Build the next proposal from view 1
-    generator.next_from_anscestor_view(view.clone());
+    generator.next_from_anscestor_view(view.clone()).await;
     let view = generator.current_view.unwrap();
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
@@ -376,7 +375,7 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4, &TestInstanceState {}).unwrap(),
+                null_block::builder_fee(4).unwrap(),
             ),
         ],
         outputs: vec![
@@ -420,7 +419,7 @@ async fn test_view_sync_finalize_vote() {
     let mut votes = Vec::new();
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -431,7 +430,7 @@ async fn test_view_sync_finalize_vote() {
     // Each call to `take` moves us to the next generated view. We advance to view
     // 3 and then add the finalize cert for checking there.
     generator.add_view_sync_finalize(view_sync_finalize_data);
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -517,7 +516,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     let mut votes = Vec::new();
     let mut vids = Vec::new();
     let mut dacs = Vec::new();
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -528,7 +527,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     // Each call to `take` moves us to the next generated view. We advance to view
     // 3 and then add the finalize cert for checking there.
     generator.add_view_sync_finalize(view_sync_finalize_data);
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
@@ -621,7 +620,7 @@ async fn test_vid_disperse_storage_failure() {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(view.create_quorum_vote(&handle));
