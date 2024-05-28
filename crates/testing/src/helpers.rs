@@ -344,4 +344,3 @@ pub fn build_fake_view_with_leaf_and_state(
         },
     }
 }
-

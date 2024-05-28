@@ -153,7 +153,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 
         // Create and send the vote.
         let Some(leaf) = leaf else {
-            debug!(
+            error!(
                 "We don't have the leaf for this view {:?}, but we should, because the vote dependencies have completed.",
                 self.view_number
             );
@@ -179,7 +179,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
             );
             // Add to the storage.
             let Some(vid_share) = vid_share else {
-                debug!(
+                error!(
                         "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",
                         self.view_number
                     );
