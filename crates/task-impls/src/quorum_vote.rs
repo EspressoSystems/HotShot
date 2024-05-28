@@ -79,6 +79,7 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHandle<TYPES, I> {
+    /// Updates the shared consensus state with the new voting data.
     async fn update_shared_state(
         &self,
         proposal: &QuorumProposal<TYPES>,
@@ -188,6 +189,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         Ok(())
     }
 
+    /// Submits the `QuorumVoteSend` event if all the dependencies are met.
     async fn submit_vote(
         &self,
         leaf: Leaf<TYPES>,
@@ -529,7 +531,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 storage: Arc::clone(&self.storage),
                 view_number,
                 sender: event_sender.clone(),
-                version: self.version.clone(),
+                version: self.version,
             },
         );
         self.vote_dependencies
