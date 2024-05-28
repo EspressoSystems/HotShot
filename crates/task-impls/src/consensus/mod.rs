@@ -547,9 +547,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     self.timeout,
                     Arc::clone(&self.consensus),
                     &mut self.cur_view,
+                    &mut self.cur_view_time,
                     &mut self.timeout_task,
                     &self.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
+                    self.quorum_membership.leader(old_view_number) == self.public_key,
                 )
                 .await
                 {
