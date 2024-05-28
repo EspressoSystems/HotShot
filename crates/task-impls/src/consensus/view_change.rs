@@ -41,7 +41,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     timeout: u64,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     cur_view: &mut TYPES::Time,
-    timeout_task: &mut Option<JoinHandle<()>>,
+    timeout_task: &mut JoinHandle<()>,
     output_event_stream: &Sender<Event<TYPES>>,
     send_view_change_event: bool,
 ) -> Result<()> {
@@ -58,11 +58,6 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
         // switch to info! when INFO logs become less cluttered
         error!("Progress: entered view {:>6}", *new_view);
-    }
-
-    // cancel the old timeout task
-    if let Some(timeout_task) = timeout_task.take() {
-        cancel_task(timeout_task).await;
     }
 
     *cur_view = new_view;
@@ -86,7 +81,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     }
 
     // Spawn a timeout task if we did actually update view
-    *timeout_task = Some(async_spawn({
+    let new_timeout_task = async_spawn({
         let stream = event_stream.clone();
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
@@ -100,7 +95,10 @@ pub(crate) async fn update_view<TYPES: NodeType>(
             )
             .await;
         }
-    }));
+    });
+
+    // cancel the old timeout task
+    cancel_task(std::mem::replace(timeout_task, new_timeout_task)).await;
 
     let consensus = consensus.upgradable_read().await;
     consensus

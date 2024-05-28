@@ -22,11 +22,11 @@ use vbs::version::Version;
 use crate::view_sync::ViewSyncPhase;
 
 /// Marker that the task completed
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct HotShotTaskCompleted;
 
 /// All of the possible events that can be passed between Sequecning `HotShot` tasks
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum HotShotEvent<TYPES: NodeType> {
     /// Shutdown the task
@@ -149,8 +149,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
 
-    /// Initiate a proposal right now for a provided view.
-    LivenessCheckProposalRecv(QuorumProposal<TYPES>),
+    /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
+    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
+    /// different state than what we'd typically see with a fully validated proposal and,
+    /// as a result, it need to be its own event.
+    QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
 
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),

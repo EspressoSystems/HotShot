@@ -1,5 +1,6 @@
 #![cfg(feature = "dependency-tasks")]
 
+use committable::Committable;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
@@ -19,6 +20,7 @@ use hotshot_testing::{
     helpers::{
         build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share, build_fake_view_with_leaf,
     },
+    test_helpers::create_fake_view_with_leaf,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
