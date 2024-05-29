@@ -226,8 +226,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
                     async_spawn(async move {
-                        Consensus::calculate_and_update_vid(consensus, view, membership, &pk)
-                            .await;
+                        Consensus::calculate_and_update_vid(consensus, view, membership, &pk).await;
                     });
                 }
             }

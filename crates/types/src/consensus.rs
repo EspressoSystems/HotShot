@@ -39,7 +39,6 @@ pub type VidShares<TYPES> = BTreeMap<
 /// Type alias for consensus state wrapped in a lock.
 pub type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 
-
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.

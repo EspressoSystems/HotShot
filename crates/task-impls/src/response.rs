@@ -124,7 +124,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         view: TYPES::Time,
         key: &TYPES::SignatureKey,
     ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
-        let contained = self.consensus
+        let contained = self
+            .consensus
             .read()
             .await
             .vid_shares()
@@ -150,9 +151,22 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 )
                 .await?;
             }
-            return self.consensus.read().await.vid_shares().get(&view)?.get(key).cloned();
+            return self
+                .consensus
+                .read()
+                .await
+                .vid_shares()
+                .get(&view)?
+                .get(key)
+                .cloned();
         }
-        self.consensus.read().await.vid_shares().get(&view)?.get(key).cloned()
+        self.consensus
+            .read()
+            .await
+            .vid_shares()
+            .get(&view)?
+            .get(key)
+            .cloned()
     }
 
     /// Handle the request contained in the message. Returns the response we should send
