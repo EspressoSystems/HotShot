@@ -200,18 +200,17 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         parent
     };
 
-    {
-        let mut consensus_write = task_state.consensus.write().await;
-        if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
-            tracing::trace!("{e:?}");
-        }
-
-        broadcast_event(
-            HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
-            event_sender,
-        )
-        .await;
+    let mut consensus_write = task_state.consensus.write().await;
+    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+        tracing::trace!("{e:?}");
     }
+    drop(consensus_write);
+
+    broadcast_event(
+        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        event_sender,
+    )
+    .await;
 
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
