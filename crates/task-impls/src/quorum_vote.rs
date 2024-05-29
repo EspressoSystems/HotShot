@@ -82,12 +82,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
     /// Updates the shared consensus state with the new voting data.
     async fn update_shared_state(
         &self,
-        proposal: &QuorumProposal<TYPES>,
         proposed_leaf: &Leaf<TYPES>,
         vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
     ) -> Result<()> {
         let consensus_reader = self.consensus.read().await;
-        let justify_qc = &proposal.justify_qc;
+        let justify_qc = &proposed_leaf.justify_qc();
 
         // Justify qc's leaf commitment should be the same as the parent's leaf commitment.
         let parent = consensus_reader
@@ -97,7 +96,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
             .context(format!(
                 "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
                 justify_qc.date().leaf_commit,
-                proposal.view_number,
+                proposed_leaf.view_number(),
             ))?;
 
         let (Some(parent_state), _) = consensus_reader.state_and_delta(parent.view_number()) else {
@@ -110,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
             .validate_and_apply_header(
                 &self.instance_state,
                 &parent,
-                &proposal.block_header.clone(),
+                &proposed_leaf.block_header().clone(),
                 vid_share.data.common.clone(),
                 self.version,
             )
@@ -327,10 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
         };
 
         // Update internal state
-        if let Err(e) = self
-            .update_shared_state(&cur_proposal, &leaf, &vid_share)
-            .await
-        {
+        if let Err(e) = self.update_shared_state(&leaf, &vid_share).await {
             error!("Failed to update shared consensus state; error = {e:#}");
             return;
         }
