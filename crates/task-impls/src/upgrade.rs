@@ -1,7 +1,9 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
+use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -12,7 +14,6 @@ use hotshot_types::{
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -34,13 +35,10 @@ use crate::{
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
 /// Tracks state of a DA task
-pub struct UpgradeTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
-    /// The state's api
-    pub api: A,
+pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Output events to application
+    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
+
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
@@ -75,9 +73,7 @@ pub struct UpgradeTaskState<
     pub stop_voting_view: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    UpgradeTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
     pub async fn handle(
@@ -142,15 +138,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 //   * the proposal was expected,
                 //   * the proposal is valid, and
                 // so we notify the application layer
-                self.api
-                    .send_event(Event {
+                broadcast_event(
+                    Event {
                         view_number: self.cur_view,
                         event: EventType::UpgradeProposal {
                             proposal: proposal.clone(),
                             sender: sender.clone(),
                         },
-                    })
-                    .await;
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
 
                 // If everything is fine up to here, we generate and send a vote on the proposal.
                 let Ok(vote) = UpgradeVote::create_signed_vote(
@@ -201,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(Arc::clone(&event), &tx)
+                        .handle_vote_event(Arc::clone(&event), &tx)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -276,35 +274,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
     }
 }
 
+#[async_trait]
 /// task state implementation for the upgrade task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for UpgradeTaskState<TYPES, I, A>
-{
-    type Event = Arc<HotShotEvent<TYPES>>;
-
-    type Output = HotShotTaskCompleted;
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for UpgradeTaskState<TYPES, I> {
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
-        event: Self::Event,
-        task: &mut hotshot_task::task::Task<Self>,
-    ) -> Option<Self::Output> {
-        let sender = task.clone_sender();
-        tracing::trace!("sender queue len {}", sender.len());
-        task.state_mut().handle(event, sender).await
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
+
+        Ok(())
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::UpgradeProposalRecv(_, _)
-                | HotShotEvent::UpgradeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(_)
-                | HotShotEvent::VersionUpgrade(_)
-        )
-    }
+    async fn cancel_subtasks(&mut self) {}
 }
