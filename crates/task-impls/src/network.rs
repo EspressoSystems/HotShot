@@ -5,7 +5,7 @@ use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    constants::{BASE_VERSION, STATIC_VER_0_1},
+    constants::{BASE_VERSION, STATIC_VER_0_1, STATIC_VER_0_2, UPGRADE_VERSION},
     data::{VidDisperse, VidDisperseShare},
     event::HotShotAction,
     message::{
@@ -443,6 +443,20 @@ impl<
                     }
                     TransmitType::DaCommitteeBroadcast => {
                         net.da_broadcast_message(message, committee, STATIC_VER_0_1)
+                            .await
+                    }
+                }
+            } else if version == UPGRADE_VERSION {
+                match transmit {
+                    TransmitType::Direct(recipient) => {
+                        net.direct_message(message, recipient, STATIC_VER_0_2).await
+                    }
+                    TransmitType::Broadcast => {
+                        net.broadcast_message(message, committee, STATIC_VER_0_2)
+                            .await
+                    }
+                    TransmitType::DaCommitteeBroadcast => {
+                        net.da_broadcast_message(message, committee, STATIC_VER_0_2)
                             .await
                     }
                 }

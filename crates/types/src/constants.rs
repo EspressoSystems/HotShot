@@ -17,26 +17,34 @@ pub const COMBINED_NETWORK_MIN_PRIMARY_FAILURES: u64 = 5;
 /// the number of messages to send over the secondary network before re-attempting the (presumed down) primary network
 pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 5;
 
-/// CONSTANT for protocol major version
-pub const VERSION_MAJ: u16 = 0;
-
-/// CONSTANT for protocol major version
-pub const VERSION_MIN: u16 = 1;
+/// Constant for protocol version 0.1.
+pub const VERSION_0_1: Version = Version { major: 0, minor: 1 };
 
 /// Constant for protocol version 0.1.
-pub const VERSION_0_1: Version = Version {
-    major: VERSION_MAJ,
-    minor: VERSION_MIN,
-};
+pub const VERSION_0_2: Version = Version { major: 0, minor: 2 };
 
 /// Constant for the base protocol version in this instance of HotShot.
 pub const BASE_VERSION: Version = VERSION_0_1;
 
+/// Constant for the upgraded protocol version in this instance of HotShot.
+pub const UPGRADE_VERSION: Version = VERSION_0_2;
+
 /// Type for protocol static version 0.1.
-pub type Version01 = StaticVersion<VERSION_MAJ, VERSION_MIN>;
+pub type Version01 = StaticVersion<0, 1>;
+
+/// Type for protocol static version 0.1.
+pub type Version02 = StaticVersion<0, 2>;
+
+/// Hash for the upgrade from version 0.1 to version 0.2.
+pub const HASH_0_2: [u8; 32] = [
+    1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+];
 
 /// Constant for protocol static version 0.1.
 pub const STATIC_VER_0_1: Version01 = StaticVersion {};
+
+/// Constant for protocol static version 0.1.
+pub const STATIC_VER_0_2: Version02 = StaticVersion {};
 
 /// Default channel size for consensus event sharing
 pub const EVENT_CHANNEL_SIZE: usize = 100_000;

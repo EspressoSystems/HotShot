@@ -61,20 +61,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     async fn create_from(
         handle: &SystemContextHandle<TYPES, I>,
     ) -> UpgradeTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
-        UpgradeTaskState {
+        #[cfg(not(feature = "example-upgrade"))]
+        return UpgradeTaskState {
             api: handle.clone(),
             cur_view: handle.cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
-            #[cfg(not(feature = "example-upgrade"))]
-            should_vote: |_upgrade_proposal| false,
-            #[cfg(feature = "example-upgrade")]
-            should_vote: |_upgrade_proposal| true,
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
-        }
+            start_proposing_view: handle.hotshot.config.start_proposing_view,
+            stop_proposing_view: handle.hotshot.config.stop_proposing_view,
+            start_voting_view: handle.hotshot.config.start_voting_view,
+            stop_voting_view: handle.hotshot.config.stop_voting_view,
+        };
+
+        #[cfg(feature = "example-upgrade")]
+        return UpgradeTaskState {
+            api: handle.clone(),
+            cur_view: handle.cur_view().await,
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            vote_collector: None.into(),
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            id: handle.hotshot.id,
+            start_proposing_view: 5,
+            stop_proposing_view: 6,
+            start_voting_view: 10,
+            stop_voting_view: 11,
+        };
     }
 }
 

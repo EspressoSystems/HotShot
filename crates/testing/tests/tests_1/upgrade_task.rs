@@ -225,14 +225,12 @@ async fn test_upgrade_and_consensus_task() {
         .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    let mut upgrade_state = UpgradeTaskState::<
+    let upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
-
-    upgrade_state.should_vote = |_| true;
 
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
@@ -418,14 +416,12 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
     }
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    let mut upgrade_state = UpgradeTaskState::<
+    let upgrade_state = UpgradeTaskState::<
         TestTypes,
         MemoryImpl,
         SystemContextHandle<TestTypes, MemoryImpl>,
     >::create_from(&handle)
     .await;
-
-    upgrade_state.should_vote = |_| true;
 
     let inputs = vec![
         vec![

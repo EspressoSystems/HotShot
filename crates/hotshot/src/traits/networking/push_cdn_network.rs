@@ -33,7 +33,7 @@ use hotshot_types::traits::network::{
 };
 use hotshot_types::{
     boxed_sync,
-    constants::{Version01, VERSION_0_1},
+    constants::{Version01, Version02},
     data::ViewNumber,
     message::Message,
     traits::{
@@ -206,11 +206,11 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn broadcast_message<Ver: StaticVersionType>(
+    async fn broadcast_message<VERSION: StaticVersionType>(
         &self,
         message: Message<TYPES>,
         topic: Topic,
-        _: Ver,
+        _: VERSION,
     ) -> Result<(), NetworkError> {
         // If we're paused, don't send the message
         #[cfg(feature = "hotshot-testing")]
@@ -219,7 +219,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         }
 
         // Bincode the message
-        let serialized_message = match Serializer::<Ver>::serialize(&message) {
+        let serialized_message = match Serializer::<VERSION>::serialize(&message) {
             Ok(serialized) => serialized,
             Err(e) => {
                 warn!("Failed to serialize message: {}", e);
@@ -443,11 +443,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn broadcast_message<Ver: StaticVersionType>(
+    async fn broadcast_message<VERSION: StaticVersionType>(
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: Ver,
+        bind_version: VERSION,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, Topic::Global, bind_version)
             .await
@@ -458,11 +458,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn da_broadcast_message<Ver: StaticVersionType>(
+    async fn da_broadcast_message<VERSION: StaticVersionType>(
         &self,
         message: Message<TYPES>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: Ver,
+        bind_version: VERSION,
     ) -> Result<(), NetworkError> {
         self.broadcast_message(message, Topic::Da, bind_version)
             .await
@@ -472,11 +472,11 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ///
     /// - If we fail to serialize the message
     /// - If we fail to send the direct message
-    async fn direct_message<Ver: StaticVersionType>(
+    async fn direct_message<VERSION: StaticVersionType>(
         &self,
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
-        _: Ver,
+        _: VERSION,
     ) -> Result<(), NetworkError> {
         // If we're paused, don't send the message
         #[cfg(feature = "hotshot-testing")]
@@ -485,7 +485,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         }
 
         // Bincode the message
-        let serialized_message = match Serializer::<Ver>::serialize(&message) {
+        let serialized_message = match Serializer::<VERSION>::serialize(&message) {
             Ok(serialized) => serialized,
             Err(e) => {
                 warn!("Failed to serialize message: {}", e);
@@ -545,8 +545,15 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
 
         let message_version = Version::deserialize(&message)
             .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
-        if message_version.0 == VERSION_0_1 {
+        if message_version.0 == Version01::version() {
             let result: Message<TYPES> = Serializer::<Version01>::deserialize(&message)
+                .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
+
+            // Deserialize it
+            // Return it
+            Ok(vec![result])
+        } else if message_version.0 == Version02::version() {
+            let result: Message<TYPES> = Serializer::<Version02>::deserialize(&message)
                 .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
 
             // Deserialize it
@@ -554,11 +561,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             Ok(vec![result])
         } else {
             Err(NetworkError::FailedToDeserialize {
-                source: anyhow::format_err!(
-                    "version mismatch, expected {}, got {}",
-                    VERSION_0_1,
-                    message_version.0
-                ),
+                source: anyhow::format_err!("version mismatch, got {}", message_version.0),
             })
         }
     }
