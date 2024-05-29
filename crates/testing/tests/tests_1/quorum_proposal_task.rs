@@ -5,21 +5,22 @@ use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
-    state_types::{TestInstanceState, TestValidatedState},
+    state_types::TestInstanceState,
 };
 use hotshot_task_impls::{
     events::HotShotEvent::{self, *},
     quorum_proposal::QuorumProposalTaskState,
 };
 use hotshot_testing::{
+    helpers::{
+        build_cert, build_fake_view_with_leaf, build_system_handle, key_pair_for_id,
+        vid_scheme_from_view_number, vid_share,
+    },
     predicates::{
         event::{exact, leaf_decided, quorum_proposal_send},
         Predicate,
     },
     script::{run_test_script, TestScriptStage},
-    task_helpers::{
-        build_cert, build_system_handle, key_pair_for_id, vid_scheme_from_view_number, vid_share,
-    },
     test_helpers::create_fake_view_with_leaf,
     view_generator::TestViewGenerator,
 };
@@ -31,7 +32,7 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
-    utils::{BuilderCommitment, View, ViewInner},
+    utils::BuilderCommitment,
     vid::VidSchemeType,
     vote::HasViewNumber,
 };
@@ -72,7 +73,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let mut vids = Vec::new();
     let consensus = handle.hotshot.consensus();
     let mut consensus_writer = consensus.write().await;
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
@@ -98,11 +99,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
-            ValidatedStateUpdated(ViewNumber::new(0), create_fake_view_with_leaf(genesis_leaf)),
+            ValidatedStateUpdated(ViewNumber::new(0), build_fake_view_with_leaf(genesis_leaf)),
         ],
         outputs: vec![
             exact(UpdateHighQc(genesis_cert.clone())),
@@ -169,13 +169,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(0),
-                create_fake_view_with_leaf(genesis_leaf.clone()),
+                build_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -192,13 +191,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
-                create_fake_view_with_leaf(leaves[0].clone()),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -215,13 +213,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[1].data.view_number(),
-                create_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![
@@ -242,13 +239,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[2].data.view_number(),
-                create_fake_view_with_leaf(leaves[2].clone()),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -264,13 +260,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[3].data.view_number(),
-                create_fake_view_with_leaf(leaves[3].clone()),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![
@@ -310,7 +305,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let mut leaders = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
@@ -320,7 +315,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
         view: ViewNumber::new(1),
     };
     generator.add_timeout(timeout_data);
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
@@ -342,13 +337,12 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[2].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(2),
-                create_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -388,7 +382,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let mut leaders = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(1) {
+    for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
@@ -400,7 +394,7 @@ async fn test_quorum_proposal_task_view_sync() {
         round: ViewNumber::new(node_id),
     };
     generator.add_view_sync_finalize(view_sync_finalize_data);
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         vids.push(view.vid_proposal.clone());
@@ -422,13 +416,12 @@ async fn test_quorum_proposal_task_view_sync() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[1].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(1),
-                create_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -463,7 +456,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
     let mut vids = Vec::new();
     let consensus = handle.hotshot.consensus();
     let mut consensus_writer = consensus.write().await;
-    for view in (&mut generator).take(5) {
+    for view in (&mut generator).take(5).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
@@ -492,13 +485,12 @@ async fn test_quorum_proposal_livness_check_proposal() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
                 ViewNumber::new(0),
-                create_fake_view_with_leaf(genesis_leaf.clone()),
+                build_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -515,13 +507,12 @@ async fn test_quorum_proposal_livness_check_proposal() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
-                create_fake_view_with_leaf(leaves[0].clone()),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -540,13 +531,12 @@ async fn test_quorum_proposal_livness_check_proposal() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[1].data.view_number(),
-                create_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![
@@ -566,13 +556,12 @@ async fn test_quorum_proposal_livness_check_proposal() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[2].data.view_number(),
-                create_fake_view_with_leaf(leaves[2].clone()),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -588,13 +577,12 @@ async fn test_quorum_proposal_livness_check_proposal() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                    .unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
                 proposals[3].data.view_number(),
-                create_fake_view_with_leaf(leaves[3].clone()),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![
@@ -631,7 +619,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
     let mut leaves = Vec::new();
-    for view in (&mut generator).take(2) {
+    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
@@ -745,7 +733,7 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
             let mut consensus_writer = consensus.write().await;
             consensus_writer.update_validated_state_map(
                 ViewNumber::new(view_number),
-                create_fake_view_with_leaf(leaf.clone()),
+                build_fake_view_with_leaf(leaf.clone()),
             );
             consensus_writer.update_saved_leaves(leaf.clone());
             consensus_writer.update_vid_shares(
@@ -832,7 +820,7 @@ async fn test_quorum_proposal_task_fault_injection_leaf_ascension() {
             if rand::random::<f32>() < 0.9 {
                 consensus_writer.update_validated_state_map(
                     ViewNumber::new(view_number),
-                    create_fake_view_with_leaf(leaf.clone()),
+                    build_fake_view_with_leaf(leaf.clone()),
                 );
                 consensus_writer.update_saved_leaves(leaf.clone());
                 consensus_writer.update_vid_shares(

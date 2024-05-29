@@ -13,13 +13,17 @@ use std::{
 
 use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::spawn_blocking;
 use bincode::Options;
 use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
-use jf_vid::VidDisperse as JfVidDisperse;
+use jf_vid::{precomputable::Precomputable, VidDisperse as JfVidDisperse, VidScheme};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::spawn_blocking;
 use tracing::error;
 
 use crate::{
@@ -39,7 +43,7 @@ use crate::{
         BlockPayload,
     },
     utils::bincode_opts,
-    vid::{VidCommitment, VidCommon, VidSchemeType, VidShare},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -113,11 +117,12 @@ impl std::ops::Sub<u64> for ViewNumber {
 
 /// A proposal to start providing data availability for a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound = "TYPES: NodeType")]
 pub struct DaProposal<TYPES: NodeType> {
     /// Encoded transactions in the block to be applied.
     pub encoded_transactions: Arc<[u8]>,
     /// Metadata of the block to be applied.
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 }
@@ -173,6 +178,36 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
         }
+    }
+
+    /// Calculate the vid disperse information from the payload given a view and membership,
+    /// optionally using precompute data from builder
+    ///
+    /// # Panics
+    /// Panics if the VID calculation fails, this should not happen.
+    #[allow(clippy::panic)]
+    pub async fn calculate_vid_disperse(
+        txns: Arc<[u8]>,
+        membership: &Arc<TYPES::Membership>,
+        view: TYPES::Time,
+        precompute_data: Option<VidPrecomputeData>,
+    ) -> Self {
+        let num_nodes = membership.total_nodes();
+
+        let vid_disperse = spawn_blocking(move || {
+            precompute_data
+                .map_or_else(
+                    || vid_scheme(num_nodes).disperse(Arc::clone(&txns)),
+                    |data| vid_scheme(num_nodes).disperse_precompute(Arc::clone(&txns), &data)
+                )
+                .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
+        }).await;
+        #[cfg(async_executor_impl = "tokio")]
+        // Tokio's JoinHandle's `Output` is `Result<T, JoinError>`, while in async-std it's just `T`
+        // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
+        let vid_disperse = vid_disperse.unwrap();
+
+        Self::from_membership(view, vid_disperse, membership.as_ref())
     }
 }
 
@@ -369,7 +404,7 @@ pub trait TestableLeaf {
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction;
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<Self::NodeType>>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -433,9 +468,14 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 impl<TYPES: NodeType> QuorumCertificate<TYPES> {
     #[must_use]
     /// Creat the Genesis certificate
-    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+    pub async fn genesis(
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &TYPES::InstanceState,
+    ) -> Self {
         let data = QuorumData {
-            leaf_commit: Leaf::genesis(instance_state).commit(),
+            leaf_commit: Leaf::genesis(validated_state, instance_state)
+                .await
+                .commit(),
         };
         let commit = data.commit();
         Self {
@@ -456,9 +496,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     #[must_use]
-    pub fn genesis(instance_state: &TYPES::InstanceState) -> Self {
+    pub async fn genesis(
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &TYPES::InstanceState,
+    ) -> Self {
         let (payload, metadata) =
-            TYPES::BlockPayload::from_transactions([], instance_state).unwrap();
+            TYPES::BlockPayload::from_transactions([], validated_state, instance_state)
+                .await
+                .unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
@@ -604,7 +649,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
 impl<TYPES: NodeType> TestableLeaf for Leaf<TYPES>
 where
     TYPES::ValidatedState: TestableState<TYPES>,
-    TYPES::BlockPayload: TestableBlock,
+    TYPES::BlockPayload: TestableBlock<TYPES>,
 {
     type NodeType = TYPES;
 
@@ -612,7 +657,8 @@ where
         &self,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload>::Transaction {
+    ) -> <<Self::NodeType as NodeType>::BlockPayload as BlockPayload<Self::NodeType>>::Transaction
+    {
         TYPES::ValidatedState::create_random_transaction(None, rng, padding)
     }
 }
@@ -728,10 +774,7 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn builder_fee<TYPES: NodeType>(
-        num_storage_nodes: usize,
-        instance_state: &<TYPES::BlockPayload as BlockPayload>::Instance,
-    ) -> Option<BuilderFee<TYPES>> {
+    pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
 
@@ -741,7 +784,7 @@ pub mod null_block {
             );
 
         let (_null_block, null_block_metadata) =
-            <TYPES::BlockPayload as BlockPayload>::from_transactions([], instance_state).ok()?;
+            <TYPES::BlockPayload as BlockPayload<TYPES>>::empty();
 
         match TYPES::BuilderSignatureKey::sign_fee(
             &priv_key,

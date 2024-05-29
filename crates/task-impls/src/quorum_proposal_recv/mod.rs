@@ -24,13 +24,12 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
+use self::handlers::handle_quorum_proposal_recv;
 use crate::{
     consensus::helpers::parent_leaf_and_state,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
-
-use self::handlers::handle_quorum_proposal_recv;
 
 /// Event handlers for this task.
 mod handlers;
@@ -157,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             );
                         return;
                     };
-                    let Some(disperse_share) = vid_shares.get(&self.public_key) else {
+                    let Some(vid_share) = vid_shares.get(&self.public_key) else {
                         error!("Did not get a VID share for our public key, aborting vote");
                         return;
                     };
@@ -177,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             VoteDependencyData {
                                 quorum_proposal: current_proposal,
                                 parent_leaf,
-                                disperse_share: disperse_share.clone(),
+                                vid_share: vid_share.clone(),
                                 da_cert: da_cert.clone(),
                             },
                         )),

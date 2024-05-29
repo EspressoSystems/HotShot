@@ -1,4 +1,9 @@
-use crate::types::SystemContextHandle;
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, Arc},
+};
+
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
@@ -13,12 +18,7 @@ use hotshot_types::traits::{
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
 use vbs::version::StaticVersionType;
-
-use std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    sync::{atomic::AtomicBool, Arc},
-};
+use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]
@@ -80,13 +80,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
-    for VidTaskState<TYPES, I, SystemContextHandle<TYPES, I>>
+    for VidTaskState<TYPES, I>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
-    ) -> VidTaskState<TYPES, I, SystemContextHandle<TYPES, I>> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> VidTaskState<TYPES, I> {
         VidTaskState {
-            api: handle.clone(),
             consensus: handle.hotshot.consensus(),
             cur_view: handle.cur_view().await,
             vote_collector: None,
@@ -174,6 +171,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
             builder_client: BuilderClient::new(handle.hotshot.config.builder_url.clone()),
+            decided_upgrade_certificate: None,
         }
     }
 }
