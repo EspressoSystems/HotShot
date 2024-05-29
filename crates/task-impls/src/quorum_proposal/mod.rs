@@ -166,7 +166,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     }
                     ProposalDependency::ValidatedState => {
                         if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
-                            *view_number
+                            *view_number + 1
                         } else {
                             return false;
                         }
@@ -507,7 +507,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     .update_validated_state_map(*view_number, view.clone());
 
                 self.create_dependency_task_if_new(
-                    *view_number,
+                    *view_number + 1,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),

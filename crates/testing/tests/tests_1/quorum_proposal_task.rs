@@ -196,8 +196,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                genesis_cert.view_number(),
+                build_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -218,8 +218,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                proposals[0].data.view_number(),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -240,8 +240,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                proposals[1].data.view_number(),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![
@@ -266,8 +266,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
+                proposals[2].data.view_number(),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -287,8 +287,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[4].data.view_number(),
-                build_fake_view_with_leaf(leaves[4].clone()),
+                proposals[3].data.view_number(),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![
@@ -364,8 +364,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
             ),
             VidShareValidated(vid_share(&vids[2].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                proposals[1].data.view_number(),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -443,8 +443,8 @@ async fn test_quorum_proposal_task_view_sync() {
             ),
             VidShareValidated(vid_share(&vids[1].0.clone(), handle.public_key())),
             ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                proposals[0].data.view_number(),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![quorum_proposal_send()],
@@ -458,7 +458,6 @@ async fn test_quorum_proposal_task_view_sync() {
     run_test_script(script, quorum_proposal_task_state).await;
 }
 
-#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -515,8 +514,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[0].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                genesis_cert.view_number(),
+                build_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(genesis_cert.clone()))],
@@ -526,7 +525,7 @@ async fn test_quorum_proposal_livness_check_proposal() {
     // We send all the events that we'd have otherwise received to ensure the states are updated.
     let view_1 = TestScriptStage {
         inputs: vec![
-            QuorumProposalValidated(proposals[0].data.clone(), genesis_leaf),
+            QuorumProposalValidated(proposals[0].data.clone(), genesis_leaf.clone()),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(2)),
@@ -537,8 +536,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[1].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                proposals[0].data.view_number(),
+                build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[1].data.justify_qc.clone()))],
@@ -561,8 +560,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[2].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                proposals[1].data.view_number(),
+                build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
         outputs: vec![
@@ -586,8 +585,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[3].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
+                proposals[2].data.view_number(),
+                build_fake_view_with_leaf(leaves[2].clone()),
             ),
         ],
         outputs: vec![exact(UpdateHighQc(proposals[3].data.justify_qc.clone()))],
@@ -607,8 +606,8 @@ async fn test_quorum_proposal_livness_check_proposal() {
             ),
             VidShareValidated(vid_share(&vids[4].0, handle.public_key())),
             ValidatedStateUpdated(
-                proposals[4].data.view_number(),
-                build_fake_view_with_leaf(leaves[4].clone()),
+                proposals[3].data.view_number(),
+                build_fake_view_with_leaf(leaves[3].clone()),
             ),
         ],
         outputs: vec![
