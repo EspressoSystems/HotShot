@@ -7,7 +7,7 @@ use async_lock::RwLock;
 use async_std::task::spawn_blocking;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{Consensus, LockedConsensusState, View},
     data::DaProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -54,7 +54,7 @@ pub struct DaTaskState<
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: LockedConsensusState<TYPES>,
 
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
@@ -226,10 +226,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
                     async_spawn(async move {
-                        consensus
-                            .write()
-                            .await
-                            .calculate_and_update_vid(view, membership, &pk)
+                        Consensus::calculate_and_update_vid(consensus, view, membership, &pk)
                             .await;
                     });
                 }
