@@ -461,43 +461,11 @@
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
 <span class="kw">use </span>hotshot_types::{
     simple_certificate::{
         DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -599,36 +567,6 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        VOTE: Vote&lt;TYPES&gt;
-            + AggregatableVote&lt;TYPES, VOTE, CERT&gt;
-            + std::marker::Send
-            + std::marker::Sync
-            + <span class="lifetime">'static</span>,
-        CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;
-            + Debug
-            + std::marker::Send
-            + std::marker::Sync
-            + <span class="lifetime">'static</span>,
-    &gt; TaskState <span class="kw">for </span>VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;
-<span class="kw">where
-    </span>VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;: HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;,
-{
-    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
-
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
-
-    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
-        <span class="kw">let </span>sender = task.clone_sender();
-        task.state_mut().handle_event(event, <span class="kw-2">&amp;</span>sender).<span class="kw">await
-    </span>}
-
-    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
-    }
-}
-
 <span class="doccomment">/// Trait for types which will handle a vote event.
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;
@@ -638,7 +576,7 @@
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Debug,
 {
     <span class="doccomment">/// Handle a vote event
-    </span><span class="kw">async fn </span>handle_event(
+    </span><span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -705,7 +643,7 @@
         id: info.id,
     };
 
-    <span class="kw">let </span>result = state.handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender).<span class="kw">await</span>;
+    <span class="kw">let </span>result = state.handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender).<span class="kw">await</span>;
 
     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
         <span class="comment">// The protocol has finished
@@ -848,7 +786,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleVoteEvent&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>QuorumVoteState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -868,7 +806,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleVoteEvent&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>UpgradeVoteState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -887,7 +825,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleVoteEvent&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>DaVoteState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -906,7 +844,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; HandleVoteEvent&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>TimeoutVoteState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -926,7 +864,7 @@
     HandleVoteEvent&lt;TYPES, ViewSyncPreCommitVote&lt;TYPES&gt;, ViewSyncPreCommitCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncPreCommitState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -948,7 +886,7 @@
     HandleVoteEvent&lt;TYPES, ViewSyncCommitVote&lt;TYPES&gt;, ViewSyncCommitCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncCommitVoteState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -968,7 +906,7 @@
     HandleVoteEvent&lt;TYPES, ViewSyncFinalizeVote&lt;TYPES&gt;, ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncFinalizeVoteState&lt;TYPES&gt;
 {
-    <span class="kw">async fn </span>handle_event(
+    <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,

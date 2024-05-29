@@ -220,6 +220,16 @@
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
@@ -230,15 +240,13 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>futures::Stream;
-<span class="kw">use </span>hotshot_task::task::TaskRegistry;
+<span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 <span class="kw">use </span>hotshot_types::{
-    boxed_sync,
     consensus::Consensus,
     data::Leaf,
     error::HotShotError,
     traits::{election::Membership, node_implementation::NodeType},
-    BoxSyncFuture,
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
@@ -250,7 +258,6 @@
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>SystemContextHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The [sender](Sender) and [receiver](Receiver),
     /// to allow the application to communicate with HotShot.
@@ -262,8 +269,11 @@
         Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ),
-    <span class="doccomment">/// registry for controlling tasks
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) registry: Arc&lt;TaskRegistry&gt;,
+    <span class="doccomment">/// registry for controlling consensus tasks
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) consensus_registry: ConsensusTaskRegistry&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// registry for controlling network tasks
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) network_registry: NetworkTaskRegistry,
 
     <span class="doccomment">/// Internal reference to the underlying [`SystemContext`]
     </span><span class="kw">pub </span>hotshot: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
@@ -273,6 +283,17 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {
+    <span class="doccomment">/// Adds a hotshot consensus-related task to the `SystemContextHandle`.
+    </span><span class="kw">pub fn </span>add_task&lt;S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt; + <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, task_state: S) {
+        <span class="kw">let </span>task = Task::new(
+            task_state,
+            <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone(),
+            <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+        );
+
+        <span class="self">self</span>.consensus_registry.run_task(task);
+    }
+
     <span class="doccomment">/// obtains a stream to expose to the user
     </span><span class="kw">pub fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
@@ -362,25 +383,24 @@
     }
 
     <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
-    </span><span class="comment">//     pub async fn shut_down(mut self) {
-    //         self.registry.shutdown_all().await
-    </span><span class="kw">pub fn </span>shut_down&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; BoxSyncFuture&lt;<span class="lifetime">'b</span>, ()&gt;
-    <span class="kw">where
-        </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
-        <span class="self">Self</span>: <span class="lifetime">'b</span>,
-    {
-        boxed_sync(<span class="kw">async move </span>{
-            <span class="self">self</span>.hotshot.networks.shut_down_networks().<span class="kw">await</span>;
-            <span class="comment">// this is required because `SystemContextHandle` holds an inactive receiver and
-            // `broadcast_direct` below can wait indefinitely
-            </span><span class="self">self</span>.internal_event_stream.<span class="number">0</span>.set_await_active(<span class="bool-val">false</span>);
-            <span class="kw">let _ </span>= <span class="self">self
-                </span>.internal_event_stream
-                .<span class="number">0
-                </span>.broadcast_direct(Arc::new(HotShotEvent::Shutdown))
-                .<span class="kw">await</span>;
-            <span class="self">self</span>.registry.shutdown().<span class="kw">await</span>;
-        })
+    </span><span class="kw">pub async fn </span>shut_down(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="comment">// this is required because `SystemContextHandle` holds an inactive receiver and
+        // `broadcast_direct` below can wait indefinitely
+        </span><span class="self">self</span>.internal_event_stream.<span class="number">0</span>.set_await_active(<span class="bool-val">false</span>);
+        <span class="kw">let _ </span>= <span class="self">self
+            </span>.internal_event_stream
+            .<span class="number">0
+            </span>.broadcast_direct(Arc::new(HotShotEvent::Shutdown))
+            .<span class="kw">await
+            </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"Failed to send shutdown event: {err}"</span>));
+        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down network tasks!"</span>);
+        <span class="self">self</span>.network_registry.shutdown().<span class="kw">await</span>;
+
+        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down networks!"</span>);
+        <span class="self">self</span>.hotshot.networks.shut_down_networks().<span class="kw">await</span>;
+
+        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down consensus!"</span>);
+        <span class="self">self</span>.consensus_registry.shutdown().<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// return the timeout for a view of the underlying `SystemContext`

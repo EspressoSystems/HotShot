@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GlobalTestEvent"],"mod":["block_builder","completion_task","helpers","overall_safety_task","predicates","script","spinning_task","test_builder","test_launcher","test_runner","txn_task","view_generator","view_sync_task"]};
+window.SIDEBAR_ITEMS = {"mod":["block_builder","completion_task","helpers","overall_safety_task","predicates","script","spinning_task","test_builder","test_launcher","test_runner","test_task","txn_task","view_generator","view_sync_task"]};

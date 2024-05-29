@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Task","TaskRegistry","TestTask"],"trait":["TaskState","TestTaskState"]};
+window.SIDEBAR_ITEMS = {"struct":["ConsensusTaskRegistry","NetworkTaskRegistry","Task"],"trait":["TaskEvent","TaskState"]};

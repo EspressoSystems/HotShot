@@ -524,40 +524,16 @@
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
 };
 
+<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>async_broadcast::Sender;
+<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
-<span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
     error::RoundTimedoutState,
@@ -569,11 +545,12 @@
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>tracing::error;
 
-<span class="kw">use </span><span class="kw">crate</span>::test_runner::{HotShotTaskCompleted, Node};
+<span class="kw">use crate</span>::{
+    test_runner::Node,
+    test_task::{TestEvent, TestResult, TestTaskState},
+};
 <span class="doccomment">/// convenience type alias for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
-
-<span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
 
 <span class="doccomment">/// the status of a view
 </span><span class="attr">#[derive(Debug, Clone)]
@@ -619,78 +596,25 @@
 <span class="doccomment">/// Data availability task state
 </span><span class="kw">pub struct </span>OverallSafetyTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// handles
-    </span><span class="kw">pub </span>handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// ctx
     </span><span class="kw">pub </span>ctx: RoundCtx&lt;TYPES&gt;,
     <span class="doccomment">/// configure properties
     </span><span class="kw">pub </span>properties: OverallSafetyPropertiesDescription,
+    <span class="doccomment">/// error
+    </span><span class="kw">pub </span>error: <span class="prelude-ty">Option</span>&lt;Box&lt;OverallSafetyTaskErr&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// sender to test event channel
+    </span><span class="kw">pub </span>test_sender: Sender&lt;TestEvent&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TaskState
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestTaskState
     <span class="kw">for </span>OverallSafetyTask&lt;TYPES, I&gt;
 {
-    <span class="kw">type </span>Event = GlobalTestEvent;
+    <span class="kw">type </span>Event = Event&lt;TYPES&gt;;
 
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
-
-    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
-        <span class="kw">match </span>event {
-            GlobalTestEvent::ShutDown =&gt; {
-                <span class="macro">tracing::error!</span>(<span class="string">"Shutting down SafetyTask"</span>);
-                <span class="kw">let </span>state = task.state_mut();
-                <span class="kw">let </span>OverallSafetyPropertiesDescription {
-                    check_leaf: <span class="kw">_</span>,
-                    check_block: <span class="kw">_</span>,
-                    num_failed_views: num_failed_rounds_total,
-                    num_successful_views,
-                    threshold_calculator: <span class="kw">_</span>,
-                    transaction_threshold: <span class="kw">_</span>,
-                }: OverallSafetyPropertiesDescription = state.properties.clone();
-
-                <span class="kw">let </span>num_incomplete_views = state.ctx.round_results.len()
-                    - state.ctx.successful_views.len()
-                    - state.ctx.failed_views.len();
-
-                <span class="kw">if </span>state.ctx.successful_views.len() &lt; num_successful_views {
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                        OverallSafetyTaskErr::&lt;TYPES&gt;::NotEnoughDecides {
-                            got: state.ctx.successful_views.len(),
-                            expected: num_successful_views,
-                        },
-                    )));
-                }
-
-                <span class="kw">if </span>state.ctx.failed_views.len() + num_incomplete_views &gt;= num_failed_rounds_total {
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                        OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
-                            failed_views: state.ctx.failed_views.clone(),
-                        },
-                    )));
-                }
-                <span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown)
-            }
-        }
-    }
-
-    <span class="kw">fn </span>should_shutdown(_event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="bool-val">false
-    </span>}
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestTaskState
-    <span class="kw">for </span>OverallSafetyTask&lt;TYPES, I&gt;
-{
-    <span class="kw">type </span>Message = Event&lt;TYPES&gt;;
-
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
-
-    <span class="kw">type </span>State = <span class="self">Self</span>;
-
-    <span class="kw">async fn </span>handle_message(
-        message: <span class="self">Self</span>::Message,
-        idx: usize,
-        task: <span class="kw-2">&amp;mut </span>hotshot_task::task::TestTask&lt;<span class="self">Self</span>::State, <span class="self">Self</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
+    <span class="doccomment">/// Handles an event from one of multiple receivers.
+    </span><span class="kw">async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, (message, id): (<span class="self">Self</span>::Event, usize)) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>OverallSafetyPropertiesDescription {
             check_leaf,
             check_block,
@@ -698,13 +622,12 @@
             num_successful_views,
             threshold_calculator,
             transaction_threshold,
-        }: OverallSafetyPropertiesDescription = task.state().properties.clone();
+        }: OverallSafetyPropertiesDescription = <span class="self">self</span>.properties.clone();
         <span class="kw">let </span>Event { view_number, event } = message;
         <span class="kw">let </span>key = <span class="kw">match </span>event {
             EventType::Error { error } =&gt; {
-                task.state_mut()
-                    .ctx
-                    .insert_error_to_context(view_number, idx, error);
+                <span class="self">self</span>.ctx
+                    .insert_error_to_context(view_number, id, error.clone());
                 <span class="prelude-val">None
             </span>}
             EventType::Decide {
@@ -714,17 +637,17 @@
             } =&gt; {
                 <span class="comment">// Skip the genesis leaf.
                 </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.view_number() == TYPES::Time::genesis() {
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
                 <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
-                <span class="kw">match </span>task.state_mut().ctx.round_results.entry(view_number) {
+                <span class="kw">match </span><span class="self">self</span>.ctx.round_results.entry(view_number) {
                     Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                         o.get_mut()
-                            .insert_into_result(idx, paired_up, maybe_block_size)
+                            .insert_into_result(id, paired_up, maybe_block_size)
                     }
                     Entry::Vacant(v) =&gt; {
                         <span class="kw">let </span><span class="kw-2">mut </span>round_result = RoundResult::default();
-                        <span class="kw">let </span>key = round_result.insert_into_result(idx, paired_up, maybe_block_size);
+                        <span class="kw">let </span>key = round_result.insert_into_result(id, paired_up, maybe_block_size);
                         v.insert(round_result);
                         key
                     }
@@ -735,25 +658,18 @@
                     view_number,
                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                 });
-                task.state_mut()
-                    .ctx
-                    .insert_error_to_context(view_number, idx, error);
+                <span class="self">self</span>.ctx.insert_error_to_context(view_number, id, error);
                 <span class="prelude-val">None
             </span>}
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
         };
 
-        <span class="comment">// update view count
-        </span><span class="kw">let </span>threshold =
-            (threshold_calculator)(task.state().handles.len(), task.state().handles.len());
+        <span class="kw">let </span>len = <span class="self">self</span>.handles.read().<span class="kw">await</span>.len();
 
-        <span class="kw">let </span>len = task.state().handles.len();
-        <span class="kw">let </span>view = task
-            .state_mut()
-            .ctx
-            .round_results
-            .get_mut(<span class="kw-2">&amp;</span>view_number)
-            .unwrap();
+        <span class="comment">// update view count
+        </span><span class="kw">let </span>threshold = (threshold_calculator)(len, len);
+
+        <span class="kw">let </span>view = <span class="self">self</span>.ctx.round_results.get_mut(<span class="kw-2">&amp;</span>view_number).unwrap();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
             view.update_status(
                 threshold,
@@ -765,48 +681,78 @@
             );
             <span class="kw">match </span>view.status.clone() {
                 ViewStatus::Ok =&gt; {
-                    task.state_mut().ctx.successful_views.insert(view_number);
-                    <span class="kw">if </span>task.state_mut().ctx.successful_views.len() &gt;= num_successful_views {
-                        task.send_event(GlobalTestEvent::ShutDown).<span class="kw">await</span>;
-                        <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
+                    <span class="self">self</span>.ctx.successful_views.insert(view_number);
+                    <span class="kw">if </span><span class="self">self</span>.ctx.successful_views.len() &gt;= num_successful_views {
+                        <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
                     }
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
                 ViewStatus::Failed =&gt; {
-                    task.state_mut().ctx.failed_views.insert(view_number);
-                    <span class="kw">if </span>task.state_mut().ctx.failed_views.len() &gt; num_failed_views {
-                        task.send_event(GlobalTestEvent::ShutDown).<span class="kw">await</span>;
-                        <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                            OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
-                                failed_views: task.state_mut().ctx.failed_views.clone(),
-                            },
-                        )));
+                    <span class="self">self</span>.ctx.failed_views.insert(view_number);
+                    <span class="kw">if </span><span class="self">self</span>.ctx.failed_views.len() &gt; num_failed_views {
+                        <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
+                        <span class="self">self</span>.error =
+                            <span class="prelude-val">Some</span>(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                                failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
+                            }));
                     }
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
                 ViewStatus::Err(e) =&gt; {
-                    task.send_event(GlobalTestEvent::ShutDown).<span class="kw">await</span>;
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(e)));
+                    <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
+                    <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(e));
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
                 ViewStatus::InProgress =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
             }
         } <span class="kw">else if </span>view.check_if_failed(threshold, len) {
             view.status = ViewStatus::Failed;
-            task.state_mut().ctx.failed_views.insert(view_number);
-            <span class="kw">if </span>task.state_mut().ctx.failed_views.len() &gt; num_failed_views {
-                task.send_event(GlobalTestEvent::ShutDown).<span class="kw">await</span>;
-                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::Error(Box::new(
-                    OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
-                        failed_views: task.state_mut().ctx.failed_views.clone(),
-                    },
-                )));
+            <span class="self">self</span>.ctx.failed_views.insert(view_number);
+            <span class="kw">if </span><span class="self">self</span>.ctx.failed_views.len() &gt; num_failed_views {
+                <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
+                <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                    failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
+                }));
             }
-            <span class="kw">return </span><span class="prelude-val">None</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
-        <span class="prelude-val">None
-    </span>}
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TestResult {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="kw-2">&amp;</span><span class="self">self</span>.error {
+            <span class="kw">return </span>TestResult::Fail(e.clone());
+        }
+
+        <span class="kw">let </span>OverallSafetyPropertiesDescription {
+            check_leaf: <span class="kw">_</span>,
+            check_block: <span class="kw">_</span>,
+            num_failed_views: num_failed_rounds_total,
+            num_successful_views,
+            threshold_calculator: <span class="kw">_</span>,
+            transaction_threshold: <span class="kw">_</span>,
+        }: OverallSafetyPropertiesDescription = <span class="self">self</span>.properties.clone();
+
+        <span class="kw">let </span>num_incomplete_views = <span class="self">self</span>.ctx.round_results.len()
+            - <span class="self">self</span>.ctx.successful_views.len()
+            - <span class="self">self</span>.ctx.failed_views.len();
+
+        <span class="kw">if </span><span class="self">self</span>.ctx.successful_views.len() &lt; num_successful_views {
+            <span class="kw">return </span>TestResult::Fail(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::NotEnoughDecides {
+                got: <span class="self">self</span>.ctx.successful_views.len(),
+                expected: num_successful_views,
+            }));
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.ctx.failed_views.len() + num_incomplete_views &gt; num_failed_rounds_total {
+            <span class="kw">return </span>TestResult::Fail(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
+            }));
+        }
+        TestResult::Pass
+    }
 }
 
 <span class="doccomment">/// Result of running a round of consensus

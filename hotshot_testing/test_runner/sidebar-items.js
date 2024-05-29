@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HotShotTaskCompleted"],"struct":["LateStartNode","Node","TestRunner"],"trait":["TaskErr"],"type":["LateNodeContext"]};
+window.SIDEBAR_ITEMS = {"struct":["LateStartNode","Node","TestRunner"],"trait":["TaskErr"],"type":["LateNodeContext"]};

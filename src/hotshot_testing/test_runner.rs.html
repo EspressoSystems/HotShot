@@ -492,10 +492,6 @@
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -504,8 +500,11 @@
 };
 
 <span class="kw">use </span>async_broadcast::broadcast;
-<span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
-<span class="kw">use </span>futures::future::join_all;
+<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>futures::future::{
+    join_all, Either,
+    Either::{Left, Right},
+};
 <span class="kw">use </span>hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
@@ -514,7 +513,6 @@
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
-<span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TestTask};
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
@@ -541,75 +539,10 @@
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
     test_launcher::{Networks, TestLauncher},
+    test_task::{TestResult, TestTask},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
 };
-
-<span class="doccomment">/// a node participating in a test
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The node's unique identifier
-    </span><span class="kw">pub </span>node_id: u64,
-    <span class="doccomment">/// The underlying networks belonging to the node
-    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
-    <span class="doccomment">/// The handle to the node's internals
-    </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
-}
-
-<span class="doccomment">/// Either the node context or the parameters to construct the context for nodes that start late.
-</span><span class="kw">pub type </span>LateNodeContext&lt;TYPES, I&gt; = Either&lt;
-    Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
-    (
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage,
-        Memberships&lt;TYPES&gt;,
-        HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-    ),
-&gt;;
-
-<span class="doccomment">/// A yet-to-be-started node that participates in tests
-</span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The underlying networks belonging to the node
-    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
-    <span class="doccomment">/// Either the context to which we will use to launch HotShot for initialized node when it's
-    /// time, or the parameters that will be used to initialize the node and launch HotShot.
-    </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I&gt;,
-}
-
-<span class="doccomment">/// The runner of a test network
-/// spin up and down nodes, execute rounds
-</span><span class="kw">pub struct </span>TestRunner&lt;
-    TYPES: NodeType,
-    I: TestableNodeImplementation&lt;TYPES&gt;,
-    N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
-&gt; {
-    <span class="doccomment">/// test launcher, contains a bunch of useful metadata and closures
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,
-    <span class="doccomment">/// nodes in the test
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// nodes with a late start
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I&gt;&gt;,
-    <span class="doccomment">/// the next node unique identifier
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) next_node_id: u64,
-    <span class="doccomment">/// Phantom for N
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) _pd: PhantomData&lt;N&gt;,
-}
-
-<span class="doccomment">/// enum describing how the tasks completed
-</span><span class="kw">pub enum </span>HotShotTaskCompleted {
-    <span class="doccomment">/// the task shut down successfully
-    </span>ShutDown,
-    <span class="doccomment">/// the task encountered an error
-    </span>Error(Box&lt;<span class="kw">dyn </span>TaskErr&gt;),
-    <span class="doccomment">/// the streams the task was listening for died
-    </span>StreamsDied,
-    <span class="doccomment">/// we somehow lost the state
-    /// this is definitely a bug.
-    </span>LostState,
-    <span class="doccomment">/// lost the return value somehow
-    </span>LostReturnValue,
-    <span class="doccomment">/// Stream exists but missing handler
-    </span>MissingHandler,
-}
 
 <span class="kw">pub trait </span>TaskErr: std::error::Error + Sync + Send + <span class="lifetime">'static </span>{}
 <span class="kw">impl</span>&lt;T: std::error::Error + Sync + Send + <span class="lifetime">'static</span>&gt; TaskErr <span class="kw">for </span>T {}
@@ -629,7 +562,7 @@
     /// if the test fails
     </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">pub async fn </span>run_test&lt;B: TestBuilderImplementation&lt;TYPES&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>) {
-        <span class="kw">let </span>(tx, rx) = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="kw">let </span>(test_sender, test_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         <span class="kw">let </span>spinning_changes = <span class="self">self
             </span>.launcher
             .metadata
@@ -663,8 +596,6 @@
             internal_event_rxs.push(r);
         }
 
-        <span class="kw">let </span>reg = Arc::new(TaskRegistry::default());
-
         <span class="kw">let </span>TestRunner {
             <span class="kw-2">ref </span>launcher,
             nodes,
@@ -676,13 +607,15 @@
         <span class="kw">let </span><span class="kw-2">mut </span>task_futs = <span class="macro">vec!</span>[];
         <span class="kw">let </span>meta = launcher.metadata.clone();
 
+        <span class="kw">let </span>handles = Arc::new(RwLock::new(nodes));
+
         <span class="kw">let </span>txn_task =
             <span class="kw">if let </span>TxnTaskDescription::RoundRobinTimeBased(duration) = meta.txn_description {
                 <span class="kw">let </span>txn_task = TxnTask {
-                    handles: nodes.clone(),
+                    handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
                     next_node_idx: <span class="prelude-val">Some</span>(<span class="number">0</span>),
                     duration,
-                    shutdown_chan: rx.clone(),
+                    shutdown_chan: test_receiver.clone(),
                 };
                 <span class="prelude-val">Some</span>(txn_task)
             } <span class="kw">else </span>{
@@ -693,9 +626,9 @@
         </span><span class="kw">let </span>CompletionTaskDescription::TimeBasedCompletionTaskBuilder(time_based) =
             meta.completion_task_description;
         <span class="kw">let </span>completion_task = CompletionTask {
-            tx: tx.clone(),
-            rx: rx.clone(),
-            handles: nodes.clone(),
+            tx: test_sender.clone(),
+            rx: test_receiver.clone(),
+            handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
             duration: time_based.duration,
         };
 
@@ -710,7 +643,7 @@
         }
 
         <span class="kw">let </span>spinning_task_state = SpinningTask {
-            handles: nodes.clone(),
+            handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
             late_start,
             latest_view: <span class="prelude-val">None</span>,
             changes,
@@ -722,25 +655,24 @@
             )
             .<span class="kw">await</span>,
         };
-        <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;, SpinningTask&lt;TYPES, I&gt;&gt;::new(
-            Task::new(tx.clone(), rx.clone(), reg.clone(), spinning_task_state),
+        <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;&gt;::new(
+            spinning_task_state,
             event_rxs.clone(),
+            test_receiver.clone(),
         );
         <span class="comment">// add safety task
         </span><span class="kw">let </span>overall_safety_task_state = OverallSafetyTask {
-            handles: nodes.clone(),
+            handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
             ctx: RoundCtx::default(),
             properties: <span class="self">self</span>.launcher.metadata.overall_safety_properties,
+            error: <span class="prelude-val">None</span>,
+            test_sender,
         };
 
-        <span class="kw">let </span>safety_task = TestTask::&lt;OverallSafetyTask&lt;TYPES, I&gt;, OverallSafetyTask&lt;TYPES, I&gt;&gt;::new(
-            Task::new(
-                tx.clone(),
-                rx.clone(),
-                reg.clone(),
-                overall_safety_task_state,
-            ),
+        <span class="kw">let </span>safety_task = TestTask::&lt;OverallSafetyTask&lt;TYPES, I&gt;&gt;::new(
+            overall_safety_task_state,
             event_rxs.clone(),
+            test_receiver.clone(),
         );
 
         <span class="comment">// add view sync task
@@ -750,47 +682,55 @@
             _pd: PhantomData,
         };
 
-        <span class="kw">let </span>view_sync_task = TestTask::&lt;ViewSyncTask&lt;TYPES, I&gt;, ViewSyncTask&lt;TYPES, I&gt;&gt;::new(
-            Task::new(tx.clone(), rx.clone(), reg.clone(), view_sync_task_state),
+        <span class="kw">let </span>view_sync_task = TestTask::&lt;ViewSyncTask&lt;TYPES, I&gt;&gt;::new(
+            view_sync_task_state,
             internal_event_rxs,
+            test_receiver.clone(),
         );
 
+        <span class="kw">let </span>nodes = handles.read().<span class="kw">await</span>;
+
         <span class="comment">// wait for networks to be ready
-        </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span>nodes {
+        </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;*</span>nodes {
             node.networks.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
             node.networks.<span class="number">1</span>.wait_for_ready().<span class="kw">await</span>;
         }
 
         <span class="comment">// Start hotshot
-        </span><span class="kw">for </span>node <span class="kw">in </span>nodes {
+        </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;*</span>nodes {
             <span class="kw">if </span>!late_start_nodes.contains(<span class="kw-2">&amp;</span>node.node_id) {
                 node.handle.hotshot.start_consensus().<span class="kw">await</span>;
             }
         }
+
+        drop(nodes);
+
         task_futs.push(safety_task.run());
         task_futs.push(view_sync_task.run());
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(txn) = txn_task {
-            task_futs.push(txn.run());
-        }
-        task_futs.push(completion_task.run());
         task_futs.push(spinning_task.run());
+
+        <span class="comment">// `generator` tasks that do not process events.
+        </span><span class="kw">let </span>txn_handle = txn_task.map(|txn| txn.run());
+        <span class="kw">let </span>completion_handle = completion_task.run();
+
         <span class="kw">let </span><span class="kw-2">mut </span>error_list = <span class="macro">vec!</span>[];
 
         <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
         </span>{
             <span class="kw">let </span>results = join_all(task_futs).<span class="kw">await</span>;
-            <span class="macro">tracing::info!</span>(<span class="string">"test tasks joined"</span>);
+            <span class="macro">tracing::error!</span>(<span class="string">"test tasks joined"</span>);
             <span class="kw">for </span>result <span class="kw">in </span>results {
                 <span class="kw">match </span>result {
-                    HotShotTaskCompleted::ShutDown =&gt; {
+                    TestResult::Pass =&gt; {
                         <span class="macro">info!</span>(<span class="string">"Task shut down successfully"</span>);
                     }
-                    HotShotTaskCompleted::Error(e) =&gt; error_list.push(e),
-                    <span class="kw">_ </span>=&gt; {
-                        <span class="macro">panic!</span>(<span class="string">"Future impl for task abstraction failed! This should never happen"</span>);
-                    }
+                    TestResult::Fail(e) =&gt; error_list.push(e),
                 }
             }
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = txn_handle {
+                handle.cancel().<span class="kw">await</span>;
+            }
+            completion_handle.cancel().<span class="kw">await</span>;
         }
 
         <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -800,28 +740,34 @@
             <span class="macro">tracing::error!</span>(<span class="string">"test tasks joined"</span>);
             <span class="kw">for </span>result <span class="kw">in </span>results {
                 <span class="kw">match </span>result {
-                    <span class="prelude-val">Ok</span>(res) =&gt; {
-                        <span class="kw">match </span>res {
-                            HotShotTaskCompleted::ShutDown =&gt; {
-                                <span class="macro">info!</span>(<span class="string">"Task shut down successfully"</span>);
-                            }
-                            HotShotTaskCompleted::Error(e) =&gt; error_list.push(e),
-                            <span class="kw">_ </span>=&gt; {
-                                <span class="macro">panic!</span>(<span class="string">"Future impl for task abstraction failed! This should never happen"</span>);
-                            }
+                    <span class="prelude-val">Ok</span>(res) =&gt; <span class="kw">match </span>res {
+                        TestResult::Pass =&gt; {
+                            <span class="macro">info!</span>(<span class="string">"Task shut down successfully"</span>);
                         }
-                    }
+                        TestResult::Fail(e) =&gt; error_list.push(e),
+                    },
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::error!</span>(<span class="string">"Error Joining the test task {:?}"</span>, e);
                     }
                 }
             }
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = txn_handle {
+                handle.abort();
+            }
+            completion_handle.abort();
         }
 
         <span class="macro">assert!</span>(
             error_list.is_empty(),
             <span class="string">"TEST FAILED! Results: {error_list:?}"
         </span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>nodes = handles.write().<span class="kw">await</span>;
+
+        <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;mut *</span>nodes {
+            node.handle.shut_down().<span class="kw">await</span>;
+        }
     }
 
     <span class="doccomment">/// Add nodes.
@@ -877,16 +823,14 @@
             <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
 
-            <span class="comment">// Create a future that waits for the networks to be ready
-            </span><span class="kw">let </span>network0 = networks.<span class="number">0</span>.clone();
+            <span class="kw">let </span>network0 = networks.<span class="number">0</span>.clone();
             <span class="kw">let </span>network1 = networks.<span class="number">1</span>.clone();
             <span class="kw">let </span>networks_ready_future = <span class="kw">async move </span>{
                 network0.wait_for_ready().<span class="kw">await</span>;
                 network1.wait_for_ready().<span class="kw">await</span>;
             };
 
-            <span class="comment">// Collect it so we can wait for all networks to be ready before starting the tasks
-            </span>networks_ready.push(networks_ready_future);
+            networks_ready.push(networks_ready_future);
 
             <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late &amp;&amp; late_start.contains(<span class="kw-2">&amp;</span>node_id) {
                 <span class="self">self</span>.late_start.insert(
@@ -991,5 +935,53 @@
         .<span class="kw">await
         </span>.expect(<span class="string">"Could not init hotshot"</span>)
     }
+}
+
+<span class="doccomment">/// a node participating in a test
+</span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// The node's unique identifier
+    </span><span class="kw">pub </span>node_id: u64,
+    <span class="doccomment">/// The underlying networks belonging to the node
+    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
+    <span class="doccomment">/// The handle to the node's internals
+    </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
+}
+
+<span class="doccomment">/// Either the node context or the parameters to construct the context for nodes that start late.
+</span><span class="kw">pub type </span>LateNodeContext&lt;TYPES, I&gt; = Either&lt;
+    Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;,
+    (
+        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage,
+        Memberships&lt;TYPES&gt;,
+        HotShotConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+    ),
+&gt;;
+
+<span class="doccomment">/// A yet-to-be-started node that participates in tests
+</span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// The underlying networks belonging to the node
+    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
+    <span class="doccomment">/// Either the context to which we will use to launch HotShot for initialized node when it's
+    /// time, or the parameters that will be used to initialize the node and launch HotShot.
+    </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I&gt;,
+}
+
+<span class="doccomment">/// The runner of a test network
+/// spin up and down nodes, execute rounds
+</span><span class="kw">pub struct </span>TestRunner&lt;
+    TYPES: NodeType,
+    I: TestableNodeImplementation&lt;TYPES&gt;,
+    N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+&gt; {
+    <span class="doccomment">/// test launcher, contains a bunch of useful metadata and closures
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,
+    <span class="doccomment">/// nodes in the test
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// nodes with a late start
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// the next node unique identifier
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) next_node_id: u64,
+    <span class="doccomment">/// Phantom for N
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) _pd: PhantomData&lt;N&gt;,
 }
 </code></pre></div></section></main></body></html>

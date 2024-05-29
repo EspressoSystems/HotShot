@@ -114,32 +114,11 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
-<span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
+<span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, Task, TaskState};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 
 <span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
@@ -150,23 +129,6 @@
     </span>expected_output: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// If true we won't fail the test if extra events come in
     </span>allow_extra_output: bool,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskState <span class="kw">for </span>TestHarnessState&lt;TYPES&gt; {
-    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
-
-    <span class="kw">async fn </span>handle_event(
-        event: <span class="self">Self</span>::Event,
-        task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">let </span>extra = task.state_mut().allow_extra_output;
-        handle_event(event, task, extra)
-    }
-
-    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
-    }
 }
 
 <span class="doccomment">/// Runs a test by building the task using `build_fn` and then passing it the `input` events
@@ -181,7 +143,7 @@
 /// Panics if any state the test expects is not set. Panicking causes a test failure
 </span><span class="attr">#[allow(clippy::implicit_hasher)]
 #[allow(clippy::panic)]
-</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
+</span><span class="kw">pub async fn </span>run_harness&lt;TYPES, S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
     input: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     expected_output: Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     state: S,
@@ -189,37 +151,35 @@
 ) <span class="kw">where
     </span>TYPES: NodeType,
 {
-    <span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
-    <span class="kw">let </span><span class="kw-2">mut </span>tasks = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>registry = ConsensusTaskRegistry::new();
     <span class="comment">// set up two broadcast channels so the test sends to the task and the task back to the test
     </span><span class="kw">let </span>(to_task, from_test) = broadcast(<span class="number">1024</span>);
-    <span class="kw">let </span>(to_test, from_task) = broadcast(<span class="number">1024</span>);
-    <span class="kw">let </span>test_state = TestHarnessState {
+    <span class="kw">let </span>(to_test, <span class="kw-2">mut </span>from_task) = broadcast(<span class="number">1024</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>test_state = TestHarnessState {
         expected_output,
         allow_extra_output,
     };
 
-    <span class="kw">let </span>test_task = Task::new(
-        to_test.clone(),
-        from_task.clone(),
-        Arc::clone(<span class="kw-2">&amp;</span>registry),
-        test_state,
-    );
-    <span class="kw">let </span>task = Task::new(
-        to_test.clone(),
-        from_test.clone(),
-        Arc::clone(<span class="kw-2">&amp;</span>registry),
-        state,
-    );
+    <span class="kw">let </span>task = Task::new(state, to_test.clone(), from_test.clone());
 
-    tasks.push(test_task.run());
-    tasks.push(task.run());
+    <span class="kw">let </span>handle = task.run();
+    <span class="kw">let </span>test_future = <span class="kw">async move </span>{
+        <span class="kw">loop </span>{
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(event) = from_task.recv_direct().<span class="kw">await </span>{
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(HotShotTaskCompleted) = check_event(event, <span class="kw-2">&amp;mut </span>test_state) {
+                    <span class="kw">break</span>;
+                }
+            }
+        }
+    };
+
+    registry.register(handle);
 
     <span class="kw">for </span>event <span class="kw">in </span>input {
         to_task.broadcast_direct(Arc::new(event)).<span class="kw">await</span>.unwrap();
     }
 
-    <span class="kw">if </span>async_timeout(Duration::from_secs(<span class="number">2</span>), futures::future::join_all(tasks))
+    <span class="kw">if </span>async_timeout(Duration::from_secs(<span class="number">2</span>), test_future)
         .<span class="kw">await
         </span>.is_err()
     {
@@ -237,16 +197,14 @@
 ///  # Panics
 /// Will panic to fail the test when it receives and unexpected event
 </span><span class="attr">#[allow(clippy::needless_pass_by_value)]
-</span><span class="kw">pub fn </span>handle_event&lt;TYPES: NodeType&gt;(
+</span><span class="kw">fn </span>check_event&lt;TYPES: NodeType&gt;(
     event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    task: <span class="kw-2">&amp;mut </span>Task&lt;TestHarnessState&lt;TYPES&gt;&gt;,
-    allow_extra_output: bool,
+    state: <span class="kw-2">&amp;mut </span>TestHarnessState&lt;TYPES&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-    <span class="kw">let </span>state = task.state_mut();
     <span class="comment">// Check the output in either case:
     // * We allow outputs only in our expected output set.
     // * We haven't received all expected outputs yet.
-    </span><span class="kw">if </span>!allow_extra_output || !state.expected_output.is_empty() {
+    </span><span class="kw">if </span>!state.allow_extra_output || !state.expected_output.is_empty() {
         <span class="macro">assert!</span>(
             state.expected_output.contains(<span class="kw-2">&amp;</span>event),
             <span class="string">"Got an unexpected event: {event:?}"</span>,

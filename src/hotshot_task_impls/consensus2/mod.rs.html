@@ -163,21 +163,15 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>async_broadcast::Sender;
+<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>hotshot_task::task::{Task, TaskState};
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     event::Event,
@@ -314,32 +308,22 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>Consensus2TaskState&lt;TYPES, I&gt; {
-    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
-    <span class="kw">type </span>Output = ();
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>Consensus2TaskState&lt;TYPES, I&gt; {
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
-    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
-        !<span class="macro">matches!</span>(
-            event.as_ref(),
-            HotShotEvent::QuorumVoteRecv(<span class="kw">_</span>)
-                | HotShotEvent::TimeoutVoteRecv(<span class="kw">_</span>)
-                | HotShotEvent::ViewChange(<span class="kw">_</span>)
-                | HotShotEvent::Timeout(<span class="kw">_</span>)
-                | HotShotEvent::LastDecidedViewUpdated(<span class="kw">_</span>)
-                | HotShotEvent::Shutdown
-        )
-    }
-    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;
-    <span class="kw">where
-        </span><span class="self">Self</span>: Sized,
-    {
-        <span class="kw">let </span>sender = task.clone_sender();
-        task.state_mut().handle(event, sender).<span class="kw">await</span>;
-        <span class="prelude-val">None
-    </span>}
+    <span class="kw">async fn </span>handle_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: Arc&lt;<span class="self">Self</span>::Event&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
+        _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await</span>;
 
-    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
+        <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="doccomment">/// Joins all subtasks.
+    </span><span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 </code></pre></div></section></main></body></html>

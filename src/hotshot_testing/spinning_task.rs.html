@@ -218,29 +218,20 @@
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::{BTreeMap, HashMap};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
-<span class="kw">use </span>either::{Left, Right};
+<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>futures::future::Either::{Left, Right};
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
 <span class="kw">use </span>hotshot_example_types::{
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
-<span class="kw">use </span>hotshot_task::task::{Task, TaskState, TestTaskState};
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
     event::Event,
@@ -255,11 +246,13 @@
 };
 <span class="kw">use </span>snafu::Snafu;
 
-<span class="kw">use </span><span class="kw">crate</span>::test_runner::{HotShotTaskCompleted, LateStartNode, Node, TestRunner};
+<span class="kw">use crate</span>::{
+    test_runner::{LateStartNode, Node, TestRunner},
+    test_task::{TestResult, TestTaskState},
+};
+
 <span class="doccomment">/// convience type for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
-
-<span class="kw">use </span><span class="kw">super</span>::GlobalTestEvent;
 
 <span class="doccomment">/// error for the spinning task
 </span><span class="attr">#[derive(Snafu, Debug)]
@@ -268,7 +261,7 @@
 <span class="doccomment">/// Spinning task state
 </span><span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// handle to the nodes
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// late start nodes
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// time based changes
@@ -281,24 +274,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) high_qc: QuorumCertificate&lt;TYPES&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt; {
-    <span class="kw">type </span>Event = GlobalTestEvent;
-
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
-
-    <span class="kw">async fn </span>handle_event(event: <span class="self">Self</span>::Event, _task: <span class="kw-2">&amp;mut </span>Task&lt;<span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
-        <span class="kw">if </span><span class="macro">matches!</span>(event, GlobalTestEvent::ShutDown) {
-            <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted::ShutDown);
-        }
-        <span class="prelude-val">None
-    </span>}
-
-    <span class="kw">fn </span>should_shutdown(_event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="bool-val">false
-    </span>}
-}
-
-<span class="kw">impl</span>&lt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;InstanceState = TestInstanceState, ValidatedState = TestValidatedState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
         N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
@@ -307,20 +284,10 @@
     </span>I: TestableNodeImplementation&lt;TYPES&gt;,
     I: NodeImplementation&lt;TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage&lt;TYPES&gt;&gt;,
 {
-    <span class="kw">type </span>Message = Event&lt;TYPES&gt;;
+    <span class="kw">type </span>Event = Event&lt;TYPES&gt;;
 
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
-
-    <span class="kw">type </span>State = <span class="self">Self</span>;
-
-    <span class="kw">async fn </span>handle_message(
-        message: <span class="self">Self</span>::Message,
-        _id: usize,
-        task: <span class="kw-2">&amp;mut </span>hotshot_task::task::TestTask&lt;<span class="self">Self</span>::State, <span class="self">Self</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
+    <span class="kw">async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, (message, _id): (<span class="self">Self</span>::Event, usize)) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>Event { view_number, event } = message;
-
-        <span class="kw">let </span>state = <span class="kw-2">&amp;mut </span>task.state_mut();
 
         <span class="kw">if let </span>EventType::Decide {
             leaf_chain,
@@ -329,27 +296,28 @@
         } = event
         {
             <span class="kw">let </span>leaf = leaf_chain.first().unwrap().leaf.clone();
-            <span class="kw">if </span>leaf.view_number() &gt; state.last_decided_leaf.view_number() {
-                state.last_decided_leaf = leaf;
+            <span class="kw">if </span>leaf.view_number() &gt; <span class="self">self</span>.last_decided_leaf.view_number() {
+                <span class="self">self</span>.last_decided_leaf = leaf;
             }
         } <span class="kw">else if let </span>EventType::QuorumProposal {
             proposal,
             sender: <span class="kw">_</span>,
         } = event
         {
-            <span class="kw">if </span>proposal.data.justify_qc.view_number() &gt; state.high_qc.view_number() {
-                state.high_qc = proposal.data.justify_qc;
+            <span class="kw">if </span>proposal.data.justify_qc.view_number() &gt; <span class="self">self</span>.high_qc.view_number() {
+                <span class="self">self</span>.high_qc = proposal.data.justify_qc.clone();
             }
         }
+
         <span class="comment">// if we have not seen this view before
-        </span><span class="kw">if </span>state.latest_view.is_none() || view_number &gt; state.latest_view.unwrap() {
+        </span><span class="kw">if </span><span class="self">self</span>.latest_view.is_none() || view_number &gt; <span class="self">self</span>.latest_view.unwrap() {
             <span class="comment">// perform operations on the nodes
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(operations) = state.changes.remove(<span class="kw-2">&amp;</span>view_number) {
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(operations) = <span class="self">self</span>.changes.remove(<span class="kw-2">&amp;</span>view_number) {
                 <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>operations {
                     <span class="kw">match </span>updown {
                         UpDown::Up =&gt; {
                             <span class="kw">let </span>node_id = idx.try_into().unwrap();
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.late_start.remove(<span class="kw-2">&amp;</span>node_id) {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.late_start.remove(<span class="kw-2">&amp;</span>node_id) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} spinning up late"</span>, idx);
                                 <span class="kw">let </span>node_id = idx.try_into().unwrap();
                                 <span class="kw">let </span>context = <span class="kw">match </span>node.context {
@@ -358,11 +326,11 @@
                                     // based on the received leaf.
                                     </span>Right((storage, memberships, config)) =&gt; {
                                         <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
-                                            state.last_decided_leaf.clone(),
+                                            <span class="self">self</span>.last_decided_leaf.clone(),
                                             TestInstanceState {},
                                             <span class="prelude-val">None</span>,
                                             view_number,
-                                            state.high_qc.clone(),
+                                            <span class="self">self</span>.high_qc.clone(),
                                             Vec::new(),
                                             BTreeMap::new(),
                                         );
@@ -398,26 +366,26 @@
                                     networks: node.networks,
                                     handle,
                                 };
-                                state.handles.push(node.clone());
-
                                 node.handle.hotshot.start_consensus().<span class="kw">await</span>;
+
+                                <span class="self">self</span>.handles.write().<span class="kw">await</span>.push(node);
                             }
                         }
                         UpDown::Down =&gt; {
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = state.handles.get_mut(idx) {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get_mut(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} shutting down"</span>, idx);
                                 node.handle.shut_down().<span class="kw">await</span>;
                             }
                         }
                         UpDown::NetworkUp =&gt; {
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} networks resuming"</span>, idx);
                                 handle.networks.<span class="number">0</span>.resume();
                                 handle.networks.<span class="number">1</span>.resume();
                             }
                         }
                         UpDown::NetworkDown =&gt; {
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = state.handles.get(idx) {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} networks pausing"</span>, idx);
                                 handle.networks.<span class="number">0</span>.pause();
                                 handle.networks.<span class="number">1</span>.pause();
@@ -428,11 +396,15 @@
             }
 
             <span class="comment">// update our latest view
-            </span>state.latest_view = <span class="prelude-val">Some</span>(view_number);
+            </span><span class="self">self</span>.latest_view = <span class="prelude-val">Some</span>(view_number);
         }
 
-        <span class="prelude-val">None
-    </span>}
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TestResult {
+        TestResult::Pass
+    }
 }
 
 <span class="doccomment">/// Spin the node up or down

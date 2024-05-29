@@ -326,7 +326,20 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::BTreeMap,
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -335,9 +348,13 @@
     time::Duration,
 };
 
-<span class="kw">use </span>async_broadcast::Sender;
+<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
@@ -352,13 +369,12 @@
 };
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="doccomment">/// Amount of time to try for a request before timing out.
 </span><span class="kw">const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);
@@ -370,7 +386,7 @@
 </span><span class="kw">pub struct </span>NetworkRequestState&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    Ver: StaticVersionType,
+    Ver: StaticVersionType + <span class="lifetime">'static</span>,
 &gt; {
     <span class="doccomment">/// Network to send requests over
     </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
@@ -395,64 +411,69 @@
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span><span class="kw">pub </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
+    <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
+    </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::Time, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt; Drop
+    <span class="kw">for </span>NetworkRequestState&lt;TYPES, I, Ver&gt;
+{
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        futures::executor::block_on(<span class="kw">async move </span>{ <span class="self">self</span>.cancel_subtasks().<span class="kw">await </span>});
+    }
 }
 
 <span class="doccomment">/// Alias for a signature
 </span><span class="kw">type </span>Signature&lt;TYPES&gt; =
     &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType;
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt; TaskState
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt; TaskState
     <span class="kw">for </span>NetworkRequestState&lt;TYPES, I, Ver&gt;
 {
-    <span class="kw">type </span>Event = Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;;
-
-    <span class="kw">type </span>Output = HotShotTaskCompleted;
+    <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(
-        event: <span class="self">Self</span>::Event,
-        task: <span class="kw-2">&amp;mut </span>hotshot_task::task::Task&lt;<span class="self">Self</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: Arc&lt;<span class="self">Self</span>::Event&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
+        _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>state = task.state();
                 <span class="kw">let </span>prop_view = proposal.view_number();
-                <span class="kw">if </span>prop_view &gt;= state.view {
-                    state
-                        .spawn_requests(prop_view, task.clone_sender(), Ver::instance())
+                <span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view {
+                    <span class="self">self</span>.spawn_requests(prop_view, sender.clone(), Ver::instance())
                         .<span class="kw">await</span>;
                 }
-                <span class="prelude-val">None
-            </span>}
+                <span class="prelude-val">Ok</span>(())
+            }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
-                <span class="kw">if </span>view &gt; task.state().view {
-                    task.state_mut().view = view;
+                <span class="kw">if </span>view &gt; <span class="self">self</span>.view {
+                    <span class="self">self</span>.view = view;
                 }
-                <span class="prelude-val">None
-            </span>}
-            HotShotEvent::Shutdown =&gt; {
-                task.state().set_shutdown_flag();
-                <span class="prelude-val">Some</span>(HotShotTaskCompleted)
+                <span class="prelude-val">Ok</span>(())
             }
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
         }
     }
 
-    <span class="kw">fn </span>should_shutdown(event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        <span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown)
-    }
-
-    <span class="kw">fn </span>filter(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span><span class="self">Self</span>::Event) -&gt; bool {
-        !<span class="macro">matches!</span>(
-            event.as_ref(),
-            HotShotEvent::Shutdown
-                | HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::ViewChange(<span class="kw">_</span>)
-        )
-    }
-
-    <span class="kw">async fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.set_shutdown_flag();
+
+        <span class="kw">while </span>!<span class="self">self</span>.spawned_tasks.is_empty() {
+            <span class="kw">let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handles)) = <span class="self">self</span>.spawned_tasks.pop_first() <span class="kw">else </span>{
+                <span class="kw">break</span>;
+            };
+
+            <span class="kw">for </span>handle <span class="kw">in </span>handles {
+                <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+                </span>handle.cancel().<span class="kw">await</span>;
+                <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+                </span>handle.abort();
+            }
+        }
     }
 }
 
@@ -461,7 +482,7 @@
 {
     <span class="doccomment">/// Spawns tasks for a given view to retrieve any data needed.
     </span><span class="kw">async fn </span>spawn_requests(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
         sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         bind_version: Ver,
@@ -489,7 +510,7 @@
     /// received will be sent over `sender`
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">"NetworkRequestState run_delay"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">fn </span>run_delay(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         request: RequestKind&lt;TYPES&gt;,
         sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         view: TYPES::Time,
@@ -521,11 +542,13 @@
             <span class="kw">return</span>;
         };
         <span class="macro">debug!</span>(<span class="string">"Requesting data: {:?}"</span>, request);
-        async_spawn(requester.run::&lt;Ver&gt;(request, signature));
+        <span class="kw">let </span>handle = async_spawn(requester.run::&lt;Ver&gt;(request, signature));
+
+        <span class="self">self</span>.spawned_tasks.entry(view).or_default().push(handle);
     }
 
     <span class="doccomment">/// Signals delayed requesters to finish
-    </span><span class="kw">fn </span>set_shutdown_flag(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    </span><span class="kw">pub fn </span>set_shutdown_flag(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.shutdown_flag.store(<span class="bool-val">true</span>, Ordering::Relaxed);
     }
 }
@@ -608,6 +631,7 @@
                 }
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
                     <span class="macro">warn!</span>(<span class="string">"Error Sending request.  Error: {:?}"</span>, e);
+                    async_sleep(REQUEST_TIMEOUT).<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="macro">warn!</span>(<span class="string">"Request to other node timed out"</span>);

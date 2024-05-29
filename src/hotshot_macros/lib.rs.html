@@ -421,6 +421,11 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Macros for use in testing.
 
 </span><span class="kw">use </span>proc_macro::TokenStream;
@@ -717,11 +722,6 @@
         .map(|i| <span class="macro">format_ident!</span>(<span class="string">"{}_output_index"</span>, <span class="macro">quote::quote!</span>(#i).to_string()))
         .collect();
 
-    <span class="kw">let </span>task_names: Vec&lt;<span class="kw">_</span>&gt; = scripts
-        .iter()
-        .map(|i| <span class="macro">format_ident!</span>(<span class="string">"{}_task"</span>, <span class="macro">quote::quote!</span>(#i).to_string()))
-        .collect();
-
     <span class="kw">let </span>task_expectations: Vec&lt;<span class="kw">_</span>&gt; = scripts
         .iter()
         .map(|i| <span class="macro">format_ident!</span>(<span class="string">"{}_expectations"</span>, <span class="macro">quote::quote!</span>(#i).to_string()))
@@ -739,25 +739,20 @@
         validate_task_state_or_panic_in_script,
     };
 
-    <span class="kw">use </span>hotshot_testing::{predicates::Predicate, script::RECV_TIMEOUT};
+    <span class="kw">use </span>hotshot_testing::{predicates::Predicate};
     <span class="kw">use </span>async_broadcast::broadcast;
     <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
     <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
-    <span class="kw">use </span>hotshot_task::task::{Task, TaskRegistry, TaskState};
+    <span class="kw">use </span>hotshot_task::task::{Task, TaskState};
     <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
     <span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">let </span>registry = Arc::new(TaskRegistry::default());
+    <span class="kw">async </span>{
 
-    <span class="kw">let </span>(test_input, task_receiver) = broadcast(<span class="number">1024</span>);
-    <span class="comment">// let (task_input, mut test_receiver) = broadcast(1024);
+    <span class="kw">let </span>(to_task, <span class="kw-2">mut </span>from_test) = broadcast(<span class="number">1024</span>);
+    <span class="kw">let </span>(to_test, <span class="kw-2">mut </span>from_task) = broadcast(<span class="number">1024</span>);
 
-    </span><span class="kw">let </span>task_input = test_input.clone();
-    <span class="kw">let </span><span class="kw-2">mut </span>test_receiver = task_receiver.clone();
-
-    <span class="kw">let </span><span class="kw-2">mut </span>loop_receiver = task_receiver.clone();
-
-    #(<span class="kw">let </span><span class="kw-2">mut </span>#task_names = Task::new(task_input.clone(), task_receiver.clone(), registry.clone(), #scripts.state);)*
+    <span class="kw">let </span><span class="kw-2">mut </span>loop_receiver = from_task.clone();
 
     #(<span class="kw">let </span><span class="kw-2">mut </span>#task_expectations = #scripts.expectations;)*
 
@@ -769,20 +764,28 @@
 
         <span class="kw">for </span>input <span class="kw">in </span><span class="kw-2">&amp;</span>input_group {
             #(
-                <span class="kw">if </span>!#task_names.state().filter(<span class="kw-2">&amp;</span>input.clone().into()) {
                     <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, input);
 
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = #task_names.handle_event(input.clone().into()).<span class="kw">await </span>{
-                        #task_names.state().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
-                    }
+                    to_task
+                        .broadcast(input.clone().into())
+                        .<span class="kw">await
+                        </span>.expect(<span class="string">"Failed to broadcast input message"</span>);
 
-                    <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) = async_timeout(Duration::from_millis(<span class="number">35</span>), test_receiver.recv_direct()).<span class="kw">await </span>{
+
+                    <span class="kw">let _ </span>= #scripts.state
+                        .handle_event(input.clone().into(), <span class="kw-2">&amp;</span>to_test, <span class="kw-2">&amp;</span>from_test)
+                        .<span class="kw">await
+                        </span>.inspect_err(|e| <span class="macro">tracing::info!</span>(<span class="string">"{e}"</span>));
+
+                    <span class="kw">while </span>from_test.try_recv().is_ok() {}
+
+                    <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).<span class="kw">await </span>{
                         <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
 
                         <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].output_asserts;
 
                         <span class="kw">if </span>#output_index_names &gt;= output_asserts.len() {
-                            panic_extra_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output);
+                              panic_extra_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output);
                         };
 
                         <span class="kw">let </span>assert = <span class="kw-2">&amp;mut </span>output_asserts[#output_index_names];
@@ -791,26 +794,32 @@
 
                         #output_index_names += <span class="number">1</span>;
                     }
-                }
             )*
         }
 
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(input) = loop_receiver.try_recv() {
             #(
-                <span class="kw">if </span>!#task_names.state().filter(<span class="kw-2">&amp;</span>input) {
                     <span class="macro">tracing::debug!</span>(<span class="string">"Test sent: {:?}"</span>, input);
 
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = #task_names.handle_event(input.clone()).<span class="kw">await </span>{
-                        #task_names.state().handle_result(<span class="kw-2">&amp;</span>res).<span class="kw">await</span>;
-                    }
+                    to_task
+                        .broadcast(input.clone().into())
+                        .<span class="kw">await
+                        </span>.expect(<span class="string">"Failed to broadcast input message"</span>);
 
-                    <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) = async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).<span class="kw">await </span>{
+                    <span class="kw">let _ </span>= #scripts.state
+                        .handle_event(input.clone().into(), <span class="kw-2">&amp;</span>to_test, <span class="kw-2">&amp;</span>from_test)
+                        .<span class="kw">await
+                        </span>.inspect_err(|e| <span class="macro">tracing::info!</span>(<span class="string">"{e}"</span>));
+
+                    <span class="kw">while </span>from_test.try_recv().is_ok() {}
+
+                    <span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).<span class="kw">await </span>{
                         <span class="macro">tracing::debug!</span>(<span class="string">"Test received: {:?}"</span>, received_output);
 
                         <span class="kw">let </span>output_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].output_asserts;
 
                         <span class="kw">if </span>#output_index_names &gt;= output_asserts.len() {
-                            panic_extra_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output);
+                              panic_extra_output_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>received_output);
                         };
 
                         <span class="kw">let </span><span class="kw-2">mut </span>assert = <span class="kw-2">&amp;mut </span>output_asserts[#output_index_names];
@@ -819,7 +828,6 @@
 
                         #output_index_names += <span class="number">1</span>;
                     }
-                }
             )*
         }
 
@@ -833,10 +841,12 @@
             <span class="kw">let </span>task_state_asserts = <span class="kw-2">&amp;mut </span>#task_expectations[stage_number].task_state_asserts;
 
             <span class="kw">for </span>assert <span class="kw">in </span>task_state_asserts {
-                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), #task_names.state(), <span class="kw-2">&amp;**</span>assert).<span class="kw">await</span>;
+                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), <span class="kw-2">&amp;</span>#scripts.state, <span class="kw-2">&amp;**</span>assert).<span class="kw">await</span>;
             }
         )*
     } }
+
+    }
 
     };
 

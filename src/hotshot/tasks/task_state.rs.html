@@ -331,12 +331,6 @@
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -389,19 +383,18 @@
             _phantom: PhantomData,
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
+            spawned_tasks: BTreeMap::new(),
         }
     }
 }
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>UpgradeTaskState&lt;TYPES, I&gt;
 {
-    <span class="kw">async fn </span>create_from(
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; UpgradeTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+    <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; UpgradeTaskState&lt;TYPES, I&gt; {
         UpgradeTaskState {
-            api: handle.clone(),
+            output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             cur_view: handle.cur_view().<span class="kw">await</span>,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
@@ -437,14 +430,12 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>DaTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>DaTaskState&lt;TYPES, I&gt;
 {
-    <span class="kw">async fn </span>create_from(
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; DaTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+    <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; DaTaskState&lt;TYPES, I&gt; {
         DaTaskState {
-            api: handle.clone(),
             consensus: handle.hotshot.consensus(),
+            output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -460,11 +451,9 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, I&gt;
 {
-    <span class="kw">async fn </span>create_from(
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; ViewSyncTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;&gt; {
+    <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; ViewSyncTaskState&lt;TYPES, I&gt; {
         <span class="kw">let </span>cur_view = handle.cur_view().<span class="kw">await</span>;
         ViewSyncTaskState {
             current_view: cur_view,
@@ -478,7 +467,6 @@
                 .into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            api: handle.clone(),
             num_timeouts_tracked: <span class="number">0</span>,
             replica_task_map: HashMap::default().into(),
             pre_commit_relay_map: HashMap::default().into(),
@@ -493,14 +481,14 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType&gt;
-    CreateTaskState&lt;TYPES, I&gt;
-    <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;, Ver&gt;
+    CreateTaskState&lt;TYPES, I&gt; <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, Ver&gt;
 {
     <span class="kw">async fn </span>create_from(
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;,
-    ) -&gt; TransactionTaskState&lt;TYPES, I, SystemContextHandle&lt;TYPES, I&gt;, Ver&gt; {
+    ) -&gt; TransactionTaskState&lt;TYPES, I, Ver&gt; {
         TransactionTaskState {
-            api: handle.clone(),
+            builder_timeout: handle.builder_timeout(),
+            output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             consensus: handle.hotshot.consensus(),
             cur_view: handle.cur_view().<span class="kw">await</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),

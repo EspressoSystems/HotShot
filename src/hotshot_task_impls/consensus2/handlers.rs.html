@@ -308,7 +308,7 @@
         <span class="kw">let </span>result = collector
             .as_mut()
             .unwrap()
-            .handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender)
+            .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender)
             .<span class="kw">await</span>;
 
         <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
@@ -355,7 +355,7 @@
         <span class="kw">let </span>result = collector
             .as_mut()
             .unwrap()
-            .handle_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender)
+            .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender)
             .<span class="kw">await</span>;
 
         <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
