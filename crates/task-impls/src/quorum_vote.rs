@@ -14,7 +14,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::{Leaf, QuorumProposal, VidDisperseShare},
+    data::{Leaf, VidDisperseShare},
     event::Event,
     message::{GeneralConsensusMessage, Proposal},
     simple_vote::{QuorumData, QuorumVote},
@@ -291,7 +291,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                 HotShotEvent::VoteNow(_, vote_dependency_data) => {
                     leaf = Some(vote_dependency_data.parent_leaf.clone());
                     vid_share = Some(vote_dependency_data.vid_share.clone());
-                    cur_proposal = Some(vote_dependency_data.quorum_proposal.clone());
                 }
                 _ => {}
             }
@@ -317,11 +316,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                 "We don't have the leaf for this view {:?}, but we should, because the vote dependencies have completed.",
                 self.view_number
             );
-            return;
-        };
-
-        let Some(cur_proposal) = cur_proposal else {
-            error!("We don't have the Quorum Proposal for this view {:?}, but we should, ecause the vote dependencies have completed.", self.view_number);
             return;
         };
 
