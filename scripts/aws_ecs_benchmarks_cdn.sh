@@ -50,15 +50,15 @@ round_up() {
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
 # see `aws_ecs_benchmarks_webserver.sh` for an example
-for total_nodes in 10
+for total_nodes in 500
 do
-    for da_committee_size in 5
+    for da_committee_size in 10
     do
         if [ $da_committee_size -le $total_nodes ]
         then
             for transactions_per_round in 1
             do
-                for transaction_size in 1000000
+                for transaction_size in 10000000
                 do
                     for fixed_leader_for_gpuvid in 1
                     do
@@ -102,7 +102,7 @@ EOF
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
-                                sleep_time=$(( ($rounds + $total_nodes / 2 ) * $mul ))
+                                sleep_time=$(( ($rounds + $total_nodes) * $mul ))
                                 echo -e "\e[35msleep_time: $sleep_time\e[0m"
                                 sleep $sleep_time
 
