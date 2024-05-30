@@ -41,8 +41,9 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-and-test"
-          prefix-key: ${{ matrix.just_variants }}-${{ github.ref }}
+          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -118,8 +119,9 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-and-test"
-          prefix-key: ${{ matrix.just_variants }}-${{ github.ref }}
+          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -151,8 +153,9 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-and-test"
-          prefix-key: ${{ matrix.just_variants }}-${{ github.ref }}
+          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install Just
         run: |
@@ -194,8 +197,9 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-and-test"
-          prefix-key: ${{ matrix.just_variants }}-${{ github.ref }}
+          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build examples in release mode
         run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
