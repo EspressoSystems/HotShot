@@ -17,7 +17,7 @@ use hotshot_types::{
     consensus::Consensus,
     data::{Leaf, VidDisperseShare},
     event::Event,
-    message::{GeneralConsensusMessage, Proposal},
+    message::Proposal,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
