@@ -3297,9 +3297,11 @@ dependencies = [
 name = "hotshot-task"
 version = "0.5.43"
 dependencies = [
+ "anyhow",
  "async-broadcast",
  "async-compatibility-layer",
  "async-std",
+ "async-trait",
  "futures",
  "tokio",
  "tracing",
@@ -3343,6 +3345,7 @@ dependencies = [
 name = "hotshot-testing"
 version = "0.5.43"
 dependencies = [
+ "anyhow",
  "async-broadcast",
  "async-compatibility-layer",
  "async-lock 2.8.0",
