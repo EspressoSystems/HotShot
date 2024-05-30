@@ -180,21 +180,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
             &self.private_key,
         )
         .context("Failed to sign vote")?;
-        let message = GeneralConsensusMessage::<TYPES>::Vote(vote);
-        if let GeneralConsensusMessage::Vote(vote) = message {
-            debug!(
-                "Sending vote to next quorum leader {:?}",
-                vote.view_number() + 1
-            );
-            // Add to the storage.
-            self.storage
-                .write()
-                .await
-                .append_vid(&vid_share)
-                .await
-                .context("Failed to store VID share")?;
-            broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
-        }
+        debug!(
+            "Sending vote to next quorum leader {:?}",
+            vote.view_number() + 1
+        );
+        // Add to the storage.
+        self.storage
+            .write()
+            .await
+            .append_vid(&vid_share)
+            .await
+            .context("Failed to store VID share")?;
+        broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
 
         Ok(())
     }
