@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
@@ -6,11 +6,12 @@ use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
 };
+use hotshot_macros::test_scripts;
 use hotshot_task_impls::{da::DaTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
     helpers::build_system_handle,
     predicates::event::{exact, validated_state_updated},
-    script::{run_test_script, TestScriptStage},
+    script::{run_test_script, Expectations, TaskScript, TestScriptStage},
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -67,9 +68,8 @@ async fn test_da_task() {
         vids.push(view.vid_proposal.clone());
     }
 
-    // Run view 1 (the genesis stage).
-    let view_1 = TestScriptStage {
-        inputs: vec![
+    let inputs = vec![
+        vec![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
             BlockRecv(
@@ -80,25 +80,31 @@ async fn test_da_task() {
                 precompute,
             ),
         ],
-        outputs: vec![exact(DaProposalSend(proposals[1].clone(), leaders[1]))],
-        asserts: vec![],
-    };
-
-    // Run view 2 and validate proposal.
-    let view_2 = TestScriptStage {
-        inputs: vec![DaProposalRecv(proposals[1].clone(), leaders[1])],
-        outputs: vec![
-            exact(DaProposalValidated(proposals[1].clone(), leaders[1])),
-            exact(DaVoteSend(votes[1].clone())),
-            validated_state_updated(),
-        ],
-        asserts: vec![],
-    };
+        vec![DaProposalRecv(proposals[1].clone(), leaders[1])],
+    ];
 
     let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    let stages = vec![view_1, view_2];
+    let mut da_script = TaskScript {
+        timeout: Duration::from_millis(35),
+        state: da_state,
+        expectations: vec![
+            Expectations {
+                output_asserts: vec![exact(DaProposalSend(proposals[1].clone(), leaders[1]))],
+                task_state_asserts: vec![],
+            },
+            Expectations {
+                output_asserts: vec![
+                    exact(DaProposalValidated(proposals[1].clone(), leaders[1])),
+                    exact(DaVoteSend(votes[1].clone())),
+                    validated_state_updated(),
+                ],
+                task_state_asserts: vec![],
+            },
+        ],
+    };
 
-    run_test_script(stages, da_state).await;
+    // run_test_script(stages, da_state).await;
+    test_scripts![inputs, da_script].await;
 }
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
