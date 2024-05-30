@@ -186,6 +186,5 @@ async fn test_da_task_storage_failure() {
         expectations,
     };
 
-    // run_test_script(stages, da_state).await;
     test_scripts![inputs, da_script].await;
 }
