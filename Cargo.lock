@@ -7588,9 +7588,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "surf-disco"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b649b5919e809b105a8ae833154430f7069b0e3a392fff26a672211c6b8e30d"
+checksum = "2e4318abbbbc4d640c6cb45d29cd3c70cf517c751fae9b68f2f76a6ff1950da7"
 dependencies = [
  "async-std",
  "async-tungstenite",
@@ -7850,11 +7850,13 @@ dependencies = [
 
 [[package]]
 name = "tide-disco"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbf3579d6f1362fffc7d1686ed061537afe8a187fd0b18e0f5694ad17e977ff3"
+checksum = "44c9d803bc734a5cced767b36bb1caab87e9eb7eb144cffcab38160b084a8cef"
 dependencies = [
  "anyhow",
+ "async-h1",
+ "async-lock 3.3.0",
  "async-std",
  "async-trait",
  "clap",
