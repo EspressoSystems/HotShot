@@ -1014,6 +1014,7 @@
 <a href="#1012" id="1012">1012</a>
 <a href="#1013" id="1013">1013</a>
 <a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     fmt::Debug,
@@ -1059,7 +1060,8 @@
     },
 };
 <span class="kw">use </span>hotshot_testing::block_builder::{
-    RandomBuilderImplementation, SimpleBuilderImplementation, TestBuilderImplementation,
+    RandomBuilderImplementation, SimpleBuilderConfig, SimpleBuilderImplementation,
+    TestBuilderImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -1955,7 +1957,7 @@
             <span class="kw">let </span>(builder_task, builder_url) =
                 &lt;SimpleBuilderImplementation <span class="kw">as </span>TestBuilderImplementation&lt;TYPES&gt;&gt;::start(
                     run_config.config.num_nodes_with_stake.into(),
-                    (),
+                    SimpleBuilderConfig::default(),
                 )
                 .<span class="kw">await</span>;
 
