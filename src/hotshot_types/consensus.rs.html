@@ -515,6 +515,14 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -523,6 +531,7 @@
 };
 
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>tracing::{debug, error};
 
@@ -551,6 +560,9 @@
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
     HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
+
+<span class="doccomment">/// Type alias for consensus state wrapped in a lock.
+</span><span class="kw">pub type </span>LockedConsensusState&lt;TYPES&gt; = Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;;
 
 <span class="doccomment">/// A reference to the consensus algorithm
 ///
@@ -993,22 +1005,26 @@
             </span>.expect(<span class="string">"Decided state not found! Consensus internally inconsistent"</span>)
     }
 
-    <span class="doccomment">/// Calculates `VidDisperse` based on the view, the txns and the membership,
+    <span class="doccomment">/// Associated helper function:
+    /// Takes `LockedConsensusState` which will be updated; locks it for read and write accordingly.
+    /// Calculates `VidDisperse` based on the view, the txns and the membership,
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     </span><span class="kw">pub async fn </span>calculate_and_update_vid(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        consensus: LockedConsensusState&lt;TYPES&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
         membership: Arc&lt;TYPES::Membership&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-        <span class="kw">let </span>txns = <span class="self">self</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>;
+        <span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
+        <span class="kw">let </span>txns = consensus.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>;
         <span class="kw">let </span>vid =
             VidDisperse::calculate_vid_disperse(Arc::clone(txns), <span class="kw-2">&amp;</span>membership, view, <span class="prelude-val">None</span>).<span class="kw">await</span>;
         <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);
+        <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(prop) = share.to_proposal(private_key) {
-                <span class="self">self</span>.update_vid_shares(view, prop);
+                consensus.update_vid_shares(view, prop);
             }
         }
         <span class="prelude-val">Some</span>(())

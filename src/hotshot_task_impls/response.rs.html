@@ -196,17 +196,47 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>async_broadcast::Receiver;
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
-<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>futures::{channel::mpsc, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, LockedConsensusState},
     data::VidDisperseShare,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
@@ -223,11 +253,11 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 
-<span class="doccomment">/// Type alias for consensus state wrapped in a lock.
-</span><span class="kw">type </span>LockedConsensusState&lt;TYPES&gt; = Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;;
-
 <span class="doccomment">/// Type alias for the channel that we receive requests from the network on.
 </span><span class="kw">pub type </span>RequestReceiver&lt;TYPES&gt; = mpsc::Receiver&lt;(Message&lt;TYPES&gt;, ResponseChannel&lt;Message&lt;TYPES&gt;&gt;)&gt;;
+
+<span class="doccomment">/// Time to wait for txns before sending `ResponseMessage::NotFound`
+</span><span class="kw">const </span>TXNS_TIMEOUT: Duration = Duration::from_millis(<span class="number">100</span>);
 
 <span class="doccomment">/// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
@@ -322,19 +352,49 @@
         view: TYPES::Time,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
-        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
-        <span class="kw">let </span>contained = consensus
-            .vid_shares()
+        <span class="kw">let </span>contained = <span class="self">self
+            </span>.consensus
+            .read()
+            .<span class="kw">await
+            </span>.vid_shares()
             .get(<span class="kw-2">&amp;</span>view)
             .is_some_and(|m| m.contains_key(key));
         <span class="kw">if </span>!contained {
-            <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-            consensus
-                .calculate_and_update_vid(view, Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum), <span class="kw-2">&amp;</span><span class="self">self</span>.private_key)
-                .<span class="kw">await</span>;
-            <span class="kw">return </span>consensus.vid_shares().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>.get(key).cloned();
+            <span class="kw">if </span>Consensus::calculate_and_update_vid(
+                Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+                view,
+                Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
+                <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+            )
+            .<span class="kw">await
+            </span>.is_none()
+            {
+                <span class="comment">// Sleep in hope we receive txns in the meantime
+                </span>async_sleep(TXNS_TIMEOUT).<span class="kw">await</span>;
+                Consensus::calculate_and_update_vid(
+                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+                    view,
+                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                )
+                .<span class="kw">await</span><span class="question-mark">?</span>;
+            }
+            <span class="kw">return </span><span class="self">self
+                </span>.consensus
+                .read()
+                .<span class="kw">await
+                </span>.vid_shares()
+                .get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?
+                </span>.get(key)
+                .cloned();
         }
-        consensus.vid_shares().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>.get(key).cloned()
+        <span class="self">self</span>.consensus
+            .read()
+            .<span class="kw">await
+            </span>.vid_shares()
+            .get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?
+            </span>.get(key)
+            .cloned()
     }
 
     <span class="doccomment">/// Handle the request contained in the message. Returns the response we should send
