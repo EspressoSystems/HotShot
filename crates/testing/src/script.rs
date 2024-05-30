@@ -179,6 +179,15 @@ pub struct Expectations<TYPES: NodeType, S> {
     pub task_state_asserts: Vec<Box<dyn Predicate<S>>>,
 }
 
+impl<TYPES: NodeType, S> Expectations<TYPES, S> {
+    pub fn from_outputs(output_asserts: Vec<Box<dyn Predicate<Arc<HotShotEvent<TYPES>>>>>) -> Self {
+        Self {
+            output_asserts,
+            task_state_asserts: vec![],
+        }
+    }
+}
+
 pub fn panic_extra_output_in_script<S>(stage_number: usize, script_name: String, output: &S)
 where
     S: std::fmt::Debug,
