@@ -120,38 +120,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         let state = Arc::new(validated_state);
         let delta = Arc::new(state_delta);
 
-        // TODO Upgrades
-        // Validate the DAC.
-        // let message = if cert.is_valid_cert(Upgrade Certificate) {
-        //     // Validate the block payload commitment for non-genesis DAC.
-        //     if cert.date().payload_commit != proposal.block_header.payload_commitment() {
-        //         warn!(
-        //             "Block payload commitment does not equal da cert payload commitment. View = {}",
-        //             *view
-        //         );
-        //         return false;
-        //     }
-        //     if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(
-        //         QuorumData {
-        //             leaf_commit: proposed_leaf.commit(),
-        //         },
-        //         view,
-        //         &public_key,
-        //         &self.private_key
-        //     ) {
-        //         GeneralConsensusMessage::<TYPES>::Vote(vote)
-        //     } else {
-        //         error!("Unable to sign quorum vote!");
-        //         return false;
-        //     }
-        // } else {
-        //     error!(
-        //         "Invalid DAC in proposal! Skipping proposal. {:?} cur view is: {:?}",
-        //         cert, cur_view
-        //     );
-        //     return false;
-        // };
-
         // Now that we've rounded everyone up, we need to update the shared state and broadcast our events.
         // We will defer broadcast until all states are updated to avoid holding onto the lock during a network call.
         let mut consensus_writer = self.consensus.write().await;
