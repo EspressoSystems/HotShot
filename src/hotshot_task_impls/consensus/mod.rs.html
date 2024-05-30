@@ -761,11 +761,9 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>async_compatibility_layer::art::async_spawn;

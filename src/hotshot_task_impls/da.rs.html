@@ -351,6 +351,16 @@
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -533,13 +543,13 @@
                 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
                 </span><span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
 
-                <span class="kw">let </span>view = proposal.data.view_number();
+                <span class="kw">let </span>view_number = proposal.data.view_number();
                 <span class="comment">// Generate and send vote
                 </span><span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = DaVote::create_signed_vote(
                     DaData {
                         payload_commit: payload_commitment,
                     },
-                    view,
+                    view_number,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 ) <span class="kw">else </span>{
@@ -555,19 +565,23 @@
                 <span class="comment">// Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
                 // contains strictly more information.
-                </span><span class="kw">if </span>!consensus.validated_state_map().contains_key(<span class="kw-2">&amp;</span>view) {
-                    consensus.update_validated_state_map(
-                        view,
-                        View {
-                            view_inner: ViewInner::Da { payload_commitment },
-                        },
-                    );
+                </span><span class="kw">if </span>!consensus.validated_state_map().contains_key(<span class="kw-2">&amp;</span>view_number) {
+                    <span class="kw">let </span>view = View {
+                        view_inner: ViewInner::Da { payload_commitment },
+                    };
+                    consensus.update_validated_state_map(view_number, view.clone());
+                    broadcast_event(
+                        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
+                        <span class="kw-2">&amp;</span>event_stream,
+                    )
+                    .<span class="kw">await</span>;
                 }
 
                 <span class="comment">// Record the payload we have promised to make available.
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus
-                    .update_saved_payloads(view, Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions))
-                {
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_saved_payloads(
+                    view_number,
+                    Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions),
+                ) {
                     <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
                 }
                 <span class="comment">// Optimistically calculate and update VID if we know that the primary network is down.
@@ -576,7 +590,13 @@
                     <span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
                     <span class="kw">let </span>pk = <span class="self">self</span>.private_key.clone();
                     async_spawn(<span class="kw">async move </span>{
-                        Consensus::calculate_and_update_vid(consensus, view, membership, <span class="kw-2">&amp;</span>pk).<span class="kw">await</span>;
+                        Consensus::calculate_and_update_vid(
+                            consensus,
+                            view_number,
+                            membership,
+                            <span class="kw-2">&amp;</span>pk,
+                        )
+                        .<span class="kw">await</span>;
                     });
                 }
             }

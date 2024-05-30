@@ -292,7 +292,7 @@
     </span>TimeoutCert,
 
     <span class="doccomment">/// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv` or the
-    /// `LivenessCheckProposalRecv` event during the liveness check in `QuorumProposalRecv`.
+    /// `QuorumProposalLivenessValidated` event during the liveness check in `QuorumProposalRecv`.
     </span>Proposal,
 
     <span class="doccomment">/// For the `VidShareValidated` event.
@@ -464,7 +464,7 @@
                     vid_share = <span class="prelude-val">Some</span>(share.clone());
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="comment">// LivenessCheckProposalRecv and QuorumProposalValidated are implicitly
+                    <span class="comment">// QuorumProposalLivenessValidated and QuorumProposalValidated are implicitly
                     // handled here.
                 </span>}
             }

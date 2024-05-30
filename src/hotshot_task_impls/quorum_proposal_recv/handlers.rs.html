@@ -239,7 +239,6 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -441,12 +440,17 @@
         parent
     };
 
-    {
-        <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_high_qc(justify_qc.clone()) {
-            <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
-        }
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
+    drop(consensus_write);
+
+    broadcast_event(
+        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        event_sender,
+    )
+    .<span class="kw">await</span>;
 
     <span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, _parent_state)) = parent <span class="kw">else </span>{
         <span class="macro">warn!</span>(
@@ -457,12 +461,6 @@
             validate_proposal_liveness(proposal, event_sender, <span class="kw-2">&amp;</span>justify_qc, task_state).<span class="kw">await</span>,
         );
     };
-
-    broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
-        event_sender,
-    )
-    .<span class="kw">await</span>;
 
     <span class="comment">// Validate the proposal
     </span>validate_proposal_safety_and_liveness(

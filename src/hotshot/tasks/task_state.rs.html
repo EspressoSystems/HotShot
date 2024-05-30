@@ -331,6 +331,7 @@
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -562,6 +563,7 @@
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
+            version: <span class="kw-2">*</span>handle.hotshot.version.read().<span class="kw">await</span>,
         }
     }
 }

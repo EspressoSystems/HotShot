@@ -568,6 +568,8 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -852,13 +854,15 @@
             secondary_deps.push(AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency]));
         }
 
+        <span class="kw">let </span><span class="kw-2">mut </span>primary_deps = <span class="macro">vec!</span>[payload_commitment_dependency, vid_share_dependency];
+
+        <span class="kw">if </span><span class="kw-2">*</span>view_number &gt; <span class="number">1 </span>{
+            primary_deps.push(validated_state_update_dependency);
+        }
+
         AndDependency::from_deps(<span class="macro">vec!</span>[OrDependency::from_deps(<span class="macro">vec!</span>[
             AndDependency::from_deps(<span class="macro">vec!</span>[
-                OrDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(<span class="macro">vec!</span>[
-                    payload_commitment_dependency,
-                    vid_share_dependency,
-                    validated_state_update_dependency,
-                ])]),
+                OrDependency::from_deps(<span class="macro">vec!</span>[AndDependency::from_deps(primary_deps)]),
                 OrDependency::from_deps(secondary_deps),
             ]),
         ])])
