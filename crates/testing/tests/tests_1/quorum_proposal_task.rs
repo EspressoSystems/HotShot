@@ -1,5 +1,7 @@
 #![cfg(feature = "dependency-tasks")]
 
+use std::sync::Arc;
+
 use committable::Committable;
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
@@ -40,7 +42,6 @@ use hotshot_types::{
 };
 use jf_vid::VidScheme;
 use sha2::Digest;
-use std::sync::Arc;
 
 fn make_payload_commitment(
     membership: &<TestTypes as NodeType>::Membership,

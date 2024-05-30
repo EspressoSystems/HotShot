@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use either::Either;
+use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
@@ -20,6 +21,12 @@ use hotshot_types::{
 use vbs::version::Version;
 
 use crate::view_sync::ViewSyncPhase;
+
+impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
+    fn shutdown_event() -> Self {
+        HotShotEvent::Shutdown
+    }
+}
 
 /// Marker that the task completed
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -146,6 +153,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
+    /// A HotShot upgrade was decided
+    UpgradeDecided(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
 
