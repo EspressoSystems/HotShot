@@ -232,13 +232,17 @@ pub async fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
     script_name: String,
     output: &S,
     assert: &dyn Predicate<S>,
-) {
-    assert!(
-        assert.evaluate(output).await == PredicateResult::Pass,
-        "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
-        stage_number,
-        script_name,
-        assert,
-        output
-    );
+) -> PredicateResult {
+    let result = assert.evaluate(output).await;
+
+    match result {
+        PredicateResult::Pass => result,
+        PredicateResult::Incomplete => result,
+        PredicateResult::Fail => {
+            panic!(
+                "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
+                stage_number, script_name, assert, output
+            )
+        }
+    }
 }
