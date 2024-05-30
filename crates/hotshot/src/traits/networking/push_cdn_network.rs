@@ -10,7 +10,7 @@ use async_compatibility_layer::{art::async_sleep, channel::UnboundedSendError};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
-    connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
+    connection::{protocols::Tcp, NoMiddleware},
     def::{ConnectionDef, RunDef, Topic as TopicTrait},
     discovery::{Embedded, Redis},
 };
@@ -111,7 +111,7 @@ pub struct UserDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for UserDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Quic;
-    type Middleware = UntrustedMiddleware;
+    type Middleware = NoMiddleware;
 }
 
 /// The broker definition for the Push CDN.
@@ -120,7 +120,7 @@ pub struct BrokerDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for BrokerDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Tcp;
-    type Middleware = TrustedMiddleware;
+    type Middleware = NoMiddleware;
 }
 
 /// The client definition for the Push CDN. Uses the Quic
