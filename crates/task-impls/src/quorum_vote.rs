@@ -173,7 +173,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
 
         // Broadcast now that the lock is dropped.
         broadcast_event(
-            HotShotEvent::ValidatedStateUpdated(self.view_number, view).into(),
+            HotShotEvent::ValidatedStateUpdated(proposed_leaf.view_number(), view).into(),
             &self.sender,
         )
         .await;
