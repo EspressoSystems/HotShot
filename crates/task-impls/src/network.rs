@@ -251,6 +251,7 @@ impl<
         event: Arc<HotShotEvent<TYPES>>,
         membership: &TYPES::Membership,
     ) -> Option<HotShotTaskCompleted> {
+        tracing::error!("lrzasik: NetworkEventTaskState::handle received event: {:?}", event);
         let mut maybe_action = None;
         let (sender, message_kind, transmit): (_, _, TransmitType<TYPES>) =
             match event.as_ref().clone() {

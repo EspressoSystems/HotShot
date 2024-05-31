@@ -64,7 +64,7 @@ async fn test_combined_network_cdn_crash() {
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
             num_failed_views: 33,
-            num_successful_views: 35,
+            num_successful_views: 75,
             ..Default::default()
         },
         // allow more time to pass in CI
@@ -85,7 +85,7 @@ async fn test_combined_network_cdn_crash() {
     }
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(5, all_nodes)],
+        node_changes: vec![(35, all_nodes)],
     };
 
     metadata
@@ -113,7 +113,7 @@ async fn test_combined_network_reup() {
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
             num_failed_views: 33,
-            num_successful_views: 35,
+            num_successful_views: 75,
             ..Default::default()
         },
         // allow more time to pass in CI
@@ -139,7 +139,7 @@ async fn test_combined_network_reup() {
     }
 
     metadata.spinning_properties = SpinningTaskDescription {
-        node_changes: vec![(13, all_up), (5, all_down)],
+        node_changes: vec![(45, all_up), (25, all_down)],
     };
 
     metadata

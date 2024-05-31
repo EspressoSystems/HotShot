@@ -12,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::UnboundedSendError,
@@ -28,7 +29,7 @@ use hotshot_types::traits::network::{
 };
 use hotshot_types::{
     boxed_sync,
-    constants::{COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES},
+    constants::{COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL},
     data::ViewNumber,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
@@ -56,6 +57,8 @@ pub fn calculate_hash_of<T: Hash>(t: &T) -> u64 {
 /// thread-safe ref counted lock to a map of delayed tasks
 type DelayedTasksLockedMap = Arc<RwLock<BTreeMap<u64, Vec<JoinHandle<Result<(), NetworkError>>>>>>;
 
+type DelayedTasksChannelsMap = Arc<RwLock<BTreeMap<u64, (Sender<()>, InactiveReceiver<()>)>>>;
+
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone)]
@@ -77,6 +80,12 @@ pub struct CombinedNetworks<TYPES: NodeType> {
 
     /// how long to delay
     delay_duration: Arc<RwLock<Duration>>,
+
+    delayed_tasks_channels: DelayedTasksChannelsMap,
+
+    no_delay_counter: Arc<AtomicU64>,
+
+    id: u64,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
@@ -106,6 +115,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             primary_down: Arc::new(AtomicBool::new(false)),
             delayed_tasks: Arc::default(),
             delay_duration: Arc::new(RwLock::new(delay_duration)),
+            delayed_tasks_channels: Arc::default(),
+            no_delay_counter: Arc::new(AtomicU64::new(0)),
+            id: 0u64,
         }
     }
 
@@ -148,9 +160,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         } else if self.primary_fail_counter.load(Ordering::Relaxed)
             > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
-            warn!(
-                "Primary failed more than {} times and is considered down now",
-                COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+            tracing::error!(
+                "lrzasik: Primary failed more than {} times and is considered down now, id: {:?}",
+                COMBINED_NETWORK_MIN_PRIMARY_FAILURES, self.id
             );
             self.primary_down.store(true, Ordering::Relaxed);
             primary_failed = true;
@@ -165,20 +177,72 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
+            let primary_failed = Arc::clone(&self.primary_down);
             let primary_fail_counter = Arc::clone(&self.primary_fail_counter);
-            self.delayed_tasks
+            let mut receiver = self.delayed_tasks_channels
                 .write()
                 .await
                 .entry(message.kind.view_number().u64())
-                .or_default()
-                .push(async_spawn(async move {
-                    async_sleep(duration).await;
-                    info!("Sending on secondary after delay, message possibly has not reached recipient on primary");
-                    primary_fail_counter.fetch_add(1, Ordering::Relaxed);
-                    secondary_future.await
-                }));
+                .or_insert_with(|| {
+                    let (s, r) = broadcast(1);
+                    (s, r.deactivate())
+                })
+                .1
+                .activate_cloned();
+            let id = self.id;
+            async_spawn(async move {
+                async_sleep(duration).await;
+                match receiver.try_recv() {
+                    Ok(_) => {
+                        tracing::error!("lrzasik: NOT sending on secondary after delay, task was canceled in view update, id: {:?}", id);
+                        match primary_fail_counter.load(Ordering::Relaxed) {
+                            0u64 => {
+                                primary_failed.store(false, Ordering::Relaxed);
+                                tracing::error!("lrzasik: primary_fail_counter reached zero, primary_failed set to false, id: {:?}", id);
+                            }
+                            c => {
+                                primary_fail_counter.store(c - 1, Ordering::Relaxed);
+                                tracing::error!("lrzasik: primary_fail_counter set to {:?}, id: {:?}", c - 1, id);
+                            },
+                        }
+                        // if primary_fail_counter.load(Ordering::Relaxed) > 0 {
+                        //     primary_fail_counter.fetch_sub(1, Ordering::Relaxed);
+                        // }
+                        return Ok(());
+                    },
+                    Err(e) => tracing::error!("lrzasik: try_recv returned with error: {:?}, id: {:?}", e, id),
+                }
+                tracing::error!("lrzasik: Sending on secondary after delay, message possibly has not reached recipient on primary, id: {:?}", id);
+                primary_fail_counter.fetch_add(1, Ordering::Relaxed);
+                secondary_future.await
+            });
+            // self.delayed_tasks
+            //     .write()
+            //     .await
+            //     .entry(message.kind.view_number().u64())
+            //     .or_default()
+            //     .push(async_spawn(async move {
+            //         async_sleep(duration).await;
+            //         info!("Sending on secondary after delay, message possibly has not reached recipient on primary");
+            //         primary_fail_counter.fetch_add(1, Ordering::Relaxed);
+            //         secondary_future.await
+            //     }));
             Ok(())
         } else {
+            if self.primary_down.load(Ordering::Relaxed) {
+                match self.no_delay_counter.load(Ordering::Relaxed) {
+                    c if c < COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL => self.no_delay_counter.store(c + 1, Ordering::Relaxed),
+                    _ => {
+                        tracing::error!(
+                            "lrzasik: Sent on secondary without delay more than {} times, try delaying to check primary, id: {:?}",
+                            COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL, self.id
+                        );
+                        self.no_delay_counter.store(0u64, Ordering::Relaxed);
+                        self.primary_down.store(false, Ordering::Relaxed);
+                        self.primary_fail_counter.store(COMBINED_NETWORK_MIN_PRIMARY_FAILURES, Ordering::Relaxed);
+                    }
+                }
+            }
             secondary_future.await
         }
     }
@@ -259,6 +323,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     message_cache: Arc::clone(&message_cache),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                    delayed_tasks_channels: Arc::default(),
+                    no_delay_counter: Arc::new(AtomicU64::new(0)),
+                    id: node_id,
                 };
                 let da_net = Self {
                     networks: Arc::new(da_networks),
@@ -267,6 +334,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     primary_down: Arc::new(AtomicBool::new(false)),
                     delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                    delayed_tasks_channels: Arc::default(),
+                    no_delay_counter: Arc::new(AtomicU64::new(0)),
+                    id: node_id,
                 };
                 (quorum_net.into(), da_net.into())
             })
@@ -473,30 +543,51 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     where
         T: NodeType<SignatureKey = TYPES::SignatureKey> + 'a,
     {
-        let delayed_map = Arc::clone(&self.delayed_tasks);
+        // let delayed_map = Arc::clone(&self.delayed_tasks);
+        // async_spawn(async move {
+        //     let mut cancel_tasks = Vec::new();
+        //     {
+        //         let mut map_lock = delayed_map.write().await;
+        //         while let Some((first_view, _tasks)) = map_lock.first_key_value() {
+        //             if *first_view < view {
+        //                 if let Some((_view, tasks)) = map_lock.pop_first() {
+        //                     let mut ctasks = tasks.into_iter().map(cancel_task).collect();
+        //                     cancel_tasks.append(&mut ctasks);
+        //                 } else {
+        //                     break;
+        //                 }
+        //             } else {
+        //                 break;
+        //             }
+        //         }
+        //     }
+        //     join_all(cancel_tasks).await;
+        // });
+
+        tracing::error!("lrzasik: update_view for view: {:?}", view);
+        let delayed_tasks_channels = Arc::clone(&self.delayed_tasks_channels);
+        tracing::error!("lrzasik: update_view map: {:?}", delayed_tasks_channels.read().await);
         async_spawn(async move {
-            let mut cancel_tasks = Vec::new();
-            {
-                let mut map_lock = delayed_map.write().await;
-                while let Some((first_view, _tasks)) = map_lock.first_key_value() {
-                    if *first_view < view {
-                        if let Some((_view, tasks)) = map_lock.pop_first() {
-                            let mut ctasks = tasks.into_iter().map(cancel_task).collect();
-                            cancel_tasks.append(&mut ctasks);
-                        } else {
-                            break;
+            let mut map_lock = delayed_tasks_channels.write().await;
+            while let Some((first_view, _)) = map_lock.first_key_value() {
+                if *first_view < view {
+                    if let Some((_, (sender, _))) = map_lock.pop_first() {
+                        match sender.try_broadcast(()) {
+                            Ok(_) => tracing::error!("lrzasik: try_broadcast returned Ok"),
+                            Err(e) => tracing::error!("lrzasik: try_broadcast returned Err: {:?}", e),
                         }
                     } else {
                         break;
                     }
+                } else {
+                    break;
                 }
             }
-            join_all(cancel_tasks).await;
         });
 
         // View changed, let's start primary again
-        self.primary_down.store(false, Ordering::Relaxed);
-        self.primary_fail_counter.store(0, Ordering::Relaxed);
+        // self.primary_down.store(false, Ordering::Relaxed);
+        // self.primary_fail_counter.store(0, Ordering::Relaxed);
 
         // Run `update_view` logic for the libp2p network
         self.networks.1.update_view::<T>(view, membership).await;
