@@ -222,18 +222,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }));
         }
 
-        let failures = self.ctx.failed_views.len() + num_incomplete_views;
-
-        if failures > num_failed_rounds_total {
+        if self.ctx.failed_views.len() + num_incomplete_views > num_failed_rounds_total {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                 failed_views: self.ctx.failed_views.clone(),
             }));
         }
 
-        if failures < num_failed_rounds_total {
+        if self.ctx.failed_views.len() < num_failed_rounds_total {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughFailures {
                 expected: num_failed_rounds_total,
-                actual: failures,
+                actual: self.ctx.failed_views.len(),
             }));
         }
         TestResult::Pass
