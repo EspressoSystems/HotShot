@@ -14,6 +14,7 @@ use hotshot_types::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
         SequencingMessage,
     },
+    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
         network::{ConnectedNetwork, TransmitType, ViewMessage},
@@ -22,8 +23,7 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::{debug, error, instrument, warn};
-use vbs::version::Version;
+use tracing::{error, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -38,7 +38,7 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
             | HotShotEvent::QuorumVoteSend(_)
             | HotShotEvent::DacSend(_, _)
             | HotShotEvent::TimeoutVoteSend(_)
-            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::UpgradeDecided(_)
             | HotShotEvent::ViewChange(_)
     )
 }
@@ -49,7 +49,7 @@ pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool
         event.as_ref(),
         HotShotEvent::UpgradeProposalSend(_, _)
             | HotShotEvent::UpgradeVoteSend(_)
-            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::UpgradeDecided(_)
             | HotShotEvent::ViewChange(_)
     )
 }
@@ -60,7 +60,7 @@ pub fn da_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
         event.as_ref(),
         HotShotEvent::DaProposalSend(_, _)
             | HotShotEvent::DaVoteSend(_)
-            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::UpgradeDecided(_)
             | HotShotEvent::ViewChange(_)
     )
 }
@@ -70,7 +70,7 @@ pub fn vid_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
         HotShotEvent::VidDisperseSend(_, _)
-            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::UpgradeDecided(_)
             | HotShotEvent::ViewChange(_)
     )
 }
@@ -85,7 +85,7 @@ pub fn view_sync_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bo
             | HotShotEvent::ViewSyncPreCommitVoteSend(_)
             | HotShotEvent::ViewSyncCommitVoteSend(_)
             | HotShotEvent::ViewSyncFinalizeVoteSend(_)
-            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::UpgradeDecided(_)
             | HotShotEvent::ViewChange(_)
     )
 }
@@ -197,8 +197,6 @@ pub struct NetworkEventTaskState<
     pub channel: Arc<COMMCHANNEL>,
     /// view number
     pub view: TYPES::Time,
-    /// version
-    pub version: Version,
     /// membership for the channel
     pub membership: TYPES::Membership,
     // TODO ED Need to add exchange so we can get the recipient key and our own key?
@@ -206,6 +204,8 @@ pub struct NetworkEventTaskState<
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
+    /// Decided upgrade certificate
+    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 }
 
 #[async_trait]
@@ -250,7 +250,7 @@ impl<
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         membership: &TYPES::Membership,
-    ) -> Option<HotShotTaskCompleted> {
+    ) {
         let mut maybe_action = None;
         let (sender, message_kind, transmit): (_, _, TransmitType<TYPES>) =
             match event.as_ref().clone() {
@@ -277,7 +277,8 @@ impl<
                     )
                 }
                 HotShotEvent::VidDisperseSend(proposal, sender) => {
-                    return self.handle_vid_disperse_proposal(proposal, &sender);
+                    self.handle_vid_disperse_proposal(proposal, &sender);
+                    return;
                 }
                 HotShotEvent::DaProposalSend(proposal, sender) => {
                     maybe_action = Some(HotShotAction::DaPropose);
@@ -381,20 +382,14 @@ impl<
                     self.channel
                         .update_view::<TYPES>(self.view.u64(), membership)
                         .await;
-                    return None;
+                    return;
                 }
-                HotShotEvent::VersionUpgrade(version) => {
-                    debug!("Updating internal version in network task to {:?}", version);
-                    self.version = version;
-                    return None;
+                HotShotEvent::UpgradeDecided(cert) => {
+                    self.decided_upgrade_certificate = Some(cert.clone());
+                    return;
                 }
-                HotShotEvent::Shutdown => {
-                    error!("Networking task shutting down");
-                    return Some(HotShotTaskCompleted);
-                }
-                event => {
-                    error!("Receieved unexpected message in network task {:?}", event);
-                    return None;
+                _ => {
+                    return;
                 }
             };
         let message = Message {
@@ -405,7 +400,23 @@ impl<
         let committee = membership.whole_committee(view);
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
-        let version = self.version;
+        let version = match self.decided_upgrade_certificate {
+            Some(ref cert) => {
+                if view >= cert.data.new_version_first_view
+                    && cert.data.new_version == UPGRADE_VERSION
+                {
+                    UPGRADE_VERSION
+                } else if view >= cert.data.new_version_first_view
+                    && cert.data.new_version != UPGRADE_VERSION
+                {
+                    error!("The network has upgraded to a new version that we do not support!");
+                    return;
+                } else {
+                    BASE_VERSION
+                }
+            }
+            None => BASE_VERSION,
+        };
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
@@ -456,8 +467,6 @@ impl<
                 Err(e) => error!("Failed to send message from network task: {:?}", e),
             }
         });
-
-        None
     }
 
     /// handle `VidDisperseSend`

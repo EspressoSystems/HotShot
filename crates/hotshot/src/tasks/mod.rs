@@ -19,15 +19,13 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
-
 #[cfg(feature = "dependency-tasks")]
 use hotshot_task_impls::{
     consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
 };
-
 use hotshot_types::{
-    constants::{Version01, VERSION_0_1},
+    constants::Version01,
     message::{Message, Messages},
     traits::{
         network::ConnectedNetwork,
@@ -131,10 +129,10 @@ pub async fn add_network_event_task<
     let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
-        version: VERSION_0_1,
         membership,
         filter,
         storage: Arc::clone(&handle.storage()),
+        decided_upgrade_certificate: None,
     };
     let task = Task::new(
         network_state,

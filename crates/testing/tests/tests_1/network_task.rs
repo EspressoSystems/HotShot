@@ -14,7 +14,6 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    constants::BASE_VERSION,
     data::ViewNumber,
     traits::{
         election::Membership,
@@ -58,7 +57,7 @@ async fn test_network_task() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
-            version: BASE_VERSION,
+            decided_upgrade_certificate: None,
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
@@ -123,7 +122,7 @@ async fn test_network_storage_fail() {
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
-            version: BASE_VERSION,
+            decided_upgrade_certificate: None,
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);

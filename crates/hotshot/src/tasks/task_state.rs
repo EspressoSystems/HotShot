@@ -4,7 +4,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::types::SystemContextHandle;
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
@@ -19,6 +18,8 @@ use hotshot_types::traits::{
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
 use vbs::version::StaticVersionType;
+
+use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]
@@ -60,6 +61,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for UpgradeTaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> UpgradeTaskState<TYPES, I> {
+        #[cfg(not(feature = "example-upgrade"))]
         return UpgradeTaskState {
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
@@ -77,7 +79,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 
         #[cfg(feature = "example-upgrade")]
         return UpgradeTaskState {
-            api: handle.clone(),
+            output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
