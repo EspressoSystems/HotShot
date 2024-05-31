@@ -234,3 +234,5 @@ commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_pe
 3broker,500,10,1,1,5000016,100,static-leader-selection,Half,10,9,15,1946571,102,262,100,0
 commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
 3brokers_my,500,10,1,1,10000016,100,static-leader-selection,Half,23,12,90,2453187,131,534,104,4
+commit_sha,total_nodes,da_committee_size,fixed_leader_for_gpuvid,transactions_per_round,transaction_size,rounds,leader_election_type,partial_results,avg_latency_in_sec,minimum_latency_in_sec,maximum_latency_in_sec,throughput_bytes_per_sec,total_transactions_committed,total_time_elapsed_in_sec,total_num_views,failed_num_views
+3brokers,500,10,1,1,10000016,100,static-leader-selection,Half,22,13,86,2351742,115,490,104,4
