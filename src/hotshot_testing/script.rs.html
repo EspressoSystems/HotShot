@@ -235,6 +235,44 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
@@ -404,6 +442,31 @@
     }
 }
 
+<span class="kw">pub enum </span>InputOrder&lt;TYPES: NodeType&gt; {
+    Random(Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;),
+    Serial(Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;),
+}
+
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules!</span> random {
+    ($(<span class="macro-nonterminal">$x</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {
+        {
+            <span class="kw">let </span>inputs = <span class="macro">vec!</span>[$(<span class="macro-nonterminal">$x</span>),<span class="kw-2">*</span>];
+            InputOrder::Random(inputs)
+        }
+    };
+}
+
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules!</span> serial {
+    ($(<span class="macro-nonterminal">$x</span>:expr),* $(,)<span class="question-mark">?</span>) =&gt; {
+        {
+            <span class="kw">let </span>inputs = <span class="macro">vec!</span>[$(<span class="macro-nonterminal">$x</span>),<span class="kw-2">*</span>];
+            InputOrder::Serial(inputs)
+        }
+    };
+}
+
 <span class="kw">pub struct </span>TaskScript&lt;TYPES: NodeType, S&gt; {
     <span class="doccomment">/// The time to wait on the receiver for this script.
     </span><span class="kw">pub </span>timeout: Duration,
@@ -414,6 +477,15 @@
 <span class="kw">pub struct </span>Expectations&lt;TYPES: NodeType, S&gt; {
     <span class="kw">pub </span>output_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
     <span class="kw">pub </span>task_state_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;S&gt;&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, S&gt; Expectations&lt;TYPES, S&gt; {
+    <span class="kw">pub fn </span>from_outputs(output_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            output_asserts,
+            task_state_asserts: <span class="macro">vec!</span>[],
+        }
+    }
 }
 
 <span class="kw">pub fn </span>panic_extra_output_in_script&lt;S&gt;(stage_number: usize, script_name: String, output: <span class="kw-2">&amp;</span>S)
@@ -460,14 +532,18 @@
     script_name: String,
     output: <span class="kw-2">&amp;</span>S,
     assert: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Predicate&lt;S&gt;,
-) {
-    <span class="macro">assert!</span>(
-        assert.evaluate(output).<span class="kw">await </span>== PredicateResult::Pass,
-        <span class="string">"Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}"</span>,
-        stage_number,
-        script_name,
-        assert,
-        output
-    );
+) -&gt; PredicateResult {
+    <span class="kw">let </span>result = assert.evaluate(output).<span class="kw">await</span>;
+
+    <span class="kw">match </span>result {
+        PredicateResult::Pass =&gt; result,
+        PredicateResult::Incomplete =&gt; result,
+        PredicateResult::Fail =&gt; {
+            <span class="macro">panic!</span>(
+                <span class="string">"Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}"</span>,
+                stage_number, script_name, assert, output
+            )
+        }
+    }
 }
 </code></pre></div></section></main></body></html>
