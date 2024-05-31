@@ -1121,6 +1121,10 @@
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1636,6 +1640,8 @@
         <span class="kw-2">*</span>proposal.data.view_number
     );
 
+    <span class="kw">let </span>cur_view = task_state.cur_view;
+
     validate_proposal_view_and_certs(
         proposal,
         <span class="kw-2">&amp;</span>sender,
@@ -1662,9 +1668,11 @@
         task_state.timeout,
         Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
         <span class="kw-2">&amp;mut </span>task_state.cur_view,
+        <span class="kw-2">&amp;mut </span>task_state.cur_view_time,
         <span class="kw-2">&amp;mut </span>task_state.timeout_task,
         <span class="kw-2">&amp;</span>task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .<span class="kw">await
     </span>{

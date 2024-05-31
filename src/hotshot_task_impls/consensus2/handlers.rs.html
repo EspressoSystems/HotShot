@@ -248,11 +248,31 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
+<span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_types::{
     event::{Event, EventType},
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
@@ -411,6 +431,15 @@
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
+    <span class="kw">let </span>cur_view_time = Utc::now().timestamp();
+    <span class="kw">if </span>task_state.quorum_membership.leader(old_view_number) == task_state.public_key {
+        <span class="attr">#[allow(clippy::cast_precision_loss)]
+        </span>consensus
+            .metrics
+            .view_duration_as_leader
+            .add_point((cur_view_time - task_state.cur_view_time) <span class="kw">as </span>f64);
+    }
+    task_state.cur_view_time = cur_view_time;
 
     <span class="comment">// Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
@@ -493,6 +522,15 @@
         </span>.metrics
         .number_of_timeouts
         .add(<span class="number">1</span>);
+    <span class="kw">if </span>task_state.quorum_membership.leader(view_number) == task_state.public_key {
+        task_state
+            .consensus
+            .read()
+            .<span class="kw">await
+            </span>.metrics
+            .number_of_timeouts_as_leader
+            .add(<span class="number">1</span>);
+    }
 
     <span class="prelude-val">Ok</span>(())
 }

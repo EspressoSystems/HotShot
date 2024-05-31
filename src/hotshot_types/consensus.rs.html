@@ -523,6 +523,14 @@
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -634,6 +642,8 @@
     </span><span class="kw">pub </span>number_of_views_since_last_decide: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of views that are in-flight since the last anchor view
     </span><span class="kw">pub </span>number_of_views_per_decide_event: Box&lt;<span class="kw">dyn </span>Histogram&gt;,
+    <span class="doccomment">/// Duration of views as leader
+    </span><span class="kw">pub </span>view_duration_as_leader: Box&lt;<span class="kw">dyn </span>Histogram&gt;,
     <span class="doccomment">/// Number of invalid QCs we've seen since the last commit.
     </span><span class="kw">pub </span>invalid_qc: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of outstanding transactions
@@ -642,6 +652,8 @@
     </span><span class="kw">pub </span>outstanding_transactions_memory_size: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of views that timed out
     </span><span class="kw">pub </span>number_of_timeouts: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+    <span class="doccomment">/// Number of views that timed out as leader
+    </span><span class="kw">pub </span>number_of_timeouts_as_leader: Box&lt;<span class="kw">dyn </span>Counter&gt;,
     <span class="doccomment">/// The number of empty blocks that have been proposed
     </span><span class="kw">pub </span>number_of_empty_blocks_proposed: Box&lt;<span class="kw">dyn </span>Counter&gt;,
 }
@@ -660,12 +672,16 @@
                 .create_gauge(String::from(<span class="string">"number_of_views_since_last_decide"</span>), <span class="prelude-val">None</span>),
             number_of_views_per_decide_event: metrics
                 .create_histogram(String::from(<span class="string">"number_of_views_per_decide_event"</span>), <span class="prelude-val">None</span>),
+            view_duration_as_leader: metrics
+                .create_histogram(String::from(<span class="string">"view_duration_as_leader"</span>), <span class="prelude-val">None</span>),
             invalid_qc: metrics.create_gauge(String::from(<span class="string">"invalid_qc"</span>), <span class="prelude-val">None</span>),
             outstanding_transactions: metrics
                 .create_gauge(String::from(<span class="string">"outstanding_transactions"</span>), <span class="prelude-val">None</span>),
             outstanding_transactions_memory_size: metrics
                 .create_gauge(String::from(<span class="string">"outstanding_transactions_memory_size"</span>), <span class="prelude-val">None</span>),
             number_of_timeouts: metrics.create_counter(String::from(<span class="string">"number_of_timeouts"</span>), <span class="prelude-val">None</span>),
+            number_of_timeouts_as_leader: metrics
+                .create_counter(String::from(<span class="string">"number_of_timeouts_as_leader"</span>), <span class="prelude-val">None</span>),
             number_of_empty_blocks_proposed: metrics
                 .create_counter(String::from(<span class="string">"number_of_empty_blocks_proposed"</span>), <span class="prelude-val">None</span>),
         }

@@ -761,6 +761,14 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -843,6 +851,9 @@
     </span><span class="kw">pub </span>round_start_delay: u64,
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
+
+    <span class="doccomment">/// Timestamp this view starts at.
+    </span><span class="kw">pub </span>cur_view_time: i64,
 
     <span class="doccomment">/// The commitment to the current block payload and its metadata submitted to DA.
     </span><span class="kw">pub </span>payload_commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
@@ -1307,9 +1318,11 @@
                     <span class="self">self</span>.timeout,
                     Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view,
+                    <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view_time,
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.timeout_task,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
+                    <span class="self">self</span>.quorum_membership.leader(old_view_number) == <span class="self">self</span>.public_key,
                 )
                 .<span class="kw">await
                 </span>{
@@ -1365,6 +1378,9 @@
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
+                <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view) == <span class="self">self</span>.public_key {
+                    consensus.metrics.number_of_timeouts_as_leader.add(<span class="number">1</span>);
+                }
             }
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::SendPayloadCommitmentAndMetadata(

@@ -226,6 +226,9 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -278,6 +281,9 @@
 
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
+
+    <span class="doccomment">/// Timestamp this view starts at.
+    </span><span class="kw">pub </span>cur_view_time: i64,
 
     <span class="doccomment">/// Network for all nodes
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
