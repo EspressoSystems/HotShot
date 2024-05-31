@@ -15,7 +15,6 @@ cross_tests!(
     Types: [TestTypes],
     Ignore: false,
     Metadata: {
-
         let mut metadata = TestDescription::default_more_nodes();
         metadata.overall_safety_properties.num_failed_views = 6;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
