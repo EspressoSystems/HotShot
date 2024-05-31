@@ -41,7 +41,8 @@ async fn test_consensus_task() {
     use hotshot_macros::test_scripts;
     use hotshot_testing::{
         predicates::event::all_predicates,
-        script::{Expectations, TaskScript},
+        random,
+        script::{Expectations, InputOrder, TaskScript},
     };
     use hotshot_types::data::null_block;
 
@@ -79,12 +80,12 @@ async fn test_consensus_task() {
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let inputs = vec![
-        vec![
+        random![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DaCertificateRecv(dacs[0].clone()),
             VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
-        vec![
+        random![
             VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QcFormed(either::Left(cert)),

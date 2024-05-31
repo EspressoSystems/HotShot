@@ -167,6 +167,31 @@ pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + 
     }
 }
 
+pub enum InputOrder<TYPES: NodeType> {
+    Random(Vec<HotShotEvent<TYPES>>),
+    Serial(Vec<HotShotEvent<TYPES>>),
+}
+
+#[macro_export]
+macro_rules! random {
+    ($($x:expr),* $(,)?) => {
+        {
+            let inputs = vec![$($x),*];
+            InputOrder::Random(inputs)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! serial {
+    ($($x:expr),* $(,)?) => {
+        {
+            let inputs = vec![$($x),*];
+            InputOrder::Serial(inputs)
+        }
+    };
+}
+
 pub struct TaskScript<TYPES: NodeType, S> {
     /// The time to wait on the receiver for this script.
     pub timeout: Duration,

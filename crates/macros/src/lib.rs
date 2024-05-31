@@ -254,27 +254,6 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
     cross_tests_internal(test_spec)
 }
 
-/// Macro to permute the input randomly
-#[proc_macro]
-pub fn random(input: proc_macro::TokenStream) -> TokenStream {
-    // Parse the input as an iter of Expr
-    let inputs: Vec<_> = syn::parse::Parser::parse2(
-        syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
-        input.into(),
-    )
-    .unwrap()
-    .into_iter()
-    .collect();
-
-    let expanded = quote! {
-        {
-
-        }
-    };
-
-    expanded.into()
-}
-
 /// Macro to test multiple `TaskState` scripts at once.
 ///
 /// Usage:
@@ -402,44 +381,44 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
         while let Ok(input) = loop_receiver.try_recv() {
             #(
-                    tracing::debug!("Test sent: {:?}", input);
+                tracing::debug!("Test sent: {:?}", input);
 
-                    to_task
-                        .broadcast(input.clone().into())
-                        .await
-                        .expect("Failed to broadcast input message");
+                to_task
+                    .broadcast(input.clone().into())
+                    .await
+                    .expect("Failed to broadcast input message");
 
-                    let _ = #scripts.state
-                        .handle_event(input.clone().into(), &to_test, &from_test)
-                        .await
-                        .inspect_err(|e| tracing::info!("{e}"));
+                let _ = #scripts.state
+                    .handle_event(input.clone().into(), &to_test, &from_test)
+                    .await
+                    .inspect_err(|e| tracing::info!("{e}"));
 
-                    while from_test.try_recv().is_ok() {}
+                while from_test.try_recv().is_ok() {}
 
-                    let mut result = PredicateResult::Incomplete;
-                    while let Ok(Ok(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).await {
-                        tracing::debug!("Test received: {:?}", received_output);
+                let mut result = PredicateResult::Incomplete;
+                while let Ok(Ok(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).await {
+                    tracing::debug!("Test received: {:?}", received_output);
 
-                        let output_asserts = &mut #task_expectations[stage_number].output_asserts;
+                    let output_asserts = &mut #task_expectations[stage_number].output_asserts;
 
-                        if #output_index_names >= output_asserts.len() {
-                              panic_extra_output_in_script(stage_number, #script_names.to_string(), &received_output);
-                        };
+                    if #output_index_names >= output_asserts.len() {
+                            panic_extra_output_in_script(stage_number, #script_names.to_string(), &received_output);
+                    };
 
-                        let mut assert = &mut output_asserts[#output_index_names];
+                    let mut assert = &mut output_asserts[#output_index_names];
 
-                        result = validate_output_or_panic_in_script(
-                            stage_number,
-                            #script_names.to_string(),
-                            &received_output,
-                            &**assert
-                        )
-                        .await;
+                    result = validate_output_or_panic_in_script(
+                        stage_number,
+                        #script_names.to_string(),
+                        &received_output,
+                        &**assert
+                    )
+                    .await;
 
-                        if result == PredicateResult::Pass {
-                            #output_index_names += 1;
-                        }
+                    if result == PredicateResult::Pass {
+                        #output_index_names += 1;
                     }
+                }
             )*
         }
 
