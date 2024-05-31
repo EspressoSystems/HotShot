@@ -40,6 +40,7 @@ async fn test_consensus_task() {
     use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
     use hotshot_macros::{run_test, test_scripts};
     use hotshot_testing::{
+        all_predicates,
         predicates::event::all_predicates,
         random,
         script::{Expectations, InputOrder, TaskScript},
@@ -101,16 +102,16 @@ async fn test_consensus_task() {
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(vec![all_predicates(vec![
+        Expectations::from_outputs(all_predicates![
             exact(ViewChange(ViewNumber::new(1))),
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
-        ])]),
-        Expectations::from_outputs(vec![all_predicates(vec![
+        ]),
+        Expectations::from_outputs(all_predicates![
             exact(ViewChange(ViewNumber::new(2))),
             quorum_proposal_validated(),
             quorum_proposal_send(),
-        ])]),
+        ]),
     ];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
