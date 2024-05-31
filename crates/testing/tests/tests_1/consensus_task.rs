@@ -38,11 +38,12 @@ async fn test_consensus_task() {
     use std::time::Duration;
 
     use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
-    use hotshot_macros::test_scripts;
+    use hotshot_macros::{run_test, test_scripts};
     use hotshot_testing::{
         predicates::event::all_predicates,
         random,
         script::{Expectations, InputOrder, TaskScript},
+        serial,
     };
     use hotshot_types::data::null_block;
 
@@ -85,7 +86,7 @@ async fn test_consensus_task() {
             DaCertificateRecv(dacs[0].clone()),
             VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
-        random![
+        serial![
             VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QcFormed(either::Left(cert)),
@@ -105,11 +106,11 @@ async fn test_consensus_task() {
             quorum_proposal_validated(),
             exact(QuorumVoteSend(votes[0].clone())),
         ])]),
-        Expectations::from_outputs(vec![
+        Expectations::from_outputs(vec![all_predicates(vec![
             exact(ViewChange(ViewNumber::new(2))),
             quorum_proposal_validated(),
             quorum_proposal_send(),
-        ]),
+        ])]),
     ];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
@@ -119,7 +120,7 @@ async fn test_consensus_task() {
         expectations,
     };
 
-    test_scripts![inputs, consensus_script].await;
+    run_test![inputs, consensus_script].await;
 }
 
 #[cfg(test)]

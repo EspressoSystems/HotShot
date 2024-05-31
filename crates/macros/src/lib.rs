@@ -443,3 +443,58 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
     expanded.into()
 }
+
+/// Runs a unit test
+#[proc_macro]
+pub fn run_test(input: TokenStream) -> TokenStream {
+    // Parse the input as an iter of Expr
+    let inputs: Vec<_> = syn::parse::Parser::parse2(
+        syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+        input.into(),
+    )
+    .unwrap()
+    .into_iter()
+    .collect();
+
+    // Separate the first input (which should be the InputOrder enum)
+    let test_inputs = &inputs[0];
+    let scripts = &inputs[1..];
+
+    // Generate code for shuffling and flattening inputs
+    let expanded = quote! {
+        {
+            use rand::{
+                SeedableRng, rngs::StdRng,
+                seq::SliceRandom
+            };
+            use hotshot_task_impls::events::HotShotEvent;
+            use hotshot_task::task::TaskState;
+            use hotshot_types::traits::node_implementation::NodeType;
+            use hotshot_testing::script::InputOrder;
+
+            async {
+                let seed: u64 = rand::random();
+                tracing::info!("Running test with seed {seed}");
+                let mut rng = StdRng::seed_from_u64(seed);
+                let mut shuffled_inputs = Vec::new();
+
+                for (stage_number, input_order) in #test_inputs.into_iter().enumerate() {
+                    match input_order {
+                        InputOrder::Random(mut events) => {
+                            events.shuffle(&mut rng);
+                            shuffled_inputs.push(events);
+                        },
+                        InputOrder::Serial(events) => {
+                            shuffled_inputs.push(events);
+                        }
+                    }
+                }
+
+                test_scripts![shuffled_inputs, #(#scripts),*].await;
+                tracing::info!("Suite used seed {seed}");
+            }
+        }
+    };
+
+    expanded.into()
+}
