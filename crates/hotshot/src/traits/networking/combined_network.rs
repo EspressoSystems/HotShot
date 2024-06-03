@@ -12,24 +12,24 @@ use std::{
     time::Duration,
 };
 
-use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
+use async_broadcast::{broadcast, InactiveReceiver, Sender};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::UnboundedSendError,
 };
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use futures::{channel::mpsc, future::join_all, join, select, FutureExt};
-use hotshot_task_impls::helpers::cancel_task;
+use futures::{channel::mpsc, join, select, FutureExt};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 use hotshot_types::{
     boxed_sync,
-    constants::{COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL},
+    constants::{
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+    },
     data::ViewNumber,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
@@ -39,9 +39,7 @@ use hotshot_types::{
     BoxSyncFuture,
 };
 use lru::LruCache;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 use vbs::version::StaticVersionType;
 
 use super::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -172,7 +170,8 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             let duration = *self.delay_duration.read().await;
             let primary_failed = Arc::clone(&self.primary_down);
             let primary_fail_counter = Arc::clone(&self.primary_fail_counter);
-            let mut receiver = self.delayed_tasks_channels
+            let mut receiver = self
+                .delayed_tasks_channels
                 .write()
                 .await
                 .entry(message.kind.view_number().u64())
@@ -184,17 +183,21 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 .activate_cloned();
             async_spawn(async move {
                 async_sleep(duration).await;
-                if let Ok(_) = receiver.try_recv() {
-                    debug!("Not sending on secondary after delay, task was canceled in view update");
+                if receiver.try_recv().is_ok() {
+                    debug!(
+                        "Not sending on secondary after delay, task was canceled in view update"
+                    );
                     match primary_fail_counter.load(Ordering::Relaxed) {
                         0u64 => {
                             primary_failed.store(false, Ordering::Relaxed);
-                            debug!("primary_fail_counter reached zero, primary_failed set to false");
+                            debug!(
+                                "primary_fail_counter reached zero, primary_failed set to false"
+                            );
                         }
                         c => {
                             primary_fail_counter.store(c - 1, Ordering::Relaxed);
                             debug!("primary_fail_counter set to {:?}", c - 1);
-                        },
+                        }
                     }
                     return Ok(());
                 }
@@ -206,7 +209,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         } else {
             if self.primary_down.load(Ordering::Relaxed) {
                 match self.no_delay_counter.load(Ordering::Relaxed) {
-                    c if c < COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL => self.no_delay_counter.store(c + 1, Ordering::Relaxed),
+                    c if c < COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL => {
+                        self.no_delay_counter.store(c + 1, Ordering::Relaxed);
+                    }
                     _ => {
                         debug!(
                             "Sent on secondary without delay more than {} times,\
@@ -215,7 +220,8 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                         );
                         self.no_delay_counter.store(0u64, Ordering::Relaxed);
                         self.primary_down.store(false, Ordering::Relaxed);
-                        self.primary_fail_counter.store(COMBINED_NETWORK_MIN_PRIMARY_FAILURES, Ordering::Relaxed);
+                        self.primary_fail_counter
+                            .store(COMBINED_NETWORK_MIN_PRIMARY_FAILURES, Ordering::Relaxed);
                     }
                 }
             }
