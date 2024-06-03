@@ -85,7 +85,7 @@ async fn update_states<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// - The justify qc is invalid.
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
-/// 
+///
 /// # Returns
 /// * `Ok(true)` if the validation succeeds.
 /// * `Ok(false)` if the validation isn't completed due to missing information.

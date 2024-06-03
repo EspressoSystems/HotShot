@@ -165,10 +165,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         error!("Did not get a VID share for our public key, aborting vote");
                         return;
                     };
-                    let Some(da_cert) = consensus
-                        .saved_da_certs()
-                        .get(&view)
-                    else {
+                    let Some(da_cert) = consensus.saved_da_certs().get(&view) else {
                         debug!(
                             "Received VID share, but couldn't find DAC cert for view {:?}",
                             view

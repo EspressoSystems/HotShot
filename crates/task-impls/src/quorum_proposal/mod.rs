@@ -39,9 +39,6 @@ use crate::{
 
 mod dependency_handle;
 
-/// Event handlers for [`QuorumProposalTaskState`].
-mod handlers;
-
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Latest view number that has been proposed for.
