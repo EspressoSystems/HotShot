@@ -15,8 +15,7 @@ if [ $# -lt 2 ]; then
     echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST>"
     exit 1
 fi
-REMOTE_USER="$1" #"sishan"
-REMOTE_BROKER_HOST="$2" #"3.135.239.251"
+REMOTE_USER="$1"
 
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
@@ -50,15 +49,15 @@ round_up() {
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 # for iteration of assignment
 # see `aws_ecs_benchmarks_webserver.sh` for an example
-for total_nodes in 500
+for total_nodes in 10 50 100 200 500 1000
 do
     for da_committee_size in 10
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1
+            for transactions_per_round in 1 10
             do
-                for transaction_size in 10000000
+                for transaction_size in 100000 1000000 10000000 20000000
                 do
                     for fixed_leader_for_gpuvid in 1
                     do
@@ -76,11 +75,18 @@ do
                                 # server2: broker
                                 # make sure you're able to access the remote host from current host
                                 echo -e "\e[35mGoing to start cdn-broker on remote server\e[0m"
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
+                                BROKER_COUNTER=0
+                                for REMOTE_BROKER_HOST in "$@"; do
+                                    if [ "$BROKER_COUNTER" -ge 1 ]; then
+                                        echo -e "\e[35mstart broker $BROKER_COUNTER on $REMOTE_BROKER_HOST\e[0m"
+                                        ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
 cd HotShot
 nohup bash scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
 exit
 EOF
+                                    fi
+                                    BROKER_COUNTER=$((BROKER_COUNTER + 1))
+                                done
 
                                 # start orchestrator
                                 echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
@@ -93,7 +99,7 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha builder_fix &
+                                                                                --commit_sha 3broker &
                                 sleep 30
 
                                 # start validators
@@ -102,7 +108,7 @@ EOF
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
-                                sleep_time=$(( ($rounds + $total_nodes) * $mul ))
+                                sleep_time=$(( ($rounds + $total_nodes / 2 ) * $mul ))
                                 echo -e "\e[35msleep_time: $sleep_time\e[0m"
                                 sleep $sleep_time
 
@@ -113,7 +119,14 @@ EOF
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"
                                 killall -9 cdn-broker
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
+                                BROKER_COUNTER=0
+                                for REMOTE_BROKER_HOST in "$@"; do
+                                    if [ "$BROKER_COUNTER" -ge 1 ]; then
+                                        echo -e "\e[35mstop broker $BROKER_COUNTER on $REMOTE_BROKER_HOST\e[0m"
+                                        ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
+                                    fi
+                                    BROKER_COUNTER=$((BROKER_COUNTER + 1))
+                                done
                                 # remove brokers from keydb
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli
