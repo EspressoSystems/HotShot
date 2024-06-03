@@ -1326,7 +1326,7 @@ version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
 dependencies = [
  "async-std",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6)",
  "clap",
  "console-subscriber",
  "dashmap",
@@ -1347,10 +1347,10 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.7#9d91f69ae2a966b0f4fce10a04bbe54b9bca267a"
 dependencies = [
  "async-std",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.7)",
  "clap",
  "jf-signature",
  "rand 0.8.5",
@@ -1365,7 +1365,7 @@ version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6#569d6a6ec3ccbbd41c041a4c80bd260bc5c928ff"
 dependencies = [
  "async-std",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6)",
  "clap",
  "jf-signature",
  "tokio",
@@ -1391,6 +1391,37 @@ dependencies = [
  "num_enum",
  "pem",
  "prometheus",
+ "quinn",
+ "rand 0.8.5",
+ "rcgen 0.12.1",
+ "redis",
+ "rkyv",
+ "rustls 0.21.11",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
+ "warp",
+]
+
+[[package]]
+name = "cdn-proto"
+version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.7#9d91f69ae2a966b0f4fce10a04bbe54b9bca267a"
+dependencies = [
+ "anyhow",
+ "ark-serialize",
+ "async-trait",
+ "capnp",
+ "capnpc",
+ "derivative",
+ "jf-signature",
+ "kanal",
+ "lazy_static",
+ "mnemonic",
+ "num_enum",
+ "pem",
  "quinn",
  "rand 0.8.5",
  "rcgen 0.12.1",
@@ -3319,7 +3350,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6)",
  "chrono",
  "committable",
  "either",
@@ -3401,7 +3432,7 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
- "cdn-proto",
+ "cdn-proto 0.1.0 (git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.6)",
  "committable",
  "custom_debug",
  "derivative",
@@ -3559,7 +3590,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
