@@ -11,7 +11,7 @@ use hotshot_task_impls::{
 use hotshot_testing::{
     helpers::build_system_handle,
     predicates::event::{all_predicates, exact, vote_now},
-    script::{run_test_script, InputOrder, TestScriptStage},
+    script::InputOrder,
     serial,
     view_generator::TestViewGenerator,
 };

@@ -29,7 +29,7 @@ use hotshot_testing::{
         Predicate,
     },
     random,
-    script::{run_test_script, Expectations, InputOrder, TaskScript, TestScriptStage},
+    script::{Expectations, InputOrder, TaskScript},
     serial,
     view_generator::TestViewGenerator,
 };

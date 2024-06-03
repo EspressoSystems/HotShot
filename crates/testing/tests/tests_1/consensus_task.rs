@@ -23,7 +23,7 @@ use hotshot_testing::{
         timeout_vote_send,
     },
     random,
-    script::{run_test_script, Expectations, InputOrder, TaskScript, TestScriptStage},
+    script::{Expectations, InputOrder, TaskScript},
     serial,
     view_generator::TestViewGenerator,
 };
