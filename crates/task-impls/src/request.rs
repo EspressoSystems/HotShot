@@ -246,6 +246,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 /// Wrapper for the info in a VID request
 struct VidRequest<TYPES: NodeType>(TYPES::Time, TYPES::SignatureKey);
+
+/// Wrapper for the info in a Proposal fetch request
 struct ProposalRequest<TYPES: NodeType>(TYPES::Time, TYPES::SignatureKey);
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
@@ -272,16 +274,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             RequestKind::DaProposal(..) => {}
         }
     }
+    /// Handle sending a request for proposal for a view, does
+    /// not delay
     async fn do_proposal<Ver: StaticVersionType + 'static>(
         &self,
         req: ProposalRequest<TYPES>,
         signature: Signature<TYPES>,
     ) {
-        self.network.request_data::<TYPES, Ver>(
-            make_proposal_req(&req, signature),
-            &self.leader,
-            Ver::instance(),
-        );
+        let _ = self
+            .network
+            .request_data::<TYPES, Ver>(
+                make_proposal_req(&req, signature),
+                &self.leader,
+                Ver::instance(),
+            )
+            .await;
     }
     /// Handle sending a VID Share request, runs the loop until the data exists
     async fn do_vid<Ver: StaticVersionType + 'static>(
@@ -366,6 +373,7 @@ fn make_vid<TYPES: NodeType>(
     }
 }
 
+/// Build a request for a Proposal
 fn make_proposal_req<TYPES: NodeType>(
     req: &ProposalRequest<TYPES>,
     signature: Signature<TYPES>,
@@ -377,7 +385,7 @@ fn make_proposal_req<TYPES: NodeType>(
         signature,
     };
     Message {
-        sender: req.1,
+        sender: req.1.clone(),
         kind: MessageKind::Data(DataMessage::RequestData(data_request)),
     }
 }

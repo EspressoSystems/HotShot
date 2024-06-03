@@ -202,6 +202,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     async fn respond_with_proposal(&self, _view: TYPES::Time) -> ResponseMessage<TYPES> {
         // Complete after we are storing our last proposed view:
         // https://github.com/EspressoSystems/HotShot/issues/3240
+        async {}.await;
         todo!();
     }
 }
