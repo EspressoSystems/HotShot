@@ -92,6 +92,10 @@ test_success:
   echo Testing success test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
+test_success_dependency_tasks:
+  echo Testing success test
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_success -- --test-threads=1 --nocapture
+
 test_timeout:
   echo Testing timeout test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture

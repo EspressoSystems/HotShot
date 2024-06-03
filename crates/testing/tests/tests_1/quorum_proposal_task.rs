@@ -550,7 +550,6 @@ async fn test_quorum_proposal_livness_check_proposal() {
     // the QuorumProposalRecv task tests.
     let view_2 = TestScriptStage {
         inputs: vec![
-            QuorumProposalLivenessValidated(proposals[1].data.clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(3)),

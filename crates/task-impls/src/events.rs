@@ -158,12 +158,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
 
-    /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
-    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
-    /// different state than what we'd typically see with a fully validated proposal and,
-    /// as a result, it need to be its own event.
-    QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
-
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 
@@ -171,15 +165,9 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A undecided view has been created and added to the validated state storage.
     ValidatedStateUpdated(TYPES::Time, View<TYPES>),
 
-    /// A new locked view has been created (2-chain)
-    LockedViewUpdated(TYPES::Time),
-
     /// A new anchor view has been successfully reached by this node (3-chain).
     LastDecidedViewUpdated(TYPES::Time),
 
     /// A new high_qc has been reached by this node.
     UpdateHighQc(QuorumCertificate<TYPES>),
-
-    /// A new undecided view has been proposed.
-    NewUndecidedView(Leaf<TYPES>),
 }

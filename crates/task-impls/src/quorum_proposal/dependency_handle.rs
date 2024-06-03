@@ -39,10 +39,6 @@ pub(crate) enum ProposalDependency {
     /// For the `QcFormed` event timeout branch.
     TimeoutCert,
 
-    /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv` or the
-    /// `QuorumProposalLivenessValidated` event during the liveness check in `QuorumProposalRecv`.
-    Proposal,
-
     /// For the `VidShareValidated` event.
     VidShare,
 
@@ -210,10 +206,6 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 }
                 HotShotEvent::VidShareValidated(share) => {
                     vid_share = Some(share.clone());
-                }
-                _ => {
-                    // QuorumProposalLivenessValidated and QuorumProposalValidated are implicitly
-                    // handled here.
                 }
             }
         }

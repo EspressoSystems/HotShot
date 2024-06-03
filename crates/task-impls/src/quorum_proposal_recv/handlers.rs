@@ -31,15 +31,13 @@ use crate::{
     helpers::broadcast_event,
 };
 
-/// Broadcast the proposal in the event that the parent state is not found for
-/// a given `proposal`, but it still passes the liveness check. Optionally return
-/// the inner [`QuorumProposal`] if the liveness check passes.
-async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+/// Update states in the event that the parent state is not found for a given `proposal`.
+async fn update_states<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     justify_qc: &QuorumCertificate<TYPES>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> Option<QuorumProposal<TYPES>> {
+) {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
 
@@ -72,62 +70,32 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
-    let liveness_check = justify_qc.view_number() > consensus_write.locked_view();
-
-    let high_qc = consensus_write.high_qc().clone();
-    drop(consensus_write);
-
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
         event_sender,
     )
     .await;
-    broadcast_event(
-        HotShotEvent::NewUndecidedView(leaf.clone()).into(),
-        event_sender,
-    )
-    .await;
-
-    if liveness_check {
-        let new_view = proposal.data.view_number + 1;
-
-        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-        let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
-            && high_qc.view_number() == proposal.data.view_number();
-
-        if should_propose {
-            debug!(
-                "Attempting to publish proposal after voting for liveness; now in view: {}",
-                *new_view
-            );
-            broadcast_event(
-                HotShotEvent::QuorumProposalLivenessValidated(proposal.data.clone()).into(),
-                event_sender,
-            )
-            .await;
-        }
-
-        return Some(proposal.data.clone());
-    }
-
-    None
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
-/// evaluating if a liveness check is needed for the proposal, which runs when the proposal cannot be
-/// found in the internal state map.
+/// updating the states, which runs when the proposal cannot be found in the internal state map.
 ///
 /// This code can fail when:
 /// - The justify qc is invalid.
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
+/// 
+/// # Returns
+/// * `Ok(true)` if the validation succeeds.
+/// * `Ok(false)` if the validation isn't completed due to missing information.
+/// * `Err(..)` if the validation fails.
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> Result<Option<QuorumProposal<TYPES>>> {
+) -> Result<bool> {
     let sender = sender.clone();
     let cur_view = task_state.cur_view;
 
@@ -219,9 +187,8 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
-        return Ok(
-            validate_proposal_liveness(proposal, event_sender, &justify_qc, task_state).await,
-        );
+        update_states(proposal, event_sender, &justify_qc, task_state).await;
+        return Ok(false);
     };
 
     // Validate the proposal
@@ -238,5 +205,5 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     )
     .await?;
 
-    Ok(None)
+    Ok(true)
 }

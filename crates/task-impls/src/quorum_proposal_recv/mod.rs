@@ -130,7 +130,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
             match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
-                Ok(Some(current_proposal)) => {
+                Ok(true) => {
+                    self.cancel_tasks(proposal.data.view_number()).await;
+                }
+                Ok(false) => {
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match parent_leaf_and_state(
                         self.cur_view,
@@ -148,8 +151,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         }
                     };
 
-                    let view = current_proposal.view_number();
-                    self.cancel_tasks(proposal.data.view_number()).await;
+                    let view = proposal.data.view_number();
+                    self.cancel_tasks(view).await;
                     let consensus = self.consensus.read().await;
                     let Some(vid_shares) = consensus.vid_shares().get(&view) else {
                         debug!(
@@ -164,11 +167,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     };
                     let Some(da_cert) = consensus
                         .saved_da_certs()
-                        .get(&current_proposal.view_number())
+                        .get(&view)
                     else {
                         debug!(
                             "Received VID share, but couldn't find DAC cert for view {:?}",
-                            current_proposal.view_number()
+                            view
                         );
                         return;
                     };
@@ -176,7 +179,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         Arc::new(HotShotEvent::VoteNow(
                             view,
                             VoteDependencyData {
-                                quorum_proposal: current_proposal,
+                                quorum_proposal: proposal.data,
                                 parent_leaf,
                                 vid_share: vid_share.clone(),
                                 da_cert: da_cert.clone(),
@@ -185,9 +188,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         &event_stream,
                     )
                     .await;
-                }
-                Ok(None) => {
-                    self.cancel_tasks(proposal.data.view_number()).await;
                 }
                 Err(e) => debug!(?e, "Failed to propose"),
             }

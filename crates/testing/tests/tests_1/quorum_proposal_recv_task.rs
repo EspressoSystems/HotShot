@@ -161,8 +161,6 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
                     ),
                 ),
             )),
-            exact(NewUndecidedView(leaves[2].clone())),
-            exact(QuorumProposalLivenessValidated(proposals[2].data.clone())),
             vote_now(),
         ],
         asserts: vec![],
