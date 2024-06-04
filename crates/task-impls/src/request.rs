@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -18,7 +17,10 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
-    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    message::{
+        DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage, VersionedMessage,
+    },
+    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
@@ -32,7 +34,6 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
-use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -43,11 +44,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 /// The task will wait a it's `delay` and then send a request iteratively to peers
 /// for any data they don't have related to the proposal.  For now it's just requesting VID
 /// shares.
-pub struct NetworkRequestState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    Ver: StaticVersionType + 'static,
-> {
+pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
     pub network: Arc<I::QuorumNetwork>,
     /// Consensus shared state so we can check if we've gotten the information
@@ -65,19 +62,17 @@ pub struct NetworkRequestState<
     pub public_key: TYPES::SignatureKey,
     /// This nodes private/signign key, used to sign requests.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// Version discrimination
-    pub _phantom: PhantomData<fn(&Ver)>,
     /// The node's id
     pub id: u64,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
+    /// a potential upgrade certificate that has been decided on by the consensus tasks.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
-    for NetworkRequestState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for NetworkRequestState<TYPES, I> {
     fn drop(&mut self) {
         futures::executor::block_on(async move { self.cancel_subtasks().await });
     }
@@ -88,9 +83,7 @@ type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
-    for NetworkRequestState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequestState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
@@ -103,8 +96,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.view_number();
                 if prop_view >= self.view {
-                    self.spawn_requests(prop_view, sender.clone(), Ver::instance())
-                        .await;
+                    self.spawn_requests(prop_view, sender.clone()).await;
                 }
                 Ok(())
             }
@@ -137,27 +129,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static>
-    NetworkRequestState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(
         &mut self,
         view: TYPES::Time,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
-        bind_version: Ver,
     ) {
-        let requests = self.build_requests(view, bind_version).await;
+        let requests = self.build_requests(view).await;
         if requests.is_empty() {
             return;
         }
         requests
             .into_iter()
-            .for_each(|r| self.run_delay(r, sender.clone(), view, bind_version));
+            .for_each(|r| self.run_delay(r, sender.clone(), view));
     }
 
     /// Creates the srequest structures for all types that are needed.
-    async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
+    async fn build_requests(&self, view: TYPES::Time) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares().contains_key(&view) {
             reqs.push(RequestKind::Vid(view, self.public_key.clone()));
@@ -174,7 +163,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         request: RequestKind<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
-        _: Ver,
     ) {
         let mut recipients: Vec<_> = self
             .da_membership
@@ -191,10 +179,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             delay: self.delay,
             recipients,
             shutdown_flag: Arc::clone(&self.shutdown_flag),
+            decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
         };
-        let Ok(data) = Serializer::<Ver>::serialize(&request) else {
-            tracing::error!("Failed to serialize request!");
-            return;
+        let data = match bincode::serialize(&request) {
+            Ok(serialized) => serialized,
+            Err(e) => {
+                error!("Failed to serialize message: {}", e);
+                return;
+            }
         };
         let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
         else {
@@ -202,7 +194,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
-        let handle = async_spawn(requester.run::<Ver>(request, signature));
+        let handle = async_spawn(requester.run(request, signature));
 
         self.spawned_tasks.entry(view).or_default().push(handle);
     }
@@ -229,6 +221,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     recipients: Vec<TYPES::SignatureKey>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     shutdown_flag: Arc<AtomicBool>,
+    /// a potential upgrade certificate that has been decided on by the consensus tasks.
+    decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 /// Wrapper for the info in a VID request
@@ -237,45 +231,62 @@ struct VidRequest<TYPES: NodeType>(TYPES::Time, TYPES::SignatureKey);
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Wait the delay, then try to complete the request.  Iterates over peers
     /// until the request is completed, or the data is no longer needed.
-    async fn run<Ver: StaticVersionType + 'static>(
-        self,
-        request: RequestKind<TYPES>,
-        signature: Signature<TYPES>,
-    ) {
+    async fn run(self, request: RequestKind<TYPES>, signature: Signature<TYPES>) {
         // Do the delay only if primary is up and then start sending
         if !self.network.is_primary_down() {
             async_sleep(self.delay).await;
         }
         match request {
             RequestKind::Vid(view, key) => {
-                self.do_vid::<Ver>(VidRequest(view, key), signature).await;
+                self.do_vid(VidRequest(view, key), signature).await;
             }
             RequestKind::DaProposal(..) => {}
         }
     }
 
     /// Handle sending a VID Share request, runs the loop until the data exists
-    async fn do_vid<Ver: StaticVersionType + 'static>(
-        &self,
-        req: VidRequest<TYPES>,
-        signature: Signature<TYPES>,
-    ) {
+    async fn do_vid(&self, req: VidRequest<TYPES>, signature: Signature<TYPES>) {
         let message = make_vid(&req, signature);
         let mut recipients_it = self.recipients.iter().cycle();
 
         while !self.cancel_vid(&req).await {
+            let decided_upgrade_certificate = self.decided_upgrade_certificate.read().await.clone();
+
+            let serialized_message = match message.serialize(&decided_upgrade_certificate) {
+                Ok(message) => message,
+                Err(e) => {
+                    tracing::error!("Failed to serialize message: {e}");
+                    return;
+                }
+            };
+
             match async_timeout(
                 REQUEST_TIMEOUT,
-                self.network.request_data::<TYPES, Ver>(
-                    message.clone(),
-                    recipients_it.next().unwrap(),
-                    Ver::instance(),
-                ),
+                self.network
+                    .request_data::<TYPES>(serialized_message, recipients_it.next().unwrap()),
             )
             .await
             {
                 Ok(Ok(response)) => {
-                    match response {
+                    let drained: Vec<u8> = response.clone().drain(8..).collect();
+
+                    let deserialized_message: Message<TYPES> =
+                        match VersionedMessage::deserialize(&drained, &decided_upgrade_certificate)
+                        {
+                            Ok(message) => message,
+                            Err(e) => {
+                                tracing::error!("Failed to deserialize message: {e}");
+                                return;
+                            }
+                        };
+                    let MessageKind::Data(DataMessage::DataResponse(deserialized_response)) =
+                        deserialized_message.kind
+                    else {
+                        error!("Received an unexpected message in response!");
+                        return;
+                    };
+
+                    match deserialized_response {
                         ResponseMessage::Found(data) => {
                             self.handle_response_message(data).await;
                             // keep trying, but expect the map to be populated, or view to increase

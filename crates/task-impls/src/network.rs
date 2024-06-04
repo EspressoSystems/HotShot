@@ -7,17 +7,16 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    constants::{BASE_VERSION, STATIC_VER_0_1, STATIC_VER_0_2, UPGRADE_VERSION},
     data::{VidDisperse, VidDisperseShare},
     event::HotShotAction,
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage,
+        SequencingMessage, VersionedMessage,
     },
     simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, TransmitType, ViewMessage},
+        network::{BroadcastDelay, ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
         storage::Storage,
     },
@@ -190,7 +189,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
 /// network event task state
 pub struct NetworkEventTaskState<
     TYPES: NodeType,
-    COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    COMMCHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
     S: Storage<TYPES>,
 > {
     /// comm channel
@@ -211,7 +210,7 @@ pub struct NetworkEventTaskState<
 #[async_trait]
 impl<
         TYPES: NodeType,
-        COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        COMMCHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
         S: Storage<TYPES> + 'static,
     > TaskState for NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
@@ -237,7 +236,7 @@ impl<
 
 impl<
         TYPES: NodeType,
-        COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+        COMMCHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
         S: Storage<TYPES> + 'static,
     > NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
@@ -392,6 +391,13 @@ impl<
                     return;
                 }
             };
+        let broadcast_delay = match &message_kind {
+            MessageKind::Consensus(
+                SequencingMessage::General(GeneralConsensusMessage::Vote(_))
+                | SequencingMessage::Da(_),
+            ) => BroadcastDelay::View(*message_kind.view_number()),
+            _ => BroadcastDelay::None,
+        };
         let message = Message {
             sender,
             kind: message_kind,
@@ -400,23 +406,7 @@ impl<
         let committee = membership.whole_committee(view);
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
-        let version = match self.decided_upgrade_certificate {
-            Some(ref cert) => {
-                if view >= cert.data.new_version_first_view
-                    && cert.data.new_version == UPGRADE_VERSION
-                {
-                    UPGRADE_VERSION
-                } else if view >= cert.data.new_version_first_view
-                    && cert.data.new_version != UPGRADE_VERSION
-                {
-                    error!("The network has upgraded to a new version that we do not support!");
-                    return;
-                } else {
-                    BASE_VERSION
-                }
-            }
-            None => BASE_VERSION,
-        };
+        let decided_upgrade_certificate = self.decided_upgrade_certificate.clone();
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
@@ -429,37 +419,26 @@ impl<
                 return;
             }
 
-            let transmit_result = if version == BASE_VERSION {
-                match transmit {
-                    TransmitType::Direct(recipient) => {
-                        net.direct_message(message, recipient, STATIC_VER_0_1).await
-                    }
-                    TransmitType::Broadcast => {
-                        net.broadcast_message(message, committee, STATIC_VER_0_1)
-                            .await
-                    }
-                    TransmitType::DaCommitteeBroadcast => {
-                        net.da_broadcast_message(message, committee, STATIC_VER_0_1)
-                            .await
-                    }
+            let serialized_message = match message.serialize(&decided_upgrade_certificate) {
+                Ok(serialized) => serialized,
+                Err(e) => {
+                    error!("Failed to serialize message: {}", e);
+                    return;
                 }
-            } else if version == UPGRADE_VERSION {
-                match transmit {
-                    TransmitType::Direct(recipient) => {
-                        net.direct_message(message, recipient, STATIC_VER_0_2).await
-                    }
-                    TransmitType::Broadcast => {
-                        net.broadcast_message(message, committee, STATIC_VER_0_2)
-                            .await
-                    }
-                    TransmitType::DaCommitteeBroadcast => {
-                        net.da_broadcast_message(message, committee, STATIC_VER_0_2)
-                            .await
-                    }
+            };
+
+            let transmit_result = match transmit {
+                TransmitType::Direct(recipient) => {
+                    net.direct_message(serialized_message, recipient).await
                 }
-            } else {
-                error!("The network has upgraded to {:?}, which is not implemented in this instance of HotShot.", version);
-                return;
+                TransmitType::Broadcast => {
+                    net.broadcast_message(serialized_message, committee, broadcast_delay)
+                        .await
+                }
+                TransmitType::DaCommitteeBroadcast => {
+                    net.da_broadcast_message(serialized_message, committee, broadcast_delay)
+                        .await
+                }
             };
 
             match transmit_result {
@@ -477,20 +456,26 @@ impl<
     ) -> Option<HotShotTaskCompleted> {
         let view = vid_proposal.data.view_number;
         let vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
-        let messages: HashMap<_, _> = vid_share_proposals
-            .into_iter()
-            .map(|proposal| {
-                (
-                    proposal.data.recipient_key.clone(),
-                    Message {
-                        sender: sender.clone(),
-                        kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                            DaConsensusMessage::VidDisperseMsg(proposal),
-                        )), // TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
-                    },
-                )
-            })
-            .collect();
+        let mut messages = HashMap::new();
+
+        for proposal in vid_share_proposals {
+            let recipient = proposal.data.recipient_key.clone();
+            let message = Message {
+                sender: sender.clone(),
+                kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                    DaConsensusMessage::VidDisperseMsg(proposal),
+                )), // TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+            };
+            let serialized_message = match message.serialize(&self.decided_upgrade_certificate) {
+                Ok(serialized) => serialized,
+                Err(e) => {
+                    error!("Failed to serialize message: {}", e);
+                    continue;
+                }
+            };
+
+            messages.insert(recipient, serialized_message);
+        }
 
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
@@ -505,7 +490,7 @@ impl<
             {
                 return;
             }
-            match net.vid_broadcast_message(messages, STATIC_VER_0_1).await {
+            match net.vid_broadcast_message(messages).await {
                 Ok(()) => {}
                 Err(e) => error!("Failed to send message from network task: {:?}", e),
             }

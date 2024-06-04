@@ -1,10 +1,8 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::types::SystemContextHandle;
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
@@ -20,6 +18,8 @@ use hotshot_types::traits::{
 };
 use vbs::version::StaticVersionType;
 
+use crate::types::SystemContextHandle;
+
 /// Trait for creating task states.
 #[async_trait]
 pub trait CreateTaskState<TYPES, I>
@@ -32,12 +32,10 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> CreateTaskState<TYPES, I>
-    for NetworkRequestState<TYPES, I, V>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for NetworkRequestState<TYPES, I>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
-    ) -> NetworkRequestState<TYPES, I, V> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> NetworkRequestState<TYPES, I> {
         NetworkRequestState {
             network: Arc::clone(&handle.hotshot.networks.quorum_network),
             state: handle.hotshot.consensus(),
@@ -47,10 +45,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> Create
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            _phantom: PhantomData,
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
             spawned_tasks: BTreeMap::new(),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -222,6 +220,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: Arc::clone(&handle.storage),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
