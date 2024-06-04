@@ -63,7 +63,3 @@ impl<TYPES: NodeType> TaskState for RewindTaskState<TYPES> {
         }
     }
 }
-
-// impl<TYPES: NodeType> Drop for RewindTaskState<TYPES> {
-//     fn drop(&mut self) {}
-// }
