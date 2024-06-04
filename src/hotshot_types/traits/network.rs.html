@@ -662,6 +662,8 @@
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -874,6 +876,8 @@
     </span>Vid(TYPES::Time, TYPES::SignatureKey),
     <span class="doccomment">/// Request a DA proposal for a certain view
     </span>DaProposal(TYPES::Time),
+    <span class="doccomment">/// Request for quorum proposal for a view
+    </span>Proposal(TYPES::Time),
 }
 
 <span class="doccomment">/// A response for a request.  `SequencingMessage` is the same as other network messages

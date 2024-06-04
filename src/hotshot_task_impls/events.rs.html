@@ -185,6 +185,8 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>either::Either;
@@ -251,6 +253,8 @@
     </span>QuorumVoteDependenciesValidated(TYPES::Time),
     <span class="doccomment">/// A quorum proposal with the given parent leaf is validated.
     </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;, Leaf&lt;TYPES&gt;),
+    <span class="doccomment">/// A quorum proposal is missing for a view that we meed
+    </span>QuorumProposalMissing(TYPES::Time),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DaProposalSend(Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
