@@ -16,7 +16,7 @@ use committable::Committable;
 use futures::FutureExt;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus, View},
-    data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
@@ -40,8 +40,6 @@ use tracing::{debug, error, info, warn};
 use vbs::version::Version;
 
 use super::ConsensusTaskState;
-#[cfg(feature = "dependency-tasks")]
-use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     events::HotShotEvent,

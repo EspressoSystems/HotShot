@@ -152,6 +152,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         inputs: vec![QuorumProposalRecv(proposals[2].clone(), leaders[2])],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(3))),
+            exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
             exact(ValidatedStateUpdated(
                 ViewNumber::new(3),
                 build_fake_view_with_leaf_and_state(

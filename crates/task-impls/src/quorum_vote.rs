@@ -41,9 +41,6 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 
-/// Event handlers for quorum proposals.
-mod handlers;
-
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]
 enum VoteDependency {

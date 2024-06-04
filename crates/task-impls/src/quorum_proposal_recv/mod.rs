@@ -176,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         Arc::new(HotShotEvent::VoteNow(
                             view,
                             VoteDependencyData {
-                                quorum_proposal: proposal.data,
+                                quorum_proposal: proposal.data.clone(),
                                 parent_leaf,
                                 vid_share: vid_share.clone(),
                                 da_cert: da_cert.clone(),

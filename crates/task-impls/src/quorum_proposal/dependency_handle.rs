@@ -207,6 +207,9 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::VidShareValidated(share) => {
                     vid_share = Some(share.clone());
                 }
+                _ => {
+                    // Other events are implicitly handled here.
+                }
             }
         }
 
