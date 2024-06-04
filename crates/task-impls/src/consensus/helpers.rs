@@ -33,7 +33,7 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{message::GeneralConsensusMessage, simple_vote::QuorumData};
+use hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};

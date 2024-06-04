@@ -35,7 +35,6 @@ use crate::{
 async fn update_states<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    justify_qc: &QuorumCertificate<TYPES>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
 ) {
     let view_number = proposal.data.view_number();
@@ -193,7 +192,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
-        update_states(proposal, event_sender, &justify_qc, task_state).await;
+        update_states(proposal, event_sender, task_state).await;
         return Ok(false);
     };
 

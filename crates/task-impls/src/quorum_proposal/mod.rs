@@ -242,7 +242,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         };
 
         // We have three cases to consider:
-        let mut secondary_deps = vec![
+        let secondary_deps = vec![
             // 1. A QcFormed event
             AndDependency::from_deps(vec![qc_dependency]),
             // 2. A timeout cert was received
