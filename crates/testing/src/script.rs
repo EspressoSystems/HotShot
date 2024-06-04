@@ -1,77 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
-// use hotshot_task::task::TaskState;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 
 use crate::predicates::{Predicate, PredicateResult};
-
-// pub const RECV_TIMEOUT: Duration = Duration::from_millis(250);
-
-// pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {
-//     pub inputs: Vec<HotShotEvent<TYPES>>,
-//     pub outputs: Vec<Box<dyn Predicate<Arc<HotShotEvent<TYPES>>>>>,
-//     pub asserts: Vec<Box<dyn Predicate<S>>>,
-// }
-
-// pub fn panic_extra_output<S>(stage_number: usize, output: &S)
-// where
-//     S: std::fmt::Debug,
-// {
-//     let extra_output_error = format!(
-//         "Stage {} | Received unexpected additional output:\n\n{:?}",
-//         stage_number, output
-//     );
-
-//     panic!("{}", extra_output_error);
-// }
-
-// pub fn panic_missing_output<S>(stage_number: usize, output: &S)
-// where
-//     S: std::fmt::Debug,
-// {
-//     let output_missing_error = format!(
-//         "Stage {} | Failed to receive output for predicate: {:?}",
-//         stage_number, output
-//     );
-
-//     panic!("{}", output_missing_error);
-// }
-
-// pub async fn validate_task_state_or_panic<S>(
-//     stage_number: usize,
-//     state: &S,
-//     assert: &dyn Predicate<S>,
-// ) {
-//     assert!(
-//         assert.evaluate(state).await == PredicateResult::Pass,
-//         "Stage {} | Task state failed to satisfy: {:?}",
-//         stage_number,
-//         assert
-//     );
-// }
-
-// pub async fn validate_output_or_panic<S>(
-//     stage_number: usize,
-//     output: &S,
-//     assert: &(dyn Predicate<S> + 'static),
-// ) -> PredicateResult
-// where
-//     S: std::fmt::Debug,
-// {
-//     let result = assert.evaluate(output).await;
-
-//     match result {
-//         PredicateResult::Pass => result,
-//         PredicateResult::Incomplete => result,
-//         PredicateResult::Fail => {
-//             panic!(
-//                 "Stage {} | Output failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
-//                 stage_number, assert, output
-//             )
-//         }
-//     }
-// }
 
 pub enum InputOrder<TYPES: NodeType> {
     Random(Vec<HotShotEvent<TYPES>>),
