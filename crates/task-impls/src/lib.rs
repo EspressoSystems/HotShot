@@ -55,3 +55,7 @@ pub mod quorum_proposal;
 
 /// Task for handling QuorumProposalRecv events
 pub mod quorum_proposal_recv;
+
+/// Task for recording all events seen by this node.
+#[cfg(feature = "rewind")]
+pub mod rewind;

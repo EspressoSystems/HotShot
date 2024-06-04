@@ -11,8 +11,8 @@ use hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
     da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
-    request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
-    vid::VidTaskState, view_sync::ViewSyncTaskState,
+    request::NetworkRequestState, rewind::RewindTaskState, transactions::TransactionTaskState,
+    upgrade::UpgradeTaskState, vid::VidTaskState, view_sync::ViewSyncTaskState,
 };
 use hotshot_types::traits::{
     consensus_api::ConsensusApi,
@@ -329,6 +329,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout: handle.hotshot.config.next_view_timeout,
             consensus,
             last_decided_view: handle.cur_view().await,
+            id: handle.hotshot.id,
+        }
+    }
+}
+
+#[cfg(feature = "rewind")]
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for RewindTaskState<TYPES>
+{
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> RewindTaskState<TYPES> {
+        eprintln!("Creating handle id {}", handle.hotshot.id);
+        RewindTaskState {
+            events: Vec::new(),
             id: handle.hotshot.id,
         }
     }

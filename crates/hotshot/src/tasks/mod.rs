@@ -20,6 +20,9 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 
+#[cfg(feature = "rewind")]
+use hotshot_task_impls::rewind::RewindTaskState;
+
 #[cfg(feature = "dependency-tasks")]
 use hotshot_task_impls::{
     consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
@@ -168,4 +171,7 @@ pub async fn add_consensus_tasks<
         handle.add_task(QuorumProposalRecvTaskState::<TYPES, I>::create_from(handle).await);
         handle.add_task(Consensus2TaskState::<TYPES, I>::create_from(handle).await);
     }
+
+    #[cfg(feature = "rewind")]
+    handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }

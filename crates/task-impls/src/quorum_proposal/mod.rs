@@ -21,6 +21,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -502,18 +503,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::ValidatedStateUpdated(view_number, view) => {
-                // Update the internal validated state map.
-                self.consensus
-                    .write()
-                    .await
-                    .update_validated_state_map(*view_number, view.clone());
+                match view.view_inner {
+                    ViewInner::Da { .. } => {
+                        debug!("Not creating task from Da view.");
+                        return;
+                    }
+                    ViewInner::Leaf { .. } => {
+                        // Update the internal validated state map.
+                        self.consensus
+                            .write()
+                            .await
+                            .update_validated_state_map(*view_number, view.clone());
 
-                self.create_dependency_task_if_new(
-                    *view_number + 1,
-                    event_receiver,
-                    event_sender,
-                    Arc::clone(&event),
-                );
+                        self.create_dependency_task_if_new(
+                            *view_number + 1,
+                            event_receiver,
+                            event_sender,
+                            Arc::clone(&event),
+                        );
+                    }
+                    ViewInner::Failed => {
+                        debug!("Not creating task from Failed view.");
+                    }
+                };
             }
             HotShotEvent::UpdateHighQc(qc) => {
                 // First, update the high QC.
