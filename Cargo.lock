@@ -572,9 +572,9 @@ dependencies = [
 
 [[package]]
 name = "async-broadcast"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "258b52a1aa741b9f09783b2d86cf0aeeb617bbf847f6933340a39644227acbdb"
+checksum = "20cd0e2e25ea8e5f7e9df04578dc6cf5c83577fd09b1a46aaf5c85e1c33f2a7e"
 dependencies = [
  "event-listener 5.3.0",
  "event-listener-strategy 0.5.1",
@@ -3093,7 +3093,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3158,7 +3158,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3188,7 +3188,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3236,7 +3236,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3246,7 +3246,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3274,7 +3274,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3295,7 +3295,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3309,7 +3309,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3343,7 +3343,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3559,7 +3559,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
@@ -4537,7 +4537,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -5964,9 +5964,9 @@ checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.84"
+version = "1.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec96c6a92621310b51366f1e28d05ef11489516e93be030060e5fc12024a49d6"
+checksum = "22244ce15aa966053a896d1accb3a6e68469b97c7f33f284b99f0d576879fc23"
 dependencies = [
  "unicode-ident",
 ]
