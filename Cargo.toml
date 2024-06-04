@@ -35,7 +35,7 @@ ark-ff = "0.4"
 ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7"
-async-compatibility-layer = { version = "1.1", default-features = false, features = [
+async-compatibility-layer = { version = "1.2", default-features = false, features = [
   "logging-utils",
 ] }
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
