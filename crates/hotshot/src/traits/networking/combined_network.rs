@@ -168,7 +168,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
         if !primary_failed && Self::should_delay(&message) {
             let duration = *self.delay_duration.read().await;
-            let primary_failed = Arc::clone(&self.primary_down);
+            let primary_down = Arc::clone(&self.primary_down);
             let primary_fail_counter = Arc::clone(&self.primary_fail_counter);
             let mut receiver = self
                 .delayed_tasks_channels
@@ -189,9 +189,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                     );
                     match primary_fail_counter.load(Ordering::Relaxed) {
                         0u64 => {
-                            primary_failed.store(false, Ordering::Relaxed);
+                            primary_down.store(false, Ordering::Relaxed);
                             debug!(
-                                "primary_fail_counter reached zero, primary_failed set to false"
+                                "primary_fail_counter reached zero, primary_down set to false"
                             );
                         }
                         c => {
