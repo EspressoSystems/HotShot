@@ -175,4 +175,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// A new high_qc has been reached by this node.
     UpdateHighQc(QuorumCertificate<TYPES>),
+
+    /// A new undecided view has been proposed.
+    NewUndecidedView(Leaf<TYPES>),
 }

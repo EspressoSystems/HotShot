@@ -76,6 +76,12 @@ async fn update_states<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         event_sender,
     )
     .await;
+
+    broadcast_event(
+        HotShotEvent::NewUndecidedView(leaf.clone()).into(),
+        event_sender,
+    )
+    .await;
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
