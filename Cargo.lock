@@ -608,9 +608,9 @@ dependencies = [
 
 [[package]]
 name = "async-compatibility-layer"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d24a8f9d6fec5b9313ceebbd82133ae87cf94944c362e8169d7ec735c88a23"
+checksum = "2c928880329566b45c159fca61fbc2a1d301a7e5fd2a0e94c17476bb1a3ea526"
 dependencies = [
  "async-lock 3.3.0",
  "async-std",
