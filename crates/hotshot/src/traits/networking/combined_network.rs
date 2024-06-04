@@ -190,9 +190,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                     match primary_fail_counter.load(Ordering::Relaxed) {
                         0u64 => {
                             primary_down.store(false, Ordering::Relaxed);
-                            debug!(
-                                "primary_fail_counter reached zero, primary_down set to false"
-                            );
+                            debug!("primary_fail_counter reached zero, primary_down set to false");
                         }
                         c => {
                             primary_fail_counter.store(c - 1, Ordering::Relaxed);
