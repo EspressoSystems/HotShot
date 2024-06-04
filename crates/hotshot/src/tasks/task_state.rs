@@ -7,12 +7,14 @@ use std::{
 use crate::types::SystemContextHandle;
 use async_trait::async_trait;
 use chrono::Utc;
+#[cfg(feature = "rewind")]
+use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
     da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
-    request::NetworkRequestState, rewind::RewindTaskState, transactions::TransactionTaskState,
-    upgrade::UpgradeTaskState, vid::VidTaskState, view_sync::ViewSyncTaskState,
+    request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
+    vid::VidTaskState, view_sync::ViewSyncTaskState,
 };
 use hotshot_types::traits::{
     consensus_api::ConsensusApi,
