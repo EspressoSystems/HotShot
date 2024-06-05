@@ -197,7 +197,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 proposal.data.view_number()
             ),
             HotShotEvent::QuorumVoteRecv(v) => {
-                write!(f, "QuorumVoteRecv(view_number={:?}", v.view_number())
+                write!(f, "QuorumVoteRecv(view_number={:?})", v.view_number())
             }
             HotShotEvent::TimeoutVoteRecv(v) => {
                 write!(f, "TimeoutVoteRecv(view_number={:?})", v.view_number())
@@ -254,7 +254,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 write!(f, "DaVoteSend(view_number={:?})", vote.view_number())
             }
             HotShotEvent::QcFormed(cert) => match cert {
-                either::Left(qc) => write!(f, "QcFormed(view_number={:?}", qc.view_number()),
+                either::Left(qc) => write!(f, "QcFormed(view_number={:?})", qc.view_number()),
                 either::Right(tc) => write!(f, "QcFormed(view_number={:?})", tc.view_number()),
             },
             HotShotEvent::DacSend(cert, _) => {
