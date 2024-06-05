@@ -46,15 +46,15 @@ pub enum HotShotEvent<TYPES: NodeType> {
     TimeoutVoteRecv(TimeoutVote<TYPES>),
     /// Send a timeout vote to the network; emitted by consensus task replicas
     TimeoutVoteSend(TimeoutVote<TYPES>),
-    /// A Da proposal has been received from the network; handled by the Da task
+    /// A DA proposal has been received from the network; handled by the DA task
     DaProposalRecv(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
-    /// A Da proposal has been validated; handled by the Da task and VID task
+    /// A DA proposal has been validated; handled by the DA task and VID task
     DaProposalValidated(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
-    /// A Da vote has been received by the network; handled by the Da task
+    /// A DA vote has been received by the network; handled by the DA task
     DaVoteRecv(DaVote<TYPES>),
-    /// A Data Availability Certificate (Dac) has been recieved by the network; handled by the consensus task
+    /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
     DaCertificateRecv(DaCertificate<TYPES>),
-    /// A DaC is validated.
+    /// A DAC is validated.
     DaCertificateValidated(DaCertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
@@ -66,13 +66,13 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
     /// A quorum proposal is missing for a view that we meed
     QuorumProposalMissing(TYPES::Time),
-    /// Send a Da proposal to the Da committee; emitted by the Da leader (which is the same node as the leader of view v + 1) in the Da task
+    /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
-    /// Send a Da vote to the Da leader; emitted by Da committee members in the Da task after seeing a valid Da proposal
+    /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
     DaVoteSend(DaVote<TYPES>),
     /// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
     QcFormed(Either<QuorumCertificate<TYPES>, TimeoutCertificate<TYPES>>),
-    /// The Da leader has collected enough votes to form a DaC; emitted by the Da leader in the Da task; sent to the entire network via the networking task
+    /// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     DacSend(DaCertificate<TYPES>, TYPES::SignatureKey),
     /// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
     ViewChange(TYPES::Time),
@@ -115,7 +115,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     TransactionsRecv(Vec<TYPES::Transaction>),
     /// Send transactions to the network
     TransactionSend(TYPES::Transaction, TYPES::SignatureKey),
-    /// Event to send block payload commitment and metadata from Da leader to the quorum; internal event only
+    /// Event to send block payload commitment and metadata from DA leader to the quorum; internal event only
     SendPayloadCommitmentAndMetadata(
         VidCommitment,
         BuilderCommitment,
@@ -135,7 +135,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     BlockReady(VidDisperse<TYPES>, TYPES::Time),
     /// Event when consensus decided on a leaf
     LeafDecided(Vec<Leaf<TYPES>>),
-    /// Send VID shares to VID storage nodes; emitted by the Da leader
+    /// Send VID shares to VID storage nodes; emitted by the DA leader
     ///
     /// Like [`HotShotEvent::DaProposalSend`].
     VidDisperseSend(Proposal<TYPES, VidDisperse<TYPES>>, TYPES::SignatureKey),
