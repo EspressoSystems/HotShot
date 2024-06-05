@@ -342,7 +342,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for RewindTaskState<TYPES>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> RewindTaskState<TYPES> {
-        eprintln!("Creating handle id {}", handle.hotshot.id);
         RewindTaskState {
             events: Vec::new(),
             id: handle.hotshot.id,
