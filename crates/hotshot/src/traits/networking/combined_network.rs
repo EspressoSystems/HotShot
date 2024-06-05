@@ -153,7 +153,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
             // If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
-            // we want to delay this message, and from now on we consider the primary as down
+            // we don't want to delay this message, and from now on we consider the primary as down
             warn!(
                 "Primary failed more than {} times and is considered down now",
                 COMBINED_NETWORK_MIN_PRIMARY_FAILURES
