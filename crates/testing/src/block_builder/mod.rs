@@ -27,7 +27,7 @@ pub mod random;
 pub use random::RandomBuilderImplementation;
 
 pub mod simple;
-pub use simple::SimpleBuilderImplementation;
+pub use simple::{SimpleBuilderConfig, SimpleBuilderImplementation};
 
 #[async_trait]
 pub trait TestBuilderImplementation<TYPES: NodeType>

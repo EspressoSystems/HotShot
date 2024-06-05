@@ -129,6 +129,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
+    let cur_view = task_state.cur_view;
 
     validate_proposal_view_and_certs(
         proposal,
@@ -156,9 +157,11 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         task_state.timeout,
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
+        &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .await
     {
@@ -199,12 +202,17 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         parent
     };
 
-    {
-        let mut consensus_write = task_state.consensus.write().await;
-        if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
-            tracing::trace!("{e:?}");
-        }
+    let mut consensus_write = task_state.consensus.write().await;
+    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+        tracing::trace!("{e:?}");
     }
+    drop(consensus_write);
+
+    broadcast_event(
+        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        event_sender,
+    )
+    .await;
 
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
@@ -215,12 +223,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             validate_proposal_liveness(proposal, event_sender, &justify_qc, task_state).await,
         );
     };
-
-    broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
-        event_sender,
-    )
-    .await;
 
     // Validate the proposal
     validate_proposal_safety_and_liveness(

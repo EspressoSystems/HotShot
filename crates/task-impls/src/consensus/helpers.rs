@@ -513,6 +513,8 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         *proposal.data.view_number
     );
 
+    let cur_view = task_state.cur_view;
+
     validate_proposal_view_and_certs(
         proposal,
         &sender,
@@ -539,9 +541,11 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         task_state.timeout,
         Arc::clone(&task_state.consensus),
         &mut task_state.cur_view,
+        &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .await
     {
@@ -821,7 +825,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                                 .transaction_commitments(leaf.block_header().metadata())
                                 .into_iter()
                                 .collect::<HashSet<_>>(),
-                        )
+                        );
                     }
                 }
                 true
@@ -843,12 +847,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         if let Err(e) = consensus.update_locked_view(new_locked_view) {
             tracing::trace!("{e:?}");
         }
-    }
-
-    // This is ALWAYS None if "dependency-tasks" is not active.
-    #[cfg(feature = "dependency-tasks")]
-    {
-        consensus.update_dontuse_decided_upgrade_cert(decided_upgrade_cert);
     }
 
     drop(consensus);

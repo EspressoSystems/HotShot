@@ -572,9 +572,9 @@ dependencies = [
 
 [[package]]
 name = "async-broadcast"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "258b52a1aa741b9f09783b2d86cf0aeeb617bbf847f6933340a39644227acbdb"
+checksum = "20cd0e2e25ea8e5f7e9df04578dc6cf5c83577fd09b1a46aaf5c85e1c33f2a7e"
 dependencies = [
  "event-listener 5.3.0",
  "event-listener-strategy 0.5.1",
@@ -608,9 +608,9 @@ dependencies = [
 
 [[package]]
 name = "async-compatibility-layer"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d24a8f9d6fec5b9313ceebbd82133ae87cf94944c362e8169d7ec735c88a23"
+checksum = "2c928880329566b45c159fca61fbc2a1d301a7e5fd2a0e94c17476bb1a3ea526"
 dependencies = [
  "async-lock 3.3.0",
  "async-std",
@@ -3093,7 +3093,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3107,6 +3107,7 @@ dependencies = [
  "cdn-broker",
  "cdn-client",
  "cdn-marshal",
+ "chrono",
  "clap",
  "committable",
  "custom_debug",
@@ -3157,7 +3158,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3187,7 +3188,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3236,7 +3237,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3246,7 +3247,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3275,7 +3276,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3296,7 +3297,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3310,7 +3311,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3344,7 +3345,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3648,7 +3649,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core",
 ]
 
 [[package]]
@@ -4540,7 +4541,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -5967,9 +5968,9 @@ checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.84"
+version = "1.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec96c6a92621310b51366f1e28d05ef11489516e93be030060e5fc12024a49d6"
+checksum = "22244ce15aa966053a896d1accb3a6e68469b97c7f33f284b99f0d576879fc23"
 dependencies = [
  "unicode-ident",
 ]
@@ -7592,9 +7593,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "surf-disco"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b649b5919e809b105a8ae833154430f7069b0e3a392fff26a672211c6b8e30d"
+checksum = "2e4318abbbbc4d640c6cb45d29cd3c70cf517c751fae9b68f2f76a6ff1950da7"
 dependencies = [
  "async-std",
  "async-tungstenite",
@@ -7854,11 +7855,13 @@ dependencies = [
 
 [[package]]
 name = "tide-disco"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbf3579d6f1362fffc7d1686ed061537afe8a187fd0b18e0f5694ad17e977ff3"
+checksum = "44c9d803bc734a5cced767b36bb1caab87e9eb7eb144cffcab38160b084a8cef"
 dependencies = [
  "anyhow",
+ "async-h1",
+ "async-lock 3.3.0",
  "async-std",
  "async-trait",
  "clap",
@@ -8018,9 +8021,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.37.0"
+version = "1.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1adbebffeca75fcfd058afa480fb6c0b81e165a0323f9c9d39c9697e37c46787"
+checksum = "ba4f4a02a7a80d6f274636f0aa95c7e383b912d41fe721a31f29e29698585a4a"
 dependencies = [
  "backtrace",
  "bytes",
@@ -8048,9 +8051,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.2.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
+checksum = "5f5ae998a069d4b5aba8ee9dad856af7d520c3699e6159b185c2acd48155d39a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8567,9 +8570,9 @@ dependencies = [
 
 [[package]]
 name = "vbs"
-version = "0.1.4"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "971bcbd6c41e4e53fa9eab95b2a8ddaf1826be2f3e86b4101efebc8c3a17fde0"
+checksum = "6a9d83afb293d109ae418271619046cd9d87d63ba83e473e25a5e36101edc453"
 dependencies = [
  "anyhow",
  "bincode",
@@ -8833,7 +8836,7 @@ version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
 dependencies = [
- "windows-core 0.51.1",
+ "windows-core",
  "windows-targets 0.48.5",
 ]
 
@@ -8844,15 +8847,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
-dependencies = [
- "windows-targets 0.52.5",
 ]
 
 [[package]]
