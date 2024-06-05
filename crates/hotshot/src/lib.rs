@@ -307,7 +307,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         error!("HotShot is running with the dependency tasks feature enabled!!");
 
         #[cfg(all(feature = "rewind", not(debug_assertions)))]
-        panic!("Cannot run rewind in production builds!");
+        compile_error!("Cannot run rewind in production builds!");
 
         debug!("Starting Consensus");
         let consensus = self.consensus.read().await;

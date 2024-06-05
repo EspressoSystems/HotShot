@@ -52,7 +52,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     DaProposalValidated(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
     /// A Da vote has been received by the network; handled by the Da task
     DaVoteRecv(DaVote<TYPES>),
-    /// A Data Availability Certificate (DaC) has been recieved by the network; handled by the consensus task
+    /// A Data Availability Certificate (Dac) has been recieved by the network; handled by the consensus task
     DaCertificateRecv(DaCertificate<TYPES>),
     /// A DaC is validated.
     DaCertificateValidated(DaCertificate<TYPES>),
