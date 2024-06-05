@@ -321,17 +321,17 @@
 
     <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StatusCode {
         <span class="kw">match </span><span class="self">self </span>{
-            Error::Request { .. } =&gt; StatusCode::BadRequest,
+            Error::Request { .. } =&gt; StatusCode::BAD_REQUEST,
             Error::BlockAvailable { source, .. } | Error::BlockClaim { source, .. } =&gt; <span class="kw">match </span>source
             {
-                BuildError::NotFound =&gt; StatusCode::NotFound,
-                BuildError::Missing =&gt; StatusCode::NotFound,
-                BuildError::Error { .. } =&gt; StatusCode::InternalServerError,
+                BuildError::NotFound =&gt; StatusCode::NOT_FOUND,
+                BuildError::Missing =&gt; StatusCode::NOT_FOUND,
+                BuildError::Error { .. } =&gt; StatusCode::INTERNAL_SERVER_ERROR,
             },
-            Error::TxnUnpack { .. } =&gt; StatusCode::BadRequest,
-            Error::TxnSubmit { .. } =&gt; StatusCode::InternalServerError,
-            Error::Custom { .. } =&gt; StatusCode::InternalServerError,
-            Error::BuilderAddress { .. } =&gt; StatusCode::InternalServerError,
+            Error::TxnUnpack { .. } =&gt; StatusCode::BAD_REQUEST,
+            Error::TxnSubmit { .. } =&gt; StatusCode::INTERNAL_SERVER_ERROR,
+            Error::Custom { .. } =&gt; StatusCode::INTERNAL_SERVER_ERROR,
+            Error::BuilderAddress { .. } =&gt; StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -346,7 +346,7 @@
         </span>.try_into()
         .map_err(|<span class="kw">_</span>| Error::Custom {
             message: <span class="macro">format!</span>(<span class="string">"Invalid {param_name}"</span>),
-            status: StatusCode::UnprocessableEntity,
+            status: StatusCode::UNPROCESSABLE_ENTITY,
         })
 }
 

@@ -863,7 +863,7 @@
 
         <span class="kw">if </span>usize::from(node_index) &gt;= <span class="self">self</span>.config.config.num_nodes_with_stake.get() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: <span class="string">"Network has reached capacity"</span>.to_string(),
             });
         }
@@ -899,7 +899,7 @@
 
         <span class="kw">if </span>usize::from(tmp_node_index) &gt;= <span class="self">self</span>.config.config.num_nodes_with_stake.get() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: <span class="string">"Node index getter for key pair generation has reached capacity"
                     </span>.to_string(),
             });
@@ -921,7 +921,7 @@
 
         <span class="kw">if </span>!<span class="self">self</span>.accepting_new_keys {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
+                status: tide_disco::StatusCode::FORBIDDEN,
                 message:
                     <span class="string">"Network has been started manually, and is no longer registering new keys."
                         </span>.to_string(),
@@ -987,7 +987,7 @@
     <span class="kw">fn </span>peer_pub_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ServerError&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.peer_pub_ready {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: <span class="string">"Peer's public configs are not ready"</span>.to_string(),
             });
         }
@@ -997,7 +997,7 @@
     <span class="kw">fn </span>post_config_after_peer_collected(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkConfig&lt;KEY&gt;, ServerError&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.peer_pub_ready {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: <span class="string">"Peer's public configs are not ready"</span>.to_string(),
             });
         }
@@ -1010,7 +1010,7 @@
         <span class="comment">// println!("{}", self.start);
         </span><span class="kw">if </span>!<span class="self">self</span>.start {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: <span class="string">"Network is not ready to start"</span>.to_string(),
             });
         }
@@ -1041,7 +1041,7 @@
     </span><span class="kw">fn </span>post_manual_start(<span class="kw-2">&amp;mut </span><span class="self">self</span>, password_bytes: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.manual_start_allowed {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-            status: tide_disco::StatusCode::Forbidden,
+            status: tide_disco::StatusCode::FORBIDDEN,
             message: <span class="string">"Configs have already been distributed to nodes, and the network can no longer be started manually."</span>.to_string(),
           });
         }
@@ -1052,7 +1052,7 @@
         <span class="comment">// Check that the password matches
         </span><span class="kw">if </span><span class="self">self</span>.config.manual_start_password != <span class="prelude-val">Some</span>(password) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
+                status: tide_disco::StatusCode::FORBIDDEN,
                 message: <span class="string">"Incorrect password."</span>.to_string(),
             });
         }
@@ -1068,7 +1068,7 @@
             <span class="self">self</span>.config.config.da_staked_committee_size = registered_da_nodes;
         } <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
+                status: tide_disco::StatusCode::FORBIDDEN,
                 message: <span class="macro">format!</span>(<span class="string">"We cannot manually start the network, because we only have {registered_nodes_with_stake} nodes with stake registered, with {registered_da_nodes} DA nodes."</span>)
             });
         }
@@ -1153,7 +1153,7 @@
                 vbs::Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
             <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
+                    status: tide_disco::StatusCode::BAD_REQUEST,
                     message: <span class="string">"Malformed body"</span>.to_string(),
                 });
             };
@@ -1185,7 +1185,7 @@
                 vbs::Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
             <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
+                    status: tide_disco::StatusCode::BAD_REQUEST,
                     message: <span class="string">"Malformed body"</span>.to_string(),
                 });
             };
