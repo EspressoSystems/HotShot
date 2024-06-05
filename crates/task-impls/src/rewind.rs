@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -10,11 +11,19 @@ use std::io::Write;
 
 use crate::events::HotShotEvent;
 
+#[cfg(not(any(debug_assertions, test)))]
+const REWIND_MAX_DEPTH: usize = 1_000;
+
+/// We want the depth to be huge for tests because we don't care that much about a long-running
+/// memory leak
+#[cfg(any(debug_assertions, test))]
+const REWIND_MAX_DEPTH: usize = 100_000;
+
 /// The task state for the `Rewind` task is used to capture all events received
 /// by a particular node, in the order they've been received.
 pub struct RewindTaskState<TYPES: NodeType> {
     /// All events received by this node since the beginning of time.
-    pub events: Vec<Arc<HotShotEvent<TYPES>>>,
+    pub events: VecDeque<Arc<HotShotEvent<TYPES>>>,
 
     /// The id of this node
     pub id: u64,
@@ -23,7 +32,10 @@ pub struct RewindTaskState<TYPES: NodeType> {
 impl<TYPES: NodeType> RewindTaskState<TYPES> {
     /// Handles all events, storing them to the private state
     pub fn handle(&mut self, event: Arc<HotShotEvent<TYPES>>) {
-        self.events.push(Arc::clone(&event));
+        if self.events.len() == REWIND_MAX_DEPTH {
+            self.events.pop_front();
+        }
+        self.events.push_back(Arc::clone(&event));
     }
 }
 
