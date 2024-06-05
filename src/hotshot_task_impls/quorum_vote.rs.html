@@ -1183,7 +1183,7 @@
             );
 
             <span class="comment">// Cancel the old dependency tasks.
-            </span><span class="kw">for </span>view <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.latest_voted_view + <span class="number">1</span>)..=(<span class="kw-2">*</span>new_view) {
+            </span><span class="kw">for </span>view <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.latest_voted_view + <span class="number">1</span>)..(<span class="kw-2">*</span>new_view) {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.vote_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::Time::new(view)) {
                     cancel_task(dependency).<span class="kw">await</span>;
                     <span class="macro">debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
