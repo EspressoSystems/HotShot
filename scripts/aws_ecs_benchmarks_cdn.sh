@@ -31,7 +31,7 @@ docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
 # ecs deploy
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
+ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
