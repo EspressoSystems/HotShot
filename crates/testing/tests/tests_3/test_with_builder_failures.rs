@@ -10,7 +10,7 @@ use hotshot_testing::{
 
 // Test one node leaving the network.
 cross_tests!(
-    TestName: test_with_builder_failures_cross,
+    TestName: test_with_builder_failures,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
     Ignore: false,
