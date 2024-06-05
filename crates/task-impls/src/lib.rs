@@ -55,3 +55,6 @@ pub mod quorum_proposal;
 
 /// Task for handling QuorumProposalRecv events
 pub mod quorum_proposal_recv;
+
+#[cfg(feature = "rewind")]
+pub mod rewind;
