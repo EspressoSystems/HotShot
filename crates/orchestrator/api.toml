@@ -87,3 +87,19 @@ METHOD = "POST"
 DOC = """
 Post whether the orchestrator should start the run immediately, with the nodes that have already registered.
 """
+
+# GET builder URL
+[route.get_builder]
+PATH = ["builder/:node_index"]
+":node_index" = "Integer"
+DOC = """
+Assign a builder URL from orchestrator's pool of URLs
+"""
+
+# POST builder URL
+[route.post_builder]
+PATH = ["builder"]
+METHOD = "POST"
+DOC = """
+Register a builder URL to orchestrator's pool of builder URLs
+"""

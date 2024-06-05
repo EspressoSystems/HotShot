@@ -15,16 +15,15 @@ if [ $# -lt 2 ]; then
     echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST>"
     exit 1
 fi
-REMOTE_USER="$1" #"sishan"
-REMOTE_BROKER_HOST="$2" #"3.135.239.251"
+REMOTE_USER="$1"
 
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
 # build to get the bin in advance, uncomment the following if built first time
-just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
-# remember to sleep enough time if it's built first time
-sleep 3m
-for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
+# just async_std example validator-push-cdn -- http://localhost:4444 &
+# # remember to sleep enough time if it's built first time
+# sleep 3m
+# for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
 docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
@@ -32,7 +31,7 @@ docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
 # ecs deploy
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
+ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -52,15 +51,15 @@ round_up() {
 # see `aws_ecs_benchmarks_webserver.sh` for an example
 for total_nodes in 10 50 100 200 500 1000
 do
-    for da_committee_size in 5 10 50 100
+    for da_committee_size in 10
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10 50 # 100
+            for transactions_per_round in 1 10
             do
-                for transaction_size in 100000 1000000 10000000 20000000 # 512 4096
+                for transaction_size in 100000 1000000 10000000 20000000
                 do
-                    for fixed_leader_for_gpuvid in 1 5 10 50 100
+                    for fixed_leader_for_gpuvid in 1
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
@@ -76,15 +75,22 @@ do
                                 # server2: broker
                                 # make sure you're able to access the remote host from current host
                                 echo -e "\e[35mGoing to start cdn-broker on remote server\e[0m"
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
+                                BROKER_COUNTER=0
+                                for REMOTE_BROKER_HOST in "$@"; do
+                                    if [ "$BROKER_COUNTER" -ge 1 ]; then
+                                        echo -e "\e[35mstart broker $BROKER_COUNTER on $REMOTE_BROKER_HOST\e[0m"
+                                        ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
 cd HotShot
 nohup bash scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
 exit
 EOF
+                                    fi
+                                    BROKER_COUNTER=$((BROKER_COUNTER + 1))
+                                done
 
                                 # start orchestrator
                                 echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
-                                just async_std example_fixed_leader orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
+                                just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                                                 --orchestrator_url http://0.0.0.0:4444 \
                                                                                 --total_nodes ${total_nodes} \
                                                                                 --da_committee_size ${da_committee_size} \
@@ -93,7 +99,7 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha cdn_simple_builder_fixed_leader &
+                                                                                --commit_sha 3broker &
                                 sleep 30
 
                                 # start validators
@@ -113,7 +119,14 @@ EOF
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"
                                 killall -9 cdn-broker
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
+                                BROKER_COUNTER=0
+                                for REMOTE_BROKER_HOST in "$@"; do
+                                    if [ "$BROKER_COUNTER" -ge 1 ]; then
+                                        echo -e "\e[35mstop broker $BROKER_COUNTER on $REMOTE_BROKER_HOST\e[0m"
+                                        ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
+                                    fi
+                                    BROKER_COUNTER=$((BROKER_COUNTER + 1))
+                                done
                                 # remove brokers from keydb
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli

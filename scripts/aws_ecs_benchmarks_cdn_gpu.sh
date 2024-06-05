@@ -12,12 +12,12 @@ keydb_address=redis://"$ip":6379
 
 # Check if at least two arguments are provided
 if [ $# -lt 3 ]; then
-    echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST> <REMOTE_GPU_HOST>"
+    echo "Usage: $0 <REMOTE_USER> <REMOTE_GPU_HOST> <REMOTE_BROKER_HOST>"
     exit 1
 fi
-REMOTE_USER="$1" #"sishan"
-REMOTE_BROKER_HOST="$2" #"3.135.239.251"
-REMOTE_GPU_HOST="$3" #"18.220.24.72"
+REMOTE_USER="$1"
+REMOTE_GPU_HOST="$2"
+
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
 
@@ -33,7 +33,7 @@ docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
 
 # ecs deploy
 ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url} # http://172.31.8.82:4444
+ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -78,11 +78,18 @@ do
                                 # server2: broker
                                 # make sure you're able to access the remote host from current host
                                 echo -e "\e[35mGoing to start cdn-broker on remote server\e[0m"
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
+                                BROKER_COUNTER=0
+                                for REMOTE_BROKER_HOST in "$@"; do
+                                    if [ "$BROKER_COUNTER" -ge 2 ]; then
+                                        echo -e "\e[35mstart broker $((BROKER_COUNTER - 1)) on $REMOTE_BROKER_HOST\e[0m"
+                                        ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
 cd HotShot
 nohup bash scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
 exit
 EOF
+                                    fi
+                                    BROKER_COUNTER=$((BROKER_COUNTER + 1))
+                                done
 
                                 # start orchestrator
                                 echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
@@ -101,7 +108,7 @@ EOF
                                 # start leaders need to run on GPU FIRST
                                 # and WAIT for enough time till it registerred at orchestrator
                                 # make sure you're able to access the remote nvidia gpu server
-                                echo -e "\e[35mGoing to start leaders on remote gpu server\e[0m"
+                                echo -e "\e[35mGoing to start leaders on remote gpu server $REMOTE_GPU_HOST\e[0m"
                                 
                                 ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
 cd HotShot
@@ -133,7 +140,14 @@ EOF
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"
                                 killall -9 cdn-broker
-                                ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
+                                BROKER_COUNTER=0
+                                for REMOTE_BROKER_HOST in "$@"; do
+                                    if [ "$BROKER_COUNTER" -ge 2 ]; then
+                                        echo -e "\e[35mstop broker $((BROKER_COUNTER - 1)) on $REMOTE_BROKER_HOST\e[0m"
+                                        ssh $REMOTE_USER@$REMOTE_BROKER_HOST "killall -9 cdn-broker && exit"
+                                    fi
+                                    BROKER_COUNTER=$((BROKER_COUNTER + 1))
+                                done
                                 # remove brokers from keydb
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli
