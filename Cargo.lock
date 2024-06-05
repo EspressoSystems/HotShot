@@ -572,9 +572,9 @@ dependencies = [
 
 [[package]]
 name = "async-broadcast"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "258b52a1aa741b9f09783b2d86cf0aeeb617bbf847f6933340a39644227acbdb"
+checksum = "20cd0e2e25ea8e5f7e9df04578dc6cf5c83577fd09b1a46aaf5c85e1c33f2a7e"
 dependencies = [
  "event-listener 5.3.0",
  "event-listener-strategy 0.5.1",
@@ -608,9 +608,9 @@ dependencies = [
 
 [[package]]
 name = "async-compatibility-layer"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d24a8f9d6fec5b9313ceebbd82133ae87cf94944c362e8169d7ec735c88a23"
+checksum = "2c928880329566b45c159fca61fbc2a1d301a7e5fd2a0e94c17476bb1a3ea526"
 dependencies = [
  "async-lock 3.3.0",
  "async-std",
@@ -3093,7 +3093,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3158,7 +3158,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3188,7 +3188,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3236,7 +3236,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3246,7 +3246,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3274,7 +3274,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3295,7 +3295,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3309,7 +3309,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3343,7 +3343,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3559,7 +3559,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
@@ -4537,7 +4537,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.43"
+version = "0.5.56"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -5418,17 +5418,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
 
 [[package]]
-name = "num-derive"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.66",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5965,9 +5954,9 @@ checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.84"
+version = "1.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec96c6a92621310b51366f1e28d05ef11489516e93be030060e5fc12024a49d6"
+checksum = "22244ce15aa966053a896d1accb3a6e68469b97c7f33f284b99f0d576879fc23"
 dependencies = [
  "unicode-ident",
 ]
@@ -7590,9 +7579,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "surf-disco"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e4318abbbbc4d640c6cb45d29cd3c70cf517c751fae9b68f2f76a6ff1950da7"
+checksum = "55c871338479a1c27b5e2ae15e5ae0fe70769306d2ef5a0c2d30896a09ac8a3c"
 dependencies = [
  "async-std",
  "async-tungstenite",
@@ -7852,9 +7841,9 @@ dependencies = [
 
 [[package]]
 name = "tide-disco"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c9d803bc734a5cced767b36bb1caab87e9eb7eb144cffcab38160b084a8cef"
+checksum = "715558234f09576333f92ee769bd160e6c4bb1d156d25613cf62be9a592f291a"
 dependencies = [
  "anyhow",
  "async-h1",
@@ -7876,8 +7865,6 @@ dependencies = [
  "libc",
  "markdown",
  "maud",
- "num-derive",
- "num-traits",
  "parking_lot",
  "prometheus",
  "reqwest",
