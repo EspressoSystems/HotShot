@@ -144,13 +144,16 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         primary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
         secondary_future: impl Future<Output = Result<(), NetworkError>> + Send + 'static,
     ) -> Result<(), NetworkError> {
-        // Check if primary is down
+        // A local variable used to decide whether to delay this message or not
         let mut primary_failed = false;
         if self.primary_down.load(Ordering::Relaxed) {
+            // If the primary is considered down, we don't want to delay
             primary_failed = true;
         } else if self.primary_fail_counter.load(Ordering::Relaxed)
             > COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
+            // If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
+            // we want to delay this message, and from now on we consider the primary as down
             warn!(
                 "Primary failed more than {} times and is considered down now",
                 COMBINED_NETWORK_MIN_PRIMARY_FAILURES
@@ -159,17 +162,21 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             primary_failed = true;
         }
 
-        // always send on the primary network
+        // Always send on the primary network
         if let Err(e) = primary_future.await {
+            // If the primary failed right away, we don't want to delay this message
             warn!("Error on primary network: {}", e);
             self.primary_fail_counter.fetch_add(1, Ordering::Relaxed);
             primary_failed = true;
         };
 
         if !primary_failed && Self::should_delay(&message) {
+            // We are delaying this message
             let duration = *self.delay_duration.read().await;
             let primary_down = Arc::clone(&self.primary_down);
             let primary_fail_counter = Arc::clone(&self.primary_fail_counter);
+            // Each delayed task gets its own receiver clone to get a signal cancelling all tasks
+            // related to the given view.
             let mut receiver = self
                 .delayed_tasks_channels
                 .write()
@@ -181,48 +188,64 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 })
                 .1
                 .activate_cloned();
+            // Spawn a task that sleeps for `duration` and then sends the message if it wasn't cancelled
             async_spawn(async move {
                 async_sleep(duration).await;
                 if receiver.try_recv().is_ok() {
+                    // The task has been cancelled because the view progressed, it means the primary is working fine
                     debug!(
                         "Not sending on secondary after delay, task was canceled in view update"
                     );
                     match primary_fail_counter.load(Ordering::Relaxed) {
                         0u64 => {
+                            // The primary fail counter reached 0, the primary is now considered up
                             primary_down.store(false, Ordering::Relaxed);
                             debug!("primary_fail_counter reached zero, primary_down set to false");
                         }
                         c => {
+                            // Decrement the primary fail counter
                             primary_fail_counter.store(c - 1, Ordering::Relaxed);
                             debug!("primary_fail_counter set to {:?}", c - 1);
                         }
                     }
                     return Ok(());
                 }
+                // The task hasn't been cancelled, the primary probably failed.
+                // Increment the primary fail counter and send the message.
                 debug!("Sending on secondary after delay, message possibly has not reached recipient on primary");
                 primary_fail_counter.fetch_add(1, Ordering::Relaxed);
                 secondary_future.await
             });
             Ok(())
         } else {
+            // We will send without delay
             if self.primary_down.load(Ordering::Relaxed) {
+                // If the primary is considered down, we want to periodically delay sending
+                // on the secondary to check whether the primary is able to deliver.
+                // This message will be sent without delay but the next might be delayed.
                 match self.no_delay_counter.load(Ordering::Relaxed) {
                     c if c < COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL => {
+                        // Just increment the 'no delay counter'
                         self.no_delay_counter.store(c + 1, Ordering::Relaxed);
                     }
                     _ => {
+                        // The 'no delay counter' reached the threshold
                         debug!(
                             "Sent on secondary without delay more than {} times,\
                             try delaying to check primary",
                             COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
                         );
+                        // Reset the 'no delay counter'
                         self.no_delay_counter.store(0u64, Ordering::Relaxed);
+                        // The primary is not considered down for the moment
                         self.primary_down.store(false, Ordering::Relaxed);
+                        // The primary fail counter is set just below the threshold to delay the next message
                         self.primary_fail_counter
                             .store(COMBINED_NETWORK_MIN_PRIMARY_FAILURES, Ordering::Relaxed);
                     }
                 }
             }
+            // Send the message
             secondary_future.await
         }
     }
@@ -523,6 +546,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
         async_spawn(async move {
             let mut map_lock = delayed_tasks_channels.write().await;
             while let Some((first_view, _)) = map_lock.first_key_value() {
+                // Broadcast a cancelling signal to all the tasks related to each view older than the new one
                 if *first_view < view {
                     if let Some((_, (sender, _))) = map_lock.pop_first() {
                         let _ = sender.try_broadcast(());
