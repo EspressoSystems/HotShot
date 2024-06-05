@@ -1,3 +1,6 @@
+![GitHub Release](https://img.shields.io/github/v/release/EspressoSystems/HotShot)
+
+
 # License
 ## Copyright
 **(c) 2022 Espresso Systems**.
