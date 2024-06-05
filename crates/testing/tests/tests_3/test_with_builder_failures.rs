@@ -1,34 +1,66 @@
-#[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-async fn test_builder_failures() {
-    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-    use hotshot_testing::{
-        block_builder::SimpleBuilderImplementation,
-        test_builder::{BuilderChange, BuilderDescription, TestDescription},
-    };
+use std::time::Duration;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+use hotshot_example_types::node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestTypes};
+use hotshot_macros::cross_tests;
+use hotshot_testing::{
+    block_builder::SimpleBuilderImplementation,
+    test_builder::{BuilderChange, BuilderDescription, TestDescription},
+    txn_task::TxnTaskDescription,
+};
 
-    let mut metadata = TestDescription::default_multiple_rounds();
-    metadata.builders = vec1::vec1![
-        BuilderDescription {
-            changes: [
-                (0, BuilderChange::Down),
-                (15, BuilderChange::Up),
-                (30, BuilderChange::FailClaims(true)),
-            ]
-            .into(),
-        },
-        BuilderDescription {
-            changes: [(15, BuilderChange::Down), (30, BuilderChange::Up),].into(),
-        },
-    ];
+// Test one node leaving the network.
+cross_tests!(
+    TestName: test_with_builder_failures_cross,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTypes],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription::default_multiple_rounds();
+        // Every block should contain at least one transaction - builders are never offline
+        // simultaneously
+        metadata.overall_safety_properties.transaction_threshold = 1;
+        // Generate a lot of transactions so that freshly restarted builders still have
+        // transactions
+        metadata.txn_description = TxnTaskDescription::RoundRobinTimeBased(Duration::from_millis(1));
 
-    metadata
-        .gen_launcher::<TestTypes, MemoryImpl>(0)
-        .launch()
-        .run_test::<SimpleBuilderImplementation>()
-        .await;
-}
+        // Two builders running as follows:
+        // view 1st  2nd
+        // 0    Up   Down
+        // 1    Up   Up
+        // 2    Down Up
+        // 3    Up   Up
+        // 4    Up   Down
+        // 5    Up   Up
+        // 6    Down Up
+        // 7    Up   Up
+        // ...
+        //
+        // We give each builder a view of uptime before making it the only available builder so that it
+        // has time to initialize
+
+        // First builder will always respond with available blocks, but will periodically fail claim calls
+        let first_builder = (0..metadata.overall_safety_properties.num_successful_views as u64).into_iter().filter_map(|view_num| {
+            match view_num % 4 {
+                2 => Some((view_num, BuilderChange::FailClaims(true))),
+                _ => Some((view_num, BuilderChange::FailClaims(false))),
+            }
+        }).collect();
+        // Second builder will periodically be completely down
+        let second_builder = (0..metadata.overall_safety_properties.num_successful_views as u64).into_iter().filter_map(|view_num| {
+            match view_num % 4 {
+                0 => Some((view_num, BuilderChange::Down)),
+                _ => Some((view_num, BuilderChange::Up)),
+            }
+        }).collect();
+
+        metadata.builders = vec1::vec1![
+            BuilderDescription {
+               changes: first_builder,
+            },
+            BuilderDescription {
+                changes: second_builder,
+            },
+        ];
+        metadata
+    }
+);

@@ -379,9 +379,6 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
     }
     /// determines whether or not the round passes
     /// also do a safety check
-    /// # Panics
-    /// if the `num_txns_map` is somehow empty
-    /// This should never happen because this function should never be called in that case
     #[allow(clippy::too_many_arguments, clippy::let_unit_value)]
     pub fn update_status(
         &mut self,
@@ -419,15 +416,17 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         }
 
         if transaction_threshold >= 1 {
-            // if self.num_txns_map.len() > 1 {
-            //     self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentTxnsNum {
-            //         map: self.num_txns_map.clone(),
-            //     });
-            //     return;
-            // }
-            if *self.num_txns_map.iter().last().unwrap().0 < transaction_threshold {
-                self.status = ViewStatus::Failed;
+            if self.num_txns_map.len() > 1 {
+                self.status = ViewStatus::Err(OverallSafetyTaskErr::InconsistentTxnsNum {
+                    map: self.num_txns_map.clone(),
+                });
                 return;
+            }
+            if let Some((n_txn, _)) = self.num_txns_map.iter().last() {
+                if *n_txn < transaction_threshold {
+                    self.status = ViewStatus::Failed;
+                    return;
+                }
             }
         }
 

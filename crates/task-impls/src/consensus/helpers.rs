@@ -734,7 +734,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let mut new_decide_qc = None;
     let mut leaf_views = Vec::new();
     let mut leafs_decided = Vec::new();
-    let mut included_txns = HashSet::new();
+    let mut included_txns = None;
     let old_anchor_view = consensus.last_decided_view();
     let parent_view = proposal.justify_qc.view_number();
     let mut current_chain_length = 0usize;
@@ -816,9 +816,12 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                     ));
                     leafs_decided.push(leaf.clone());
                     if let Some(ref payload) = leaf.block_payload() {
-                        for txn in payload.transaction_commitments(leaf.block_header().metadata()) {
-                            included_txns.insert(txn);
-                        }
+                        included_txns = Some(
+                            payload
+                                .transaction_commitments(leaf.block_header().metadata())
+                                .into_iter()
+                                .collect::<HashSet<_>>(),
+                        )
                     }
                 }
                 true
@@ -834,12 +837,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .await;
     }
-
-    let included_txns_set: HashSet<_> = if new_decide_reached {
-        included_txns
-    } else {
-        HashSet::new()
-    };
 
     let mut consensus = task_state.consensus.write().await;
     if new_commit_reached {
@@ -886,13 +883,14 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
     #[allow(clippy::cast_precision_loss)]
     if new_decide_reached {
+        let block_size = included_txns.map(|set| set.len().try_into().unwrap());
         let decide_sent = broadcast_event(
             Event {
                 view_number: new_anchor_view,
                 event: EventType::Decide {
                     leaf_chain: Arc::new(leaf_views),
                     qc: Arc::new(new_decide_qc.unwrap()),
-                    block_size: Some(included_txns_set.len().try_into().unwrap()),
+                    block_size,
                 },
             },
             &task_state.output_event_stream,
@@ -925,7 +923,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             consensus.last_decided_view()
         );
         drop(consensus);
-        debug!("Decided txns len {:?}", included_txns_set.len());
+        debug!("Decided txns len {:?}", block_size);
         decide_sent.await;
         broadcast_event(
             Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
