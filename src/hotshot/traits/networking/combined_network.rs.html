@@ -508,6 +508,66 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span>std::{
@@ -522,23 +582,24 @@
     time::Duration,
 };
 
+<span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::UnboundedSendError,
 };
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>futures::{channel::mpsc, future::join_all, join, select, FutureExt};
-<span class="kw">use </span>hotshot_task_impls::helpers::cancel_task;
+<span class="kw">use </span>futures::{channel::mpsc, join, select, FutureExt};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
-    constants::{COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES},
+    constants::{
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
+        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+    },
     data::ViewNumber,
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     traits::{
@@ -548,9 +609,7 @@
     BoxSyncFuture,
 };
 <span class="kw">use </span>lru::LruCache;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{info, warn};
+<span class="kw">use </span>tracing::{debug, warn};
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -563,8 +622,8 @@
     s.finish()
 }
 
-<span class="doccomment">/// thread-safe ref counted lock to a map of delayed tasks
-</span><span class="kw">type </span>DelayedTasksLockedMap = Arc&lt;RwLock&lt;BTreeMap&lt;u64, Vec&lt;JoinHandle&lt;<span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;&gt;&gt;&gt;&gt;&gt;;
+<span class="doccomment">/// Thread-safe ref counted lock to a map of channels to the delayed tasks
+</span><span class="kw">type </span>DelayedTasksChannelsMap = Arc&lt;RwLock&lt;BTreeMap&lt;u64, (Sender&lt;()&gt;, InactiveReceiver&lt;()&gt;)&gt;&gt;&gt;;
 
 <span class="doccomment">/// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
@@ -582,11 +641,14 @@
     <span class="doccomment">/// Whether primary is considered down
     </span>primary_down: Arc&lt;AtomicBool&gt;,
 
-    <span class="doccomment">/// delayed, cancelable tasks for secondary network
-    </span>delayed_tasks: DelayedTasksLockedMap,
-
-    <span class="doccomment">/// how long to delay
+    <span class="doccomment">/// How long to delay
     </span>delay_duration: Arc&lt;RwLock&lt;Duration&gt;&gt;,
+
+    <span class="doccomment">/// Channels to the delayed tasks
+    </span>delayed_tasks_channels: DelayedTasksChannelsMap,
+
+    <span class="doccomment">/// How many times messages were sent on secondary without delay because primary is down
+    </span>no_delay_counter: Arc&lt;AtomicU64&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; CombinedNetworks&lt;TYPES&gt; {
@@ -614,8 +676,9 @@
             ))),
             primary_fail_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
             primary_down: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
-            delayed_tasks: Arc::default(),
             delay_duration: Arc::new(RwLock::new(delay_duration)),
+            delayed_tasks_channels: Arc::default(),
+            no_delay_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
         }
     }
 
@@ -651,14 +714,17 @@
         primary_future: <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;&gt; + Send + <span class="lifetime">'static</span>,
         secondary_future: <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;&gt; + Send + <span class="lifetime">'static</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="comment">// Check if primary is down
+        <span class="comment">// A local variable used to decide whether to delay this message or not
         </span><span class="kw">let </span><span class="kw-2">mut </span>primary_failed = <span class="bool-val">false</span>;
         <span class="kw">if </span><span class="self">self</span>.primary_down.load(Ordering::Relaxed) {
-            primary_failed = <span class="bool-val">true</span>;
+            <span class="comment">// If the primary is considered down, we don't want to delay
+            </span>primary_failed = <span class="bool-val">true</span>;
         } <span class="kw">else if </span><span class="self">self</span>.primary_fail_counter.load(Ordering::Relaxed)
             &gt; COMBINED_NETWORK_MIN_PRIMARY_FAILURES
         {
-            <span class="macro">warn!</span>(
+            <span class="comment">// If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
+            // we don't want to delay this message, and from now on we consider the primary as down
+            </span><span class="macro">warn!</span>(
                 <span class="string">"Primary failed more than {} times and is considered down now"</span>,
                 COMBINED_NETWORK_MIN_PRIMARY_FAILURES
             );
@@ -666,30 +732,91 @@
             primary_failed = <span class="bool-val">true</span>;
         }
 
-        <span class="comment">// always send on the primary network
+        <span class="comment">// Always send on the primary network
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = primary_future.<span class="kw">await </span>{
-            <span class="macro">warn!</span>(<span class="string">"Error on primary network: {}"</span>, e);
+            <span class="comment">// If the primary failed right away, we don't want to delay this message
+            </span><span class="macro">warn!</span>(<span class="string">"Error on primary network: {}"</span>, e);
             <span class="self">self</span>.primary_fail_counter.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
             primary_failed = <span class="bool-val">true</span>;
         };
 
         <span class="kw">if </span>!primary_failed &amp;&amp; <span class="self">Self</span>::should_delay(<span class="kw-2">&amp;</span>message) {
-            <span class="kw">let </span>duration = <span class="kw-2">*</span><span class="self">self</span>.delay_duration.read().<span class="kw">await</span>;
+            <span class="comment">// We are delaying this message
+            </span><span class="kw">let </span>duration = <span class="kw-2">*</span><span class="self">self</span>.delay_duration.read().<span class="kw">await</span>;
+            <span class="kw">let </span>primary_down = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.primary_down);
             <span class="kw">let </span>primary_fail_counter = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.primary_fail_counter);
-            <span class="self">self</span>.delayed_tasks
+            <span class="comment">// Each delayed task gets its own receiver clone to get a signal cancelling all tasks
+            // related to the given view.
+            </span><span class="kw">let </span><span class="kw-2">mut </span>receiver = <span class="self">self
+                </span>.delayed_tasks_channels
                 .write()
                 .<span class="kw">await
                 </span>.entry(message.kind.view_number().u64())
-                .or_default()
-                .push(async_spawn(<span class="kw">async move </span>{
-                    async_sleep(duration).<span class="kw">await</span>;
-                    <span class="macro">info!</span>(<span class="string">"Sending on secondary after delay, message possibly has not reached recipient on primary"</span>);
-                    primary_fail_counter.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-                    secondary_future.<span class="kw">await
-                </span>}));
+                .or_insert_with(|| {
+                    <span class="kw">let </span>(s, r) = broadcast(<span class="number">1</span>);
+                    (s, r.deactivate())
+                })
+                .<span class="number">1
+                </span>.activate_cloned();
+            <span class="comment">// Spawn a task that sleeps for `duration` and then sends the message if it wasn't cancelled
+            </span>async_spawn(<span class="kw">async move </span>{
+                async_sleep(duration).<span class="kw">await</span>;
+                <span class="kw">if </span>receiver.try_recv().is_ok() {
+                    <span class="comment">// The task has been cancelled because the view progressed, it means the primary is working fine
+                    </span><span class="macro">debug!</span>(
+                        <span class="string">"Not sending on secondary after delay, task was canceled in view update"
+                    </span>);
+                    <span class="kw">match </span>primary_fail_counter.load(Ordering::Relaxed) {
+                        <span class="number">0u64 </span>=&gt; {
+                            <span class="comment">// The primary fail counter reached 0, the primary is now considered up
+                            </span>primary_down.store(<span class="bool-val">false</span>, Ordering::Relaxed);
+                            <span class="macro">debug!</span>(<span class="string">"primary_fail_counter reached zero, primary_down set to false"</span>);
+                        }
+                        c =&gt; {
+                            <span class="comment">// Decrement the primary fail counter
+                            </span>primary_fail_counter.store(c - <span class="number">1</span>, Ordering::Relaxed);
+                            <span class="macro">debug!</span>(<span class="string">"primary_fail_counter set to {:?}"</span>, c - <span class="number">1</span>);
+                        }
+                    }
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+                <span class="comment">// The task hasn't been cancelled, the primary probably failed.
+                // Increment the primary fail counter and send the message.
+                </span><span class="macro">debug!</span>(<span class="string">"Sending on secondary after delay, message possibly has not reached recipient on primary"</span>);
+                primary_fail_counter.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+                secondary_future.<span class="kw">await
+            </span>});
             <span class="prelude-val">Ok</span>(())
         } <span class="kw">else </span>{
-            secondary_future.<span class="kw">await
+            <span class="comment">// We will send without delay
+            </span><span class="kw">if </span><span class="self">self</span>.primary_down.load(Ordering::Relaxed) {
+                <span class="comment">// If the primary is considered down, we want to periodically delay sending
+                // on the secondary to check whether the primary is able to deliver.
+                // This message will be sent without delay but the next might be delayed.
+                </span><span class="kw">match </span><span class="self">self</span>.no_delay_counter.load(Ordering::Relaxed) {
+                    c <span class="kw">if </span>c &lt; COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL =&gt; {
+                        <span class="comment">// Just increment the 'no delay counter'
+                        </span><span class="self">self</span>.no_delay_counter.store(c + <span class="number">1</span>, Ordering::Relaxed);
+                    }
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="comment">// The 'no delay counter' reached the threshold
+                        </span><span class="macro">debug!</span>(
+                            <span class="string">"Sent on secondary without delay more than {} times,\
+                            try delaying to check primary"</span>,
+                            COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
+                        );
+                        <span class="comment">// Reset the 'no delay counter'
+                        </span><span class="self">self</span>.no_delay_counter.store(<span class="number">0u64</span>, Ordering::Relaxed);
+                        <span class="comment">// The primary is not considered down for the moment
+                        </span><span class="self">self</span>.primary_down.store(<span class="bool-val">false</span>, Ordering::Relaxed);
+                        <span class="comment">// The primary fail counter is set just below the threshold to delay the next message
+                        </span><span class="self">self</span>.primary_fail_counter
+                            .store(COMBINED_NETWORK_MIN_PRIMARY_FAILURES, Ordering::Relaxed);
+                    }
+                }
+            }
+            <span class="comment">// Send the message
+            </span>secondary_future.<span class="kw">await
         </span>}
     }
 }
@@ -767,16 +894,18 @@
                     primary_fail_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                     primary_down: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                     message_cache: Arc::clone(<span class="kw-2">&amp;</span>message_cache),
-                    delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                    delayed_tasks_channels: Arc::default(),
+                    no_delay_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 };
                 <span class="kw">let </span>da_net = <span class="self">Self </span>{
                     networks: Arc::new(da_networks),
                     message_cache,
                     primary_fail_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                     primary_down: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
-                    delayed_tasks: Arc::default(),
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
+                    delayed_tasks_channels: Arc::default(),
+                    no_delay_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 };
                 (quorum_net.into(), da_net.into())
             })
@@ -983,31 +1112,22 @@
     <span class="kw">where
         </span>T: NodeType&lt;SignatureKey = TYPES::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
-        <span class="kw">let </span>delayed_map = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.delayed_tasks);
+        <span class="kw">let </span>delayed_tasks_channels = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.delayed_tasks_channels);
         async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>cancel_tasks = Vec::new();
-            {
-                <span class="kw">let </span><span class="kw-2">mut </span>map_lock = delayed_map.write().<span class="kw">await</span>;
-                <span class="kw">while let </span><span class="prelude-val">Some</span>((first_view, _tasks)) = map_lock.first_key_value() {
-                    <span class="kw">if </span><span class="kw-2">*</span>first_view &lt; view {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>((_view, tasks)) = map_lock.pop_first() {
-                            <span class="kw">let </span><span class="kw-2">mut </span>ctasks = tasks.into_iter().map(cancel_task).collect();
-                            cancel_tasks.append(<span class="kw-2">&amp;mut </span>ctasks);
-                        } <span class="kw">else </span>{
-                            <span class="kw">break</span>;
-                        }
+            <span class="kw">let </span><span class="kw-2">mut </span>map_lock = delayed_tasks_channels.write().<span class="kw">await</span>;
+            <span class="kw">while let </span><span class="prelude-val">Some</span>((first_view, <span class="kw">_</span>)) = map_lock.first_key_value() {
+                <span class="comment">// Broadcast a cancelling signal to all the tasks related to each view older than the new one
+                </span><span class="kw">if </span><span class="kw-2">*</span>first_view &lt; view {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, (sender, <span class="kw">_</span>))) = map_lock.pop_first() {
+                        <span class="kw">let _ </span>= sender.try_broadcast(());
                     } <span class="kw">else </span>{
                         <span class="kw">break</span>;
                     }
+                } <span class="kw">else </span>{
+                    <span class="kw">break</span>;
                 }
             }
-            join_all(cancel_tasks).<span class="kw">await</span>;
         });
-
-        <span class="comment">// View changed, let's start primary again
-        </span><span class="self">self</span>.primary_down.store(<span class="bool-val">false</span>, Ordering::Relaxed);
-        <span class="self">self</span>.primary_fail_counter.store(<span class="number">0</span>, Ordering::Relaxed);
-
         <span class="comment">// Run `update_view` logic for the libp2p network
         </span><span class="self">self</span>.networks.<span class="number">1</span>.update_view::&lt;T&gt;(view, membership).<span class="kw">await</span>;
     }
