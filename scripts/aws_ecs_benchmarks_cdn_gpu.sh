@@ -134,7 +134,7 @@ EOF
                                 ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
                                 # shut down leaders on gpu
                                 echo -e "\e[35mGoing to stop leaders on remote gpu server\e[0m"
-                                ssh $REMOTE_GPU_USER@$REMOTE_GPU_HOST "./HotShot/scripts/shutdown.sh exit"
+                                ssh $REMOTE_GPU_USER@$REMOTE_GPU_HOST "for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done && exit"
                                 echo -e "\e[35mGoing to stop orchestrator\e[0m"
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                                 # shut down brokers
