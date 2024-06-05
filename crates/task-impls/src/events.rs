@@ -187,6 +187,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
+    #[allow(clippy::too_many_lines)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             HotShotEvent::Shutdown => write!(f, "Shutdown"),
@@ -357,7 +358,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             }
             HotShotEvent::LeafDecided(leaves) => {
                 let view_numbers: Vec<<TYPES as NodeType>::Time> =
-                    leaves.iter().map(|leaf| leaf.view_number()).collect();
+                    leaves.iter().map(Leaf::view_number).collect();
                 write!(f, "LeafDecided({view_numbers:?})")
             }
             HotShotEvent::VidDisperseSend(proposal, _) => write!(
@@ -408,19 +409,19 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 write!(f, "UpgradeDecided(view_number{:?})", cert.view_number())
             }
             HotShotEvent::QuorumProposalMissing(view_number) => {
-                write!(f, "QuorumProposalMissing(view_number={:?})", view_number)
+                write!(f, "QuorumProposalMissing(view_number={view_number:?})")
             }
             HotShotEvent::VoteNow(view_number, _) => {
-                write!(f, "VoteNow(view_number={:?})", view_number)
+                write!(f, "VoteNow(view_number={view_number:?})")
             }
             HotShotEvent::ValidatedStateUpdated(view_number, _) => {
-                write!(f, "ValidatedStateUpdated(view_number={:?})", view_number)
+                write!(f, "ValidatedStateUpdated(view_number={view_number:?})")
             }
             HotShotEvent::LockedViewUpdated(view_number) => {
-                write!(f, "LockedViewUpdated(view_number={:?})", view_number)
+                write!(f, "LockedViewUpdated(view_number={view_number:?})")
             }
             HotShotEvent::LastDecidedViewUpdated(view_number) => {
-                write!(f, "LastDecidedViewUpdated(view_number={:?})", view_number)
+                write!(f, "LastDecidedViewUpdated(view_number={view_number:?})")
             }
             HotShotEvent::UpdateHighQc(cert) => {
                 write!(f, "UpdateHighQc(view_number={:?})", cert.view_number())
