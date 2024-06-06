@@ -9,7 +9,7 @@ use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{Consensus, OuterConsensus, View},
     data::DaProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -30,7 +30,6 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
-use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -224,7 +223,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
-                    let consensus = OuterConsensus::new("DaTaskState->calculate_and_update_vid", Arc::clone(&self.consensus.inner_consensus));
+                    let consensus = OuterConsensus::new(
+                        "DaTaskState->calculate_and_update_vid",
+                        Arc::clone(&self.consensus.inner_consensus),
+                    );
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
                     async_spawn(async move {

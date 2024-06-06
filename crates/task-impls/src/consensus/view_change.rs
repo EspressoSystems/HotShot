@@ -8,13 +8,13 @@ use async_std::task::JoinHandle;
 use chrono::Utc;
 use core::time::Duration;
 use hotshot_types::{
+    consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     event::{Event, EventType},
     traits::node_implementation::{ConsensusTime, NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error};
-use hotshot_types::consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus};
 
 use crate::{
     events::HotShotEvent,

@@ -9,7 +9,7 @@ use async_compatibility_layer::art::async_sleep;
 use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
-    consensus::CommitmentAndMetadata,
+    consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     message::Proposal,
     traits::{
@@ -18,7 +18,6 @@ use hotshot_types::{
 };
 use tracing::{debug, error};
 use vbs::version::Version;
-use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     consensus::helpers::parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
@@ -98,7 +97,10 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             self.view_number,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
-            OuterConsensus::new("ProposalDependencyHandle->parent_leaf_and_state", Arc::clone(&self.consensus.inner_consensus)),
+            OuterConsensus::new(
+                "ProposalDependencyHandle->parent_leaf_and_state",
+                Arc::clone(&self.consensus.inner_consensus),
+            ),
         )
         .await?;
 

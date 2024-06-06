@@ -16,6 +16,7 @@ use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::OuterConsensus,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
@@ -31,7 +32,6 @@ use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
-use hotshot_types::consensus::OuterConsensus;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 

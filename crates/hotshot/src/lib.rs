@@ -32,7 +32,7 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{
         Version01, BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1,
     },
@@ -58,7 +58,6 @@ pub use rand;
 use tasks::{add_request_network_task, add_response_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
-use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     tasks::{add_consensus_tasks, add_network_event_task, add_network_message_task},

@@ -12,6 +12,7 @@ use hotshot_builder_api::block_info::{
 };
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
@@ -27,7 +28,6 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
-use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     builder::BuilderClient,

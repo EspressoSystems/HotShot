@@ -5,6 +5,7 @@ use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
@@ -15,7 +16,6 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error, instrument, warn};
-use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, OuterConsensus},
     data::ViewChangeEvidence,
     event::Event,
     simple_certificate::UpgradeCertificate,
@@ -25,7 +25,6 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
-use hotshot_types::consensus::OuterConsensus;
 
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
@@ -138,7 +137,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
-                        OuterConsensus::new("QuorumProposalRecvTaskState->parent_leaf_and_state", Arc::clone(&self.consensus.inner_consensus)),
+                        OuterConsensus::new(
+                            "QuorumProposalRecvTaskState->parent_leaf_and_state",
+                            Arc::clone(&self.consensus.inner_consensus),
+                        ),
                     )
                     .await
                     {

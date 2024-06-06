@@ -13,6 +13,7 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
+    consensus::OuterConsensus,
     event::Event,
     traits::{
         election::Membership,
@@ -26,7 +27,6 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, instrument, warn};
 use vbs::version::Version;
-use hotshot_types::consensus::OuterConsensus;
 
 use self::{
     dependency_handle::{ProposalDependency, ProposalDependencyHandle},
@@ -341,7 +341,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 private_key: self.private_key.clone(),
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
-                consensus: OuterConsensus::new("ProposalDependencyHandle", Arc::clone(&self.consensus.inner_consensus)),
+                consensus: OuterConsensus::new(
+                    "ProposalDependencyHandle",
+                    Arc::clone(&self.consensus.inner_consensus),
+                ),
                 version: self.version,
             },
         );

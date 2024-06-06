@@ -14,12 +14,14 @@ use hotshot_task_impls::{
     request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
     vid::VidTaskState, view_sync::ViewSyncTaskState,
 };
-use hotshot_types::traits::{
-    consensus_api::ConsensusApi,
-    node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+use hotshot_types::{
+    consensus::OuterConsensus,
+    traits::{
+        consensus_api::ConsensusApi,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+    },
 };
 use vbs::version::StaticVersionType;
-use hotshot_types::consensus::OuterConsensus;
 
 /// Trait for creating task states.
 #[async_trait]
