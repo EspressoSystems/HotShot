@@ -32,7 +32,7 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{
         Version01, BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1,
     },
@@ -130,7 +130,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 
     /// Immutable instance state
     instance_state: Arc<TYPES::InstanceState>,
@@ -173,7 +173,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             networks: Arc::clone(&self.networks),
             memberships: Arc::clone(&self.memberships),
             metrics: Arc::clone(&self.metrics),
-            consensus: Arc::clone(&self.consensus),
+            consensus: self.consensus.clone(),
             instance_state: Arc::clone(&self.instance_state),
             version: Arc::clone(&self.version),
             start_view: self.start_view,
@@ -278,7 +278,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
-            consensus,
+            consensus: OuterConsensus::new("SystemContext", consensus),
             instance_state: Arc::new(instance_state),
             public_key,
             private_key,
@@ -451,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
-        Arc::clone(&self.consensus)
+        Arc::clone(&self.consensus.inner_consensus)
     }
 
     /// Returns a copy of the instance state

@@ -7,6 +7,7 @@ use async_broadcast::{broadcast, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::{Leaf, QuorumProposal},
     message::Proposal,
     simple_certificate::QuorumCertificate,
@@ -122,6 +123,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The justify qc is invalid.
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
@@ -155,7 +157,10 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         view_number,
         event_sender,
         task_state.timeout,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new(
+            "handle_quorum_proposal_recv->update_view",
+            Arc::clone(&task_state.consensus.inner_consensus),
+        ),
         &mut task_state.cur_view,
         &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
@@ -228,7 +233,10 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     validate_proposal_safety_and_liveness(
         proposal.clone(),
         parent_leaf,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new(
+            "handle_quorum_proposal_recv->validate_proposal_safety_and_liveness",
+            Arc::clone(&task_state.consensus.inner_consensus),
+        ),
         None,
         Arc::clone(&task_state.quorum_membership),
         view_leader_key,

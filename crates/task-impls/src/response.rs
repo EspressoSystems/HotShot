@@ -7,7 +7,7 @@ use async_std::task::JoinHandle;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
-    consensus::{Consensus, LockedConsensusState},
+    consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
@@ -132,7 +132,10 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .is_some_and(|m| m.contains_key(key));
         if !contained {
             if Consensus::calculate_and_update_vid(
-                Arc::clone(&self.consensus),
+                OuterConsensus::new(
+                    "NetworkResponseState->calculate_and_update_vid",
+                    Arc::clone(&self.consensus),
+                ),
                 view,
                 Arc::clone(&self.quorum),
                 &self.private_key,
@@ -143,7 +146,10 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 // Sleep in hope we receive txns in the meantime
                 async_sleep(TXNS_TIMEOUT).await;
                 Consensus::calculate_and_update_vid(
-                    Arc::clone(&self.consensus),
+                    OuterConsensus::new(
+                        "NetworkResponseState->calculate_and_update_vid",
+                        Arc::clone(&self.consensus),
+                    ),
                     view,
                     Arc::clone(&self.quorum),
                     &self.private_key,

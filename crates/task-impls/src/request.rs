@@ -11,13 +11,12 @@ use std::{
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
-use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
@@ -52,7 +51,7 @@ pub struct NetworkRequestState<
     pub network: Arc<I::QuorumNetwork>,
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    pub state: Arc<RwLock<Consensus<TYPES>>>,
+    pub state: OuterConsensus<TYPES>,
     /// Last seen view, we won't request for proposals before older than this view
     pub view: TYPES::Time,
     /// Delay before requesting peers
@@ -196,7 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
-            state: Arc::clone(&self.state),
+            state: OuterConsensus::new("DelayedRequester", Arc::clone(&self.state.inner_consensus)),
             sender,
             delay: self.delay,
             recipients,
@@ -231,7 +230,7 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests
     network: Arc<I::QuorumNetwork>,
     /// Shared state to check if the data go populated
-    state: Arc<RwLock<Consensus<TYPES>>>,
+    state: OuterConsensus<TYPES>,
     /// Channel to send the event when we receive a response
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Duration to delay sending the first request

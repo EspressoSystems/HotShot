@@ -3,13 +3,12 @@ use std::sync::Arc;
 use anyhow::{ensure, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use chrono::Utc;
 use core::time::Duration;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     event::{Event, EventType},
     traits::node_implementation::{ConsensusTime, NodeType},
 };
@@ -39,7 +38,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     timeout: u64,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     cur_view: &mut TYPES::Time,
     cur_view_time: &mut i64,
     timeout_task: &mut JoinHandle<()>,
@@ -127,7 +126,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
                 - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
         );
     }
-    let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+    let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
     if let Err(e) = consensus.update_view(new_view) {
         tracing::trace!("{e:?}");
     }

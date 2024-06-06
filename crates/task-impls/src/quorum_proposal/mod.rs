@@ -13,7 +13,7 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     event::Event,
     traits::{
         election::Membership,
@@ -87,7 +87,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub storage: Arc<RwLock<I::Storage>>,
 
     /// Shared consensus task state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// The node's id
     pub id: u64,
@@ -341,7 +341,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 private_key: self.private_key.clone(),
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
-                consensus: Arc::clone(&self.consensus),
+                consensus: OuterConsensus::new(
+                    "ProposalDependencyHandle",
+                    Arc::clone(&self.consensus.inner_consensus),
+                ),
                 version: self.version,
             },
         );

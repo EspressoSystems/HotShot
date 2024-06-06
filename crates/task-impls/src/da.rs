@@ -9,7 +9,7 @@ use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{Consensus, LockedConsensusState, View},
+    consensus::{Consensus, OuterConsensus, View},
     data::DaProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -51,7 +51,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: LockedConsensusState<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
@@ -223,7 +223,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
-                    let consensus = Arc::clone(&self.consensus);
+                    let consensus = OuterConsensus::new(
+                        "DaTaskState->calculate_and_update_vid",
+                        Arc::clone(&self.consensus.inner_consensus),
+                    );
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
                     async_spawn(async move {

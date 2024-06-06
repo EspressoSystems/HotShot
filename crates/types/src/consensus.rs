@@ -2,11 +2,13 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
+    mem::ManuallyDrop,
+    ops::{Deref, DerefMut},
     sync::Arc,
 };
 
 use anyhow::{ensure, Result};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use committable::{Commitment, Committable};
 use tracing::{debug, error};
 
@@ -38,6 +40,228 @@ pub type VidShares<TYPES> = BTreeMap<
 
 /// Type alias for consensus state wrapped in a lock.
 pub type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
+
+/// A thin wrapper around `LockedConsensusState` that helps debugging locks
+#[derive(Clone, Debug)]
+pub struct OuterConsensus<TYPES: NodeType> {
+    /// Hopefully a unique name for this `OuterConsensus`
+    name: String,
+    /// Inner `LockedConsensusState`
+    pub inner_consensus: LockedConsensusState<TYPES>,
+}
+
+impl<TYPES: NodeType> OuterConsensus<TYPES> {
+    /// Create a new instance of `OuterConsensus`, hopefully uniquely named
+    pub fn new(name: &str, consensus: LockedConsensusState<TYPES>) -> Self {
+        Self {
+            name: name.to_string(),
+            inner_consensus: consensus,
+        }
+    }
+
+    /// Locks inner consensus for reading and leaves debug traces
+    pub async fn read(&self) -> ConsensusReadLockGuard<'_, TYPES> {
+        debug!(
+            "OuterConsensus::read, name: {:?}, trying to acquire read lock on consensus",
+            self.name
+        );
+        let ret = self.inner_consensus.read().await;
+        debug!(
+            "OuterConsensus::read, name: {:?}, acquired read lock on consensus",
+            self.name
+        );
+        ConsensusReadLockGuard::new(&self.name, ret)
+    }
+
+    /// Locks inner consensus for writing and leaves debug traces
+    pub async fn write(&self) -> ConsensusWriteLockGuard<'_, TYPES> {
+        debug!(
+            "OuterConsensus::write, name: {:?}, trying to acquire write lock on consensus",
+            self.name
+        );
+        let ret = self.inner_consensus.write().await;
+        debug!(
+            "OuterConsensus::write, name: {:?}, acquired write lock on consensus",
+            self.name
+        );
+        ConsensusWriteLockGuard::new(&self.name, ret)
+    }
+
+    /// Tries to acquire write lock on inner consensus and leaves debug traces
+    pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<'_, TYPES>> {
+        debug!(
+            "OuterConsensus::try_write, name: {:?}, trying to acquire write lock on consensus",
+            self.name
+        );
+        let ret = self.inner_consensus.try_write();
+        if let Some(guard) = ret {
+            debug!(
+                "OuterConsensus::try_write, name: {:?}, acquired write lock on consensus",
+                self.name
+            );
+            Some(ConsensusWriteLockGuard::new(&self.name, guard))
+        } else {
+            debug!(
+                "OuterConsensus::try_write, name: {:?}, failed to acquire write lock",
+                self.name
+            );
+            None
+        }
+    }
+
+    /// Acquires upgradable read lock on inner consensus and leaves debug traces
+    pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<'_, TYPES> {
+        debug!("OuterConsensus::upgradable_read, name: {:?}, trying to acquire upgradable read lock on consensus", self.name);
+        let ret = self.inner_consensus.upgradable_read().await;
+        debug!("OuterConsensus::upgradable_read, name: {:?}, acquired upgradable read lock on consensus", self.name);
+        ConsensusUpgradableReadLockGuard::new(&self.name, ret)
+    }
+
+    /// Tries to acquire read lock on inner consensus and leaves debug traces
+    pub fn try_read(&self) -> Option<ConsensusReadLockGuard<'_, TYPES>> {
+        debug!(
+            "OuterConsensus::try_read, name: {:?}, trying to acquire read lock on consensus",
+            self.name
+        );
+        let ret = self.inner_consensus.try_read();
+        if let Some(guard) = ret {
+            debug!(
+                "OuterConsensus::try_read, name: {:?}, read lock acquired",
+                self.name
+            );
+            Some(ConsensusReadLockGuard::new(&self.name, guard))
+        } else {
+            debug!(
+                "OuterConsensus::try_read, name: {:?}, failed to acquire read lock",
+                self.name
+            );
+            None
+        }
+    }
+}
+
+/// A thin wrapper around `RwLockReadGuard` for `Consensus` that leaves debug traces when the lock is freed
+pub struct ConsensusReadLockGuard<'a, TYPES: NodeType> {
+    /// Hopefully a unique name for this `ConsensusReadLockGuard`
+    name: String,
+    /// Inner `RwLockReadGuard`
+    lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>,
+}
+
+impl<'a, TYPES: NodeType> ConsensusReadLockGuard<'a, TYPES> {
+    /// Creates a new instance of `ConsensusReadLockGuard` with the same name as parent `OuterConsensus`
+    #[must_use]
+    pub fn new(name: &str, lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>) -> Self {
+        Self {
+            name: name.to_string(),
+            lock_guard,
+        }
+    }
+}
+
+impl<'a, TYPES: NodeType> Deref for ConsensusReadLockGuard<'a, TYPES> {
+    type Target = Consensus<TYPES>;
+    fn deref(&self) -> &Self::Target {
+        &self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> Drop for ConsensusReadLockGuard<'a, TYPES> {
+    fn drop(&mut self) {
+        debug!("ConsensusReadLockGuard, name: {:?}, dropped", self.name);
+    }
+}
+
+/// A thin wrapper around `RwLockWriteGuard` for `Consensus` that leaves debug traces when the lock is freed
+pub struct ConsensusWriteLockGuard<'a, TYPES: NodeType> {
+    /// Hopefully a unique name for this `ConsensusReadLockGuard`
+    name: String,
+    /// Inner `RwLockWriteGuard`
+    lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>,
+}
+
+impl<'a, TYPES: NodeType> ConsensusWriteLockGuard<'a, TYPES> {
+    /// Creates a new instance of `ConsensusWriteLockGuard` with the same name as parent `OuterConsensus`
+    #[must_use]
+    pub fn new(name: &str, lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>) -> Self {
+        Self {
+            name: name.to_string(),
+            lock_guard,
+        }
+    }
+}
+
+impl<'a, TYPES: NodeType> Deref for ConsensusWriteLockGuard<'a, TYPES> {
+    type Target = Consensus<TYPES>;
+    fn deref(&self) -> &Self::Target {
+        &self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> DerefMut for ConsensusWriteLockGuard<'a, TYPES> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> Drop for ConsensusWriteLockGuard<'a, TYPES> {
+    fn drop(&mut self) {
+        debug!("ConsensusWriteLockGuard, name: {:?}, dropped", self.name);
+    }
+}
+
+/// A thin wrapper around `RwLockUpgradableReadGuard` for `Consensus` that leaves debug traces when the lock is freed or upgraded
+pub struct ConsensusUpgradableReadLockGuard<'a, TYPES: NodeType> {
+    /// Hopefully a unique name for this `ConsensusReadLockGuard`
+    name: String,
+    /// Inner `RwLockUpgradableReadGuard`
+    lock_guard: ManuallyDrop<RwLockUpgradableReadGuard<'a, Consensus<TYPES>>>,
+    /// A helper bool to indicate whether inner lock has been unsafely taken or not
+    taken: bool,
+}
+
+impl<'a, TYPES: NodeType> ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    /// Creates a new instance of `ConsensusUpgradableReadLockGuard` with the same name as parent `OuterConsensus`
+    #[must_use]
+    pub fn new(name: &str, lock_guard: RwLockUpgradableReadGuard<'a, Consensus<TYPES>>) -> Self {
+        Self {
+            name: name.to_string(),
+            lock_guard: ManuallyDrop::new(lock_guard),
+            taken: false,
+        }
+    }
+
+    /// Upgrades the inner `RwLockUpgradableReadGuard` and leaves debug traces
+    pub async fn upgrade(mut guard: Self) -> ConsensusWriteLockGuard<'a, TYPES> {
+        let name = guard.name.clone();
+        let inner_guard = unsafe { ManuallyDrop::take(&mut guard.lock_guard) };
+        guard.taken = true;
+        debug!("ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, trying to upgrade upgradable read lock on consensus", name);
+        let ret = RwLockUpgradableReadGuard::upgrade(inner_guard).await;
+        debug!("ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, upgraded upgradable read lock on consensus", name);
+        ConsensusWriteLockGuard::new(&name, ret)
+    }
+}
+
+impl<'a, TYPES: NodeType> Deref for ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    type Target = Consensus<TYPES>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> Drop for ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    fn drop(&mut self) {
+        if !self.taken {
+            unsafe { ManuallyDrop::drop(&mut self.lock_guard) }
+            debug!(
+                "ConsensusUpgradableReadLockGuard, name: {:?}, dropped",
+                self.name
+            );
+        }
+    }
+}
 
 /// A reference to the consensus algorithm
 ///
@@ -494,7 +718,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     pub async fn calculate_and_update_vid(
-        consensus: LockedConsensusState<TYPES>,
+        consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::Time,
         membership: Arc<TYPES::Membership>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -504,7 +728,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         let vid =
             VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
-        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {
                 consensus.update_vid_shares(view, prop);

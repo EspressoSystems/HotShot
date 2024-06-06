@@ -6,11 +6,10 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     message::Proposal,
     traits::{
@@ -77,7 +76,7 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
     pub round_start_delay: u64,
 
     /// Shared consensus task state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// The current version of consensus
     pub version: Version,
@@ -98,7 +97,10 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             self.view_number,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
-            Arc::clone(&self.consensus),
+            OuterConsensus::new(
+                "ProposalDependencyHandle->parent_leaf_and_state",
+                Arc::clone(&self.consensus.inner_consensus),
+            ),
         )
         .await?;
 

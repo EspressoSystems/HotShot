@@ -6,14 +6,13 @@ use std::{
 use anyhow::{bail, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
 };
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
@@ -65,7 +64,7 @@ pub struct TransactionTaskState<
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// Network for all nodes
     pub network: Arc<I::QuorumNetwork>,
@@ -227,7 +226,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
     /// Get last known builder commitment from consensus.
     async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
         let consensus = self.consensus.read().await;
-
         let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
 
         // Search through all previous views...

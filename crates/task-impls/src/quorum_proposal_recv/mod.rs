@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, OuterConsensus},
     data::ViewChangeEvidence,
     event::Event,
     simple_certificate::UpgradeCertificate,
@@ -46,7 +46,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -137,7 +137,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
-                        Arc::clone(&self.consensus),
+                        OuterConsensus::new(
+                            "QuorumProposalRecvTaskState->parent_leaf_and_state",
+                            Arc::clone(&self.consensus.inner_consensus),
+                        ),
                     )
                     .await
                     {
