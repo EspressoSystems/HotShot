@@ -1125,6 +1125,10 @@
 <a href="#1123" id="1123">1123</a>
 <a href="#1124" id="1124">1124</a>
 <a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1358,7 +1362,11 @@
         <span class="string">"Sending null proposal for view {:?}"</span>,
         proposed_leaf.view_number(),
     );
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.write().<span class="kw">await</span>.update_last_proposed_view(view) {
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus
+        .write()
+        .<span class="kw">await
+        </span>.update_last_proposed_view(message.clone())
+    {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
         <span class="kw">return</span>;
     }

@@ -531,6 +531,18 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -545,19 +557,20 @@
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
-    data::{Leaf, VidDisperse, VidDisperseShare},
+    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::{DaCertificate, QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::NodeType,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
+    vote::HasViewNumber,
 };
 
 <span class="doccomment">/// A type alias for `HashMap&lt;Commitment&lt;T&gt;, T&gt;`
@@ -590,8 +603,9 @@
     <span class="doccomment">/// View number that is currently on.
     </span>cur_view: TYPES::Time,
 
-    <span class="doccomment">/// View we proposed in last.  To prevent duplicate proposals
-    </span>last_proposed_view: TYPES::Time,
+    <span class="doccomment">/// Last proposals we sent out, None if we haven't proposed yet.
+    /// Prevents duplicate proposals, and can be served to those trying to catchup
+    </span>last_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// last view had a successful decide event
     </span>last_decided_view: TYPES::Time,
@@ -702,6 +716,7 @@
         cur_view: TYPES::Time,
         locked_view: TYPES::Time,
         last_decided_view: TYPES::Time,
+        last_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
         saved_payloads: BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
@@ -713,7 +728,7 @@
             saved_da_certs: HashMap::new(),
             cur_view,
             last_decided_view,
-            last_proposed_view: last_decided_view,
+            last_proposals,
             locked_view,
             saved_leaves,
             saved_payloads,
@@ -781,16 +796,24 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Update the last proposed view.
+    <span class="doccomment">/// Update the last proposal.
     ///
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
-    </span><span class="kw">pub fn </span>update_last_proposed_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>update_last_proposed_view(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
-            view_number &gt; <span class="self">self</span>.last_proposed_view,
+            proposal.data.view_number()
+                &gt; <span class="self">self
+                    </span>.last_proposals
+                    .last_key_value()
+                    .map_or(TYPES::Time::genesis(), |(k, <span class="kw">_</span>)| { <span class="kw-2">*</span>k }),
             <span class="string">"New view isn't newer than the previously proposed view."
         </span>);
-        <span class="self">self</span>.last_proposed_view = view_number;
+        <span class="self">self</span>.last_proposals
+            .insert(proposal.data.view_number(), proposal);
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -973,6 +996,7 @@
         <span class="self">self</span>.validated_state_map = <span class="self">self</span>.validated_state_map.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
         <span class="self">self</span>.saved_payloads = <span class="self">self</span>.saved_payloads.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
         <span class="self">self</span>.vid_shares = <span class="self">self</span>.vid_shares.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
+        <span class="self">self</span>.last_proposals = <span class="self">self</span>.last_proposals.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
     }
 
     <span class="doccomment">/// Gets the last decided leaf.

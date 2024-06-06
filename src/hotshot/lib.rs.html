@@ -738,6 +738,13 @@
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -776,9 +783,9 @@
     constants::{
         Version01, BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1,
     },
-    data::Leaf,
+    data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind},
+    message::{DataMessage, Message, MessageKind, Proposal},
     simple_certificate::QuorumCertificate,
     traits::{
         consensus_api::ConsensusApi,
@@ -1003,6 +1010,7 @@
             <span class="comment">// TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             </span>anchored_leaf.view_number(),
+            initializer.saved_proposals,
             saved_leaves,
             saved_payloads,
             initializer.high_qc,
@@ -1424,6 +1432,8 @@
     </span>undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Not yet decided state
     </span>undecided_state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
+    </span>saved_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
@@ -1441,6 +1451,7 @@
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::Time::new(<span class="number">0</span>),
+            saved_proposals: BTreeMap::new(),
             high_qc,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
@@ -1455,11 +1466,13 @@
     /// after restart.
     /// * `validated_state` - Optional validated state that if given, will be used to construct the
     /// `SystemContext`.
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>from_reload(
         anchor_leaf: Leaf&lt;TYPES&gt;,
         instance_state: TYPES::InstanceState,
         validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
         start_view: TYPES::Time,
+        saved_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
         undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
         undecided_state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
@@ -1470,6 +1483,7 @@
             validated_state,
             state_delta: <span class="prelude-val">None</span>,
             start_view,
+            saved_proposals,
             high_qc,
             undecided_leafs,
             undecided_state,
