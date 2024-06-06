@@ -63,7 +63,7 @@ use hotshot_types::{
 };
 use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
-use tracing::{error, info, warn};
+use tracing::{error, debug, info, warn};
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -523,8 +523,7 @@ pub trait RunDa<
 
                             if let Some(size) = block_size {
                                 total_transactions_committed += size;
-                                // Sishan TODO: remove this debug println
-                                println!("[{node_index}] got block with size: {:?}", size);
+                                debug!("[{node_index}] got block with size: {:?}", size);
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -961,7 +960,7 @@ pub async fn main_entry_point<
         }
     }
     // only when builder_address is not set 
-    println!(" now, args.builder_address = {:?}", args.builder_address);
+    debug!("args.builder_address = {:?}", args.builder_address);
 
     let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
 
