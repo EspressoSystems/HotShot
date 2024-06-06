@@ -223,7 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
             self.private_key.clone(),
-            OuterConsensus::new("publish_proposal_if_able", Arc::clone(&self.consensus.inner_consensus)),
+            OuterConsensus::new("ConsensusTaskState->publish_proposal_if_able", Arc::clone(&self.consensus.inner_consensus)),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
             self.decided_upgrade_cert.clone(),
@@ -259,7 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
-        let consensus = OuterConsensus::new("spawn_vote_task", Arc::clone(&self.consensus.inner_consensus));
+        let consensus = OuterConsensus::new("ConsensusTaskState->update_state_and_vote_if_able", Arc::clone(&self.consensus.inner_consensus));
         let storage = Arc::clone(&self.storage);
         let quorum_mem = Arc::clone(&self.quorum_membership);
         let da_mem = Arc::clone(&self.da_membership);
@@ -546,7 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     new_view,
                     &event_stream,
                     self.timeout,
-                    OuterConsensus::new("update_view", Arc::clone(&self.consensus.inner_consensus)),
+                    OuterConsensus::new("ConsensusTaskState->update_view", Arc::clone(&self.consensus.inner_consensus)),
                     &mut self.cur_view,
                     &mut self.cur_view_time,
                     &mut self.timeout_task,

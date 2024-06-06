@@ -99,7 +99,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             self.view_number,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
-            OuterConsensus::new("parent_leaf_and_state", Arc::clone(&self.consensus.inner_consensus)),
+            OuterConsensus::new("ProposalDependencyHandle->parent_leaf_and_state", Arc::clone(&self.consensus.inner_consensus)),
         )
         .await?;
 
