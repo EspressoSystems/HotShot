@@ -6,11 +6,10 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::CommitmentAndMetadata,
     data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     message::Proposal,
     traits::{

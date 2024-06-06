@@ -10,7 +10,6 @@ use std::ops::{Deref, DerefMut};
 use anyhow::{ensure, Result};
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use committable::{Commitment, Committable};
-use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
@@ -70,7 +69,7 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         ConsensusWriteLockGuard::new(&self.name, ret)
     }
 
-    pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<TYPES>> {
+    pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<'_, TYPES>> {
         debug!("OuterConsensus::try_write, name: {:?}, trying to acquire write lock on consensus", self.name);
         let ret = self.inner_consensus.try_write();
         match ret {
@@ -85,14 +84,14 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         }
     }
 
-    pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<TYPES> {
+    pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<'_, TYPES> {
         debug!("OuterConsensus::upgradable_read, name: {:?}, trying to acquire upgradable read lock on consensus", self.name);
         let ret = self.inner_consensus.upgradable_read().await;
         debug!("OuterConsensus::upgradable_read, name: {:?}, acquired upgradable read lock on consensus", self.name);
         ConsensusUpgradableReadLockGuard::new(&self.name, ret)
     }
 
-    pub fn try_read(&self) -> Option<ConsensusReadLockGuard<TYPES>> {
+    pub fn try_read(&self) -> Option<ConsensusReadLockGuard<'_, TYPES>> {
         debug!("OuterConsensus::try_read, name: {:?}, trying to acquire read lock on consensus", self.name);
         let ret = self.inner_consensus.try_read();
         match ret {

@@ -14,7 +14,6 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::Consensus,
     data::{Leaf, VidDisperseShare},
     event::Event,
     message::Proposal,

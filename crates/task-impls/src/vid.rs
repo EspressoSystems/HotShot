@@ -2,11 +2,9 @@ use std::{marker::PhantomData, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
     data::{VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{

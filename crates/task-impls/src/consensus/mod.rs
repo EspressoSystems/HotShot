@@ -17,7 +17,7 @@ use hotshot_types::message::Proposal;
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::vid::vid_scheme;
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::CommitmentAndMetadata,
     data::{QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},

@@ -6,14 +6,12 @@ use std::{
 use anyhow::{bail, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
 };
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,

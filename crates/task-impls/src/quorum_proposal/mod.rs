@@ -13,7 +13,6 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::Consensus,
     event::Event,
     traits::{
         election::Membership,

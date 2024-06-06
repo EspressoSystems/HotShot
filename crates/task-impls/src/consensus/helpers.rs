@@ -15,7 +15,7 @@ use chrono::Utc;
 use committable::Committable;
 use futures::FutureExt;
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus, View},
+    consensus::{CommitmentAndMetadata, View},
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,

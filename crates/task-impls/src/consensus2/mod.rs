@@ -8,7 +8,6 @@ use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
     event::Event,
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutVote},

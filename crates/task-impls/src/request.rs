@@ -11,13 +11,11 @@ use std::{
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
-use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
