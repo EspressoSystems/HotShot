@@ -6,22 +6,21 @@ use std::{
 };
 
 use anyhow::{ensure, Result};
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::{Commitment, Committable};
 use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf, QuorumProposal, VidDisperseShare},
+    data::{Leaf, VidDisperse, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
-    simple_certificate::{
-        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
-    },
+    simple_certificate::{DaCertificate, QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::NodeType,
+        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{BuilderCommitment, StateAndDelta, Terminator},
@@ -36,6 +35,9 @@ pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::Time,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
+
+/// Type alias for consensus state wrapped in a lock.
+pub type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 
 /// A reference to the consensus algorithm
 ///
@@ -107,6 +109,8 @@ pub struct ConsensusMetricsValue {
     pub number_of_views_since_last_decide: Box<dyn Gauge>,
     /// Number of views that are in-flight since the last anchor view
     pub number_of_views_per_decide_event: Box<dyn Histogram>,
+    /// Duration of views as leader
+    pub view_duration_as_leader: Box<dyn Histogram>,
     /// Number of invalid QCs we've seen since the last commit.
     pub invalid_qc: Box<dyn Gauge>,
     /// Number of outstanding transactions
@@ -115,6 +119,8 @@ pub struct ConsensusMetricsValue {
     pub outstanding_transactions_memory_size: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
+    /// Number of views that timed out as leader
+    pub number_of_timeouts_as_leader: Box<dyn Counter>,
     /// The number of empty blocks that have been proposed
     pub number_of_empty_blocks_proposed: Box<dyn Counter>,
 }
@@ -133,12 +139,16 @@ impl ConsensusMetricsValue {
                 .create_gauge(String::from("number_of_views_since_last_decide"), None),
             number_of_views_per_decide_event: metrics
                 .create_histogram(String::from("number_of_views_per_decide_event"), None),
+            view_duration_as_leader: metrics
+                .create_histogram(String::from("view_duration_as_leader"), None),
             invalid_qc: metrics.create_gauge(String::from("invalid_qc"), None),
             outstanding_transactions: metrics
                 .create_gauge(String::from("outstanding_transactions"), None),
             outstanding_transactions_memory_size: metrics
                 .create_gauge(String::from("outstanding_transactions_memory_size"), None),
             number_of_timeouts: metrics.create_counter(String::from("number_of_timeouts"), None),
+            number_of_timeouts_as_leader: metrics
+                .create_counter(String::from("number_of_timeouts_as_leader"), None),
             number_of_empty_blocks_proposed: metrics
                 .create_counter(String::from("number_of_empty_blocks_proposed"), None),
         }
@@ -358,7 +368,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         ) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.validated_state_map.get(&start_from) {
-            view.get_leaf_commitment()
+            view.leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
                         "Visited failed view {start_from:?} leaf. Expected successfuil leaf"
@@ -371,8 +381,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
 
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
-            let view = leaf.get_view_number();
-            if let (Some(state), delta) = self.get_state_and_delta(view) {
+            let view = leaf.view_number();
+            if let (Some(state), delta) = self.state_and_delta(view) {
                 if let Terminator::Exclusive(stop_before) = terminator {
                     if stop_before == view {
                         if ok_when_finished {
@@ -381,7 +391,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                         break;
                     }
                 }
-                next_leaf = leaf.get_parent_commitment();
+                next_leaf = leaf.parent_commitment();
                 if !f(leaf, state, delta) {
                     return Ok(());
                 }
@@ -423,7 +433,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
             .range(old_anchor_view..new_anchor_view)
-            .filter_map(|(_view_number, view)| view.get_leaf_commitment())
+            .filter_map(|(_view_number, view)| view.leaf_commitment())
             .for_each(|leaf| {
                 self.saved_leaves.remove(&leaf);
             });
@@ -438,29 +448,29 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub fn decided_leaf(&self) -> Leaf<TYPES> {
         let decided_view_num = self.last_decided_view;
         let view = self.validated_state_map.get(&decided_view_num).unwrap();
         let leaf = view
-            .get_leaf_commitment()
+            .leaf_commitment()
             .expect("Decided leaf not found! Consensus internally inconsistent");
         self.saved_leaves.get(&leaf).unwrap().clone()
     }
 
     /// Gets the validated state with the given view number, if in the state map.
     #[must_use]
-    pub fn get_state(&self, view_number: TYPES::Time) -> Option<&Arc<TYPES::ValidatedState>> {
+    pub fn state(&self, view_number: TYPES::Time) -> Option<&Arc<TYPES::ValidatedState>> {
         match self.validated_state_map.get(&view_number) {
-            Some(view) => view.get_state(),
+            Some(view) => view.state(),
             None => None,
         }
     }
 
     /// Gets the validated state and state delta with the given view number, if in the state map.
     #[must_use]
-    pub fn get_state_and_delta(&self, view_number: TYPES::Time) -> StateAndDelta<TYPES> {
+    pub fn state_and_delta(&self, view_number: TYPES::Time) -> StateAndDelta<TYPES> {
         match self.validated_state_map.get(&view_number) {
-            Some(view) => view.get_state_and_delta(),
+            Some(view) => view.state_and_delta(),
             None => (None, None),
         }
     }
@@ -471,11 +481,36 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// If the last decided view's state does not exist in the state map, which should never
     /// happen.
     #[must_use]
-    pub fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
+    pub fn decided_state(&self) -> Arc<TYPES::ValidatedState> {
         let decided_view_num = self.last_decided_view;
-        self.get_state_and_delta(decided_view_num)
+        self.state_and_delta(decided_view_num)
             .0
             .expect("Decided state not found! Consensus internally inconsistent")
+    }
+
+    /// Associated helper function:
+    /// Takes `LockedConsensusState` which will be updated; locks it for read and write accordingly.
+    /// Calculates `VidDisperse` based on the view, the txns and the membership,
+    /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
+    /// Returned `Option` indicates whether the update has actually happened or not.
+    pub async fn calculate_and_update_vid(
+        consensus: LockedConsensusState<TYPES>,
+        view: <TYPES as NodeType>::Time,
+        membership: Arc<TYPES::Membership>,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Option<()> {
+        let consensus = consensus.upgradable_read().await;
+        let txns = consensus.saved_payloads().get(&view)?;
+        let vid =
+            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
+        let shares = VidDisperseShare::from_vid_disperse(vid);
+        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        for share in shares {
+            if let Some(prop) = share.to_proposal(private_key) {
+                consensus.update_vid_shares(view, prop);
+            }
+        }
+        Some(())
     }
 }
 
@@ -488,29 +523,9 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Builder Commitment
     pub builder_commitment: BuilderCommitment,
     /// Metadata for the block payload
-    pub metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// Builder fee data
     pub fee: BuilderFee<TYPES>,
     /// View number this block is for
     pub block_view: TYPES::Time,
-}
-
-/// Helper type to hold the optional secondary information required to propose.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub enum SecondaryProposalInformation<TYPES: NodeType> {
-    /// The quorum proposal and certificate needed to propose.
-    QuorumProposalAndCertificate(QuorumProposal<TYPES>, QuorumCertificate<TYPES>),
-    /// The timeout certificate which we can propose from.
-    Timeout(TimeoutCertificate<TYPES>),
-    /// The view sync certificate which we can propose from.
-    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
-}
-
-/// Dependency data required to submit a proposal
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub struct ProposalDependencyData<TYPES: NodeType> {
-    /// The primary data in a proposal.
-    pub commitment_and_metadata: CommitmentAndMetadata<TYPES>,
-    /// The secondary data in a proposal
-    pub secondary_proposal_information: SecondaryProposalInformation<TYPES>,
 }

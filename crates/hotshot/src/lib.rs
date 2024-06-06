@@ -26,14 +26,16 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
 use futures::join;
-use hotshot_task::task::TaskRegistry;
+use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network};
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1},
+    constants::{
+        Version01, BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1,
+    },
     data::Leaf,
     event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind},
@@ -45,7 +47,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
-        BlockPayload,
+        EncodeBytes,
     },
     HotShotConfig,
 };
@@ -53,17 +55,12 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
-use tasks::{add_request_network_task, add_response_task, add_vid_task};
+use tasks::{add_request_network_task, add_response_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
-#[cfg(feature = "dependency-tasks")]
-use crate::tasks::{add_quorum_proposal_recv_task, add_quorum_proposal_task, add_quorum_vote_task};
 use crate::{
-    tasks::{
-        add_consensus_task, add_da_task, add_network_event_task, add_network_message_task,
-        add_transaction_task, add_upgrade_task, add_view_sync_task,
-    },
+    tasks::{add_consensus_tasks, add_network_event_task, add_network_message_task},
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
@@ -145,10 +142,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     start_view: TYPES::Time,
 
     /// Access to the output event stream.
-    #[deprecated(
-        note = "please use the `get_event_stream` method on `SystemContextHandle` instead. This field will be made private in a future release of HotShot"
-    )]
-    pub output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
+    output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
     /// External event stream for communication with the application.
     pub(crate) external_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
@@ -229,14 +223,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let validated_state = match initializer.validated_state {
             Some(state) => state,
             None => Arc::new(TYPES::ValidatedState::from_header(
-                anchored_leaf.get_block_header(),
+                anchored_leaf.block_header(),
             )),
         };
 
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
-            anchored_leaf.get_view_number(),
+            anchored_leaf.view_number(),
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
@@ -256,24 +250,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         for leaf in initializer.undecided_leafs {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
-        if let Some(payload) = anchored_leaf.get_block_payload() {
-            let encoded_txns = match payload.encode() {
-                Ok(encoded) => encoded,
-                Err(e) => {
-                    return Err(HotShotError::BlockError { source: e });
-                }
-            };
+        if let Some(payload) = anchored_leaf.block_payload() {
+            let encoded_txns = payload.encode();
 
-            saved_payloads.insert(anchored_leaf.get_view_number(), Arc::clone(&encoded_txns));
+            saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(&encoded_txns));
         }
 
         let consensus = Consensus::new(
             validated_state_map,
-            anchored_leaf.get_view_number(),
-            anchored_leaf.get_view_number(),
+            anchored_leaf.view_number(),
+            anchored_leaf.view_number(),
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            anchored_leaf.get_view_number(),
+            anchored_leaf.view_number(),
             saved_leaves,
             saved_payloads,
             initializer.high_qc,
@@ -309,35 +298,75 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         Ok(inner)
     }
 
-    /// "Starts" consensus by sending a `QCFormed` event
+    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
     pub async fn start_consensus(&self) {
+        #[cfg(feature = "dependncy-tasks")]
+        error!("HotShot is running with the dependency tasks feature enabled!!");
         debug!("Starting Consensus");
         let consensus = self.consensus.read().await;
+
+        #[allow(clippy::panic)]
         self.internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
             .await
-            .expect("Genesis Broadcast failed");
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Genesis Broadcast failed; event = ViewChange({:?})",
+                    self.start_view
+                )
+            });
+        #[cfg(feature = "dependency-tasks")]
+        {
+            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
+                #[allow(clippy::panic)]
+                self.internal_event_stream
+                    .0
+                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
+                        TYPES::Time::new(*self.start_view),
+                        validated_state.clone(),
+                    )))
+                    .await
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
+                            self.start_view,
+                        )
+                    });
+            }
+        }
+        #[allow(clippy::panic)]
         self.internal_event_stream
             .0
-            .broadcast_direct(Arc::new(HotShotEvent::QCFormed(either::Left(
+            .broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
                 consensus.high_qc().clone(),
             ))))
             .await
-            .expect("Genesis Broadcast failed");
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Genesis Broadcast failed; event = QcFormed(either::Left({:?}))",
+                    consensus.high_qc()
+                )
+            });
 
         {
             // Some applications seem to expect a leaf decide event for the genesis leaf,
             // which contains only that leaf and nothing else.
-            if self.anchored_leaf.get_view_number() == TYPES::Time::genesis() {
+            if self.anchored_leaf.view_number() == TYPES::Time::genesis() {
                 let (validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(&self.instance_state);
+
+                let qc = Arc::new(
+                    QuorumCertificate::genesis(&validated_state, self.instance_state.as_ref())
+                        .await,
+                );
+
                 broadcast_event(
                     Event {
-                        view_number: self.anchored_leaf.get_view_number(),
+                        view_number: self.anchored_leaf.view_number(),
                         event: EventType::Decide {
                             leaf_chain: Arc::new(vec![LeafInfo::new(
                                 self.anchored_leaf.clone(),
@@ -345,7 +374,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                                 Some(Arc::new(state_delta)),
                                 None,
                             )]),
-                            qc: Arc::new(QuorumCertificate::genesis(self.instance_state.as_ref())),
+                            qc,
                             block_size: None,
                         },
                     },
@@ -400,7 +429,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                             sender: api.public_key.clone(),
                             kind: MessageKind::from(message),
                         },
-                        da_membership.get_whole_committee(view_number),
+                        da_membership.whole_committee(view_number),
                         STATIC_VER_0_1,
                     ),
                 api
@@ -417,20 +446,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
     /// Returns a copy of the consensus struct
     #[must_use]
-    pub fn get_consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
+    pub fn consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
         Arc::clone(&self.consensus)
     }
 
     /// Returns a copy of the instance state
-    pub fn get_instance_state(&self) -> Arc<TYPES::InstanceState> {
+    pub fn instance_state(&self) -> Arc<TYPES::InstanceState> {
         Arc::clone(&self.instance_state)
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
-    pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
-        self.consensus.read().await.get_decided_leaf()
+    pub async fn decided_leaf(&self) -> Leaf<TYPES> {
+        self.consensus.read().await.decided_leaf()
     }
 
     /// [Non-blocking] instantly returns a copy of the last decided leaf if
@@ -439,18 +468,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     #[must_use]
-    pub fn try_get_decided_leaf(&self) -> Option<Leaf<TYPES>> {
-        self.consensus
-            .try_read()
-            .map(|guard| guard.get_decided_leaf())
+    pub fn try_decided_leaf(&self) -> Option<Leaf<TYPES>> {
+        self.consensus.try_read().map(|guard| guard.decided_leaf())
     }
 
     /// Returns the last decided validated state.
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_state(&self) -> Arc<TYPES::ValidatedState> {
-        Arc::clone(&self.consensus.read().await.get_decided_state())
+    pub async fn decided_state(&self) -> Arc<TYPES::ValidatedState> {
+        Arc::clone(&self.consensus.read().await.decided_state())
     }
 
     /// Get the validated state from a given `view`.
@@ -458,10 +485,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns the requested state, if the [`SystemContext`] is tracking this view. Consensus
     /// tracks views that have not yet been decided but could be in the future. This function may
     /// return [`None`] if the requested view has already been decided (but see
-    /// [`get_decided_state`](Self::get_decided_state)) or if there is no path for the requested
+    /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    pub async fn get_state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
-        self.consensus.read().await.get_state(view).cloned()
+    pub async fn state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+        self.consensus.read().await.state(view).cloned()
     }
 
     /// Initializes a new [`SystemContext`] and does the work of setting up all the background tasks
@@ -515,25 +542,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     }
     /// return the timeout for a view for `self`
     #[must_use]
-    pub fn get_next_view_timeout(&self) -> u64 {
+    pub fn next_view_timeout(&self) -> u64 {
         self.config.next_view_timeout
     }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
-    /// Get access to [`Consensus`]
-    #[must_use]
-    pub fn consensus(&self) -> &Arc<RwLock<Consensus<TYPES>>> {
-        &self.consensus
-    }
-
     /// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     #[allow(clippy::too_many_lines)]
     pub async fn run_tasks(&self) -> SystemContextHandle<TYPES, I> {
-        // ED Need to set first first number to 1, or properly trigger the change upon start
-        let registry = Arc::new(TaskRegistry::default());
+        let consensus_registry = ConsensusTaskRegistry::new();
+        let network_registry = NetworkTaskRegistry::new();
 
         let output_event_stream = self.external_event_stream.clone();
         let internal_event_stream = self.internal_event_stream.clone();
@@ -545,162 +566,60 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let vid_membership = self.memberships.vid_membership.clone();
         let view_sync_membership = self.memberships.view_sync_membership.clone();
 
-        let (event_tx, event_rx) = internal_event_stream.clone();
-
-        let handle = SystemContextHandle {
-            registry: Arc::clone(&registry),
+        let mut handle = SystemContextHandle {
+            consensus_registry,
+            network_registry,
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: Arc::clone(&self.storage),
         };
 
-        add_network_message_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            Arc::clone(&quorum_network),
-        )
-        .await;
-        add_network_message_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            Arc::clone(&da_network),
-        )
-        .await;
+        add_network_message_task(&mut handle, Arc::clone(&quorum_network)).await;
+        add_network_message_task(&mut handle, Arc::clone(&da_network)).await;
 
-        if let Some(request_rx) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await {
-            add_response_task(
-                Arc::clone(&registry),
-                event_rx.activate_cloned(),
-                request_rx,
-                &handle,
-            )
-            .await;
-            add_request_network_task(
-                Arc::clone(&registry),
-                event_tx.clone(),
-                event_rx.activate_cloned(),
-                &handle,
-            )
-            .await;
+        if let Some(request_receiver) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await
+        {
+            add_response_task(&mut handle, request_receiver).await;
+            add_request_network_task(&mut handle).await;
         }
 
         add_network_event_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
+            &mut handle,
             Arc::clone(&quorum_network),
             quorum_membership.clone(),
             network::quorum_filter,
-            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
+            &mut handle,
             Arc::clone(&quorum_network),
             quorum_membership,
             network::upgrade_filter,
-            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
+            &mut handle,
             Arc::clone(&da_network),
             da_membership,
             network::da_filter,
-            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
+            &mut handle,
             Arc::clone(&quorum_network),
             view_sync_membership,
             network::view_sync_filter,
-            Arc::clone(&handle.get_storage()),
         )
         .await;
         add_network_event_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
+            &mut handle,
             Arc::clone(&quorum_network),
             vid_membership,
             network::vid_filter,
-            Arc::clone(&handle.get_storage()),
         )
         .await;
-        add_consensus_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        add_da_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        add_vid_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        add_transaction_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        add_view_sync_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        add_upgrade_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        #[cfg(feature = "dependency-tasks")]
-        add_quorum_proposal_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        #[cfg(feature = "dependency-tasks")]
-        add_quorum_vote_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
-        #[cfg(feature = "dependency-tasks")]
-        add_quorum_proposal_recv_task(
-            Arc::clone(&registry),
-            event_tx.clone(),
-            event_rx.activate_cloned(),
-            &handle,
-        )
-        .await;
+        add_consensus_tasks::<TYPES, I, Version01>(&mut handle).await;
         handle
     }
 }
@@ -767,14 +686,18 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(instance_state: TYPES::InstanceState) -> Result<Self, HotShotError<TYPES>> {
+    pub async fn from_genesis(
+        instance_state: TYPES::InstanceState,
+    ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
+        let high_qc = QuorumCertificate::genesis(&validated_state, &instance_state).await;
+
         Ok(Self {
-            inner: Leaf::genesis(&instance_state),
+            inner: Leaf::genesis(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
-            high_qc: QuorumCertificate::genesis(&instance_state),
+            high_qc,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,

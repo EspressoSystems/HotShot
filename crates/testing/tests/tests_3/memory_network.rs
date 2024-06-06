@@ -1,33 +1,33 @@
 #![allow(clippy::panic)]
-use std::collections::BTreeSet;
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use async_compatibility_layer::logging::setup_logging;
-use hotshot::traits::election::static_committee::GeneralStaticCommittee;
-use hotshot::traits::implementations::{MasterMap, MemoryNetwork, NetworkingMetricsValue};
-use hotshot::traits::NodeImplementation;
-use hotshot::types::SignatureKey;
-use hotshot_example_types::state_types::TestInstanceState;
-use hotshot_example_types::storage_types::TestStorage;
+use hotshot::{
+    traits::{
+        election::static_committee::GeneralStaticCommittee,
+        implementations::{MasterMap, MemoryNetwork, NetworkingMetricsValue},
+        NodeImplementation,
+    },
+    types::SignatureKey,
+};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::TestValidatedState,
+    state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
 };
-use hotshot_types::constants::STATIC_VER_0_1;
-use hotshot_types::message::Message;
-use hotshot_types::signature_key::{BLSPubKey, BuilderKey};
-use hotshot_types::traits::network::ConnectedNetwork;
-use hotshot_types::traits::network::TestableNetworkingImplementation;
-use hotshot_types::traits::node_implementation::{ConsensusTime, NodeType};
 use hotshot_types::{
+    constants::STATIC_VER_0_1,
     data::ViewNumber,
-    message::{DataMessage, MessageKind},
+    message::{DataMessage, Message, MessageKind},
+    signature_key::{BLSPubKey, BuilderKey},
+    traits::{
+        network::{ConnectedNetwork, TestableNetworkingImplementation},
+        node_implementation::{ConsensusTime, NodeType},
+    },
 };
-use rand::rngs::StdRng;
-use rand::{RngCore, SeedableRng};
+use rand::{rngs::StdRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
-use tracing::trace;
+use tracing::{instrument, trace};
 
 #[derive(
     Copy,
@@ -85,7 +85,7 @@ fn fake_message_eq(message_1: Message<Test>, message_2: Message<Test>) {
 }
 
 #[instrument]
-fn get_pubkey() -> BLSPubKey {
+fn pubkey() -> BLSPubKey {
     // random 32 bytes
     let mut bytes = [0; 32];
     rand::thread_rng().fill_bytes(&mut bytes);
@@ -104,7 +104,7 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
         let message = Message {
             sender: pk,
             kind: MessageKind::Data(DataMessage::SubmitTransaction(
-                TestTransaction(bytes.to_vec()),
+                TestTransaction::new(bytes.to_vec()),
                 <ViewNumber as ConsensusTime>::new(0),
             )),
         };
@@ -121,7 +121,7 @@ async fn memory_network_spawn_single() {
     setup_logging();
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
-    let _pub_key = get_pubkey();
+    let _pub_key = pubkey();
 }
 
 // // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -132,8 +132,8 @@ async fn memory_network_spawn_double() {
     setup_logging();
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
-    let _pub_key_1 = get_pubkey();
-    let _pub_key_2 = get_pubkey();
+    let _pub_key_1 = pubkey();
+    let _pub_key_2 = pubkey();
 }
 
 // Check to make sure direct queue works
@@ -148,7 +148,7 @@ async fn memory_network_direct_queue() {
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
 
-    let pub_key_1 = get_pubkey();
+    let pub_key_1 = pubkey();
     let network1 = MemoryNetwork::new(
         pub_key_1,
         NetworkingMetricsValue::default(),
@@ -156,7 +156,7 @@ async fn memory_network_direct_queue() {
         Option::None,
     );
 
-    let pub_key_2 = get_pubkey();
+    let pub_key_2 = pubkey();
     let network2 = MemoryNetwork::new(
         pub_key_2,
         NetworkingMetricsValue::default(),
@@ -210,14 +210,14 @@ async fn memory_network_broadcast_queue() {
     // Make and connect the networking instances
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
-    let pub_key_1 = get_pubkey();
+    let pub_key_1 = pubkey();
     let network1 = MemoryNetwork::new(
         pub_key_1,
         NetworkingMetricsValue::default(),
         group.clone(),
         Option::None,
     );
-    let pub_key_2 = get_pubkey();
+    let pub_key_2 = pubkey();
     let network2 = MemoryNetwork::new(
         pub_key_2,
         NetworkingMetricsValue::default(),
@@ -279,14 +279,14 @@ async fn memory_network_test_in_flight_message_count() {
 
     let group: Arc<MasterMap<Message<Test>, <Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
-    let pub_key_1 = get_pubkey();
+    let pub_key_1 = pubkey();
     let network1 = MemoryNetwork::new(
         pub_key_1,
         NetworkingMetricsValue::default(),
         group.clone(),
         Option::None,
     );
-    let pub_key_2 = get_pubkey();
+    let pub_key_2 = pubkey();
     let network2 = MemoryNetwork::new(
         pub_key_2,
         NetworkingMetricsValue::default(),

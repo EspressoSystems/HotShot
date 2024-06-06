@@ -294,11 +294,6 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
         .map(|i| format_ident!("{}_output_index", quote::quote!(#i).to_string()))
         .collect();
 
-    let task_names: Vec<_> = scripts
-        .iter()
-        .map(|i| format_ident!("{}_task", quote::quote!(#i).to_string()))
-        .collect();
-
     let task_expectations: Vec<_> = scripts
         .iter()
         .map(|i| format_ident!("{}_expectations", quote::quote!(#i).to_string()))
@@ -316,25 +311,20 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
         validate_task_state_or_panic_in_script,
     };
 
-    use hotshot_testing::{predicates::Predicate, script::RECV_TIMEOUT};
+    use hotshot_testing::{predicates::{Predicate, PredicateResult}};
     use async_broadcast::broadcast;
     use hotshot_task_impls::events::HotShotEvent;
     use async_compatibility_layer::art::async_timeout;
-    use hotshot_task::task::{Task, TaskRegistry, TaskState};
+    use hotshot_task::task::{Task, TaskState};
     use hotshot_types::traits::node_implementation::NodeType;
     use std::sync::Arc;
 
-    let registry = Arc::new(TaskRegistry::default());
+    async {
 
-    let (test_input, task_receiver) = broadcast(1024);
-    // let (task_input, mut test_receiver) = broadcast(1024);
+    let (to_task, mut from_test) = broadcast(1024);
+    let (to_test, mut from_task) = broadcast(1024);
 
-    let task_input = test_input.clone();
-    let mut test_receiver = task_receiver.clone();
-
-    let mut loop_receiver = task_receiver.clone();
-
-    #(let mut #task_names = Task::new(task_input.clone(), task_receiver.clone(), registry.clone(), #scripts.state);)*
+    let mut loop_receiver = from_task.clone();
 
     #(let mut #task_expectations = #scripts.expectations;)*
 
@@ -346,26 +336,43 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
         for input in &input_group {
             #(
-                if !#task_names.state().filter(&input.clone().into()) {
-                    tracing::debug!("Test sent: {:?}", input);
+                tracing::debug!("Test sent: {:?}", input);
 
-                    if let Some(res) = #task_names.handle_event(input.clone().into()).await {
-                        #task_names.state().handle_result(&res).await;
-                    }
+                to_task
+                    .broadcast(input.clone().into())
+                    .await
+                    .expect("Failed to broadcast input message");
 
-                    while let Ok(Ok(received_output)) = async_timeout(Duration::from_millis(35), test_receiver.recv_direct()).await {
-                        tracing::debug!("Test received: {:?}", received_output);
 
-                        let output_asserts = &mut #task_expectations[stage_number].output_asserts;
+                let _ = #scripts.state
+                    .handle_event(input.clone().into(), &to_test, &from_test)
+                    .await
+                    .inspect_err(|e| tracing::info!("{e}"));
 
-                        if #output_index_names >= output_asserts.len() {
+                while from_test.try_recv().is_ok() {}
+
+                let mut result = PredicateResult::Incomplete;
+
+                while let Ok(Ok(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).await {
+                    tracing::debug!("Test received: {:?}", received_output);
+
+                    let output_asserts = &mut #task_expectations[stage_number].output_asserts;
+
+                    if #output_index_names >= output_asserts.len() {
                             panic_extra_output_in_script(stage_number, #script_names.to_string(), &received_output);
-                        };
+                    };
 
-                        let assert = &mut output_asserts[#output_index_names];
+                    let assert = &mut output_asserts[#output_index_names];
 
-                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), &received_output, &**assert).await;
+                    result = validate_output_or_panic_in_script(
+                        stage_number,
+                        #script_names.to_string(),
+                        &received_output,
+                        &**assert
+                    )
+                    .await;
 
+                    if result == PredicateResult::Pass {
                         #output_index_names += 1;
                     }
                 }
@@ -374,26 +381,41 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
         while let Ok(input) = loop_receiver.try_recv() {
             #(
-                if !#task_names.state().filter(&input) {
-                    tracing::debug!("Test sent: {:?}", input);
+                tracing::debug!("Test sent: {:?}", input);
 
-                    if let Some(res) = #task_names.handle_event(input.clone()).await {
-                        #task_names.state().handle_result(&res).await;
-                    }
+                to_task
+                    .broadcast(input.clone().into())
+                    .await
+                    .expect("Failed to broadcast input message");
 
-                    while let Ok(Ok(received_output)) = async_timeout(RECV_TIMEOUT, test_receiver.recv_direct()).await {
-                        tracing::debug!("Test received: {:?}", received_output);
+                let _ = #scripts.state
+                    .handle_event(input.clone().into(), &to_test, &from_test)
+                    .await
+                    .inspect_err(|e| tracing::info!("{e}"));
 
-                        let output_asserts = &mut #task_expectations[stage_number].output_asserts;
+                while from_test.try_recv().is_ok() {}
 
-                        if #output_index_names >= output_asserts.len() {
+                let mut result = PredicateResult::Incomplete;
+                while let Ok(Ok(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).await {
+                    tracing::debug!("Test received: {:?}", received_output);
+
+                    let output_asserts = &mut #task_expectations[stage_number].output_asserts;
+
+                    if #output_index_names >= output_asserts.len() {
                             panic_extra_output_in_script(stage_number, #script_names.to_string(), &received_output);
-                        };
+                    };
 
-                        let mut assert = &mut output_asserts[#output_index_names];
+                    let mut assert = &mut output_asserts[#output_index_names];
 
-                        validate_output_or_panic_in_script(stage_number, #script_names.to_string(), &received_output, &**assert).await;
+                    result = validate_output_or_panic_in_script(
+                        stage_number,
+                        #script_names.to_string(),
+                        &received_output,
+                        &**assert
+                    )
+                    .await;
 
+                    if result == PredicateResult::Pass {
                         #output_index_names += 1;
                     }
                 }
@@ -410,11 +432,92 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
             let task_state_asserts = &mut #task_expectations[stage_number].task_state_asserts;
 
             for assert in task_state_asserts {
-                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), #task_names.state(), &**assert).await;
+                validate_task_state_or_panic_in_script(stage_number, #script_names.to_string(), &#scripts.state, &**assert).await;
             }
         )*
     } }
 
+    }
+
+    };
+
+    expanded.into()
+}
+
+/// Macro to run the test suite with `TaskState` scripts at once with the ability to.
+/// Randomize the input values using a consistent seed value.
+///
+/// **Note** When using `random!` you should use `all_predicates` in the output to ensure
+/// that the test does not fail due to events happening out of order!
+///
+/// Usage:
+///
+///   `run_test[inputs, script1, script2, ...]`
+///
+/// The generated test will:
+///   - take the first entry of `inputs`, which should be a `Vec<HotShotEvent<TYPES>>`,
+///   - if the input is random, it'll generate a `seed` and shuffle the inputs.
+///   - if the input is serial, it will execute in order.
+///   - print the seed being used.
+///   - feed this to each task in order, validating any output received before moving on to the next one,
+///   - repeat the previous steps, with the aggregated outputs received from all tasks used as the new input set,
+///   - repeat until no more output has been generated by any task, and finally
+///   - proceed to the next entry of inputs.
+///   - print the seed being used (again) to make finding it a bit easier.
+///
+/// # Panics
+///
+/// The macro panics if the input stream cannot be parsed.
+/// The test will panic if the any of the scripts has a different number of stages from the input.
+#[proc_macro]
+pub fn run_test(input: TokenStream) -> TokenStream {
+    // Parse the input as an iter of Expr
+    let inputs: Vec<_> = syn::parse::Parser::parse2(
+        syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+        input.into(),
+    )
+    .unwrap()
+    .into_iter()
+    .collect();
+
+    // Separate the first input (which should be the InputOrder enum)
+    let test_inputs = &inputs[0];
+    let scripts = &inputs[1..];
+
+    // Generate code for shuffling and flattening inputs
+    let expanded = quote! {
+        {
+            use rand::{
+                SeedableRng, rngs::StdRng,
+                seq::SliceRandom
+            };
+            use hotshot_task_impls::events::HotShotEvent;
+            use hotshot_task::task::TaskState;
+            use hotshot_types::traits::node_implementation::NodeType;
+            use hotshot_testing::script::InputOrder;
+
+            async {
+                let seed: u64 = rand::random();
+                tracing::info!("Running test with seed {seed}");
+                let mut rng = StdRng::seed_from_u64(seed);
+                let mut shuffled_inputs = Vec::new();
+
+                for (stage_number, input_order) in #test_inputs.into_iter().enumerate() {
+                    match input_order {
+                        InputOrder::Random(mut events) => {
+                            events.shuffle(&mut rng);
+                            shuffled_inputs.push(events);
+                        },
+                        InputOrder::Serial(events) => {
+                            shuffled_inputs.push(events);
+                        }
+                    }
+                }
+
+                test_scripts![shuffled_inputs, #(#scripts),*].await;
+                tracing::info!("Suite used seed {seed}");
+            }
+        }
     };
 
     expanded.into()

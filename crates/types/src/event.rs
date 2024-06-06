@@ -123,11 +123,6 @@ pub enum EventType<TYPES: NodeType> {
         /// The view that timed out
         view_number: TYPES::Time,
     },
-    /// A next leader task was canceled by a timeout interrupt
-    NextLeaderViewTimeout {
-        /// The view that timed out
-        view_number: TYPES::Time,
-    },
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
     ViewFinished {
         /// The view number that has just finished
@@ -177,11 +172,11 @@ pub enum HotShotAction {
     /// A quorum proposal was sent
     Propose,
     /// DA proposal was sent
-    DAPropose,
+    DaPropose,
     /// DA vote was sent
     DaVote,
     /// DA certificate was sent
-    DACert,
+    DaCert,
     /// VID shares were sent
     VidDisperse,
     /// An upgrade vote was sent

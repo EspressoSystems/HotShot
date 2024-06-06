@@ -2,15 +2,17 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
-    data::{QuorumProposal, ViewChangeEvidence},
+    consensus::Consensus,
+    data::ViewChangeEvidence,
     event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -22,12 +24,17 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
+use vbs::version::Version;
 
+use self::handlers::handle_quorum_proposal_recv;
 use crate::{
-    consensus::helpers::{get_parent_leaf_and_state, handle_quorum_proposal_recv},
+    consensus::helpers::parent_leaf_and_state,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
+
+/// Event handlers for this task.
+mod handlers;
 
 /// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.
@@ -44,6 +51,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
+    /// Timestamp this view starts at.
+    pub cur_view_time: i64,
+
     /// Network for all nodes
     pub quorum_network: Arc<I::QuorumNetwork>,
 
@@ -54,7 +64,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub timeout_membership: Arc<TYPES::Membership>,
 
     /// timeout task handle
-    pub timeout_task: Option<JoinHandle<()>>,
+    pub timeout_task: JoinHandle<()>,
 
     /// View timeout from config.
     pub timeout: u64,
@@ -91,6 +101,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
     /// The node's id
     pub id: u64,
+
+    /// Current version of consensus
+    pub version: Version,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
@@ -116,12 +129,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     ) {
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
-            match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self).await {
+            match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
                 Ok(Some(current_proposal)) => {
                     // Build the parent leaf since we didn't find it during the proposal check.
-                    let parent_leaf = match get_parent_leaf_and_state(
+                    let parent_leaf = match parent_leaf_and_state(
                         self.cur_view,
-                        proposal.data.get_view_number() + 1,
+                        proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
                         Arc::clone(&self.consensus),
@@ -130,13 +143,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     {
                         Ok((parent_leaf, _ /* state */)) => parent_leaf,
                         Err(error) => {
-                            warn!(?error, "Failed to get parent leaf and state");
+                            warn!("Failed to get parent leaf and state during VoteNow data construction; error = {error:#}");
                             return;
                         }
                     };
 
-                    let view = current_proposal.get_view_number();
-                    self.cancel_tasks(proposal.data.get_view_number()).await;
+                    let view = current_proposal.view_number();
+                    self.cancel_tasks(proposal.data.view_number()).await;
                     let consensus = self.consensus.read().await;
                     let Some(vid_shares) = consensus.vid_shares().get(&view) else {
                         debug!(
@@ -145,17 +158,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             );
                         return;
                     };
-                    let Some(disperse_share) = vid_shares.get(&self.public_key) else {
+                    let Some(vid_share) = vid_shares.get(&self.public_key) else {
                         error!("Did not get a VID share for our public key, aborting vote");
                         return;
                     };
                     let Some(da_cert) = consensus
                         .saved_da_certs()
-                        .get(&current_proposal.get_view_number())
+                        .get(&current_proposal.view_number())
                     else {
                         debug!(
                             "Received VID share, but couldn't find DAC cert for view {:?}",
-                            current_proposal.get_view_number()
+                            current_proposal.view_number()
                         );
                         return;
                     };
@@ -165,7 +178,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                             VoteDependencyData {
                                 quorum_proposal: current_proposal,
                                 parent_leaf,
-                                disperse_share: disperse_share.clone(),
+                                vid_share: vid_share.clone(),
                                 da_cert: da_cert.clone(),
                             },
                         )),
@@ -174,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     .await;
                 }
                 Ok(None) => {
-                    self.cancel_tasks(proposal.data.get_view_number()).await;
+                    self.cancel_tasks(proposal.data.view_number()).await;
                 }
                 Err(e) => debug!(?e, "Failed to propose"),
             }
@@ -182,28 +195,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     }
 }
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     for QuorumProposalRecvTaskState<TYPES, I>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
-    type Output = ();
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::QuorumProposalRecv(..) | HotShotEvent::Shutdown
-        )
+    type Event = HotShotEvent<TYPES>;
+
+    async fn handle_event(
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
+
+        Ok(())
     }
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
-    where
-        Self: Sized,
-    {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
-    }
+    async fn cancel_subtasks(&mut self) {
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
+            for handle in handles {
+                #[cfg(async_executor_impl = "async-std")]
+                handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
+            }
+        }
     }
 }

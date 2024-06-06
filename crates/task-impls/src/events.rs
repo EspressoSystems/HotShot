@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use either::Either;
+use hotshot_task::task::TaskEvent;
 use hotshot_types::{
-    consensus::ProposalDependencyData,
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperse, VidDisperseShare},
     message::Proposal,
     simple_certificate::{
@@ -14,7 +14,7 @@ use hotshot_types::{
         ViewSyncPreCommitVote,
     },
     traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
-    utils::BuilderCommitment,
+    utils::{BuilderCommitment, View},
     vid::{VidCommitment, VidPrecomputeData},
     vote::VoteDependencyData,
 };
@@ -22,12 +22,18 @@ use vbs::version::Version;
 
 use crate::view_sync::ViewSyncPhase;
 
+impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
+    fn shutdown_event() -> Self {
+        HotShotEvent::Shutdown
+    }
+}
+
 /// Marker that the task completed
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct HotShotTaskCompleted;
 
 /// All of the possible events that can be passed between Sequecning `HotShot` tasks
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum HotShotEvent<TYPES: NodeType> {
     /// Shutdown the task
@@ -63,7 +69,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
     DaVoteSend(DaVote<TYPES>),
     /// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
-    QCFormed(Either<QuorumCertificate<TYPES>, TimeoutCertificate<TYPES>>),
+    QcFormed(Either<QuorumCertificate<TYPES>, TimeoutCertificate<TYPES>>),
     /// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     DacSend(DaCertificate<TYPES>, TYPES::SignatureKey),
     /// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
@@ -111,14 +117,14 @@ pub enum HotShotEvent<TYPES: NodeType> {
     SendPayloadCommitmentAndMetadata(
         VidCommitment,
         BuilderCommitment,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(
         Arc<[u8]>,
-        <TYPES::BlockPayload as BlockPayload>::Metadata,
+        <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
         VidPrecomputeData,
@@ -134,9 +140,9 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Vid disperse share has been received from the network; handled by the consensus task
     ///
     /// Like [`HotShotEvent::DaProposalRecv`].
-    VIDShareRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidShareRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
     /// VID share data is validated.
-    VIDShareValidated(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidShareValidated(Proposal<TYPES, VidDisperseShare<TYPES>>),
     /// Upgrade proposal has been received from the network
     UpgradeProposalRecv(Proposal<TYPES, UpgradeProposal<TYPES>>, TYPES::SignatureKey),
     /// Upgrade proposal has been sent to the network
@@ -147,10 +153,33 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeVoteSend(UpgradeVote<TYPES>),
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
+    /// A HotShot upgrade was decided
+    UpgradeDecided(UpgradeCertificate<TYPES>),
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
-    /// Initiate a proposal right now for a provided view.
-    ProposeNow(TYPES::Time, ProposalDependencyData<TYPES>),
+
+    /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
+    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
+    /// different state than what we'd typically see with a fully validated proposal and,
+    /// as a result, it need to be its own event.
+    QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
+
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
+
+    /* Consensus State Update Events */
+    /// A undecided view has been created and added to the validated state storage.
+    ValidatedStateUpdated(TYPES::Time, View<TYPES>),
+
+    /// A new locked view has been created (2-chain)
+    LockedViewUpdated(TYPES::Time),
+
+    /// A new anchor view has been successfully reached by this node (3-chain).
+    LastDecidedViewUpdated(TYPES::Time),
+
+    /// A new high_qc has been reached by this node.
+    UpdateHighQc(QuorumCertificate<TYPES>),
+
+    /// A new undecided view has been proposed.
+    NewUndecidedView(Leaf<TYPES>),
 }

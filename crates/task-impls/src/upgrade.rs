@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -29,13 +30,10 @@ use crate::{
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
 /// Tracks state of a DA task
-pub struct UpgradeTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
-    /// The state's api
-    pub api: A,
+pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Output events to application
+    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
+
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
 
@@ -61,9 +59,7 @@ pub struct UpgradeTaskState<
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    UpgradeTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
     pub async fn handle(
@@ -84,10 +80,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 // If we have an upgrade target, we validate that the proposal is relevant for the current view.
                 info!(
                     "Upgrade proposal received for view: {:?}",
-                    proposal.data.get_view_number()
+                    proposal.data.view_number()
                 );
 
-                let view = proposal.data.get_view_number();
+                let view = proposal.data.view_number();
 
                 // At this point, we could choose to validate
                 // that the proposal was issued by the correct leader
@@ -113,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 }
 
                 // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.quorum_membership.get_leader(view);
+                let view_leader_key = self.quorum_membership.leader(view);
                 if &view_leader_key != sender {
                     error!("Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}", *view, proposal.data.clone());
                     return None;
@@ -123,15 +119,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 //   * the proposal was expected,
                 //   * the proposal is valid, and
                 // so we notify the application layer
-                self.api
-                    .send_event(Event {
+                broadcast_event(
+                    Event {
                         view_number: self.cur_view,
                         event: EventType::UpgradeProposal {
                             proposal: proposal.clone(),
                             sender: sender.clone(),
                         },
-                    })
-                    .await;
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
 
                 // If everything is fine up to here, we generate and send a vote on the proposal.
                 let Ok(vote) = UpgradeVote::create_signed_vote(
@@ -143,20 +141,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     error!("Failed to sign UpgradeVote!");
                     return None;
                 };
-                debug!("Sending upgrade vote {:?}", vote.get_view_number());
+                debug!("Sending upgrade vote {:?}", vote.view_number());
                 broadcast_event(Arc::new(HotShotEvent::UpgradeVoteSend(vote)), &tx).await;
             }
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
-                debug!("Upgrade vote recv, Main Task {:?}", vote.get_view_number());
+                debug!("Upgrade vote recv, Main Task {:?}", vote.view_number());
 
                 // Check if we are the leader.
                 {
-                    let view = vote.get_view_number();
-                    if self.quorum_membership.get_leader(view) != self.public_key {
+                    let view = vote.view_number();
+                    if self.quorum_membership.leader(view) != self.public_key {
                         error!(
                             "We are not the leader for view {} are we leader for next view? {}",
                             *view,
-                            self.quorum_membership.get_leader(view + 1) == self.public_key
+                            self.quorum_membership.leader(view + 1) == self.public_key
                         );
                         return None;
                     }
@@ -164,13 +162,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 let mut collector = self.vote_collector.write().await;
 
-                if collector.is_none() || vote.get_view_number() > collector.as_ref().unwrap().view
-                {
-                    debug!("Starting vote handle for view {:?}", vote.get_view_number());
+                if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
+                    debug!("Starting vote handle for view {:?}", vote.view_number());
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
                         membership: Arc::clone(&self.quorum_membership),
-                        view: vote.get_view_number(),
+                        view: vote.view_number(),
                         id: self.id,
                     };
                     *collector = create_vote_accumulator::<
@@ -183,7 +180,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     let result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_event(Arc::clone(&event), &tx)
+                        .handle_vote_event(Arc::clone(&event), &tx)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -218,14 +215,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                     };
                     use vbs::version::Version;
 
-                    if *view == 5 && self.quorum_membership.get_leader(view + 5) == self.public_key
-                    {
+                    if *view == 5 && self.quorum_membership.leader(view + 5) == self.public_key {
                         let upgrade_proposal_data = UpgradeProposalData {
                             old_version: Version { major: 0, minor: 1 },
                             new_version: Version { major: 1, minor: 0 },
                             new_version_hash: vec![1, 1, 0, 0, 1],
-                            old_version_last_block: TYPES::Time::new(15),
-                            new_version_first_block: TYPES::Time::new(18),
+                            old_version_last_view: TYPES::Time::new(15),
+                            new_version_first_view: TYPES::Time::new(18),
+                            decide_by: TYPES::Time::new(12),
                         };
 
                         let upgrade_proposal = UpgradeProposal {
@@ -262,43 +259,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 error!("Shutting down because of shutdown signal!");
                 return Some(HotShotTaskCompleted);
             }
-            _ => {
-                error!("unexpected event {:?}", event);
-            }
+            _ => {}
         }
         None
     }
 }
 
+#[async_trait]
 /// task state implementation for the upgrade task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for UpgradeTaskState<TYPES, I, A>
-{
-    type Event = Arc<HotShotEvent<TYPES>>;
-
-    type Output = HotShotTaskCompleted;
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for UpgradeTaskState<TYPES, I> {
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
-        event: Self::Event,
-        task: &mut hotshot_task::task::Task<Self>,
-    ) -> Option<Self::Output> {
-        let sender = task.clone_sender();
-        tracing::trace!("sender queue len {}", sender.len());
-        task.state_mut().handle(event, sender).await
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
+
+        Ok(())
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::UpgradeProposalRecv(_, _)
-                | HotShotEvent::UpgradeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(_)
-                | HotShotEvent::VersionUpgrade(_)
-        )
-    }
+    async fn cancel_subtasks(&mut self) {}
 }

@@ -25,7 +25,7 @@ use hotshot_orchestrator::config::RandomBuilderConfig;
 use hotshot_types::{
     constants::{Version01, STATIC_VER_0_1},
     traits::{
-        block_contents::{precompute_vid_commitment, BlockHeader},
+        block_contents::{precompute_vid_commitment, BlockHeader, EncodeBytes},
         node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
@@ -70,6 +70,19 @@ where
     }
 }
 
+/// Configuration for `SimpleBuilder`
+pub struct SimpleBuilderConfig {
+    pub port: u16,
+}
+
+impl Default for SimpleBuilderConfig {
+    fn default() -> Self {
+        Self {
+            port: portpicker::pick_unused_port().expect("No free ports"),
+        }
+    }
+}
+
 pub struct SimpleBuilderImplementation;
 
 #[async_trait]
@@ -77,7 +90,7 @@ impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplemen
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
-    type Config = ();
+    type Config = SimpleBuilderConfig;
 
     async fn start(
         num_storage_nodes: usize,
@@ -166,7 +179,7 @@ where
                                 .expect("We are NOT running on a 16-bit platform")
                         ];
                         rng.fill_bytes(&mut bytes);
-                        TestTransaction(bytes)
+                        TestTransaction::new(bytes)
                     })
                     .collect();
 
@@ -208,7 +221,7 @@ impl<TYPES: NodeType> ReadState for RandomBuilderSource<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
-    async fn get_available_blocks(
+    async fn available_blocks(
         &self,
         _for_parent: &VidCommitment,
         _view_number: u64,
@@ -259,7 +272,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
         Ok(header_input)
     }
 
-    async fn get_builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
+    async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
         Ok(self.pub_key.clone())
     }
 }
@@ -321,7 +334,7 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES>
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
-    async fn get_available_blocks(
+    async fn available_blocks(
         &self,
         _for_parent: &VidCommitment,
         _view_number: u64,
@@ -418,7 +431,7 @@ where
         entry.header_input.take().ok_or(BuildError::Missing)
     }
 
-    async fn get_builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
+    async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
         Ok(self.pub_key.clone())
     }
 }
@@ -472,9 +485,9 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
                         EventType::Decide { leaf_chain, .. } => {
                             let mut queue = self.transactions.write().await;
                             for leaf_info in leaf_chain.iter() {
-                                if let Some(ref payload) = leaf_info.leaf.get_block_payload() {
+                                if let Some(ref payload) = leaf_info.leaf.block_payload() {
                                     for txn in payload.transaction_commitments(
-                                        leaf_info.leaf.get_block_header().metadata(),
+                                        leaf_info.leaf.block_header().metadata(),
                                     ) {
                                         self.decided_transactions.put(txn, ());
                                         queue.remove(&txn);
@@ -560,20 +573,21 @@ async fn build_block<TYPES: NodeType>(
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
-    let (block_payload, metadata) =
-        TYPES::BlockPayload::from_transactions(transactions, &Default::default())
-            .expect("failed to build block payload from transactions");
+    let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(
+        transactions,
+        &Default::default(),
+        &Default::default(),
+    )
+    .await
+    .expect("failed to build block payload from transactions");
 
     let commitment = block_payload.builder_commitment(&metadata);
 
     let (vid_commitment, precompute_data) =
-        precompute_vid_commitment(&block_payload.encode().unwrap(), num_storage_nodes);
+        precompute_vid_commitment(&block_payload.encode(), num_storage_nodes);
 
     // Get block size from the encoded payload
-    let block_size = block_payload
-        .encode()
-        .expect("failed to encode block")
-        .len() as u64;
+    let block_size = block_payload.encode().len() as u64;
 
     let signature_over_block_info =
         TYPES::BuilderSignatureKey::sign_block_info(&priv_key, block_size, 123, &commitment)

@@ -6,12 +6,14 @@ use std::{
     time::Duration,
 };
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     message::GeneralConsensusMessage,
     simple_certificate::{
@@ -22,7 +24,6 @@ use hotshot_types::{
         ViewSyncPreCommitData, ViewSyncPreCommitVote,
     },
     traits::{
-        consensus_api::ConsensusApi,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -58,11 +59,7 @@ type RelayMap<TYPES, VOTE, CERT> =
     HashMap<<TYPES as NodeType>::Time, BTreeMap<u64, VoteCollectionTaskState<TYPES, VOTE, CERT>>>;
 
 /// Main view sync task state
-pub struct ViewSyncTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
-> {
+pub struct ViewSyncTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View HotShot is currently in
     pub current_view: TYPES::Time,
     /// View HotShot wishes to be in
@@ -75,8 +72,6 @@ pub struct ViewSyncTaskState<
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// HotShot consensus API
-    pub api: A,
     /// Our node id; for logging
     pub id: u64,
 
@@ -84,7 +79,7 @@ pub struct ViewSyncTaskState<
     pub num_timeouts_tracked: u64,
 
     /// Map of running replica tasks
-    pub replica_task_map: RwLock<HashMap<TYPES::Time, ViewSyncReplicaTaskState<TYPES, I, A>>>,
+    pub replica_task_map: RwLock<HashMap<TYPES::Time, ViewSyncReplicaTaskState<TYPES, I>>>,
 
     /// Map of pre-commit vote accumulates for the relay
     pub pre_commit_relay_map:
@@ -103,49 +98,26 @@ pub struct ViewSyncTaskState<
     pub last_garbage_collected_view: TYPES::Time,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
-    > TaskState for ViewSyncTaskState<TYPES, I, A>
-{
-    type Event = Arc<HotShotEvent<TYPES>>;
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ViewSyncTaskState<TYPES, I> {
+    type Event = HotShotEvent<TYPES>;
 
-    type Output = ();
+    async fn handle_event(
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
+        Ok(())
     }
 
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ViewSyncPreCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncFinalizeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewSyncTimeout(_, _, _)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
+    async fn cancel_subtasks(&mut self) {}
 }
 
 /// State of a view sync replica task
-pub struct ViewSyncReplicaTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
-> {
+pub struct ViewSyncReplicaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Timeout for view sync rounds
     pub view_sync_timeout: Duration,
     /// Current round HotShot is in
@@ -171,49 +143,29 @@ pub struct ViewSyncReplicaTaskState<
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// HotShot consensus API
-    pub api: A,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static> TaskState
-    for ViewSyncReplicaTaskState<TYPES, I, A>
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
+    for ViewSyncReplicaTaskState<TYPES, I>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
+    type Event = HotShotEvent<TYPES>;
 
-    type Output = ();
+    async fn handle_event(
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
 
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await;
-        None
-    }
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
-                | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-                | HotShotEvent::ViewSyncPreCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncCommitVoteRecv(_)
-                | HotShotEvent::ViewSyncFinalizeVoteRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::Timeout(_)
-                | HotShotEvent::ViewSyncTimeout(_, _, _)
-                | HotShotEvent::ViewChange(_)
-        )
+        Ok(())
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
+    async fn cancel_subtasks(&mut self) {}
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        A: ConsensusApi<TYPES, I> + 'static + std::clone::Clone,
-    > ViewSyncTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
@@ -249,7 +201,7 @@ impl<
         }
 
         // We do not have a replica task already running, so start one
-        let mut replica_state: ViewSyncReplicaTaskState<TYPES, I, A> = ViewSyncReplicaTaskState {
+        let mut replica_state: ViewSyncReplicaTaskState<TYPES, I> = ViewSyncReplicaTaskState {
             current_view: view,
             next_view: view,
             relay: 0,
@@ -260,7 +212,6 @@ impl<
             network: Arc::clone(&self.network),
             public_key: self.public_key.clone(),
             private_key: self.private_key.clone(),
-            api: self.api.clone(),
             view_sync_timeout: self.view_sync_timeout,
             id: self.id,
         };
@@ -288,19 +239,19 @@ impl<
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
-                let view = certificate.get_view_number();
+                let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
-                let view = certificate.get_view_number();
+                let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
-                let view = certificate.get_view_number();
+                let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
@@ -313,13 +264,13 @@ impl<
 
             HotShotEvent::ViewSyncPreCommitVoteRecv(ref vote) => {
                 let mut map = self.pre_commit_relay_map.write().await;
-                let vote_view = vote.get_view_number();
-                let relay = vote.get_data().relay;
+                let vote_view = vote.view_number();
+                let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
                     let result = relay_task
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -330,7 +281,7 @@ impl<
                 }
 
                 // We do not have a relay task already running, so start one
-                if self.membership.get_leader(vote_view + relay) != self.public_key {
+                if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -351,13 +302,13 @@ impl<
 
             HotShotEvent::ViewSyncCommitVoteRecv(ref vote) => {
                 let mut map = self.commit_relay_map.write().await;
-                let vote_view = vote.get_view_number();
-                let relay = vote.get_data().relay;
+                let vote_view = vote.view_number();
+                let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
                     let result = relay_task
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -368,7 +319,7 @@ impl<
                 }
 
                 // We do not have a relay task already running, so start one
-                if self.membership.get_leader(vote_view + relay) != self.public_key {
+                if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -389,13 +340,13 @@ impl<
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
                 let mut map = self.finalize_relay_map.write().await;
-                let vote_view = vote.get_view_number();
-                let relay = vote.get_data().relay;
+                let vote_view = vote.view_number();
+                let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
                     let result = relay_task
-                        .handle_event(Arc::clone(&event), &event_stream)
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
 
                     if result == Some(HotShotTaskCompleted) {
@@ -406,7 +357,7 @@ impl<
                 }
 
                 // We do not have a relay task already running, so start one
-                if self.membership.get_leader(vote_view + relay) != self.public_key {
+                if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -470,7 +421,7 @@ impl<
                 }
 
                 self.num_timeouts_tracked += 1;
-                let leader = self.membership.get_leader(view_number);
+                let leader = self.membership.leader(view_number);
                 error!(
                     %leader,
                     leader_mnemonic = cdn_proto::mnemonic(&leader),
@@ -510,9 +461,7 @@ impl<
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 'static>
-    ViewSyncReplicaTaskState<TYPES, I, A>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYPES, I> {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(
@@ -525,7 +474,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let last_seen_certificate = ViewSyncPhase::PreCommit;
 
                 // Ignore certificate if it is for an older round
-                if certificate.get_view_number() < self.next_view {
+                if certificate.view_number() < self.next_view {
                     warn!("We're already in a higher round");
 
                     return None;
@@ -533,24 +482,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.get_data());
+                    error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
                 }
 
                 // If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                if certificate.get_view_number() > self.next_view {
+                if certificate.view_number() > self.next_view {
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.get_data().relay > self.relay {
-                    self.relay = certificate.get_data().relay;
+                if certificate.date().relay > self.relay {
+                    self.relay = certificate.date().relay;
                 }
 
                 let Ok(vote) = ViewSyncCommitVote::<TYPES>::create_signed_vote(
                     ViewSyncCommitData {
-                        relay: certificate.get_data().relay,
+                        relay: certificate.date().relay,
                         round: self.next_view,
                     },
                     self.next_view,
@@ -601,7 +550,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
                 let last_seen_certificate = ViewSyncPhase::Commit;
 
                 // Ignore certificate if it is for an older round
-                if certificate.get_view_number() < self.next_view {
+                if certificate.view_number() < self.next_view {
                     warn!("We're already in a higher round");
 
                     return None;
@@ -609,24 +558,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.get_data());
+                    error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
                 }
 
                 // If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                if certificate.get_view_number() > self.next_view {
+                if certificate.view_number() > self.next_view {
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.get_data().relay > self.relay {
-                    self.relay = certificate.get_data().relay;
+                if certificate.date().relay > self.relay {
+                    self.relay = certificate.date().relay;
                 }
 
                 let Ok(vote) = ViewSyncFinalizeVote::<TYPES>::create_signed_vote(
                     ViewSyncFinalizeData {
-                        relay: certificate.get_data().relay,
+                        relay: certificate.date().relay,
                         round: self.next_view,
                     },
                     self.next_view,
@@ -693,7 +642,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 // Ignore certificate if it is for an older round
-                if certificate.get_view_number() < self.next_view {
+                if certificate.view_number() < self.next_view {
                     warn!("We're already in a higher round");
 
                     return None;
@@ -701,19 +650,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, A: ConsensusApi<TYPES, I> + 
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.get_data());
+                    error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
                 }
 
                 // If certificate is for a higher round shutdown this task
                 // since another task should have been started for the higher round
-                if certificate.get_view_number() > self.next_view {
+                if certificate.view_number() > self.next_view {
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.get_data().relay > self.relay {
-                    self.relay = certificate.get_data().relay;
+                if certificate.date().relay > self.relay {
+                    self.relay = certificate.date().relay;
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {

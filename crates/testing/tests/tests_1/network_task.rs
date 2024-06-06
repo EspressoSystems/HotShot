@@ -2,14 +2,17 @@ use std::{sync::Arc, time::Duration};
 
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
-use hotshot::{tasks::add_network_message_task, traits::implementations::MemoryNetwork};
+use hotshot::traits::implementations::MemoryNetwork;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_task::task::{Task, TaskRegistry};
+use hotshot_task::task::{ConsensusTaskRegistry, Task};
 use hotshot_task_impls::{
     events::HotShotEvent,
     network::{self, NetworkEventTaskState},
 };
-use hotshot_testing::{test_builder::TestDescription, view_generator::TestViewGenerator};
+use hotshot_testing::{
+    test_builder::TestDescription, test_task::add_network_message_test_task,
+    view_generator::TestViewGenerator,
+};
 use hotshot_types::{
     constants::BASE_VERSION,
     data::ViewNumber,
@@ -26,6 +29,8 @@ use hotshot_types::{
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[allow(clippy::too_many_lines)]
 async fn test_network_task() {
+    use futures::StreamExt;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -57,16 +62,16 @@ async fn test_network_task() {
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
-    let task_reg = Arc::new(TaskRegistry::default());
+    let mut task_reg = ConsensusTaskRegistry::new();
 
-    let task = Task::new(tx.clone(), rx, task_reg.clone(), network_state);
-    task_reg.run_task(task).await;
+    let task = Task::new(network_state, tx.clone(), rx);
+    task_reg.run_task(task);
 
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
-    let view = generator.next().unwrap();
+    let view = generator.next().await.unwrap();
 
     let (out_tx, mut out_rx) = async_broadcast::broadcast(10);
-    add_network_message_task(task_reg, out_tx.clone(), channel.clone()).await;
+    add_network_message_test_task(out_tx.clone(), channel.clone()).await;
 
     tx.broadcast_direct(Arc::new(HotShotEvent::QuorumProposalSend(
         view.quorum_proposal,
@@ -88,6 +93,8 @@ async fn test_network_task() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_network_storage_fail() {
+    use futures::StreamExt;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -120,16 +127,16 @@ async fn test_network_storage_fail() {
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
-    let task_reg = Arc::new(TaskRegistry::default());
+    let mut task_reg = ConsensusTaskRegistry::new();
 
-    let task = Task::new(tx.clone(), rx, task_reg.clone(), network_state);
-    task_reg.run_task(task).await;
+    let task = Task::new(network_state, tx.clone(), rx);
+    task_reg.run_task(task);
 
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
-    let view = generator.next().unwrap();
+    let view = generator.next().await.unwrap();
 
     let (out_tx, mut out_rx) = async_broadcast::broadcast(10);
-    add_network_message_task(task_reg, out_tx.clone(), channel.clone()).await;
+    add_network_message_test_task(out_tx.clone(), channel.clone()).await;
 
     tx.broadcast_direct(Arc::new(HotShotEvent::QuorumProposalSend(
         view.quorum_proposal,

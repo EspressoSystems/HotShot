@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -7,9 +8,13 @@ use std::{
     time::Duration,
 };
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
+use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
@@ -24,13 +29,12 @@ use hotshot_types::{
 };
 use rand::{prelude::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Amount of time to try for a request before timing out.
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
@@ -42,7 +46,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 pub struct NetworkRequestState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    Ver: StaticVersionType,
+    Ver: StaticVersionType + 'static,
 > {
     /// Network to send requests over
     pub network: Arc<I::QuorumNetwork>,
@@ -67,64 +71,69 @@ pub struct NetworkRequestState<
     pub id: u64,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> Drop
+    for NetworkRequestState<TYPES, I, Ver>
+{
+    fn drop(&mut self) {
+        futures::executor::block_on(async move { self.cancel_subtasks().await });
+    }
 }
 
 /// Alias for a signature
 type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;
 
+#[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
     for NetworkRequestState<TYPES, I, Ver>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
-
-    type Output = HotShotTaskCompleted;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
-        event: Self::Event,
-        task: &mut hotshot_task::task::Task<Self>,
-    ) -> Option<Self::Output> {
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let state = task.state();
-                let prop_view = proposal.get_view_number();
-                if prop_view >= state.view {
-                    state
-                        .spawn_requests(prop_view, task.clone_sender(), Ver::instance())
+                let prop_view = proposal.view_number();
+                if prop_view >= self.view {
+                    self.spawn_requests(prop_view, sender.clone(), Ver::instance())
                         .await;
                 }
-                None
+                Ok(())
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                if view > task.state().view {
-                    task.state_mut().view = view;
+                if view > self.view {
+                    self.view = view;
                 }
-                None
+                Ok(())
             }
-            HotShotEvent::Shutdown => {
-                task.state().set_shutdown_flag();
-                Some(HotShotTaskCompleted)
-            }
-            _ => None,
+            _ => Ok(()),
         }
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
-
-    fn filter(&self, event: &Self::Event) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::Shutdown
-                | HotShotEvent::QuorumProposalValidated(..)
-                | HotShotEvent::ViewChange(_)
-        )
-    }
-
-    async fn shutdown(&mut self) {
+    async fn cancel_subtasks(&mut self) {
         self.set_shutdown_flag();
+
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
+
+            for handle in handles {
+                #[cfg(async_executor_impl = "async-std")]
+                handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
+            }
+        }
     }
 }
 
@@ -133,7 +142,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
 {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(
-        &self,
+        &mut self,
         view: TYPES::Time,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         bind_version: Ver,
@@ -151,7 +160,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares().contains_key(&view) {
-            reqs.push(RequestKind::VID(view, self.public_key.clone()));
+            reqs.push(RequestKind::Vid(view, self.public_key.clone()));
         }
         // TODO request other things
         reqs
@@ -161,7 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
-        &self,
+        &mut self,
         request: RequestKind<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
@@ -169,7 +178,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     ) {
         let mut recipients: Vec<_> = self
             .da_membership
-            .get_whole_committee(view)
+            .whole_committee(view)
             .into_iter()
             .collect();
         // Randomize the recipients so all replicas don't overload the same 1 recipients
@@ -193,11 +202,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
-        async_spawn(requester.run::<Ver>(request, signature));
+        let handle = async_spawn(requester.run::<Ver>(request, signature));
+
+        self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
     /// Signals delayed requesters to finish
-    fn set_shutdown_flag(&self) {
+    pub fn set_shutdown_flag(&self) {
         self.shutdown_flag.store(true, Ordering::Relaxed);
     }
 }
@@ -236,7 +247,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             async_sleep(self.delay).await;
         }
         match request {
-            RequestKind::VID(view, key) => {
+            RequestKind::Vid(view, key) => {
                 self.do_vid::<Ver>(VidRequest(view, key), signature).await;
             }
             RequestKind::DaProposal(..) => {}
@@ -280,6 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 }
                 Ok(Err(e)) => {
                     warn!("Error Sending request.  Error: {:?}", e);
+                    async_sleep(REQUEST_TIMEOUT).await;
                 }
                 Err(_) => {
                     warn!("Request to other node timed out");
@@ -300,7 +312,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
             SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) => {
-                HotShotEvent::VIDShareRecv(prop)
+                HotShotEvent::VidShareRecv(prop)
             }
             _ => return,
         };
@@ -313,7 +325,7 @@ fn make_vid<TYPES: NodeType>(
     req: &VidRequest<TYPES>,
     signature: Signature<TYPES>,
 ) -> Message<TYPES> {
-    let kind = RequestKind::VID(req.0, req.1.clone());
+    let kind = RequestKind::Vid(req.0, req.1.clone());
     let data_request = DataRequest {
         view: req.0,
         request: kind,

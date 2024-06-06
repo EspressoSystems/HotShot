@@ -3,21 +3,22 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, Context};
-use async_broadcast::Sender;
+use anyhow::{bail, Context, Result};
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_builder_api::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
 };
-use hotshot_task::task::{Task, TaskState};
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
+    simple_certificate::UpgradeCertificate,
     traits::{
-        block_contents::{precompute_vid_commitment, BuilderFee},
-        consensus_api::ConsensusApi,
+        block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
@@ -47,15 +48,18 @@ pub struct BuilderResponses<TYPES: NodeType> {
     /// It contains the final block information
     pub block_header: AvailableBlockHeaderInput<TYPES>,
 }
+
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    A: ConsensusApi<TYPES, I> + 'static,
     Ver: StaticVersionType,
 > {
     /// The state's api
-    pub api: A,
+    pub builder_timeout: Duration,
+
+    /// Output events to application
+    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -80,14 +84,12 @@ pub struct TransactionTaskState<
     pub instance_state: Arc<TYPES::InstanceState>,
     /// This state's ID
     pub id: u64,
+    /// Decided upgrade certificate
+    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        A: ConsensusApi<TYPES, I> + 'static,
-        Ver: StaticVersionType,
-    > TransactionTaskState<TYPES, I, A, Ver>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
+    TransactionTaskState<TYPES, I, Ver>
 {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error")]
@@ -98,15 +100,21 @@ impl<
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) => {
-                self.api
-                    .send_event(Event {
+                broadcast_event(
+                    Event {
                         view_number: self.cur_view,
                         event: EventType::Transactions {
                             transactions: transactions.clone(),
                         },
-                    })
-                    .await;
+                    },
+                    &self.output_event_stream,
+                )
+                .await;
+
                 return None;
+            }
+            HotShotEvent::UpgradeDecided(cert) => {
+                self.decided_upgrade_certificate = Some(cert.clone());
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
@@ -118,35 +126,39 @@ impl<
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
                     error!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.get_leader(view) == self.public_key;
+                    make_block = self.membership.leader(view) == self.public_key;
                 }
                 self.cur_view = view;
 
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
-                if !make_block && self.membership.get_leader(self.cur_view + 1) != self.public_key {
+                if !make_block && self.membership.leader(self.cur_view + 1) != self.public_key {
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
                 let block_view = if make_block { view } else { view + 1 };
 
+                // Request a block from the builder unless we are between versions.
+                let block = {
+                    if self
+                        .decided_upgrade_certificate
+                        .as_ref()
+                        .is_some_and(|cert| cert.upgrading_in(block_view))
+                    {
+                        None
+                    } else {
+                        self.wait_for_block().await
+                    }
+                };
+
                 if let Some(BuilderResponses {
                     block_data,
                     blocks_initial_info,
                     block_header,
-                }) = self.wait_for_block().await
+                }) = block
                 {
-                    // send the sequenced transactions to VID and DA tasks
-                    let encoded_transactions = match block_data.block_payload.encode() {
-                        Ok(encoded) => encoded,
-                        Err(e) => {
-                            error!("Failed to encode the block payload: {:?}.", e);
-                            return None;
-                        }
-                    };
-
                     broadcast_event(
                         Arc::new(HotShotEvent::BlockRecv(
-                            encoded_transactions,
+                            block_data.block_payload.encode(),
                             block_data.metadata,
                             block_view,
                             BuilderFee {
@@ -174,26 +186,19 @@ impl<
                         .number_of_empty_blocks_proposed
                         .add(1);
 
+                    let membership_total_nodes = self.membership.total_nodes();
+
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) = null_block::builder_fee(
-                        self.membership.total_nodes(),
-                        self.instance_state.as_ref(),
-                    ) else {
+                    let Some(builder_fee) = null_block::builder_fee(membership_total_nodes) else {
                         error!("Failed to get builder fee");
                         return None;
                     };
 
                     // Create an empty block payload and metadata
-                    let Ok((_, metadata)) = <TYPES as NodeType>::BlockPayload::from_transactions(
-                        vec![],
-                        &self.instance_state,
-                    ) else {
-                        error!("Failed to create empty block payload");
-                        return None;
-                    };
+                    let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
 
                     let (_, precompute_data) =
-                        precompute_vid_commitment(&[], self.membership.total_nodes());
+                        precompute_vid_commitment(&[], membership_total_nodes);
 
                     // Broadcast the empty block
                     broadcast_event(
@@ -237,7 +242,7 @@ impl<
                         ViewInner::Leaf { leaf, .. } => consensus
                             .saved_leaves()
                             .get(&leaf)
-                            .map(Leaf::get_payload_commitment),
+                            .map(Leaf::payload_commitment),
                         ViewInner::Failed => None,
                     })
             {
@@ -247,10 +252,7 @@ impl<
         }
 
         // If not found, return commitment for last decided block
-        (
-            prev_view,
-            consensus.get_decided_leaf().get_payload_commitment(),
-        )
+        (prev_view, consensus.decided_leaf().payload_commitment())
     }
 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "wait_for_block", level = "error")]
@@ -270,12 +272,11 @@ impl<
             }
         };
 
-        while task_start_time.elapsed() < self.api.builder_timeout() {
+        while task_start_time.elapsed() < self.builder_timeout {
             match async_compatibility_layer::art::async_timeout(
-                self.api
-                    .builder_timeout()
+                self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                self.get_block_from_builder(parent_comm, view_num, &parent_comm_sig),
+                self.block_from_builder(parent_comm, view_num, &parent_comm_sig),
             )
             .await
             {
@@ -286,7 +287,7 @@ impl<
 
                 // We failed to get a block
                 Ok(Err(err)) => {
-                    tracing::warn!(%err, "Couldn't get a block");
+                    tracing::warn!("Couldn't get a block: {err:#}");
                     // pause a bit
                     async_sleep(Duration::from_millis(100)).await;
                     continue;
@@ -304,8 +305,8 @@ impl<
         None
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "get_block_from_builder", level = "error")]
-    async fn get_block_from_builder(
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "block_from_builder", level = "error")]
+    async fn block_from_builder(
         &self,
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
@@ -313,9 +314,9 @@ impl<
     ) -> anyhow::Result<BuilderResponses<TYPES>> {
         let available_blocks = self
             .builder_client
-            .get_available_blocks(
+            .available_blocks(
                 parent_comm,
-                view_number.get_u64(),
+                view_number.u64(),
                 self.public_key.clone(),
                 parent_comm_sig,
             )
@@ -356,8 +357,8 @@ impl<
         .context("signing block hash")?;
 
         let (block, header_input) = futures::join! {
-            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature),
-            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.get_u64(), self.public_key.clone(), &request_signature)
+            self.builder_client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
+            self.builder_client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
         };
 
         let block_data = block.context("claiming block data")?;
@@ -401,36 +402,23 @@ impl<
     }
 }
 
+#[async_trait]
 /// task state implementation for Transactions Task
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        A: ConsensusApi<TYPES, I> + 'static,
-        Ver: StaticVersionType + 'static,
-    > TaskState for TransactionTaskState<TYPES, I, A, Ver>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
+    for TransactionTaskState<TYPES, I, Ver>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
-
-    type Output = HotShotTaskCompleted;
-
-    fn filter(&self, event: &Arc<HotShotEvent<TYPES>>) -> bool {
-        !matches!(
-            event.as_ref(),
-            HotShotEvent::TransactionsRecv(_)
-                | HotShotEvent::Shutdown
-                | HotShotEvent::ViewChange(_)
-        )
-    }
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
-        event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let sender = task.clone_sender();
-        task.state_mut().handle(event, sender).await
+        &mut self,
+        event: Arc<Self::Event>,
+        sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        self.handle(event, sender.clone()).await;
+
+        Ok(())
     }
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        matches!(event.as_ref(), HotShotEvent::Shutdown)
-    }
+    async fn cancel_subtasks(&mut self) {}
 }

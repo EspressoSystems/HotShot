@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::async_timeout;
-use hotshot_task::task::{Task, TaskRegistry, TaskState};
+use hotshot_task::task::TaskState;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::NodeType;
 
@@ -10,7 +10,7 @@ use crate::predicates::{Predicate, PredicateResult};
 
 pub const RECV_TIMEOUT: Duration = Duration::from_millis(250);
 
-pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = Arc<HotShotEvent<TYPES>>>> {
+pub struct TestScriptStage<TYPES: NodeType, S: TaskState<Event = HotShotEvent<TYPES>>> {
     pub inputs: Vec<HotShotEvent<TYPES>>,
     pub outputs: Vec<Box<dyn Predicate<Arc<HotShotEvent<TYPES>>>>>,
     pub asserts: Vec<Box<dyn Predicate<S>>>,
@@ -89,21 +89,14 @@ where
 /// Note: the task is not spawned with an async thread; instead, the harness just calls `handle_event`.
 /// This has a few implications, e.g. shutting down tasks doesn't really make sense,
 /// and event ordering is deterministic.
-pub async fn run_test_script<
-    TYPES,
-    S: TaskState<Event = Arc<HotShotEvent<TYPES>>> + Send + 'static,
->(
+pub async fn run_test_script<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send + 'static>(
     mut script: TestScript<TYPES, S>,
-    state: S,
+    mut state: S,
 ) where
     TYPES: NodeType,
 {
-    let registry = Arc::new(TaskRegistry::default());
-
     let (to_task, mut from_test) = broadcast(1024);
     let (to_test, mut from_task) = broadcast(1024);
-
-    let mut task = Task::new(to_test.clone(), from_test.clone(), registry.clone(), state);
 
     for (stage_number, stage) in script.iter_mut().enumerate() {
         tracing::debug!("Beginning test stage {}", stage_number);
@@ -113,13 +106,12 @@ pub async fn run_test_script<
                 .await
                 .expect("Failed to broadcast input message");
 
-            if !task.state_mut().filter(&Arc::new(input.clone())) {
-                tracing::debug!("Test sent: {:?}", input.clone());
+            tracing::debug!("Test sent: {:?}", input.clone());
 
-                if let Some(res) = S::handle_event(input.clone().into(), &mut task).await {
-                    task.state_mut().handle_result(&res).await;
-                }
-            }
+            let _ = state
+                .handle_event(input.clone().into(), &to_test, &from_test)
+                .await
+                .inspect_err(|e| tracing::info!("{e}"));
 
             while from_test.try_recv().is_ok() {}
         }
@@ -146,13 +138,12 @@ pub async fn run_test_script<
                     .await
                     .expect("Failed to re-broadcast output message");
 
-                if !task.state_mut().filter(&received_output.clone()) {
-                    tracing::debug!("Test sent: {:?}", received_output.clone());
+                tracing::debug!("Test sent: {:?}", received_output.clone());
 
-                    if let Some(res) = S::handle_event(received_output.clone(), &mut task).await {
-                        task.state_mut().handle_result(&res).await;
-                    }
-                }
+                let _ = state
+                    .handle_event(received_output.clone(), &to_test, &from_test)
+                    .await
+                    .inspect_err(|e| tracing::info!("{e}"));
 
                 while from_test.try_recv().is_ok() {}
 
@@ -167,7 +158,7 @@ pub async fn run_test_script<
         }
 
         for assert in &mut stage.asserts {
-            validate_task_state_or_panic(stage_number, task.state(), &**assert).await;
+            validate_task_state_or_panic(stage_number, &state, &**assert).await;
         }
 
         if let Ok(received_output) = from_task.try_recv() {
@@ -176,7 +167,34 @@ pub async fn run_test_script<
     }
 }
 
+pub enum InputOrder<TYPES: NodeType> {
+    Random(Vec<HotShotEvent<TYPES>>),
+    Serial(Vec<HotShotEvent<TYPES>>),
+}
+
+#[macro_export]
+macro_rules! random {
+    ($($x:expr),* $(,)?) => {
+        {
+            let inputs = vec![$($x),*];
+            InputOrder::Random(inputs)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! serial {
+    ($($x:expr),* $(,)?) => {
+        {
+            let inputs = vec![$($x),*];
+            InputOrder::Serial(inputs)
+        }
+    };
+}
+
 pub struct TaskScript<TYPES: NodeType, S> {
+    /// The time to wait on the receiver for this script.
+    pub timeout: Duration,
     pub state: S,
     pub expectations: Vec<Expectations<TYPES, S>>,
 }
@@ -184,6 +202,15 @@ pub struct TaskScript<TYPES: NodeType, S> {
 pub struct Expectations<TYPES: NodeType, S> {
     pub output_asserts: Vec<Box<dyn Predicate<Arc<HotShotEvent<TYPES>>>>>,
     pub task_state_asserts: Vec<Box<dyn Predicate<S>>>,
+}
+
+impl<TYPES: NodeType, S> Expectations<TYPES, S> {
+    pub fn from_outputs(output_asserts: Vec<Box<dyn Predicate<Arc<HotShotEvent<TYPES>>>>>) -> Self {
+        Self {
+            output_asserts,
+            task_state_asserts: vec![],
+        }
+    }
 }
 
 pub fn panic_extra_output_in_script<S>(stage_number: usize, script_name: String, output: &S)
@@ -230,13 +257,17 @@ pub async fn validate_output_or_panic_in_script<S: std::fmt::Debug>(
     script_name: String,
     output: &S,
     assert: &dyn Predicate<S>,
-) {
-    assert!(
-        assert.evaluate(output).await == PredicateResult::Pass,
-        "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
-        stage_number,
-        script_name,
-        assert,
-        output
-    );
+) -> PredicateResult {
+    let result = assert.evaluate(output).await;
+
+    match result {
+        PredicateResult::Pass => result,
+        PredicateResult::Incomplete => result,
+        PredicateResult::Fail => {
+            panic!(
+                "Stage {} | Output in {} failed to satisfy: {:?}.\n\nReceived:\n\n{:?}",
+                stage_number, script_name, assert, output
+            )
+        }
+    }
 }

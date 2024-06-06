@@ -10,9 +10,8 @@ use hotshot_example_types::{
 };
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
+    helpers::{permute_input_with_index_order, vid_scheme_from_view_number, vid_share},
     predicates::event::{all_predicates, exact, quorum_proposal_send, quorum_proposal_validated},
-    task_helpers::{get_vid_share, vid_scheme_from_view_number},
-    test_helpers::permute_input_with_index_order,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -27,9 +26,11 @@ use sha2::Digest;
 /// This proposal should happen no matter how the `input_permutation` is specified.
 #[cfg(not(feature = "dependency-tasks"))]
 async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
+    use futures::StreamExt;
+    use hotshot_example_types::state_types::TestValidatedState;
     use hotshot_testing::{
+        helpers::build_system_handle,
         script::{run_test_script, TestScriptStage},
-        task_helpers::build_system_handle,
     };
 
     async_compatibility_layer::logging::setup_logging();
@@ -56,7 +57,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    for view in (&mut generator).take(3) {
+    for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle));
         leaders.push(view.leader_public_key);
@@ -69,7 +70,7 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
         inputs: vec![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DaCertificateRecv(dacs[0].clone()),
-            VIDShareRecv(get_vid_share(&vids[0].0, handle.get_public_key())),
+            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
         outputs: vec![
             exact(ViewChange(ViewNumber::new(1))),
@@ -86,27 +87,20 @@ async fn test_ordering_with_specific_order(input_permutation: Vec<usize>) {
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let inputs = vec![
         QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-        QCFormed(either::Left(cert)),
+        QcFormed(either::Left(cert)),
         SendPayloadCommitmentAndMetadata(
             payload_commitment,
             builder_commitment,
             TestMetadata,
             ViewNumber::new(node_id),
-            null_block::builder_fee(quorum_membership.total_nodes(), &TestInstanceState {})
-                .unwrap(),
+            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
         ),
     ];
 
     let mut view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
     view_2_inputs.insert(0, DaCertificateRecv(dacs[1].clone()));
-    view_2_inputs.insert(
-        0,
-        VIDShareRecv(get_vid_share(&vids[2].0, handle.get_public_key())),
-    );
-    view_2_inputs.insert(
-        0,
-        VIDShareRecv(get_vid_share(&vids[1].0, handle.get_public_key())),
-    );
+    view_2_inputs.insert(0, VidShareRecv(vid_share(&vids[2].0, handle.public_key())));
+    view_2_inputs.insert(0, VidShareRecv(vid_share(&vids[1].0, handle.public_key())));
 
     // This stage transitions from view 1 to view 2.
     let view_2 = TestScriptStage {

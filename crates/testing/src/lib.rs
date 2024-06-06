@@ -7,7 +7,7 @@
 )]
 
 /// Helpers for initializing system context handle and building tasks.
-pub mod task_helpers;
+pub mod helpers;
 
 ///  builder
 pub mod test_builder;
@@ -30,6 +30,9 @@ pub mod completion_task;
 /// task to spin nodes up and down
 pub mod spinning_task;
 
+/// the `TestTask` struct and associated trait/functions
+pub mod test_task;
+
 /// task for checking if view sync got activated
 pub mod view_sync_task;
 
@@ -44,13 +47,3 @@ pub mod script;
 
 /// view generator for tests
 pub mod view_generator;
-
-/// helper functions for test scripts
-pub mod test_helpers;
-
-/// global event at the test level
-#[derive(Clone, Debug)]
-pub enum GlobalTestEvent {
-    /// the test is shutting down
-    ShutDown,
-}

@@ -12,7 +12,7 @@ use hotshot::{
 use hotshot_example_types::{
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestInstanceState,
+    state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -27,6 +27,7 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
     },
+    utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
 };
@@ -53,7 +54,9 @@ pub async fn build_system_handle(
     let storage = (launcher.resource_generator.storage)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {}).unwrap();
+    let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {})
+        .await
+        .unwrap();
 
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
@@ -126,15 +129,15 @@ pub fn build_cert<
         SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key)
             .expect("Failed to sign data!");
     let cert = CERT::create_signed_certificate(
-        vote.get_data_commitment(),
-        vote.get_data().clone(),
+        vote.date_commitment(),
+        vote.date().clone(),
         real_qc_sig,
-        vote.get_view_number(),
+        vote.view_number(),
     );
     cert
 }
 
-pub fn get_vid_share<TYPES: NodeType>(
+pub fn vid_share<TYPES: NodeType>(
     shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
     pub_key: TYPES::SignatureKey,
 ) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
@@ -160,10 +163,10 @@ pub fn build_assembled_sig<
     data: &DATAType,
     membership: &TYPES::Membership,
     view: TYPES::Time,
-) -> <TYPES::SignatureKey as SignatureKey>::QCType {
-    let stake_table = membership.get_committee_qc_stake_table();
-    let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QCParams =
-        <TYPES::SignatureKey as SignatureKey>::get_public_parameter(
+) -> <TYPES::SignatureKey as SignatureKey>::QcType {
+    let stake_table = membership.committee_qc_stake_table();
+    let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
+        <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
             U256::from(CERT::threshold(membership)),
         );
@@ -182,7 +185,7 @@ pub fn build_assembled_sig<
         )
         .expect("Failed to sign data!");
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
-            vote.get_signature();
+            vote.signature();
         sig_lists.push(original_signature);
     }
 
@@ -212,7 +215,7 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.get_staked_committee(view_number).len();
+    let num_storage_nodes = membership.staked_committee(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 
@@ -222,7 +225,7 @@ pub fn vid_payload_commitment(
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
     vid_disperse.commit
@@ -232,7 +235,7 @@ pub fn da_payload_commitment(
     quorum_membership: &<TestTypes as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
 
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
@@ -245,7 +248,7 @@ pub fn build_vid_proposal(
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>> {
     let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
@@ -271,7 +274,7 @@ pub fn build_da_certificate(
     public_key: &<TestTypes as NodeType>::SignatureKey,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
 ) -> DaCertificate<TestTypes> {
-    let encoded_transactions = TestTransaction::encode(&transactions).unwrap();
+    let encoded_transactions = TestTransaction::encode(&transactions);
 
     let da_payload_commitment =
         vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
@@ -301,9 +304,45 @@ pub async fn build_vote(
             leaf_commit: leaf.commit(),
         },
         view,
-        handle.public_key(),
+        &handle.public_key(),
         handle.private_key(),
     )
     .expect("Failed to create quorum vote");
     GeneralConsensusMessage::<TestTypes>::Vote(vote)
+}
+
+/// This function permutes the provided input vector `inputs`, given some order provided within the
+/// `order` vector.
+///
+/// # Examples
+/// let output = permute_input_with_index_order(vec![1, 2, 3], vec![2, 1, 0]);
+/// // Output is [3, 2, 1] now
+pub fn permute_input_with_index_order<T>(inputs: Vec<T>, order: Vec<usize>) -> Vec<T>
+where
+    T: Clone,
+{
+    let mut ordered_inputs = Vec::with_capacity(inputs.len());
+    for &index in &order {
+        ordered_inputs.push(inputs[index].clone());
+    }
+    ordered_inputs
+}
+
+/// This function will create a fake [`View`] from a provided [`Leaf`].
+pub fn build_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
+    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default())
+}
+
+/// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.
+pub fn build_fake_view_with_leaf_and_state(
+    leaf: Leaf<TestTypes>,
+    state: TestValidatedState,
+) -> View<TestTypes> {
+    View {
+        view_inner: ViewInner::Leaf {
+            leaf: leaf.commit(),
+            state: state.into(),
+            delta: None,
+        },
+    }
 }

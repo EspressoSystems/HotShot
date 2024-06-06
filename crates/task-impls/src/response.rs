@@ -1,14 +1,13 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Receiver;
-use async_compatibility_layer::art::async_spawn;
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, LockedConsensusState},
     data::VidDisperseShare,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
@@ -23,13 +22,13 @@ use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use crate::{events::HotShotEvent, helpers::calculate_vid_disperse};
-
-/// Type alias for consensus state wrapped in a lock.
-type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
+use crate::events::HotShotEvent;
 
 /// Type alias for the channel that we receive requests from the network on.
 pub type RequestReceiver<TYPES> = mpsc::Receiver<(Message<TYPES>, ResponseChannel<Message<TYPES>>)>;
+
+/// Time to wait for txns before sending `ResponseMessage::NotFound`
+const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 
 /// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
@@ -116,7 +115,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         }
     }
 
-    /// Get the VID share from conensus storage, or calculate it from a the payload for
+    /// Get the VID share from consensus storage, or calculate it from the payload for
     /// the view, if we have the payload.  Stores all the shares calculated from the payload
     /// if the calculation was done
     async fn get_or_calc_vid_share(
@@ -124,26 +123,49 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         view: TYPES::Time,
         key: &TYPES::SignatureKey,
     ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
-        let consensus = self.consensus.upgradable_read().await;
-        let contained = consensus
+        let contained = self
+            .consensus
+            .read()
+            .await
             .vid_shares()
             .get(&view)
             .is_some_and(|m| m.contains_key(key));
         if !contained {
-            let txns = consensus.saved_payloads().get(&view)?;
-            let vid =
-                calculate_vid_disperse(Arc::clone(txns), &Arc::clone(&self.quorum), view, None)
-                    .await;
-            let shares = VidDisperseShare::from_vid_disperse(vid);
-            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-            for share in shares {
-                if let Some(prop) = share.to_proposal(&self.private_key) {
-                    consensus.update_vid_shares(view, prop);
-                }
+            if Consensus::calculate_and_update_vid(
+                Arc::clone(&self.consensus),
+                view,
+                Arc::clone(&self.quorum),
+                &self.private_key,
+            )
+            .await
+            .is_none()
+            {
+                // Sleep in hope we receive txns in the meantime
+                async_sleep(TXNS_TIMEOUT).await;
+                Consensus::calculate_and_update_vid(
+                    Arc::clone(&self.consensus),
+                    view,
+                    Arc::clone(&self.quorum),
+                    &self.private_key,
+                )
+                .await?;
             }
-            return consensus.vid_shares().get(&view)?.get(key).cloned();
+            return self
+                .consensus
+                .read()
+                .await
+                .vid_shares()
+                .get(&view)?
+                .get(key)
+                .cloned();
         }
-        consensus.vid_shares().get(&view)?.get(key).cloned()
+        self.consensus
+            .read()
+            .await
+            .vid_shares()
+            .get(&view)?
+            .get(key)
+            .cloned()
     }
 
     /// Handle the request contained in the message. Returns the response we should send
@@ -151,7 +173,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// of the request.
     async fn handle_request(&self, req: DataRequest<TYPES>) -> Message<TYPES> {
         match req.request {
-            RequestKind::VID(view, pub_key) => {
+            RequestKind::Vid(view, pub_key) => {
                 let Some(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
                     return self.make_msg(ResponseMessage::NotFound);
                 };

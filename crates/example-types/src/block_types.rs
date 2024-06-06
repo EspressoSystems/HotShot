@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
@@ -17,13 +18,30 @@ use hotshot_types::{
 };
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
+use snafu::Snafu;
 use time::OffsetDateTime;
+use vbs::version::Version;
 
-use crate::{node_types::TestTypes, state_types::TestInstanceState};
+use crate::{
+    node_types::TestTypes,
+    state_types::{TestInstanceState, TestValidatedState},
+};
 
 /// The transaction in a [`TestBlockPayload`].
 #[derive(Default, PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct TestTransaction(pub Vec<u8>);
+#[serde(try_from = "Vec<u8>")]
+pub struct TestTransaction(Vec<u8>);
+
+#[derive(Debug, Snafu)]
+pub struct TransactionTooLong;
+
+impl TryFrom<Vec<u8>> for TestTransaction {
+    type Error = TransactionTooLong;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Self::try_new(value).ok_or(TransactionTooLong)
+    }
+}
 
 impl TestTransaction {
     /// Construct new transaction
@@ -59,25 +77,22 @@ impl TestTransaction {
     ///
     /// # Errors
     /// If the transaction length conversion fails.
-    pub fn encode(transactions: &[Self]) -> Result<Vec<u8>, BlockError> {
+    pub fn encode(transactions: &[Self]) -> Vec<u8> {
         let mut encoded = Vec::new();
 
         for txn in transactions {
             // The transaction length is converted from `usize` to `u32` to ensure consistent
             // number of bytes on different platforms.
-            let txn_size = match u32::try_from(txn.0.len()) {
-                Ok(len) => len.to_le_bytes(),
-                Err(_) => {
-                    return Err(BlockError::InvalidTransactionLength);
-                }
-            };
+            let txn_size = u32::try_from(txn.0.len())
+                .expect("Invalid transaction length")
+                .to_le_bytes();
 
             // Concatenate the bytes of the transaction size and the transaction itself.
             encoded.extend(txn_size);
             encoded.extend(&txn.0);
         }
 
-        Ok(encoded)
+        encoded
     }
 }
 
@@ -123,7 +138,7 @@ impl Display for TestBlockPayload {
     }
 }
 
-impl TestableBlock for TestBlockPayload {
+impl<TYPES: NodeType> TestableBlock<TYPES> for TestBlockPayload {
     fn genesis() -> Self {
         Self::genesis()
     }
@@ -142,14 +157,23 @@ impl EncodeBytes for TestMetadata {
     }
 }
 
-impl BlockPayload for TestBlockPayload {
+impl EncodeBytes for TestBlockPayload {
+    fn encode(&self) -> Arc<[u8]> {
+        TestTransaction::encode(&self.transactions).into()
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     type Error = BlockError;
     type Instance = TestInstanceState;
     type Transaction = TestTransaction;
     type Metadata = TestMetadata;
+    type ValidatedState = TestValidatedState;
 
-    fn from_transactions(
-        transactions: impl IntoIterator<Item = Self::Transaction>,
+    async fn from_transactions(
+        transactions: impl IntoIterator<Item = Self::Transaction> + Send,
+        _validated_state: &Self::ValidatedState,
         _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
         let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
@@ -182,12 +206,8 @@ impl BlockPayload for TestBlockPayload {
         Self { transactions }
     }
 
-    fn genesis() -> (Self, Self::Metadata) {
+    fn empty() -> (Self, Self::Metadata) {
         (Self::genesis(), TestMetadata)
-    }
-
-    fn encode(&self) -> Result<Arc<[u8]>, Self::Error> {
-        TestTransaction::encode(&self.transactions).map(Arc::from)
     }
 
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
@@ -198,7 +218,7 @@ impl BlockPayload for TestBlockPayload {
         BuilderCommitment::from_raw_digest(digest.finalize())
     }
 
-    fn get_transactions<'a>(
+    fn transactions<'a>(
         &'a self,
         _metadata: &'a Self::Metadata,
     ) -> impl 'a + Iterator<Item = Self::Transaction> {
@@ -230,11 +250,12 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         _builder_fee: BuilderFee<TYPES>,
         _vid_common: VidCommon,
+        _version: Version,
     ) -> Result<Self, Self::Error> {
-        let parent = parent_leaf.get_block_header();
+        let parent = parent_leaf.block_header();
 
         let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;
         if timestamp < parent.timestamp {
@@ -254,7 +275,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload>::Metadata,
+        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
@@ -272,7 +293,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         self.payload_commitment
     }
 
-    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload>::Metadata {
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata {
         &TestMetadata
     }
 

@@ -14,6 +14,7 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use vbs::version::Version;
 
 use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;
@@ -25,7 +26,7 @@ pub struct TestInstanceState {}
 impl InstanceState for TestInstanceState {}
 
 /// Application-specific state delta implementation for testing purposes.
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TestStateDelta {}
 
 impl StateDelta for TestStateDelta {}
@@ -76,6 +77,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _parent_leaf: &Leaf<TYPES>,
         _proposed_header: &TYPES::BlockHeader,
         _vid_common: VidCommon,
+        _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
         Ok((
             TestValidatedState {
@@ -105,7 +107,7 @@ impl<TYPES: NodeType<BlockPayload = TestBlockPayload>> TestableState<TYPES> for 
         _state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
-    ) -> <TYPES::BlockPayload as BlockPayload>::Transaction {
+    ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction {
         /// clippy appeasement for `RANDOM_TX_BASE_SIZE`
         const RANDOM_TX_BASE_SIZE: usize = 8;
 

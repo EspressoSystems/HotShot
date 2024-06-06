@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.43"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.56"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
@@ -49,10 +49,11 @@ bitvec = { version = "1", default-features = false, features = [
   "serde",
 ] }
 blake3 = "1.5"
+chrono = "0.4"
 committable = "0.2"
 custom_debug = "0.5"
 digest = "0.10"
-either = "1.11"
+either = "1.12"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14", features = ["impl-serde"] }
 futures = "0.3"
@@ -79,9 +80,9 @@ serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0" }
 sha2 = "0.10"
 snafu = "0.8"
-surf-disco = "0.6"
+surf-disco = "0.7"
 tagged-base64 = "0.4"
-tide-disco = "0.6"
+tide-disco = "0.7"
 time = "0.3"
 toml = "0.8"
 tracing = "0.1"

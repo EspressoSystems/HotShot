@@ -1,9 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_broadcast::Sender;
+use anyhow::Result;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use hotshot_task::task::{Task, TaskState};
+use async_trait::async_trait;
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     constants::{BASE_VERSION, STATIC_VER_0_1},
     data::{VidDisperse, VidDisperseShare},
@@ -20,7 +22,7 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
 use crate::{
@@ -36,6 +38,8 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
             | HotShotEvent::QuorumVoteSend(_)
             | HotShotEvent::DacSend(_, _)
             | HotShotEvent::TimeoutVoteSend(_)
+            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::ViewChange(_)
     )
 }
 
@@ -43,7 +47,10 @@ pub fn quorum_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool 
 pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::UpgradeProposalSend(_, _) | HotShotEvent::UpgradeVoteSend(_)
+        HotShotEvent::UpgradeProposalSend(_, _)
+            | HotShotEvent::UpgradeVoteSend(_)
+            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::ViewChange(_)
     )
 }
 
@@ -51,13 +58,21 @@ pub fn upgrade_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool
 pub fn da_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::DaProposalSend(_, _) | HotShotEvent::DaVoteSend(_)
+        HotShotEvent::DaProposalSend(_, _)
+            | HotShotEvent::DaVoteSend(_)
+            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::ViewChange(_)
     )
 }
 
 /// vid filter
 pub fn vid_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
-    !matches!(event.as_ref(), HotShotEvent::VidDisperseSend(_, _))
+    !matches!(
+        event.as_ref(),
+        HotShotEvent::VidDisperseSend(_, _)
+            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::ViewChange(_)
+    )
 }
 
 /// view sync filter
@@ -70,6 +85,8 @@ pub fn view_sync_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bo
             | HotShotEvent::ViewSyncPreCommitVoteSend(_)
             | HotShotEvent::ViewSyncCommitVoteSend(_)
             | HotShotEvent::ViewSyncFinalizeVoteSend(_)
+            | HotShotEvent::VersionUpgrade(_)
+            | HotShotEvent::ViewChange(_)
     )
 }
 /// the network message task state
@@ -77,27 +94,6 @@ pub fn view_sync_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bo
 pub struct NetworkMessageTaskState<TYPES: NodeType> {
     /// Sender to send internal events this task generates to other tasks
     pub event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-}
-
-impl<TYPES: NodeType> TaskState for NetworkMessageTaskState<TYPES> {
-    type Event = Vec<Message<TYPES>>;
-    type Output = ();
-
-    async fn handle_event(event: Self::Event, task: &mut Task<Self>) -> Option<()>
-    where
-        Self: Sized,
-    {
-        task.state_mut().handle_messages(event).await;
-        None
-    }
-
-    fn filter(&self, _event: &Self::Event) -> bool {
-        false
-    }
-
-    fn should_shutdown(_event: &Self::Event) -> bool {
-        false
-    }
 }
 
 impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
@@ -162,7 +158,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 HotShotEvent::DaCertificateRecv(cert)
                             }
                             DaConsensusMessage::VidDisperseMsg(proposal) => {
-                                HotShotEvent::VIDShareRecv(proposal)
+                                HotShotEvent::VidShareRecv(proposal)
                             }
                         },
                     };
@@ -212,41 +208,31 @@ pub struct NetworkEventTaskState<
     pub storage: Arc<RwLock<S>>,
 }
 
+#[async_trait]
 impl<
         TYPES: NodeType,
         COMMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
         S: Storage<TYPES> + 'static,
     > TaskState for NetworkEventTaskState<TYPES, COMMCHANNEL, S>
 {
-    type Event = Arc<HotShotEvent<TYPES>>;
-
-    type Output = HotShotTaskCompleted;
+    type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
-        event: Self::Event,
-        task: &mut Task<Self>,
-    ) -> Option<HotShotTaskCompleted> {
-        let membership = task.state_mut().membership.clone();
-        task.state_mut().handle_event(event, &membership).await
-    }
+        &mut self,
+        event: Arc<Self::Event>,
+        _sender: &Sender<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
+    ) -> Result<()> {
+        let membership = self.membership.clone();
 
-    fn should_shutdown(event: &Self::Event) -> bool {
-        if matches!(event.as_ref(), HotShotEvent::Shutdown) {
-            info!("Network Task received Shutdown event");
-            return true;
+        if !(self.filter)(&event) {
+            self.handle(event, &membership).await;
         }
-        false
+
+        Ok(())
     }
 
-    fn filter(&self, event: &Self::Event) -> bool {
-        (self.filter)(event)
-            && !matches!(
-                event.as_ref(),
-                HotShotEvent::VersionUpgrade(_)
-                    | HotShotEvent::ViewChange(_)
-                    | HotShotEvent::Shutdown
-            )
-    }
+    async fn cancel_subtasks(&mut self) {}
 }
 
 impl<
@@ -260,7 +246,7 @@ impl<
     /// Returns the completion status.
     #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
     #[instrument(skip_all, fields(view = *self.view), name = "Network Task", level = "error")]
-    pub async fn handle_event(
+    pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         membership: &TYPES::Membership,
@@ -283,18 +269,18 @@ impl<
                 HotShotEvent::QuorumVoteSend(vote) => {
                     maybe_action = Some(HotShotAction::Vote);
                     (
-                        vote.get_signing_key(),
+                        vote.signing_key(),
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                             GeneralConsensusMessage::Vote(vote.clone()),
                         )),
-                        TransmitType::Direct(membership.get_leader(vote.get_view_number() + 1)),
+                        TransmitType::Direct(membership.leader(vote.view_number() + 1)),
                     )
                 }
                 HotShotEvent::VidDisperseSend(proposal, sender) => {
                     return self.handle_vid_disperse_proposal(proposal, &sender);
                 }
                 HotShotEvent::DaProposalSend(proposal, sender) => {
-                    maybe_action = Some(HotShotAction::DAPropose);
+                    maybe_action = Some(HotShotAction::DaPropose);
                     (
                         sender,
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
@@ -306,16 +292,16 @@ impl<
                 HotShotEvent::DaVoteSend(vote) => {
                     maybe_action = Some(HotShotAction::DaVote);
                     (
-                        vote.get_signing_key(),
+                        vote.signing_key(),
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
                             DaConsensusMessage::DaVote(vote.clone()),
                         )),
-                        TransmitType::Direct(membership.get_leader(vote.get_view_number())),
+                        TransmitType::Direct(membership.leader(vote.view_number())),
                     )
                 }
                 // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
                 HotShotEvent::DacSend(certificate, sender) => {
-                    maybe_action = Some(HotShotAction::DACert);
+                    maybe_action = Some(HotShotAction::DaCert);
                     (
                         sender,
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
@@ -325,31 +311,25 @@ impl<
                     )
                 }
                 HotShotEvent::ViewSyncPreCommitVoteSend(vote) => (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
-                    ),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
                 ),
                 HotShotEvent::ViewSyncCommitVoteSend(vote) => (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
-                    ),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
                 ),
                 HotShotEvent::ViewSyncFinalizeVoteSend(vote) => (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        membership.get_leader(vote.get_view_number() + vote.get_data().relay),
-                    ),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
                 ),
                 HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => (
                     sender,
@@ -373,11 +353,11 @@ impl<
                     TransmitType::Broadcast,
                 ),
                 HotShotEvent::TimeoutVoteSend(vote) => (
-                    vote.get_signing_key(),
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.get_leader(vote.get_view_number() + 1)),
+                    TransmitType::Direct(membership.leader(vote.view_number() + 1)),
                 ),
                 HotShotEvent::UpgradeProposalSend(proposal, sender) => (
                     sender,
@@ -389,17 +369,17 @@ impl<
                 HotShotEvent::UpgradeVoteSend(vote) => {
                     error!("Sending upgrade vote!");
                     (
-                        vote.get_signing_key(),
+                        vote.signing_key(),
                         MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                             GeneralConsensusMessage::UpgradeVote(vote.clone()),
                         )),
-                        TransmitType::Direct(membership.get_leader(vote.get_view_number())),
+                        TransmitType::Direct(membership.leader(vote.view_number())),
                     )
                 }
                 HotShotEvent::ViewChange(view) => {
                     self.view = view;
                     self.channel
-                        .update_view::<TYPES>(self.view.get_u64(), membership)
+                        .update_view::<TYPES>(self.view.u64(), membership)
                         .await;
                     return None;
                 }
@@ -421,8 +401,8 @@ impl<
             sender,
             kind: message_kind,
         };
-        let view = message.kind.get_view_number();
-        let committee = membership.get_whole_committee(view);
+        let view = message.kind.view_number();
+        let committee = membership.whole_committee(view);
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
         let version = self.version;
