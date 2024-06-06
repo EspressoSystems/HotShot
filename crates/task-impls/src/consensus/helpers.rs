@@ -38,6 +38,7 @@ use hotshot_types::{message::GeneralConsensusMessage, simple_vote::QuorumData};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 use vbs::version::Version;
+use hotshot_types::consensus::OuterConsensus;
 
 use super::ConsensusTaskState;
 #[cfg(feature = "dependency-tasks")]
@@ -58,7 +59,7 @@ use crate::{
 pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     quorum_membership: Arc<TYPES::Membership>,
     view_leader_key: TYPES::SignatureKey,
@@ -160,7 +161,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     view: TYPES::Time,
     commitment_and_metadata: CommitmentAndMetadata<TYPES>,
@@ -320,7 +321,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     view_number: TYPES::Time,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     ensure!(
         quorum_membership.leader(view_number) == public_key,
@@ -382,7 +383,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -396,7 +397,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         view,
         quorum_membership,
         public_key.clone(),
-        Arc::clone(&consensus),
+        OuterConsensus::new("parent_leaf_and_state", Arc::clone(&consensus.inner_consensus)),
     )
     .await?;
 
@@ -439,7 +440,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         create_and_send_proposal(
             public_key,
             private_key,
-            consensus,
+            OuterConsensus::new("create_and_send_proposal", Arc::clone(&consensus.inner_consensus)),
             sender,
             view,
             cnm,
@@ -467,7 +468,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -539,7 +540,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         view,
         &event_stream,
         task_state.timeout,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new("update_view", Arc::clone(&task_state.consensus.inner_consensus)),
         &mut task_state.cur_view,
         &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
@@ -664,7 +665,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                         Arc::clone(&task_state.quorum_membership),
                         task_state.public_key.clone(),
                         task_state.private_key.clone(),
-                        Arc::clone(&task_state.consensus),
+                        OuterConsensus::new("publish_proposal_if_able", Arc::clone(&task_state.consensus.inner_consensus)),
                         task_state.round_start_delay,
                         task_state.formed_upgrade_certificate.clone(),
                         task_state.decided_upgrade_cert.clone(),
@@ -700,7 +701,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             validate_proposal_safety_and_liveness(
                 proposal.clone(),
                 parent_leaf,
-                Arc::clone(&task_state.consensus),
+                OuterConsensus::new("validate_proposal_safety_and_liveness", Arc::clone(&task_state.consensus.inner_consensus)),
                 task_state.decided_upgrade_cert.clone(),
                 Arc::clone(&task_state.quorum_membership),
                 view_leader_key,
@@ -956,7 +957,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     cur_view: TYPES::Time,
     proposal: QuorumProposal<TYPES>,
     public_key: TYPES::SignatureKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     storage: Arc<RwLock<I::Storage>>,
     quorum_membership: Arc<TYPES::Membership>,
     instance_state: Arc<TYPES::InstanceState>,

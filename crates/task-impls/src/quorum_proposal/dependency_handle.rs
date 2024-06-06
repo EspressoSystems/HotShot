@@ -19,6 +19,7 @@ use hotshot_types::{
 };
 use tracing::{debug, error};
 use vbs::version::Version;
+use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     consensus::helpers::parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
@@ -77,7 +78,7 @@ pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
     pub round_start_delay: u64,
 
     /// Shared consensus task state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// The current version of consensus
     pub version: Version,
@@ -98,7 +99,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             self.view_number,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
-            Arc::clone(&self.consensus),
+            OuterConsensus::new("parent_leaf_and_state", Arc::clone(&self.consensus.inner_consensus)),
         )
         .await?;
 

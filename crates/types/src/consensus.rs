@@ -4,10 +4,13 @@ use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
+use std::mem::ManuallyDrop;
+use std::ops::{Deref, DerefMut};
 
 use anyhow::{ensure, Result};
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use committable::{Commitment, Committable};
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 pub use crate::utils::{View, ViewInner};
@@ -38,6 +41,174 @@ pub type VidShares<TYPES> = BTreeMap<
 
 /// Type alias for consensus state wrapped in a lock.
 pub type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
+
+#[derive(Clone, Debug)]
+pub struct OuterConsensus<TYPES: NodeType> {
+    name: String,
+    pub inner_consensus: LockedConsensusState<TYPES>,
+}
+
+impl<TYPES: NodeType> OuterConsensus<TYPES>  {
+    pub fn new(name: &str, consensus: LockedConsensusState<TYPES>) -> Self {
+        Self {
+            name: name.to_string(),
+            inner_consensus: Arc::clone(&consensus),
+        }
+    }
+    pub async fn read(&self) -> ConsensusReadLockGuard<'_, TYPES> {
+        tracing::error!("lrzasik: OuterConsensus, name: {:?}, trying to acquire read lock on consensus", self.name);
+        let ret = self.inner_consensus.read().await;
+        tracing::error!("lrzasik: OuterConsensus, name: {:?}, acquired read lock on consensus", self.name);
+        ConsensusReadLockGuard::new(&self.name, ret)
+    }
+
+    pub async fn write(&self) -> ConsensusWriteLockGuard<'_, TYPES> {
+        tracing::error!("lrzasik: OuterConsensus, name: {:?}, trying to acquire write lock on consensus", self.name);
+        let ret = self.inner_consensus.write().await;
+        tracing::error!("lrzasik: OuterConsensus, name: {:?}, acquired write lock on consensus", self.name);
+        ConsensusWriteLockGuard::new(&self.name, ret)
+    }
+
+    pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<TYPES>> {
+        tracing::error!("lrzasik: OuterConsensus::try_write, name: {:?}, trying to acquire write lock on consensus", self.name);
+        let ret = self.inner_consensus.try_write();
+        match ret {
+            Some(guard) => {
+                tracing::error!("lrzasik: OuterConsensus::try_write, name: {:?}, write lock acquired", self.name);
+                Some(ConsensusWriteLockGuard::new(&self.name, guard))
+            }
+            None => {
+                tracing::error!("lrzasik: OuterConsensus::try_write, name: {:?}, failed to acquire write lock", self.name);
+                None
+            }
+        }
+    }
+
+    pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<TYPES> {
+        tracing::error!("lrzasik: OuterConsensus::upgradable_read, name: {:?}, trying to acquire upgradable read lock on consensus", self.name);
+        let ret = self.inner_consensus.upgradable_read().await;
+        tracing::error!("lrzasik: OuterConsensus::upgradable_read, name: {:?}, acquired upgradable read lock on consensus", self.name);
+        ConsensusUpgradableReadLockGuard::new(&self.name, ret)
+    }
+
+    pub fn try_read(&self) -> Option<ConsensusReadLockGuard<TYPES>> {
+        tracing::error!("lrzasik: OuterConsensus::try_read, name: {:?}, trying to acquire read lock on consensus", self.name);
+        let ret = self.inner_consensus.try_read();
+        match ret {
+            Some(guard) => {
+                tracing::error!("lrzasik: OuterConsensus::try_read, name: {:?}, read lock acquired", self.name);
+                Some(ConsensusReadLockGuard::new(&self.name, guard))
+            }
+            None => {
+                tracing::error!("lrzasik: OuterConsensus::try_read, name: {:?}, failed to acquire read lock", self.name);
+                None
+            }
+        }
+    }
+}
+
+pub struct ConsensusReadLockGuard<'a, TYPES: NodeType> {
+    name: String,
+    lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>,
+}
+
+impl<'a, TYPES: NodeType> ConsensusReadLockGuard<'a, TYPES> {
+    pub fn new(name: &str, lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>) -> Self {
+        Self {
+            name: name.to_string(),
+            lock_guard,
+        }
+    }
+}
+
+impl<'a, TYPES: NodeType> Deref for ConsensusReadLockGuard<'a, TYPES> {
+    type Target = Consensus<TYPES>;
+    fn deref(&self) -> &Self::Target {
+        &*self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> Drop for ConsensusReadLockGuard<'a, TYPES> {
+    fn drop(&mut self) {
+        tracing::error!("lrzasik: ConsensusReadLockGuard, name: {:?}, dropped", self.name);
+    }
+}
+
+pub struct ConsensusWriteLockGuard<'a, TYPES: NodeType> {
+    name: String,
+    lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>
+}
+
+impl<'a, TYPES: NodeType> ConsensusWriteLockGuard<'a, TYPES> {
+    pub  fn new(name: &str, lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>) -> Self {
+        Self {
+            name: name.to_string(),
+            lock_guard,
+        }
+    }
+}
+
+impl<'a, TYPES: NodeType> Deref for ConsensusWriteLockGuard<'a, TYPES> {
+    type Target = Consensus<TYPES>;
+    fn deref(&self) -> &Self::Target {
+        &*self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> DerefMut for ConsensusWriteLockGuard<'a, TYPES> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> Drop for ConsensusWriteLockGuard<'a, TYPES> {
+    fn drop(&mut self) {
+        tracing::error!("lrzasik: ConsensusWriteLockGuard, name: {:?}, dropped", self.name);
+    }
+}
+
+pub struct ConsensusUpgradableReadLockGuard<'a, TYPES: NodeType> {
+    name: String,
+    lock_guard: ManuallyDrop<RwLockUpgradableReadGuard<'a, Consensus<TYPES>>>,
+    taken: bool,
+}
+
+impl<'a, TYPES: NodeType> ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    pub fn new(name: &str, lock_guard: RwLockUpgradableReadGuard<'a, Consensus<TYPES>>) -> Self {
+        Self {
+            name: name.to_string(),
+            lock_guard: ManuallyDrop::new(lock_guard),
+            taken: false,
+        }
+    }
+
+    pub async fn upgrade(mut guard: Self) -> ConsensusWriteLockGuard<'a, TYPES> {
+        let name = guard.name.clone();
+        let inner_guard = unsafe { ManuallyDrop::take(&mut guard.lock_guard) };
+        guard.taken = true;
+        tracing::error!("lrzasik: ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, trying to upgrade upgradable read lock on consensus", name);
+        let ret = RwLockUpgradableReadGuard::upgrade(inner_guard).await;
+        tracing::error!("lrzasik: ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, upgraded upgradable read lock on consensus", name);
+        ConsensusWriteLockGuard::new(&name, ret)
+    }
+}
+
+impl<'a, TYPES: NodeType> Deref for ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    type Target = Consensus<TYPES>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.lock_guard
+    }
+}
+
+impl<'a, TYPES: NodeType> Drop for ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    fn drop(&mut self) {
+        if !self.taken {
+            unsafe { ManuallyDrop::drop(&mut self.lock_guard) }
+            tracing::error!("lrzasik: ConsensusUpgradableReadLockGuard, name: {:?}, dropped", self.name);
+        }
+    }
+}
 
 /// A reference to the consensus algorithm
 ///
@@ -494,7 +665,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     pub async fn calculate_and_update_vid(
-        consensus: LockedConsensusState<TYPES>,
+        consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::Time,
         membership: Arc<TYPES::Membership>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -504,7 +675,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         let vid =
             VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
-        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {
                 consensus.update_vid_shares(view, prop);

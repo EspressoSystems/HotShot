@@ -30,6 +30,7 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
+use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -51,7 +52,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: LockedConsensusState<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
@@ -109,6 +110,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     return None;
                 }
 
+                tracing::error!("lrzasik: trying to acquire read lock on consensus");
                 if self
                     .consensus
                     .read()
@@ -117,8 +119,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     .contains_key(&view)
                 {
                     warn!("Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away", view);
+                    tracing::error!("lrzasik: free read lock on consensus");
                     return None;
                 }
+                tracing::error!("lrzasik: free read lock on consensus");
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
@@ -141,7 +145,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
+                tracing::error!("lrzasik: trying to acquire read lock on consensus");
                 let curr_view = self.consensus.read().await.cur_view();
+                tracing::error!("lrzasik: free read lock on consensus");
                 if curr_view > proposal.data.view_number() + 1 {
                     tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
                     return None;
@@ -197,7 +203,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 debug!("Sending vote to the DA leader {:?}", vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
+                tracing::error!("lrzasik: trying to acquire write lock on consensus");
                 let mut consensus = self.consensus.write().await;
+                tracing::error!("lrzasik: acquired write lock on consensus");
 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
@@ -223,7 +231,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
-                    let consensus = Arc::clone(&self.consensus);
+                    let consensus = OuterConsensus::new("calculate_and_update_vid", Arc::clone(&self.consensus.inner_consensus));
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
                     async_spawn(async move {
@@ -236,6 +244,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                         .await;
                     });
                 }
+                tracing::error!("lrzasik: free write lock on consensus");
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.view_number());

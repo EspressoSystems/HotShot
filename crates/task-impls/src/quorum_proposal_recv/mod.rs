@@ -25,6 +25,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
+use hotshot_types::consensus::OuterConsensus;
 
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
@@ -46,7 +47,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -137,7 +138,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
-                        Arc::clone(&self.consensus),
+                        OuterConsensus::new("parent_leaf_and_state", Arc::clone(&self.consensus.inner_consensus)),
                     )
                     .await
                     {

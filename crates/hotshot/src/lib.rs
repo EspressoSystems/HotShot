@@ -58,6 +58,7 @@ pub use rand;
 use tasks::{add_request_network_task, add_response_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
+use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     tasks::{add_consensus_tasks, add_network_event_task, add_network_message_task},
@@ -130,7 +131,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 
     /// Immutable instance state
     instance_state: Arc<TYPES::InstanceState>,
@@ -173,7 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             networks: Arc::clone(&self.networks),
             memberships: Arc::clone(&self.memberships),
             metrics: Arc::clone(&self.metrics),
-            consensus: Arc::clone(&self.consensus),
+            consensus: self.consensus.clone(),
             instance_state: Arc::clone(&self.instance_state),
             version: Arc::clone(&self.version),
             start_view: self.start_view,
@@ -278,7 +279,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
-            consensus,
+            consensus: OuterConsensus::new("SystemContext", consensus),
             instance_state: Arc::new(instance_state),
             public_key,
             private_key,
@@ -306,7 +307,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         #[cfg(feature = "dependncy-tasks")]
         error!("HotShot is running with the dependency tasks feature enabled!!");
         debug!("Starting Consensus");
+        tracing::error!("lrzasik: trying to acquire read lock on consensus, id: {:?}", self.id);
         let consensus = self.consensus.read().await;
+        tracing::error!("lrzasik: acquired read lock on consensus, id: {:?}", self.id);
 
         #[allow(clippy::panic)]
         self.internal_event_stream
@@ -383,6 +386,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 .await;
             }
         }
+        tracing::error!("lrzasik: free read lock on consensus, id: {:?}", self.id);
     }
 
     /// Emit an external event
@@ -447,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
-        Arc::clone(&self.consensus)
+        Arc::clone(&self.consensus.inner_consensus)
     }
 
     /// Returns a copy of the instance state

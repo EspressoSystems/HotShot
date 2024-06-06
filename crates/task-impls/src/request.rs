@@ -33,6 +33,7 @@ use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
+use hotshot_types::consensus::OuterConsensus;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -52,7 +53,7 @@ pub struct NetworkRequestState<
     pub network: Arc<I::QuorumNetwork>,
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    pub state: Arc<RwLock<Consensus<TYPES>>>,
+    pub state: OuterConsensus<TYPES>,
     /// Last seen view, we won't request for proposals before older than this view
     pub view: TYPES::Time,
     /// Delay before requesting peers
@@ -168,10 +169,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     /// Creates the srequest structures for all types that are needed.
     async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
+        tracing::error!("lrzasik: trying to acquire read lock on consensus, id: {:?}", self.id);
         if !self.state.read().await.vid_shares().contains_key(&view) {
             reqs.push(RequestKind::Vid(view, self.public_key.clone()));
         }
         // TODO request other things
+        tracing::error!("lrzasik: free read lock on consensus, id: {:?}", self.id);
         reqs
     }
 
@@ -196,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
-            state: Arc::clone(&self.state),
+            state: OuterConsensus::new("DelayedRequester", Arc::clone(&self.state.inner_consensus)),
             sender,
             delay: self.delay,
             recipients,
@@ -231,7 +234,7 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests
     network: Arc<I::QuorumNetwork>,
     /// Shared state to check if the data go populated
-    state: Arc<RwLock<Consensus<TYPES>>>,
+    state: OuterConsensus<TYPES>,
     /// Channel to send the event when we receive a response
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Duration to delay sending the first request
@@ -338,10 +341,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Returns true if we got the data we wanted, or the view has moved on.
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
+        tracing::error!("lrzasik: trying to acquire read lock on consensus, DelayedRequester");
         let state = self.state.read().await;
-        self.shutdown_flag.load(Ordering::Relaxed)
+        let ret = self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
-            || state.cur_view() > view
+            || state.cur_view() > view;
+        tracing::error!("lrzasik: free read lock on consensus, DelayedRequester");
+        ret
     }
 
     /// Transform a response into a `HotShotEvent`

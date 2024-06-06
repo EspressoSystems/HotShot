@@ -39,6 +39,7 @@ use tokio::task::JoinHandle;
 use tracing::info;
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
+use hotshot_types::consensus::OuterConsensus;
 
 #[cfg(not(feature = "dependency-tasks"))]
 use crate::consensus::helpers::{
@@ -71,7 +72,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
     /// View timeout from config.
@@ -222,7 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
             self.private_key.clone(),
-            Arc::clone(&self.consensus),
+            OuterConsensus::new("publish_proposal_if_able", Arc::clone(&self.consensus.inner_consensus)),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
             self.decided_upgrade_cert.clone(),
@@ -258,7 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new("spawn_vote_task", Arc::clone(&self.consensus.inner_consensus));
         let storage = Arc::clone(&self.storage);
         let quorum_mem = Arc::clone(&self.quorum_membership);
         let da_mem = Arc::clone(&self.da_membership);
@@ -545,7 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     new_view,
                     &event_stream,
                     self.timeout,
-                    Arc::clone(&self.consensus),
+                    OuterConsensus::new("update_view", Arc::clone(&self.consensus.inner_consensus)),
                     &mut self.cur_view,
                     &mut self.cur_view_time,
                     &mut self.timeout_task,

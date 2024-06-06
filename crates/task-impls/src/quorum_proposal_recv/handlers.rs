@@ -20,6 +20,7 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use tracing::{debug, warn};
+use hotshot_types::consensus::OuterConsensus;
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
@@ -155,7 +156,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         view_number,
         event_sender,
         task_state.timeout,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new("update_view", Arc::clone(&task_state.consensus.inner_consensus)),
         &mut task_state.cur_view,
         &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
@@ -228,7 +229,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     validate_proposal_safety_and_liveness(
         proposal.clone(),
         parent_leaf,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new("validate_proposal_safety_and_liveness", Arc::clone(&task_state.consensus.inner_consensus)),
         None,
         Arc::clone(&task_state.quorum_membership),
         view_leader_key,

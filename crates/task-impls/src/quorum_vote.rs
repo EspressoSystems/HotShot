@@ -35,6 +35,7 @@ use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, trace, warn};
+use hotshot_types::consensus::OuterConsensus;
 
 use crate::{
     events::HotShotEvent,
@@ -64,7 +65,7 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Private Key.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Reference to consensus. The replica will require a write lock on this.
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     /// Immutable instance state
     instance_state: Arc<TYPES::InstanceState>,
     /// Membership for Quorum certs/votes.
@@ -308,7 +309,7 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
@@ -480,7 +481,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             VoteDependencyHandle::<TYPES, I> {
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
-                consensus: Arc::clone(&self.consensus),
+                consensus: OuterConsensus::new("VoteDependencyHandle", Arc::clone(&self.consensus.inner_consensus)),
                 instance_state: Arc::clone(&self.instance_state),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 storage: Arc::clone(&self.storage),
@@ -497,8 +498,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
     async fn update_latest_voted_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_voted_view < *new_view {
-            debug!(
-                "Updating next vote view from {} to {} in the quorum vote task",
+            tracing::error!(
+                "lrzasik: Updating next vote view from {} to {} in the quorum vote task",
                 *self.latest_voted_view, *new_view
             );
 
@@ -506,7 +507,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             for view in (*self.latest_voted_view + 1)..(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
-                    debug!("Vote dependency removed for view {:?}", view);
+                    tracing::error!("lrzasik: Vote dependency removed for view {:?}", view);
                 }
             }
 

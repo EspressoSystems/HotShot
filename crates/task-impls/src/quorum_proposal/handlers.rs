@@ -106,6 +106,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     // Unpacking here prevents the need to endlessly call the function. These values don't change during
     // the execution of this code.
     let consensus_reader = task_state.consensus.read().await;
+    tracing::error!("lrzasik: acquired read lock on consensus, id: {:?}", task_state.id);
     let validated_state_map = consensus_reader.validated_state_map();
     let saved_leaves = consensus_reader.saved_leaves();
     let last_decided_view = consensus_reader.last_decided_view();
@@ -218,6 +219,7 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         };
 
         // Move on to the next leaf at the end.
+        tracing::error!("lrzasik: free read lock on consensus, id: {:?}", task_state.id);
         view_number = leaf.justify_qc().view_number();
     }
 
@@ -233,6 +235,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalTaskState<TYPES, I>,
 ) -> Result<()> {
+    tracing::error!("lrzasik: calling visit_leaf_chain, id: {:?}, view: {:?}", task_state.id, proposal.view_number);
     let LeafChainTraversalOutcome {
         new_locked_view_number,
         new_decided_view_number,
@@ -241,6 +244,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaves_decided,
         included_txns,
     } = visit_leaf_chain(proposal, task_state).await?;
+    tracing::error!("lrzasik: finished visit_leaf_chain, id: {:?}, view: {:?}", task_state.id, proposal.view_number);
 
     let included_txns = if new_decided_view_number.is_some() {
         included_txns
