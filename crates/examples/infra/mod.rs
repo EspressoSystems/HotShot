@@ -882,7 +882,6 @@ where
 pub async fn main_entry_point<
     TYPES: NodeType<
         Transaction = TestTransaction,
-        BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     >,
@@ -1002,8 +1001,7 @@ pub async fn main_entry_point<
                 &mut txn_rng,
                 transaction_size as u64,
             );
-            let bytes = txn.into_bytes();
-            transactions.push(TestTransaction::new(bytes));
+            transactions.push(txn);
         }
     }
     if let NetworkConfigSource::Orchestrator = source {
@@ -1030,7 +1028,6 @@ pub async fn main_entry_point<
 async fn initialize_builder<
     TYPES: NodeType<
         Transaction = TestTransaction,
-        BlockPayload = TestBlockPayload,
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     >,
