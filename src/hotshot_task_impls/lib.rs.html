@@ -57,6 +57,10 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements sequencing
 //! consensus in an event driven way
 
@@ -114,4 +118,8 @@
 
 <span class="doccomment">/// Task for handling QuorumProposalRecv events
 </span><span class="kw">pub mod </span>quorum_proposal_recv;
+
+<span class="doccomment">/// Task for storing and replaying all received tasks by a node
+</span><span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
+</span><span class="kw">pub mod </span>rewind;
 </code></pre></div></section></main></body></html>

@@ -171,6 +171,11 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -180,6 +185,8 @@
 
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>hotshot_task::task::Task;
+<span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
+</span><span class="kw">use </span>hotshot_task_impls::rewind::RewindTaskState;
 <span class="kw">use </span>hotshot_task_impls::{
     consensus::ConsensusTaskState,
     da::DaTaskState,
@@ -341,5 +348,8 @@
         handle.add_task(QuorumProposalRecvTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
         handle.add_task(Consensus2TaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
     }
+
+    <span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
+    </span>handle.add_task(RewindTaskState::&lt;TYPES&gt;::create_from(<span class="kw-2">&amp;</span>handle).<span class="kw">await</span>);
 }
 </code></pre></div></section></main></body></html>

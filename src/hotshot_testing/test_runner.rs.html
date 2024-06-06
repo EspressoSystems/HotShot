@@ -758,16 +758,16 @@
             completion_handle.abort();
         }
 
-        <span class="macro">assert!</span>(
-            error_list.is_empty(),
-            <span class="string">"TEST FAILED! Results: {error_list:?}"
-        </span>);
-
         <span class="kw">let </span><span class="kw-2">mut </span>nodes = handles.write().<span class="kw">await</span>;
 
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;mut *</span>nodes {
             node.handle.shut_down().<span class="kw">await</span>;
         }
+
+        <span class="macro">assert!</span>(
+            error_list.is_empty(),
+            <span class="string">"TEST FAILED! Results: {error_list:?}"
+        </span>);
     }
 
     <span class="doccomment">/// Add nodes.

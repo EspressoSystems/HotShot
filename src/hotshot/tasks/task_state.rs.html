@@ -335,6 +335,21 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
@@ -344,6 +359,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::types::SystemContextHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>chrono::Utc;
+<span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
+</span><span class="kw">use </span>hotshot_task_impls::rewind::RewindTaskState;
 <span class="kw">use </span>hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
     da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
@@ -666,6 +683,19 @@
             timeout: handle.hotshot.config.next_view_timeout,
             consensus,
             last_decided_view: handle.cur_view().<span class="kw">await</span>,
+            id: handle.hotshot.id,
+        }
+    }
+}
+
+<span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
+#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
+    <span class="kw">for </span>RewindTaskState&lt;TYPES&gt;
+{
+    <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I&gt;) -&gt; RewindTaskState&lt;TYPES&gt; {
+        RewindTaskState {
+            events: Vec::new(),
             id: handle.hotshot.id,
         }
     }
