@@ -263,7 +263,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             proposal.data.view_number()
                 > self
                     .last_proposals
-                    .first_key_value()
+                    .last_key_value()
                     .map_or(TYPES::Time::genesis(), |(k, _)| { *k }),
             "New view isn't newer than the previously proposed view."
         );
