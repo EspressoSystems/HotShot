@@ -944,14 +944,14 @@ pub async fn main_entry_point<
                     // Exclude loopback addresses
                     if !ipv4_addr.is_loopback() {
                         if ipv4_addr.to_string().starts_with("172.31.") {
-                            args.builder_address = Some(Url::parse(&format!("http://{}:5678", ipv4_addr)).unwrap());
+                            args.builder_address = Some(Url::parse(&format!("http://{}:1234", ipv4_addr)).unwrap());
                         }
                     }
                 } else if let IpAddr::V6(ipv6_addr) = interface.addr.ip() {
                     // Exclude loopback addresses
                     if !ipv6_addr.is_loopback() {
                         println!("Local IPv6 Address: {:?}", ipv6_addr);
-                        args.builder_address = Some(Url::parse(&format!("http://{}:5678", ipv6_addr)).unwrap());
+                        args.builder_address = Some(Url::parse(&format!("http://{}:1234", ipv6_addr)).unwrap());
                     }
                 }
             }
