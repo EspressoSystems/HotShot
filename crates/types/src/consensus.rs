@@ -451,6 +451,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.validated_state_map = self.validated_state_map.split_off(&new_anchor_view);
         self.saved_payloads = self.saved_payloads.split_off(&new_anchor_view);
         self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
+        self.last_proposals = self.last_proposals.split_off(&new_anchor_view);
     }
 
     /// Gets the last decided leaf.
