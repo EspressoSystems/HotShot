@@ -41,13 +41,17 @@ pub type VidShares<TYPES> = BTreeMap<
 /// Type alias for consensus state wrapped in a lock.
 pub type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 
+/// A thin wrapper around `LockedConsensusState` that helps debugging locks
 #[derive(Clone, Debug)]
 pub struct OuterConsensus<TYPES: NodeType> {
+    /// Hopefully unique name for this `OuterConsensus`
     name: String,
+    /// Inner `LockedConsensusState`
     pub inner_consensus: LockedConsensusState<TYPES>,
 }
 
 impl<TYPES: NodeType> OuterConsensus<TYPES>  {
+    /// Create a new instance of `OuterConsensus`, hopefully uniquely named
     pub fn new(name: &str, consensus: LockedConsensusState<TYPES>) -> Self {
         Self {
             name: name.to_string(),
@@ -55,6 +59,7 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         }
     }
 
+    /// Locks inner consensus for reading and leaves debug traces
     pub async fn read(&self) -> ConsensusReadLockGuard<'_, TYPES> {
         debug!("OuterConsensus::read, name: {:?}, trying to acquire read lock on consensus", self.name);
         let ret = self.inner_consensus.read().await;
@@ -62,6 +67,7 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         ConsensusReadLockGuard::new(&self.name, ret)
     }
 
+    /// Locks inner consensus for writing and leaves debug traces
     pub async fn write(&self) -> ConsensusWriteLockGuard<'_, TYPES> {
         debug!("OuterConsensus::write, name: {:?}, trying to acquire write lock on consensus", self.name);
         let ret = self.inner_consensus.write().await;
@@ -69,6 +75,7 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         ConsensusWriteLockGuard::new(&self.name, ret)
     }
 
+    /// Tries to acquire write lock on inner consensus and leaves debug traces
     pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<'_, TYPES>> {
         debug!("OuterConsensus::try_write, name: {:?}, trying to acquire write lock on consensus", self.name);
         let ret = self.inner_consensus.try_write();
@@ -84,6 +91,7 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         }
     }
 
+    /// Acquires upgradable read lock on inner consensus and leaves debug traces
     pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<'_, TYPES> {
         debug!("OuterConsensus::upgradable_read, name: {:?}, trying to acquire upgradable read lock on consensus", self.name);
         let ret = self.inner_consensus.upgradable_read().await;
@@ -91,6 +99,7 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
         ConsensusUpgradableReadLockGuard::new(&self.name, ret)
     }
 
+    /// Tries to acquire read lock on inner consensus and leaves debug traces
     pub fn try_read(&self) -> Option<ConsensusReadLockGuard<'_, TYPES>> {
         debug!("OuterConsensus::try_read, name: {:?}, trying to acquire read lock on consensus", self.name);
         let ret = self.inner_consensus.try_read();
@@ -107,12 +116,14 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
     }
 }
 
+/// A thin wrapper around `RwLockReadGuard` for `Consensus` that leaves debug traces when the lock is freed
 pub struct ConsensusReadLockGuard<'a, TYPES: NodeType> {
     name: String,
     lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>,
 }
 
 impl<'a, TYPES: NodeType> ConsensusReadLockGuard<'a, TYPES> {
+    /// Creates a new instance of `ConsensusReadLockGuard` with the same name as parent `OuterConsensus`
     pub fn new(name: &str, lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>) -> Self {
         Self {
             name: name.to_string(),
@@ -134,12 +145,14 @@ impl<'a, TYPES: NodeType> Drop for ConsensusReadLockGuard<'a, TYPES> {
     }
 }
 
+/// A thin wrapper around `RwLockWriteGuard` for `Consensus` that leaves debug traces when the lock is freed
 pub struct ConsensusWriteLockGuard<'a, TYPES: NodeType> {
     name: String,
     lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>
 }
 
 impl<'a, TYPES: NodeType> ConsensusWriteLockGuard<'a, TYPES> {
+    /// Creates a new instance of `ConsensusWriteLockGuard` with the same name as parent `OuterConsensus`
     pub  fn new(name: &str, lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>) -> Self {
         Self {
             name: name.to_string(),
@@ -167,6 +180,7 @@ impl<'a, TYPES: NodeType> Drop for ConsensusWriteLockGuard<'a, TYPES> {
     }
 }
 
+/// A thin wrapper around `RwLockUpgradableReadGuard` for `Consensus` that leaves debug traces when the lock is freed or upgraded
 pub struct ConsensusUpgradableReadLockGuard<'a, TYPES: NodeType> {
     name: String,
     lock_guard: ManuallyDrop<RwLockUpgradableReadGuard<'a, Consensus<TYPES>>>,
@@ -174,6 +188,7 @@ pub struct ConsensusUpgradableReadLockGuard<'a, TYPES: NodeType> {
 }
 
 impl<'a, TYPES: NodeType> ConsensusUpgradableReadLockGuard<'a, TYPES> {
+    /// Creates a new instance of `ConsensusUpgradableReadLockGuard` with the same name as parent `OuterConsensus`
     pub fn new(name: &str, lock_guard: RwLockUpgradableReadGuard<'a, Consensus<TYPES>>) -> Self {
         Self {
             name: name.to_string(),
@@ -182,6 +197,7 @@ impl<'a, TYPES: NodeType> ConsensusUpgradableReadLockGuard<'a, TYPES> {
         }
     }
 
+    /// Upgrades the inner `RwLockUpgradableReadGuard` and leaves debug traces
     pub async fn upgrade(mut guard: Self) -> ConsensusWriteLockGuard<'a, TYPES> {
         let name = guard.name.clone();
         let inner_guard = unsafe { ManuallyDrop::take(&mut guard.lock_guard) };
