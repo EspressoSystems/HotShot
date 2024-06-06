@@ -338,10 +338,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        let ret = self.shutdown_flag.load(Ordering::Relaxed)
+        self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
-            || state.cur_view() > view;
-        ret
+            || state.cur_view() > view
     }
 
     /// Transform a response into a `HotShotEvent`

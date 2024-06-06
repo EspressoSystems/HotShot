@@ -123,6 +123,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The justify qc is invalid.
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
