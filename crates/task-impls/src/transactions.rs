@@ -180,14 +180,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                     );
 
                     // Increment the metric for number of empty blocks proposed
-                    tracing::error!("lrzasik: trying to acquire write lock on consensus");
                     self.consensus
                         .write()
                         .await
                         .metrics
                         .number_of_empty_blocks_proposed
                         .add(1);
-                    tracing::error!("lrzasik: free write lock on consensus");
 
                     let membership_total_nodes = self.membership.total_nodes();
 
@@ -229,10 +227,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
     /// Get last known builder commitment from consensus.
     async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
-        tracing::error!("lrzasik: trying to acquire read lock on consensus");
         let consensus = self.consensus.read().await;
-        tracing::error!("lrzasik: acquired read lock on consensus");
-
         let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
 
         // Search through all previous views...
@@ -251,14 +246,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                         ViewInner::Failed => None,
                     })
             {
-                tracing::error!("lrzasik: free read lock on consensus");
                 return (prev_view, commitment);
             }
             prev_view = prev_view - 1;
         }
 
         // If not found, return commitment for last decided block
-        tracing::error!("lrzasik: free read lock on consensus");
         (prev_view, consensus.decided_leaf().payload_commitment())
     }
 

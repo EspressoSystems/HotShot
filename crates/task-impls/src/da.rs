@@ -110,7 +110,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     return None;
                 }
 
-                tracing::error!("lrzasik: trying to acquire read lock on consensus");
                 if self
                     .consensus
                     .read()
@@ -119,10 +118,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     .contains_key(&view)
                 {
                     warn!("Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away", view);
-                    tracing::error!("lrzasik: free read lock on consensus");
                     return None;
                 }
-                tracing::error!("lrzasik: free read lock on consensus");
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
@@ -145,9 +142,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
-                tracing::error!("lrzasik: trying to acquire read lock on consensus");
                 let curr_view = self.consensus.read().await.cur_view();
-                tracing::error!("lrzasik: free read lock on consensus");
                 if curr_view > proposal.data.view_number() + 1 {
                     tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
                     return None;
@@ -203,9 +198,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 debug!("Sending vote to the DA leader {:?}", vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
-                tracing::error!("lrzasik: trying to acquire write lock on consensus");
                 let mut consensus = self.consensus.write().await;
-                tracing::error!("lrzasik: acquired write lock on consensus");
 
                 // Ensure this view is in the view map for garbage collection, but do not overwrite if
                 // there is already a view there: the replica task may have inserted a `Leaf` view which
@@ -244,7 +237,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                         .await;
                     });
                 }
-                tracing::error!("lrzasik: free write lock on consensus");
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
                 debug!("DA vote recv, Main Task {:?}", vote.view_number());

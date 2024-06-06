@@ -307,9 +307,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         #[cfg(feature = "dependncy-tasks")]
         error!("HotShot is running with the dependency tasks feature enabled!!");
         debug!("Starting Consensus");
-        tracing::error!("lrzasik: trying to acquire read lock on consensus, id: {:?}", self.id);
         let consensus = self.consensus.read().await;
-        tracing::error!("lrzasik: acquired read lock on consensus, id: {:?}", self.id);
 
         #[allow(clippy::panic)]
         self.internal_event_stream
@@ -386,7 +384,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 .await;
             }
         }
-        tracing::error!("lrzasik: free read lock on consensus, id: {:?}", self.id);
     }
 
     /// Emit an external event

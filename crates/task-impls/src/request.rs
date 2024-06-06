@@ -169,12 +169,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
     /// Creates the srequest structures for all types that are needed.
     async fn build_requests(&self, view: TYPES::Time, _: Ver) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
-        tracing::error!("lrzasik: trying to acquire read lock on consensus, id: {:?}", self.id);
         if !self.state.read().await.vid_shares().contains_key(&view) {
             reqs.push(RequestKind::Vid(view, self.public_key.clone()));
         }
         // TODO request other things
-        tracing::error!("lrzasik: free read lock on consensus, id: {:?}", self.id);
         reqs
     }
 
@@ -341,12 +339,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Returns true if we got the data we wanted, or the view has moved on.
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
-        tracing::error!("lrzasik: trying to acquire read lock on consensus, DelayedRequester");
         let state = self.state.read().await;
         let ret = self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
             || state.cur_view() > view;
-        tracing::error!("lrzasik: free read lock on consensus, DelayedRequester");
         ret
     }
 

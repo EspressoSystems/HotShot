@@ -72,16 +72,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
                 let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
-                tracing::error!("lrzasik: trying to acquire write lock on consensus");
                 let mut consensus = self.consensus.write().await;
-                tracing::error!("lrzasik: acquired write lock on consensus");
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {
                         consensus.update_vid_shares(*view_number, disperse);
                     }
                 }
                 drop(consensus);
-                tracing::error!("lrzasik: free write lock on consensus");
 
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(

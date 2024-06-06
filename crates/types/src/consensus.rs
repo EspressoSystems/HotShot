@@ -52,55 +52,56 @@ impl<TYPES: NodeType> OuterConsensus<TYPES>  {
     pub fn new(name: &str, consensus: LockedConsensusState<TYPES>) -> Self {
         Self {
             name: name.to_string(),
-            inner_consensus: Arc::clone(&consensus),
+            inner_consensus: consensus,
         }
     }
+
     pub async fn read(&self) -> ConsensusReadLockGuard<'_, TYPES> {
-        tracing::error!("lrzasik: OuterConsensus, name: {:?}, trying to acquire read lock on consensus", self.name);
+        debug!("OuterConsensus::read, name: {:?}, trying to acquire read lock on consensus", self.name);
         let ret = self.inner_consensus.read().await;
-        tracing::error!("lrzasik: OuterConsensus, name: {:?}, acquired read lock on consensus", self.name);
+        debug!("OuterConsensus::read, name: {:?}, acquired read lock on consensus", self.name);
         ConsensusReadLockGuard::new(&self.name, ret)
     }
 
     pub async fn write(&self) -> ConsensusWriteLockGuard<'_, TYPES> {
-        tracing::error!("lrzasik: OuterConsensus, name: {:?}, trying to acquire write lock on consensus", self.name);
+        debug!("OuterConsensus::write, name: {:?}, trying to acquire write lock on consensus", self.name);
         let ret = self.inner_consensus.write().await;
-        tracing::error!("lrzasik: OuterConsensus, name: {:?}, acquired write lock on consensus", self.name);
+        debug!("OuterConsensus::write, name: {:?}, acquired write lock on consensus", self.name);
         ConsensusWriteLockGuard::new(&self.name, ret)
     }
 
     pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<TYPES>> {
-        tracing::error!("lrzasik: OuterConsensus::try_write, name: {:?}, trying to acquire write lock on consensus", self.name);
+        debug!("OuterConsensus::try_write, name: {:?}, trying to acquire write lock on consensus", self.name);
         let ret = self.inner_consensus.try_write();
         match ret {
             Some(guard) => {
-                tracing::error!("lrzasik: OuterConsensus::try_write, name: {:?}, write lock acquired", self.name);
+                debug!("OuterConsensus::try_write, name: {:?}, acquired write lock on consensus", self.name);
                 Some(ConsensusWriteLockGuard::new(&self.name, guard))
             }
             None => {
-                tracing::error!("lrzasik: OuterConsensus::try_write, name: {:?}, failed to acquire write lock", self.name);
+                debug!("OuterConsensus::try_write, name: {:?}, failed to acquire write lock", self.name);
                 None
             }
         }
     }
 
     pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<TYPES> {
-        tracing::error!("lrzasik: OuterConsensus::upgradable_read, name: {:?}, trying to acquire upgradable read lock on consensus", self.name);
+        debug!("OuterConsensus::upgradable_read, name: {:?}, trying to acquire upgradable read lock on consensus", self.name);
         let ret = self.inner_consensus.upgradable_read().await;
-        tracing::error!("lrzasik: OuterConsensus::upgradable_read, name: {:?}, acquired upgradable read lock on consensus", self.name);
+        debug!("OuterConsensus::upgradable_read, name: {:?}, acquired upgradable read lock on consensus", self.name);
         ConsensusUpgradableReadLockGuard::new(&self.name, ret)
     }
 
     pub fn try_read(&self) -> Option<ConsensusReadLockGuard<TYPES>> {
-        tracing::error!("lrzasik: OuterConsensus::try_read, name: {:?}, trying to acquire read lock on consensus", self.name);
+        debug!("OuterConsensus::try_read, name: {:?}, trying to acquire read lock on consensus", self.name);
         let ret = self.inner_consensus.try_read();
         match ret {
             Some(guard) => {
-                tracing::error!("lrzasik: OuterConsensus::try_read, name: {:?}, read lock acquired", self.name);
+                debug!("OuterConsensus::try_read, name: {:?}, read lock acquired", self.name);
                 Some(ConsensusReadLockGuard::new(&self.name, guard))
             }
             None => {
-                tracing::error!("lrzasik: OuterConsensus::try_read, name: {:?}, failed to acquire read lock", self.name);
+                debug!("OuterConsensus::try_read, name: {:?}, failed to acquire read lock", self.name);
                 None
             }
         }
@@ -130,7 +131,7 @@ impl<'a, TYPES: NodeType> Deref for ConsensusReadLockGuard<'a, TYPES> {
 
 impl<'a, TYPES: NodeType> Drop for ConsensusReadLockGuard<'a, TYPES> {
     fn drop(&mut self) {
-        tracing::error!("lrzasik: ConsensusReadLockGuard, name: {:?}, dropped", self.name);
+        debug!("ConsensusReadLockGuard, name: {:?}, dropped", self.name);
     }
 }
 
@@ -163,7 +164,7 @@ impl<'a, TYPES: NodeType> DerefMut for ConsensusWriteLockGuard<'a, TYPES> {
 
 impl<'a, TYPES: NodeType> Drop for ConsensusWriteLockGuard<'a, TYPES> {
     fn drop(&mut self) {
-        tracing::error!("lrzasik: ConsensusWriteLockGuard, name: {:?}, dropped", self.name);
+        debug!("ConsensusWriteLockGuard, name: {:?}, dropped", self.name);
     }
 }
 
@@ -186,9 +187,9 @@ impl<'a, TYPES: NodeType> ConsensusUpgradableReadLockGuard<'a, TYPES> {
         let name = guard.name.clone();
         let inner_guard = unsafe { ManuallyDrop::take(&mut guard.lock_guard) };
         guard.taken = true;
-        tracing::error!("lrzasik: ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, trying to upgrade upgradable read lock on consensus", name);
+        debug!("ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, trying to upgrade upgradable read lock on consensus", name);
         let ret = RwLockUpgradableReadGuard::upgrade(inner_guard).await;
-        tracing::error!("lrzasik: ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, upgraded upgradable read lock on consensus", name);
+        debug!("ConsensusUpgradableReadLockGuard::upgrade, name: {:?}, upgraded upgradable read lock on consensus", name);
         ConsensusWriteLockGuard::new(&name, ret)
     }
 }
@@ -205,7 +206,7 @@ impl<'a, TYPES: NodeType> Drop for ConsensusUpgradableReadLockGuard<'a, TYPES> {
     fn drop(&mut self) {
         if !self.taken {
             unsafe { ManuallyDrop::drop(&mut self.lock_guard) }
-            tracing::error!("lrzasik: ConsensusUpgradableReadLockGuard, name: {:?}, dropped", self.name);
+            debug!("ConsensusUpgradableReadLockGuard, name: {:?}, dropped", self.name);
         }
     }
 }
