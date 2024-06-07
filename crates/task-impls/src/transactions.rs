@@ -320,6 +320,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
         None
     }
 
+    /// Query the builders for available blocks. Queries only fraction of the builders
+    /// based on the response time.
     async fn get_available_blocks(
         &self,
         parent_comm: VidCommitment,
