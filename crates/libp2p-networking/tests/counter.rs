@@ -112,24 +112,24 @@ pub async fn counter_handle_network_event(
                             .await;
                         handle
                             .handle
-                            .direct_response(chan, &CounterMessage::Noop)
+                            .direct_response(chan, &bincode::serialize(&CounterMessage::Noop).unwrap())
                             .await?;
                     }
                     // direct message response
                     AskForCounter => {
                         let response = MyCounterIs(handle.state.copied().await);
-                        handle.handle.direct_response(chan, &response).await?;
+                        handle.handle.direct_response(chan, &bincode::serialize(&response).unwrap()).await?;
                     }
                     MyCounterIs(_) => {
                         handle
                             .handle
-                            .direct_response(chan, &CounterMessage::Noop)
+                            .direct_response(chan, &bincode::serialize(&CounterMessage::Noop).unwrap())
                             .await?;
                     }
                     Noop => {
                         handle
                             .handle
-                            .direct_response(chan, &CounterMessage::Noop)
+                            .direct_response(chan, &bincode::serialize(&CounterMessage::Noop).unwrap())
                             .await?;
                     }
                 }
@@ -170,7 +170,7 @@ async fn run_request_response_increment<'a>(
             std::process::exit(-1)},
         }
         requester_handle.handle
-            .direct_request(requestee_pid, &CounterMessage::AskForCounter)
+            .direct_request(requestee_pid, &bincode::serialize(&CounterMessage::AskForCounter).unwrap())
             .await
             .context(HandleSnafu)?;
         match stream.next().await.unwrap() {
@@ -240,7 +240,7 @@ async fn run_gossip_round(
 
     msg_handle
         .handle
-        .gossip("global".to_string(), &msg)
+        .gossip("global".to_string(), &bincode::serialize(&msg).unwrap())
         .await
         .context(HandleSnafu)?;
 

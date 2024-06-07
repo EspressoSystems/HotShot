@@ -211,7 +211,7 @@ impl OrchestratorClient {
 
         // Serialize our (possible) libp2p-specific data
         let request_body =
-            vbs::Serializer::<Version01>::serialize(&(libp2p_address, libp2p_public_key))?;
+            bincode::serialize(&(libp2p_address, libp2p_public_key))?;
 
         let identity = |client: Client<ClientError, OrchestratorVersion>| {
             // We need to clone here to move it into the closure
@@ -325,7 +325,7 @@ impl OrchestratorClient {
 
         // Serialize our (possible) libp2p-specific data
         let request_body =
-            vbs::Serializer::<Version01>::serialize(&(pubkey, libp2p_address, libp2p_public_key))
+            bincode::serialize(&(pubkey, libp2p_address, libp2p_public_key))
                 .expect("failed to serialize request");
 
         // register our public key with the orchestrator

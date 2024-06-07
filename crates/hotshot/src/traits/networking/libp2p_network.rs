@@ -558,7 +558,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
-                    if let Err(err) = handle.lookup_node::<K>(pk.clone(), dht_timeout).await {
+                    if let Err(err) = handle.lookup_node(&bincode::serialize(&pk).unwrap(), dht_timeout).await {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
@@ -609,7 +609,14 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
 
                 // we want our records published before
                 // we begin participating in consensus
-                while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
+                while handle
+                    .put_record(
+                        &bincode::serialize(&pk).unwrap(),
+                        &bincode::serialize(&handle.peer_id()).unwrap(),
+                    )
+                    .await
+                    .is_err()
+                {
                     async_sleep(Duration::from_secs(1)).await;
                 }
                 info!(
@@ -618,7 +625,14 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                     node_type
                 );
 
-                while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
+                while handle
+                    .put_record(
+                        &bincode::serialize(&handle.peer_id()).unwrap(),
+                        &bincode::serialize(&pk).unwrap(),
+                    )
+                    .await
+                    .is_err()
+                {
                     async_sleep(Duration::from_secs(1)).await;
                 }
                 // 10 minute timeout
@@ -677,7 +691,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 if self
                     .inner
                     .handle
-                    .direct_response(chan, &Empty { byte: 0u8 })
+                    .direct_response(chan, &bincode::serialize(&Empty { byte: 0u8 }).unwrap())
                     .await
                     .is_err()
                 {
@@ -692,11 +706,13 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
             NetworkEvent::ResponseRequested(msg, chan) => {
-                let reqeust =
-                    Serializer::<Version01>::deserialize(&msg.0).context(FailedToSerializeSnafu)?;
-                request_tx
-                    .try_send((reqeust, chan))
-                    .map_err(|_| NetworkError::ChannelSend)?;
+                let result: Result<M, _> =
+                    Serializer::<Version01>::deserialize(&msg.0).context(FailedToSerializeSnafu);
+                if let Ok(result) = result {
+                    request_tx
+                        .try_send((result, chan))
+                        .map_err(|_| NetworkError::ChannelSend)?;
+                };
             }
         }
         Ok::<(), NetworkError>(())
@@ -735,7 +751,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                             | DirectResponse(raw, _)
                             | NetworkEvent::ResponseRequested(Request(raw), _) => {
                                 match Version::deserialize(raw) {
-                                    Ok((VERSION_0_1, _rest)) => {
+                                    _ => {
                                         let _ = handle
                                             .handle_recvd_events_0_1(
                                                 message,
@@ -791,7 +807,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let pid = match self
             .inner
             .handle
-            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .lookup_node(&bincode::serialize(&recipient).unwrap(), self.inner.dht_timeout)
             .await
         {
             Ok(pid) => pid,
@@ -806,7 +822,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 });
             }
         };
-        match self.inner.handle.request_data(&request, pid).await {
+        match self
+            .inner
+            .handle
+            .request_data(&bincode::serialize(&request).unwrap(), pid)
+            .await
+        {
             Ok(response) => match response {
                 Some(msg) => {
                     let res: Message<TYPES> = Serializer::<VER>::deserialize(&msg.0)
@@ -844,7 +865,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 let Ok(response) = response_rx.await else {
                     continue;
                 };
-                let _ = handle.respond_data(&response, chan).await;
+                let _ = handle
+                    .respond_data(&bincode::serialize(&response).unwrap(), chan)
+                    .await;
             }
         });
 
@@ -943,7 +966,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             }
         }
 
-        match self.inner.handle.gossip(topic, &message).await {
+        let serialized_msg =
+            Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
+        match self.inner.handle.gossip(topic, &serialized_msg).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_broadcast_message_count.add(1);
                 Ok(())
@@ -1005,7 +1030,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let pid = match self
             .inner
             .handle
-            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .lookup_node(&bincode::serialize(&recipient).unwrap(), self.inner.dht_timeout)
             .await
         {
             Ok(pid) => pid,
@@ -1051,8 +1076,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 return Ok(());
             }
         }
+        let serialized_msg =
+            Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
 
-        match self.inner.handle.direct_request(pid, &message).await {
+        match self.inner.handle.direct_request(pid, &serialized_msg).await {
             Ok(()) => Ok(()),
             Err(e) => Err(e.into()),
         }

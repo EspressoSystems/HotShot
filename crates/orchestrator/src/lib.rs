@@ -518,7 +518,7 @@ where
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             let Ok((libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::<Version01>::deserialize(&body_bytes)
+                bincode::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
@@ -550,7 +550,7 @@ where
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             let Ok((mut pubkey, libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::<Version01>::deserialize(&body_bytes)
+                bincode::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
