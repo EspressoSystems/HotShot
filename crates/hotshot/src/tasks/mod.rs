@@ -19,6 +19,7 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::constants::Base;
 #[cfg(feature = "dependency-tasks")]
 use hotshot_task_impls::{
     consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
@@ -69,9 +70,8 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
         handle.private_key().clone(),
-        Arc::clone(&handle.hotshot.decided_upgrade_certificate),
     );
-    handle.network_registry.register(run_response_task::<TYPES>(
+    handle.network_registry.register(run_response_task::<TYPES, Base>(
         state,
         handle.internal_event_stream.1.activate_cloned(),
     ));

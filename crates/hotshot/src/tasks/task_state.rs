@@ -48,7 +48,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
             spawned_tasks: BTreeMap::new(),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }

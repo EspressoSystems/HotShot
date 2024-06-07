@@ -2,7 +2,6 @@ use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Receiver;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
-use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::{channel::mpsc, FutureExt, StreamExt};
@@ -10,11 +9,7 @@ use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState},
     data::VidDisperseShare,
-    message::{
-        DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage,
-        VersionedMessage,
-    },
-    simple_certificate::UpgradeCertificate,
+    message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
     traits::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseChannel, ResponseMessage},
@@ -25,6 +20,7 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
 use crate::events::HotShotEvent;
 
@@ -48,8 +44,6 @@ pub struct NetworkResponseState<TYPES: NodeType> {
     pub_key: TYPES::SignatureKey,
     /// This replicas private key
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// a potential upgrade certificate that has been decided on by the consensus tasks.
-    decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType> NetworkResponseState<TYPES> {
@@ -60,7 +54,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         quorum: Arc<TYPES::Membership>,
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     ) -> Self {
         Self {
             consensus,
@@ -68,19 +61,21 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             quorum,
             pub_key,
             private_key,
-            decided_upgrade_certificate,
         }
     }
 
     /// Run the request response loop until a `HotShotEvent::Shutdown` is received.
     /// Or the stream is closed.
-    async fn run_loop(mut self, shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>) {
+    async fn run_loop<Ver: StaticVersionType>(
+        mut self,
+        shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>,
+    ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
         loop {
             futures::select! {
                 req = self.receiver.next() => {
                     match req {
-                        Some((msg, chan)) => self.handle_message(msg, chan).await,
+                        Some((msg, chan)) => self.handle_message::<Ver>(msg, chan).await,
                         None => return,
                     }
                 },
@@ -93,45 +88,32 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
     /// Handle an incoming message.  First validates the sender, then handles the contained request.
     /// Sends the response via `chan`
-    async fn handle_message(&self, msg: Vec<u8>, chan: ResponseChannel<Vec<u8>>) {
-        let decided_upgrade_certificate = self.decided_upgrade_certificate.read().await.clone();
+    async fn handle_message<Ver: StaticVersionType>(
+        &self,
+        raw_req: Vec<u8>,
+        chan: ResponseChannel<Vec<u8>>,
+    ) {
+      let req: Message<TYPES> = bincode::deserialize(&raw_req).unwrap();
+        let sender = req.sender.clone();
+        if !self.valid_sender(&sender) {
+            let _ = chan.sender.send(bincode::serialize(&self.make_msg(ResponseMessage::Denied)).unwrap());
+            return;
+        }
 
-        let req: Message<TYPES> =
-            match VersionedMessage::deserialize(&msg, &decided_upgrade_certificate) {
-                Ok(message) => message,
-                Err(e) => {
-                    tracing::error!("Failed to deserialize message: {e}");
+        match req.kind {
+            MessageKind::Data(DataMessage::RequestData(req)) => {
+                if !valid_signature::<TYPES, Ver>(&req, &sender) {
+                    let _ = chan.sender.send(bincode::serialize(&self.make_msg(ResponseMessage::Denied)).unwrap());
                     return;
                 }
-            };
-        let sender = req.sender.clone();
-
-        let response = match req.kind {
-            MessageKind::Data(DataMessage::RequestData(req)) => {
-                if !self.valid_sender(&sender) || !valid_signature::<TYPES>(&req, &sender) {
-                    self.make_msg(ResponseMessage::Denied)
-                } else {
-                    self.handle_request(req).await
-                }
+                let response = self.handle_request(req).await;
+                let _ = chan.sender.send(bincode::serialize(&response).unwrap());
             }
-            msg => {
-                tracing::error!(
+            msg => tracing::error!(
                 "Received message that wasn't a DataRequest in the request task.  Message: {:?}",
                 msg
-            );
-                return;
-            }
-        };
-
-        let serialized_response = match response.serialize(&decided_upgrade_certificate) {
-            Ok(serialized) => serialized,
-            Err(e) => {
-                tracing::error!("Failed to serialize message: {}", e);
-                return;
-            }
-        };
-
-        let _ = chan.sender.send(serialized_response);
+            ),
+        }
     }
 
     /// Get the VID share from consensus storage, or calculate it from the payload for
@@ -227,25 +209,20 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 }
 
 /// Check the signature
-fn valid_signature<TYPES: NodeType>(
+fn valid_signature<TYPES: NodeType, Ver: StaticVersionType>(
     req: &DataRequest<TYPES>,
     sender: &TYPES::SignatureKey,
 ) -> bool {
-    let data = match bincode::serialize(&req.request) {
-        Ok(serialized) => serialized,
-        Err(e) => {
-            tracing::error!("Failed to serialize message: {}", e);
-            return false;
-        }
+    let Ok(data) = Serializer::<Ver>::serialize(&req.request) else {
+        return false;
     };
-
     sender.validate(&req.signature, &Sha256::digest(data))
 }
 
 /// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-pub fn run_response_task<TYPES: NodeType>(
+pub fn run_response_task<TYPES: NodeType, Ver: StaticVersionType + 'static>(
     task_state: NetworkResponseState<TYPES>,
     event_stream: Receiver<Arc<HotShotEvent<TYPES>>>,
 ) -> JoinHandle<()> {
@@ -253,5 +230,5 @@ pub fn run_response_task<TYPES: NodeType>(
         event_stream,
         Box::new(|e| matches!(e.as_ref(), HotShotEvent::Shutdown)),
     );
-    async_spawn(task_state.run_loop(dep))
+    async_spawn(task_state.run_loop::<Ver>(dep))
 }

@@ -4564,7 +4564,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "vbs",
  "void",
 ]
 

@@ -15,6 +15,7 @@ use std::{
     time::Duration,
 };
 
+use crate::BroadcastDelay;
 use anyhow::anyhow;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -31,15 +32,19 @@ use futures::{
 use hotshot_orchestrator::config::NetworkConfig;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
-    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation, ViewMessage,
 };
 use hotshot_types::{
     boxed_sync,
-    constants::LOOK_AHEAD,
+    constants::{LOOK_AHEAD},
     data::ViewNumber,
+    message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         election::Membership,
-        network::{self, BroadcastDelay, ConnectedNetwork, FailedToSerializeSnafu, NetworkError},
+        network::{
+            self, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
+            ResponseMessage,
+        },
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -61,7 +66,12 @@ use libp2p_networking::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
+use snafu::ResultExt;
 use tracing::{debug, error, info, instrument, warn};
+use vbs::{
+    version::{StaticVersionType, Version},
+    BinarySerializer, Serializer,
+};
 
 use super::NetworkingMetricsValue;
 
@@ -94,7 +104,7 @@ impl<K: SignatureKey + 'static> Debug for Libp2pNetwork<K> {
 }
 
 /// Locked Option of a receiver for moving the value out of the option
-type TakeReceiver<M> = Mutex<Option<Receiver<(M, ResponseChannel<Response>)>>>;
+type TakeReceiver = Mutex<Option<Receiver<(Vec<u8>, ResponseChannel<Response>)>>>;
 
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(PeerId, Multiaddr)>>>;
@@ -111,7 +121,7 @@ struct Libp2pNetworkInner<K: SignatureKey + 'static> {
     /// Receiver for Requests for Data, includes the request and the response chan
     /// Lock should only be used once to take the channel and move it into the request
     /// handler task
-    requests_rx: TakeReceiver<Vec<u8>>,
+    requests_rx: TakeReceiver,
     /// Sender for broadcast messages
     sender: UnboundedSender<Vec<u8>>,
     /// Sender for node lookup (relevant view number, key of node) (None for shutdown)
@@ -525,7 +535,10 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
     /// Spawns task for looking up nodes pre-emptively
     #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>) {
+    fn spawn_node_lookup(
+        &self,
+        node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
+    ) {
         let handle = Arc::clone(&self.inner.handle);
         let dht_timeout = self.inner.dht_timeout;
         let latest_seen_view = Arc::clone(&self.inner.latest_seen_view);
@@ -543,7 +556,10 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
-                    if let Err(err) = handle.lookup_node::<K>(pk.clone(), dht_timeout).await {
+                    if let Err(err) = handle
+                        .lookup_node(&bincode::serialize(&pk).unwrap(), dht_timeout)
+                        .await
+                    {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
@@ -552,7 +568,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&mut self, id: usize) {
+    fn spawn_connect(&mut self, id: usize){
         let pk = self.inner.pk.clone();
         let bootstrap_ref = Arc::clone(&self.inner.bootstrap_addrs);
         let handle = Arc::clone(&self.inner.handle);
@@ -594,7 +610,14 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
                 // we want our records published before
                 // we begin participating in consensus
-                while handle.put_record(&pk, &handle.peer_id()).await.is_err() {
+                while handle
+                    .put_record(
+                        &bincode::serialize(&pk).unwrap(),
+                        &bincode::serialize(&handle.peer_id()).unwrap(),
+                    )
+                    .await
+                    .is_err()
+                {
                     async_sleep(Duration::from_secs(1)).await;
                 }
                 info!(
@@ -603,7 +626,14 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                     node_type
                 );
 
-                while handle.put_record(&handle.peer_id(), &pk).await.is_err() {
+                while handle
+                    .put_record(
+                        &bincode::serialize(&handle.peer_id()).unwrap(),
+                        &bincode::serialize(&pk).unwrap(),
+                    )
+                    .await
+                    .is_err()
+                {
                     async_sleep(Duration::from_secs(1)).await;
                 }
                 // 10 minute timeout
@@ -642,27 +672,23 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
-                let result: Result<Vec<u8>, _> = bincode::deserialize(&msg);
-                if let Ok(result) = result {
                     sender
-                        .send(result)
+                        .send(msg)
                         .await
                         .map_err(|_| NetworkError::ChannelSend)?;
-                }
             }
             DirectRequest(msg, _pid, chan) => {
-                let result: Result<Vec<u8>, _> =
-                    bincode::deserialize(&msg).map_err(|_| FailedToSerializeSnafu);
-                if let Ok(result) = result {
                     sender
-                        .send(result)
+                        .send(msg)
                         .await
                         .map_err(|_| NetworkError::ChannelSend)?;
-                }
                 if self
                     .inner
                     .handle
-                    .direct_response(chan, &Empty { byte: 0u8 })
+                    .direct_response(
+                        chan,
+                        &bincode::serialize(&Empty { byte: 0u8 }).unwrap(),
+                    )
                     .await
                     .is_err()
                 {
@@ -670,18 +696,13 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 };
             }
             DirectResponse(msg, _) => {
-                let _result: Result<Vec<u8>, _> =
-                    bincode::deserialize(&msg).map_err(|_| FailedToSerializeSnafu);
             }
             NetworkEvent::IsBootstrapped => {
-                error!("handle_recvd_events received `NetworkEvent::IsBootstrapped`, which should be impossible.");
+                error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
-            NetworkEvent::ResponseRequested(msg, chan) => {
-                let request = bincode::deserialize(&msg.0)
-                    .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
-                request_tx
-                    .try_send((request, chan))
-                    .map_err(|_| NetworkError::ChannelSend)?;
+            NetworkEvent::ResponseRequested(Request(msg), chan) => {
+                    let res = request_tx.try_send((msg, chan));
+                    res.map_err(|_| NetworkError::ChannelSend)?;
             }
         }
         Ok::<(), NetworkError>(())
@@ -715,13 +736,33 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                             NetworkEvent::IsBootstrapped => {
                                 is_bootstrapped.store(true, Ordering::Relaxed);
                             }
-                            GossipMsg(_)
-                            | DirectRequest(_, _, _)
-                            | DirectResponse(_, _)
-                            | NetworkEvent::ResponseRequested(Request(_), _) => {
-                                let _ = handle
-                                    .handle_recvd_events(message, &sender, request_tx.clone())
-                                    .await;
+                            GossipMsg(raw)
+                            | DirectRequest(raw, _, _)
+                            | DirectResponse(raw, _)
+                            | NetworkEvent::ResponseRequested(Request(raw), _) => {
+                                match Version::deserialize(raw) {
+                                    _ => {
+                                        let _ = handle
+                                            .handle_recvd_events(
+                                                message,
+                                                &sender,
+                                                request_tx.clone(),
+                                            )
+                                            .await;
+                                    }
+                                    Ok((version, _)) => {
+                                        warn!(
+                                                "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
+                                                version, message
+                                            );
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
+                                            e, message
+                                        );
+                                    }
+                                }
                             }
                         }
                         // re-set the `kill_switch` for the next loop
@@ -755,7 +796,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         let pid = match self
             .inner
             .handle
-            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .lookup_node(
+                &bincode::serialize(&recipient).unwrap(),
+                self.inner.dht_timeout,
+            )
             .await
         {
             Ok(pid) => pid,
@@ -770,13 +814,28 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 });
             }
         };
-        match self.inner.handle.request_data(&request, pid).await {
-            Ok(Some(Response(response))) => Ok(response),
-            Ok(None) => Err(NetworkError::Libp2p {
-                source: anyhow!("Failed to receive response").into(),
-            }),
-            Err(e) => Err(e.into()),
-        }
+        let result = match self
+            .inner
+            .handle
+            .request_data(&request, pid)
+            .await
+        {
+            Ok(response) => match response {
+                Some(msg) => {
+                    let res: Message<TYPES> = bincode::deserialize(&msg.0)
+                        .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
+                    let result = match res.kind {
+                        MessageKind::Data(DataResponse(data)) => data,
+                        _ => ResponseMessage::NotFound
+                    };
+                    result
+                }
+                None => ResponseMessage::NotFound,
+            },
+            Err(e) => return Err(e.into()),
+        };
+
+        Ok(bincode::serialize(&MessageKind::Data(DataResponse(result))).unwrap())
     }
 
     async fn spawn_request_receiver_task(
@@ -789,12 +848,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             while let Some((request, chan)) = internal_rx.next().await {
                 let (response_tx, response_rx) = futures::channel::oneshot::channel();
                 if tx
-                    .try_send((
-                        request,
-                        network::ResponseChannel {
-                            sender: response_tx,
-                        },
-                    ))
+                    .try_send((request, network::ResponseChannel { sender: response_tx }))
                     .is_err()
                 {
                     continue;
@@ -802,7 +856,9 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 let Ok(response) = response_rx.await else {
                     continue;
                 };
-                let _ = handle.respond_data(&response, chan).await;
+                let _ = handle
+                    .respond_data(&bincode::serialize(&response).unwrap(), chan)
+                    .await;
             }
         });
 
@@ -939,7 +995,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     }
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
-    async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
+    async fn direct_message(
+        &self,
+        message: Vec<u8>,
+        recipient: K,
+    ) -> Result<(), NetworkError> {
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
@@ -956,7 +1016,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         let pid = match self
             .inner
             .handle
-            .lookup_node::<K>(recipient.clone(), self.inner.dht_timeout)
+            .lookup_node(
+                &bincode::serialize(&recipient).unwrap(),
+                self.inner.dht_timeout,
+            )
             .await
         {
             Ok(pid) => pid,
