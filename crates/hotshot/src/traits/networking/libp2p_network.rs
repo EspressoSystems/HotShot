@@ -691,7 +691,7 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 if self
                     .inner
                     .handle
-                    .direct_response(chan, &bincode::serialize(&Empty { byte: 0u8 }).unwrap())
+                    .direct_response(chan, &Serializer::<Version01>::serialize(&Empty { byte: 0u8 }).unwrap())
                     .await
                     .is_err()
                 {
@@ -705,13 +705,13 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
-            NetworkEvent::ResponseRequested(msg, chan) => {
+            NetworkEvent::ResponseRequested(Request(msg), chan) => {
                 let result: Result<M, _> =
-                    Serializer::<Version01>::deserialize(&msg.0).context(FailedToSerializeSnafu);
+                    bincode::deserialize(&msg);
                 if let Ok(result) = result {
-                    request_tx
-                        .try_send((result, chan))
-                        .map_err(|_| NetworkError::ChannelSend)?;
+                    let res = request_tx
+                        .try_send((result, chan));
+                    res.map_err(|_| NetworkError::ChannelSend)?;
                 };
             }
         }
@@ -830,8 +830,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         {
             Ok(response) => match response {
                 Some(msg) => {
-                    let res: Message<TYPES> = Serializer::<VER>::deserialize(&msg.0)
-                        .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
+                    let res: Message<TYPES> = bincode::deserialize(&msg.0)
+                        .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
                     let DataResponse(res) = (match res.kind {
                         MessageKind::Data(data) => data,
                         MessageKind::Consensus(_) => return Ok(ResponseMessage::NotFound),
