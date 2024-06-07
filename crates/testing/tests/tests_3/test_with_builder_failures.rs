@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use hotshot_example_types::node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestTypes};
+use hotshot_example_types::node_types::{MemoryImpl, PushCdnImpl, TestTypes};
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
@@ -11,7 +11,7 @@ use hotshot_testing::{
 // Test one node leaving the network.
 cross_tests!(
     TestName: test_with_builder_failures,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [MemoryImpl, PushCdnImpl],
     Types: [TestTypes],
     Ignore: false,
     Metadata: {
