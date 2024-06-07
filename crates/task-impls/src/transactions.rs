@@ -320,6 +320,88 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
         None
     }
 
+    async fn get_available_blocks(
+        &self,
+        parent_comm: VidCommitment,
+        view_number: TYPES::Time,
+        parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Vec<(AvailableBlockInfo<TYPES>, usize)> {
+        // Create a collection of futures that call available_blocks endpoint for every builder
+        let tasks = self
+            .builder_clients
+            .iter()
+            .enumerate()
+            .map(|(builder_idx, client)| async move {
+                client
+                    .available_blocks(
+                        parent_comm,
+                        view_number.u64(),
+                        self.public_key.clone(),
+                        parent_comm_sig,
+                    )
+                    .await
+                    .map(move |blocks| {
+                        // Add index into `self.builder_clients` for each block so that we know
+                        // where to claim it from later
+                        blocks
+                            .into_iter()
+                            .map(move |block_info| (block_info, builder_idx))
+                    })
+            })
+            .collect::<FuturesUnordered<_>>();
+
+        // A vector of resolved builder responses
+        let mut results = Vec::with_capacity(self.builder_clients.len());
+
+        // Instant we start querying builders for available blocks
+        let query_start = Instant::now();
+
+        // First we complete the query to the fastest fraction of the builders
+        let threshold = (self.builder_clients.len() * BUILDER_MAIN_BATCH_THRESHOLD_DIVIDEND)
+            .div_ceil(BUILDER_MAIN_BATCH_THRESHOLD_DIVISOR);
+        let mut tasks = tasks.take(threshold);
+        while let Some(result) = tasks.next().await {
+            results.push(result);
+            if query_start.elapsed() > BUILDER_MAIN_BATCH_CUTOFF {
+                break;
+            }
+        }
+
+        // Then we query the rest, alotting additional `elapsed * BUILDER_ADDITIONAL_TIME_MULTIPLIER`
+        // for them to respond. There's a fixed floor of `BUILDER_MINIMUM_QUERY_TIME` for both
+        // phases
+        let timeout = async_sleep(std::cmp::max(
+            query_start
+                .elapsed()
+                .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),
+            BUILDER_MINIMUM_QUERY_TIME - query_start.elapsed(),
+        ));
+        futures::pin_mut!(timeout); // Stream::next requires Self::Unpin
+        let mut tasks = tasks.into_inner().take_until(timeout);
+        while let Some(result) = tasks.next().await {
+            results.push(result);
+        }
+
+        results
+            .into_iter()
+            .filter_map(|result| match result {
+                Ok(value) => Some(value),
+                Err(err) => {
+                    tracing::warn!(%err, "Error getting available blocks");
+                    None
+                }
+            })
+            .flatten()
+            .collect::<Vec<_>>()
+    }
+
+    /// Get a block from builder.
+    /// Queries the sufficiently fast builders for available blocks and chooses the one with the
+    /// best fee/byte ratio, re-trying with the next best one in case of failure.
+    ///
+    /// # Errors
+    /// If none of the builder reports any available blocks or claiming block fails for all of the
+    /// builders.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "block_from_builder", level = "error")]
     async fn block_from_builder(
         &self,
@@ -327,69 +409,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
         view_number: TYPES::Time,
         parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> anyhow::Result<BuilderResponses<TYPES>> {
-        // Create a future for every builder
-        let mut available_blocks = {
-            let tasks = self
-                .builder_clients
-                .iter()
-                .enumerate()
-                .map(|(idx, client)| async move {
-                    client
-                        .available_blocks(
-                            parent_comm,
-                            view_number.u64(),
-                            self.public_key.clone(),
-                            parent_comm_sig,
-                        )
-                        .await
-                        .map(move |blocks| {
-                            blocks.into_iter().map(move |block_info| (block_info, idx))
-                        })
-                })
-                .collect::<FuturesUnordered<_>>();
-            let mut results = Vec::with_capacity(self.builder_clients.len());
-
-            // Instant we start querying builders for available blocks
-            let query_start = Instant::now();
-
-            // First we complete the query to the fastest fraction of the builders
-            let threshold = (self.builder_clients.len() * BUILDER_MAIN_BATCH_THRESHOLD_DIVIDEND)
-                .div_ceil(BUILDER_MAIN_BATCH_THRESHOLD_DIVISOR);
-            let mut tasks = tasks.take(threshold);
-            while let Some(result) = tasks.next().await {
-                results.push(result);
-                if query_start.elapsed() > BUILDER_MAIN_BATCH_CUTOFF {
-                    break;
-                }
-            }
-
-            // Then we query the rest, alotting additional `elapsed * BUILDER_ADDITIONAL_TIME_MULTIPLIER`
-            // for them to respond. There's a fixed floor of `BUILDER_MINIMUM_QUERY_TIME` for both
-            // phases
-            let timeout = async_sleep(std::cmp::max(
-                query_start
-                    .elapsed()
-                    .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),
-                BUILDER_MINIMUM_QUERY_TIME - query_start.elapsed(),
-            ));
-            futures::pin_mut!(timeout);
-            let mut tasks = tasks.into_inner().take_until(timeout);
-            while let Some(result) = tasks.next().await {
-                results.push(result);
-            }
-
-            results
-                .into_iter()
-                .filter_map(|result| match result {
-                    Ok(value) => Some(value),
-                    Err(err) => {
-                        tracing::warn!(%err, "Error getting available blocks");
-                        None
-                    }
-                })
-                .flatten()
-                .collect::<Vec<_>>()
-        };
+        let mut available_blocks = self
+            .get_available_blocks(parent_comm, view_number, parent_comm_sig)
+            .await;
 
         available_blocks.sort_by(|(l, _), (r, _)| {
             // We want the block with the highest fee per byte of data we're going to have to
@@ -407,8 +429,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
             bail!("No available blocks");
         }
 
-        for (block_info, client_idx) in available_blocks {
-            let client = &self.builder_clients[client_idx];
+        for (block_info, builder_idx) in available_blocks {
+            let client = &self.builder_clients[builder_idx];
 
             // Verify signature over chosen block.
             if !block_info.sender.validate_block_info_signature(

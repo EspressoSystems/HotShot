@@ -75,16 +75,22 @@ pub struct TestDescription {
     pub builders: Vec1<BuilderDescription>,
 }
 
+/// Describes a possible change to builder status during test
 #[derive(Clone, Debug)]
 pub enum BuilderChange {
+    // Builder should start up
     Up,
+    // Builder should shut down completely
     Down,
+    // Toggles whether builder should always respond
+    // to claim calls with errors
     FailClaims(bool),
 }
 
+/// Metadata describing builder behaviour during a test
 #[derive(Clone, Debug)]
 pub struct BuilderDescription {
-    /// Views to toggle builder on
+    /// view number -> change to builder status
     pub changes: HashMap<u64, BuilderChange>,
 }
 

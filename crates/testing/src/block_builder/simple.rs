@@ -168,15 +168,15 @@ where
             .await;
 
         if transactions.is_empty() {
-            // We don't want to return an empty block, as we will end up driving consensus to
-            // produce empty blocks extremely quickly. Instead, we return no blocks, so that
-            // consensus will keep asking for blocks until either we have something non-trivial to
-            // propose, or a timeout, in which case consensus will finally propose an empty block
-            // anyways.
+            // We don't want to return an empty block if we have no trasnactions, as we would end up
+            // driving consensus to produce empty blocks extremely quickly when mempool is empty.
+            // Instead, we return no blocks, so that view leader will keep asking for blocks until
+            // either we have something non-trivial to propose, or leader runs out of time to propose,
+            // in which case view leader will finally propose an empty block themselves.
             return Ok(vec![]);
         }
 
-        let (metadata, payload, header_input) = build_block(
+        let block_entry = build_block(
             transactions,
             self.num_storage_nodes,
             self.pub_key.clone(),
@@ -184,14 +184,12 @@ where
         )
         .await;
 
-        self.blocks.write().await.insert(
-            metadata.block_hash.clone(),
-            BlockEntry {
-                metadata: metadata.clone(),
-                payload: Some(payload),
-                header_input: Some(header_input),
-            },
-        );
+        let metadata = block_entry.metadata.clone();
+
+        self.blocks
+            .write()
+            .await
+            .insert(block_entry.metadata.block_hash.clone(), block_entry);
 
         Ok(vec![metadata])
     }

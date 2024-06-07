@@ -44,7 +44,7 @@ pub enum ViewStatus<TYPES: NodeType> {
 pub enum OverallSafetyTaskErr<TYPES: NodeType> {
     /// inconsistent txn nums
     InconsistentTxnsNum {
-        /// node idx -> number transactions
+        /// number of transactions -> number of nodes reporting that number
         map: HashMap<u64, usize>,
     },
     /// too many failed  views
@@ -253,7 +253,7 @@ pub struct RoundResult<TYPES: NodeType> {
     /// block -> # entries decided on that block
     pub block_map: HashMap<VidCommitment, usize>,
 
-    /// number transactions -> node idx
+    /// number of transactions -> number of nodes reporting that number
     pub num_txns_map: HashMap<u64, usize>,
 }
 

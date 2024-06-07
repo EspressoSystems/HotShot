@@ -39,11 +39,11 @@ cross_tests!(
         // has time to initialize
 
         // First builder will always respond with available blocks, but will periodically fail claim calls
-        #[allow(clippy::unnecessary_filter_map)] // False positive
         let first_builder = (0..metadata.overall_safety_properties.num_successful_views as u64).filter_map(|view_num| {
             match view_num % 4 {
                 2 => Some((view_num, BuilderChange::FailClaims(true))),
-                _ => Some((view_num, BuilderChange::FailClaims(false))),
+                3 => Some((view_num, BuilderChange::FailClaims(false))),
+                _ => None,
             }
         }).collect();
         // Second builder will periodically be completely down
@@ -51,7 +51,8 @@ cross_tests!(
         let second_builder = (0..metadata.overall_safety_properties.num_successful_views as u64).filter_map(|view_num| {
             match view_num % 4 {
                 0 => Some((view_num, BuilderChange::Down)),
-                _ => Some((view_num, BuilderChange::Up)),
+                1 => Some((view_num, BuilderChange::Up)),
+                _ => None,
             }
         }).collect();
 

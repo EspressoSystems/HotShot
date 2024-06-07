@@ -127,7 +127,7 @@ impl<TYPES: NodeType<Transaction = TestTransaction>> RandomBuilderTask<TYPES> {
                 })
                 .collect();
 
-            let (metadata, payload, header_input) = build_block(
+            let block = build_block(
                 transactions,
                 num_storage_nodes,
                 pub_key.clone(),
@@ -135,14 +135,11 @@ impl<TYPES: NodeType<Transaction = TestTransaction>> RandomBuilderTask<TYPES> {
             )
             .await;
 
-            if let Some((hash, _)) = blocks.write().await.push(
-                metadata.block_hash.clone(),
-                BlockEntry {
-                    metadata,
-                    payload: Some(payload),
-                    header_input: Some(header_input),
-                },
-            ) {
+            if let Some((hash, _)) = blocks
+                .write()
+                .await
+                .push(block.metadata.block_hash.clone(), block)
+            {
                 tracing::warn!("Block {} evicted", hash);
             };
             if time_per_block < start.elapsed() {

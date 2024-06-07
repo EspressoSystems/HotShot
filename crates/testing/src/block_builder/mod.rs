@@ -111,11 +111,7 @@ async fn build_block<TYPES: NodeType>(
     num_storage_nodes: usize,
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
-) -> (
-    AvailableBlockInfo<TYPES>,
-    AvailableBlockData<TYPES>,
-    AvailableBlockHeaderInput<TYPES>,
-)
+) -> BlockEntry<TYPES>
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
@@ -173,5 +169,9 @@ where
         sender: pub_key,
     };
 
-    (metadata, block, header_input)
+    BlockEntry {
+        metadata,
+        payload: Some(block),
+        header_input: Some(header_input),
+    }
 }
