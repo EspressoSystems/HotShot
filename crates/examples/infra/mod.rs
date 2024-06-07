@@ -44,8 +44,8 @@ use hotshot_orchestrator::{
     },
 };
 use hotshot_testing::block_builder::{
-    BuilderTask, RandomBuilderImplementation, SimpleBuilderImplementation,
-    TestBuilderImplementation, SimpleBuilderConfig,
+    BuilderTask, RandomBuilderImplementation, SimpleBuilderConfig, SimpleBuilderImplementation,
+    TestBuilderImplementation,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -63,7 +63,7 @@ use hotshot_types::{
 };
 use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
-use tracing::{error, debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone)]
 /// Arguments passed to the orchestrator
@@ -943,14 +943,16 @@ pub async fn main_entry_point<
                     // Exclude loopback addresses
                     if !ipv4_addr.is_loopback() {
                         if ipv4_addr.to_string().starts_with("172.31.") {
-                            args.builder_address = Some(Url::parse(&format!("http://{}:1234", ipv4_addr)).unwrap());
+                            args.builder_address =
+                                Some(Url::parse(&format!("http://{}:1234", ipv4_addr)).unwrap());
                         }
                     }
                 } else if let IpAddr::V6(ipv6_addr) = interface.addr.ip() {
                     // Exclude loopback addresses
                     if !ipv6_addr.is_loopback() {
                         println!("Local IPv6 Address: {:?}", ipv6_addr);
-                        args.builder_address = Some(Url::parse(&format!("http://{}:1234", ipv6_addr)).unwrap());
+                        args.builder_address =
+                            Some(Url::parse(&format!("http://{}:1234", ipv6_addr)).unwrap());
                     }
                 }
             }
@@ -959,7 +961,7 @@ pub async fn main_entry_point<
             eprintln!("Error: {:?}", e);
         }
     }
-    // only when builder_address is not set 
+    // only when builder_address is not set
     debug!("args.builder_address = {:?}", args.builder_address);
 
     let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
@@ -1075,9 +1077,7 @@ where
                     <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                         run_config.config.num_nodes_with_stake.into(),
                         builder_address,
-                        SimpleBuilderConfig{
-                            port: 5678,
-                        },
+                        SimpleBuilderConfig { port: 5678 },
                     )
                     .await;
             }
