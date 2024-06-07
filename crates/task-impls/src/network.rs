@@ -410,13 +410,21 @@ impl<
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
-                storage,
+                Arc::clone(&storage),
                 view,
             )
             .await
             .is_err()
             {
                 return;
+            }
+            if let MessageKind::Consensus(SequencingMessage::General(
+                GeneralConsensusMessage::Proposal(prop),
+            )) = &message.kind
+            {
+                if storage.write().await.append_proposal(prop).await.is_err() {
+                    return;
+                }
             }
 
             let serialized_message = match message.serialize(&decided_upgrade_certificate) {

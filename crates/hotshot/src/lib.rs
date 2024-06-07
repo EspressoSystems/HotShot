@@ -37,9 +37,9 @@ pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
     constants::{Base, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::Leaf,
+    data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind, VersionedMessage},
+    message::{DataMessage, Message, MessageKind, Proposal, VersionedMessage},
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
@@ -270,6 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             anchored_leaf.view_number(),
+            initializer.saved_proposals,
             saved_leaves,
             saved_payloads,
             initializer.high_qc,
@@ -313,6 +314,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     pub async fn start_consensus(&self) {
         #[cfg(feature = "dependncy-tasks")]
         error!("HotShot is running with the dependency tasks feature enabled!!");
+
+        #[cfg(all(feature = "rewind", not(debug_assertions)))]
+        compile_error!("Cannot run rewind in production builds!");
+
         debug!("Starting Consensus");
         let consensus = self.consensus.read().await;
 
@@ -696,6 +701,8 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     undecided_leafs: Vec<Leaf<TYPES>>,
     /// Not yet decided state
     undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
+    /// Proposals we have sent out to provide to others for catchup
+    saved_proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -713,6 +720,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::Time::new(0),
+            saved_proposals: BTreeMap::new(),
             high_qc,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
@@ -727,11 +735,13 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// after restart.
     /// * `validated_state` - Optional validated state that if given, will be used to construct the
     /// `SystemContext`.
+    #[allow(clippy::too_many_arguments)]
     pub fn from_reload(
         anchor_leaf: Leaf<TYPES>,
         instance_state: TYPES::InstanceState,
         validated_state: Option<Arc<TYPES::ValidatedState>>,
         start_view: TYPES::Time,
+        saved_proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
         high_qc: QuorumCertificate<TYPES>,
         undecided_leafs: Vec<Leaf<TYPES>>,
         undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
@@ -742,6 +752,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             validated_state,
             state_delta: None,
             start_view,
+            saved_proposals,
             high_qc,
             undecided_leafs,
             undecided_state,

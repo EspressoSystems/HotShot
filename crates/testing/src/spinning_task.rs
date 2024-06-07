@@ -109,6 +109,7 @@ where
                                             TestInstanceState {},
                                             None,
                                             view_number,
+                                            BTreeMap::new(),
                                             self.high_qc.clone(),
                                             Vec::new(),
                                             BTreeMap::new(),
