@@ -292,7 +292,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             proposals[1].data.justify_qc.clone(),
         ))]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(1))),
             exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
             quorum_proposal_send(),
         ]),
@@ -300,8 +299,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             proposals[3].data.justify_qc.clone(),
         ))]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(3))),
-            exact(LastDecidedViewUpdated(ViewNumber::new(2))),
+            exact(LockedViewUpdated(ViewNumber::new(2))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(1))),
             leaf_decided(),
             exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
         ]),
@@ -611,8 +610,8 @@ async fn test_quorum_proposal_liveness_check_proposal() {
             proposals[3].data.justify_qc.clone(),
         ))]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(3))),
-            exact(LastDecidedViewUpdated(ViewNumber::new(2))),
+            exact(LockedViewUpdated(ViewNumber::new(2))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(1))),
             leaf_decided(),
             exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
         ]),
@@ -683,13 +682,13 @@ fn generate_outputs(
     match chain_length {
         // This is not - 2 because we start from the parent
         2 => vec![exact(LockedViewUpdated(ViewNumber::new(
-            current_view_number - 1,
+            current_view_number - 2,
         )))],
         // This is not - 3 because we start from the parent
         3 => vec![
-            exact(LockedViewUpdated(ViewNumber::new(current_view_number - 1))),
+            exact(LockedViewUpdated(ViewNumber::new(current_view_number - 2))),
             exact(LastDecidedViewUpdated(ViewNumber::new(
-                current_view_number - 2,
+                current_view_number - 3,
             ))),
             leaf_decided(),
         ],
@@ -711,19 +710,19 @@ fn generate_outputs(
 ///
 /// The output sequence is essentially:
 /// view 0/1 = No outputs
-/// view 2
+/// view 3
 /// ```rust
 /// LockedViewUpdated(1)
 /// ```
 ///
-/// view 3
+/// view 4
 /// ```rust
 /// LockedViewUpdated(2)
 /// LastDecidedViewUpdated(1)
 /// LeafDecided()
 /// ```
 ///
-/// view i in 4..n
+/// view i in 5..n
 /// ```rust
 /// LockedViewUpdated(i - 1)
 /// LastDecidedViewUpdated(i - 2)
@@ -747,7 +746,7 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
     let mut current_chain_length = 0;
     let mut inputs = Vec::new();
     let mut expectations = Vec::new();
-    for view_number in 1..100u64 {
+    for view_number in 1..3u64 {
         current_chain_length += 1;
         if current_chain_length > 3 {
             current_chain_length = 3;

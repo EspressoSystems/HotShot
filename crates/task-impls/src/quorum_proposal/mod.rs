@@ -40,7 +40,7 @@ use crate::{
 mod dependency_handle;
 
 /// Event handlers for [`QuorumProposalTaskState`].
-mod handlers;
+pub mod handlers;
 
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {

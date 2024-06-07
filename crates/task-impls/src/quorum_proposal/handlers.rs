@@ -25,7 +25,7 @@ use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Helper type to give names and to the output values of the leaf chain traversal operation.
 #[derive(Debug)]
-struct LeafChainTraversalOutcome<TYPES: NodeType> {
+pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     /// The new locked view obtained from a 2 chain starting from the proposal's parent.
     pub new_locked_view_number: Option<TYPES::Time>,
 
@@ -44,6 +44,8 @@ struct LeafChainTraversalOutcome<TYPES: NodeType> {
     /// The transactions in the block payload for each leaf.
     pub included_txns: HashSet<Commitment<<TYPES as NodeType>::Transaction>>,
     // TODO - add upgrade cert here and fill
+    /// The chain length at the time of exit from the traversal (for debugging)
+    pub current_chain_length: usize,
 }
 
 impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
@@ -56,6 +58,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
             leaf_views: Vec::new(),
             leaves_decided: Vec::new(),
             included_txns: HashSet::new(),
+            current_chain_length: 0,
         }
     }
 }
@@ -83,11 +86,11 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 /// will prompt a decide event to occur (this code), where the `proposal` is for view 8. Now, since the
 /// lowest value in the 3-chain here would be 5 (excluding 8 since we only walk the parents), we begin at
 /// the first link in the chain, and walk back through all undecided views, making our new anchor view 5,
-/// and out new locked view will be 6.
+/// and our new locked view will be 6.
 ///
-/// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
+/// Upon receipt of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
-async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     task_state: &QuorumProposalTaskState<TYPES, I>,
 ) -> Result<LeafChainTraversalOutcome<TYPES>> {
@@ -112,29 +115,33 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let saved_payloads = consensus_reader.saved_payloads();
     let vid_shares = consensus_reader.vid_shares();
 
-    // We are in at least a 1-chain, so we start from here.
-    let mut current_chain_length: usize = 1;
-
-    // Get the state so we can traverse the chain to see if we have a 2 or 3 chain.
-    let mut view_number = proposal_parent_view_number;
+    // Start this intentionally at 0 to avoid re-processing the same entry.
+    let mut current_chain_length: usize = 0;
 
     // The most recently seen view number (the view number of the last leaf we saw).
     let mut last_seen_view_number = proposal_view_number;
 
-    while let Some(leaf_state) = validated_state_map.get(&view_number) {
+    // The next view number is the next view that we're *about* to check.
+    let mut next_view_number = proposal_parent_view_number;
+
+    // While we have a parent view number present in our validated state map.
+    while let Some(leaf_state) = validated_state_map.get(&next_view_number) {
+        // Get the commitment
         let leaf_commitment = leaf_state
             .leaf_commitment()
             .context("Failed to find the leaf commitment")?;
+
+        // Find the leaf associated with this commitment
         let leaf = saved_leaves
             .get(&leaf_commitment)
             .context("Failed to find the saved leaf")?;
 
-        // These are all just checks to make sure we have what we need to proceed.
         let current_leaf_view_number = leaf.view_number();
 
         if let (Some(state), delta) = leaf_state.state_and_delta() {
             // Exit if we've reached the last anchor view.
             if current_leaf_view_number == last_decided_view {
+                ret.current_chain_length = current_chain_length;
                 return Ok(ret);
             }
 
@@ -142,7 +149,6 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             if ret.new_decided_view_number.is_none() {
                 // Does this leaf extend the chain?
                 if last_seen_view_number == leaf.view_number() + 1 {
-                    last_seen_view_number = leaf.view_number();
                     current_chain_length += 1;
 
                     // We've got a 2 chain, update the locked view.
@@ -152,13 +158,16 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                         // The next leaf in the chain, if there is one, is decided, so this
                         // leaf's justify_qc would become the QC for the decided chain.
                         ret.new_decide_qc = Some(leaf.justify_qc().clone());
+                        ret.current_chain_length = current_chain_length;
                     } else if current_chain_length == 3 {
                         // We've got the 3-chain, which means we can successfully decide on this leaf.
                         ret.new_decided_view_number = Some(leaf.view_number());
+                        ret.current_chain_length = current_chain_length;
                     }
                 } else {
-                    // Bail out with empty values, but this is not necessarily an error, but we don't have a
+                    // Bail out with empty values, but this is not necessarily an error, we just don't have a
                     // new chain extension.
+                    ret.current_chain_length = current_chain_length;
                     return Ok(ret);
                 }
             }
@@ -217,10 +226,14 @@ async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 )
         };
 
-        // Move on to the next leaf at the end.
-        view_number = leaf.justify_qc().view_number();
+        // The last seen view is the leaf we just were using.
+        last_seen_view_number = leaf.view_number();
+
+        // The next view number that we use is the leaf parent.
+        next_view_number = leaf.justify_qc().view_number();
     }
 
+    ret.current_chain_length = current_chain_length;
     Ok(ret)
 }
 
@@ -240,6 +253,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         leaves_decided,
         included_txns,
+        .. // current_chain_length (testing only)
     } = visit_leaf_chain(proposal, task_state).await?;
 
     let included_txns = if new_decided_view_number.is_some() {
