@@ -210,8 +210,7 @@ impl OrchestratorClient {
         });
 
         // Serialize our (possible) libp2p-specific data
-        let request_body =
-            bincode::serialize(&(libp2p_address, libp2p_public_key))?;
+        let request_body = bincode::serialize(&(libp2p_address, libp2p_public_key))?;
 
         let identity = |client: Client<ClientError, OrchestratorVersion>| {
             // We need to clone here to move it into the closure
@@ -324,9 +323,8 @@ impl OrchestratorClient {
         let da_requested: bool = validator_config.is_da;
 
         // Serialize our (possible) libp2p-specific data
-        let request_body =
-            bincode::serialize(&(pubkey, libp2p_address, libp2p_public_key))
-                .expect("failed to serialize request");
+        let request_body = bincode::serialize(&(pubkey, libp2p_address, libp2p_public_key))
+            .expect("failed to serialize request");
 
         // register our public key with the orchestrator
         let (node_index, is_da): (u64, bool) = loop {

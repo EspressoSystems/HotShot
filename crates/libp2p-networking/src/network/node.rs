@@ -158,8 +158,6 @@ impl NetworkNode {
     ///   * Creates a swarm to manage peers and events
     #[instrument]
     pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
-            tracing::error!("requesting response!");
-
         // Generate a random PeerId
         let identity = if let Some(ref kp) = config.identity {
             kp.clone()

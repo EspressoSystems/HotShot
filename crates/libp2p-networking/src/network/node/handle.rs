@@ -413,11 +413,7 @@ impl NetworkNodeHandle {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkNodeHandleError::SerializationError`] when unable to serialize `msg`
-    pub async fn gossip(
-        &self,
-        topic: String,
-        msg: &Vec<u8>,
-    ) -> Result<(), NetworkNodeHandleError> {
+    pub async fn gossip(&self, topic: String, msg: &Vec<u8>) -> Result<(), NetworkNodeHandleError> {
         self.gossip_no_serialize(topic, msg.to_vec()).await
     }
 

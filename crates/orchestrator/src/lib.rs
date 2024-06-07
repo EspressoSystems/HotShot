@@ -517,9 +517,7 @@ where
             body_bytes.drain(..12);
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
-            let Ok((libp2p_address, libp2p_public_key)) =
-                bincode::deserialize(&body_bytes)
-            else {
+            let Ok((libp2p_address, libp2p_public_key)) = bincode::deserialize(&body_bytes) else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "Malformed body".to_string(),

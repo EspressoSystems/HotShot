@@ -558,7 +558,10 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
-                    if let Err(err) = handle.lookup_node(&bincode::serialize(&pk).unwrap(), dht_timeout).await {
+                    if let Err(err) = handle
+                        .lookup_node(&bincode::serialize(&pk).unwrap(), dht_timeout)
+                        .await
+                    {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
@@ -691,7 +694,10 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 if self
                     .inner
                     .handle
-                    .direct_response(chan, &Serializer::<Version01>::serialize(&Empty { byte: 0u8 }).unwrap())
+                    .direct_response(
+                        chan,
+                        &Serializer::<Version01>::serialize(&Empty { byte: 0u8 }).unwrap(),
+                    )
                     .await
                     .is_err()
                 {
@@ -706,11 +712,9 @@ impl<M: NetworkMsg, K: SignatureKey> Libp2pNetwork<M, K> {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
             NetworkEvent::ResponseRequested(Request(msg), chan) => {
-                let result: Result<M, _> =
-                    bincode::deserialize(&msg);
+                let result: Result<M, _> = bincode::deserialize(&msg);
                 if let Ok(result) = result {
-                    let res = request_tx
-                        .try_send((result, chan));
+                    let res = request_tx.try_send((result, chan));
                     res.map_err(|_| NetworkError::ChannelSend)?;
                 };
             }
@@ -807,7 +811,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let pid = match self
             .inner
             .handle
-            .lookup_node(&bincode::serialize(&recipient).unwrap(), self.inner.dht_timeout)
+            .lookup_node(
+                &bincode::serialize(&recipient).unwrap(),
+                self.inner.dht_timeout,
+            )
             .await
         {
             Ok(pid) => pid,
@@ -1030,7 +1037,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         let pid = match self
             .inner
             .handle
-            .lookup_node(&bincode::serialize(&recipient).unwrap(), self.inner.dht_timeout)
+            .lookup_node(
+                &bincode::serialize(&recipient).unwrap(),
+                self.inner.dht_timeout,
+            )
             .await
         {
             Ok(pid) => pid,

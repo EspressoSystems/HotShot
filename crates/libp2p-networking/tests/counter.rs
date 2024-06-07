@@ -112,24 +112,36 @@ pub async fn counter_handle_network_event(
                             .await;
                         handle
                             .handle
-                            .direct_response(chan, &bincode::serialize(&CounterMessage::Noop).unwrap())
+                            .direct_response(
+                                chan,
+                                &bincode::serialize(&CounterMessage::Noop).unwrap(),
+                            )
                             .await?;
                     }
                     // direct message response
                     AskForCounter => {
                         let response = MyCounterIs(handle.state.copied().await);
-                        handle.handle.direct_response(chan, &bincode::serialize(&response).unwrap()).await?;
+                        handle
+                            .handle
+                            .direct_response(chan, &bincode::serialize(&response).unwrap())
+                            .await?;
                     }
                     MyCounterIs(_) => {
                         handle
                             .handle
-                            .direct_response(chan, &bincode::serialize(&CounterMessage::Noop).unwrap())
+                            .direct_response(
+                                chan,
+                                &bincode::serialize(&CounterMessage::Noop).unwrap(),
+                            )
                             .await?;
                     }
                     Noop => {
                         handle
                             .handle
-                            .direct_response(chan, &bincode::serialize(&CounterMessage::Noop).unwrap())
+                            .direct_response(
+                                chan,
+                                &bincode::serialize(&CounterMessage::Noop).unwrap(),
+                            )
                             .await?;
                     }
                 }
