@@ -21,6 +21,7 @@ use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
 use rand::{rngs::StdRng, RngCore, SeedableRng};
+use surf_disco::Url;
 use tracing::{error, instrument};
 
 use crate::{
@@ -141,11 +142,17 @@ async fn main() {
         );
 
         let orchestrator_url = orchestrator_url.clone();
+        let builder_address = Url::parse(&format!(
+            "http://localhost:{}",
+            9000 + (u16::try_from(i).expect("failed to create builder address"))
+        ))
+        .unwrap();
         let node = async_spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs {
                     url: orchestrator_url,
                     advertise_address: Some(advertise_address),
+                    builder_address: Some(builder_address),
                     network_config_file: None,
                 },
             )
