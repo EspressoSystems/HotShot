@@ -941,24 +941,22 @@ pub async fn main_entry_point<
             for interface in interfaces {
                 if let IpAddr::V4(ipv4_addr) = interface.addr.ip() {
                     // Exclude loopback addresses
-                    if !ipv4_addr.is_loopback() {
-                        if ipv4_addr.to_string().starts_with("172.31.") {
-                            args.builder_address =
-                                Some(Url::parse(&format!("http://{}:1234", ipv4_addr)).unwrap());
-                        }
+                    if !ipv4_addr.is_loopback() && ipv4_addr.to_string().starts_with("172.31.") {
+                        args.builder_address =
+                            Some(Url::parse(&format!("http://{ipv4_addr}:1234")).unwrap());
                     }
                 } else if let IpAddr::V6(ipv6_addr) = interface.addr.ip() {
                     // Exclude loopback addresses
                     if !ipv6_addr.is_loopback() {
-                        println!("Local IPv6 Address: {:?}", ipv6_addr);
+                        println!("Local IPv6 Address: {ipv6_addr:?}");
                         args.builder_address =
-                            Some(Url::parse(&format!("http://{}:1234", ipv6_addr)).unwrap());
+                            Some(Url::parse(&format!("http://{ipv6_addr}:1234")).unwrap());
                     }
                 }
             }
         }
         Err(e) => {
-            eprintln!("Error: {:?}", e);
+            eprintln!("Error: {e:?}");
         }
     }
     // only when builder_address is not set
