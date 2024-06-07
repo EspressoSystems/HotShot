@@ -822,7 +822,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         {
             Ok(response) => match response {
                 Some(msg) => {
-                    let res: Message<TYPES> = bincode::deserialize(&msg.0)
+                    let res: Message<TYPES> = bincode::deserialize(&(&msg.0[8..]).to_vec())
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
                     let result = match res.kind {
                         MessageKind::Data(DataResponse(data)) => data,
@@ -835,7 +835,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Err(e) => return Err(e.into()),
         };
 
-        Ok(bincode::serialize(&MessageKind::Data(DataResponse(result))).unwrap())
+        Ok(bincode::serialize(&result).unwrap())
     }
 
     async fn spawn_request_receiver_task(

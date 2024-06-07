@@ -213,7 +213,7 @@ fn valid_signature<TYPES: NodeType, Ver: StaticVersionType>(
     req: &DataRequest<TYPES>,
     sender: &TYPES::SignatureKey,
 ) -> bool {
-    let Ok(data) = Serializer::<Ver>::serialize(&req.request) else {
+    let Ok(data) = bincode::serialize(&req.request) else {
         return false;
     };
     sender.validate(&req.signature, &Sha256::digest(data))
