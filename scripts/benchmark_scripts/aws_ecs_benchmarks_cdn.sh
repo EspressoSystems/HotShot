@@ -5,10 +5,10 @@ source "$HOME/.cargo/env"
 
 # assign local ip by curl from AWS metadata server:
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
-ip=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
-orchestrator_url=http://"$ip":4444
-cdn_marshal_address="$ip":9000
-keydb_address=redis://"$ip":6379
+AWS_METADATA_IP=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
+orchestrator_url=http://"$AWS_METADATA_IP":4444
+cdn_marshal_address="$AWS_METADATA_IP":9000
+keydb_address=redis://"$AWS_METADATA_IP":6379
 
 # Check if at least two arguments are provided
 if [ $# -lt 2 ]; then

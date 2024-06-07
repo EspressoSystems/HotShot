@@ -250,7 +250,7 @@ where
 
         if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Network has reached capacity".to_string(),
             });
         }
@@ -286,7 +286,7 @@ where
 
         if usize::from(tmp_node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Node index getter for key pair generation has reached capacity"
                     .to_string(),
             });
@@ -308,7 +308,7 @@ where
 
         if !self.accepting_new_keys {
             return Err(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
+                status: tide_disco::StatusCode::FORBIDDEN,
                 message:
                     "Network has been started manually, and is no longer registering new keys."
                         .to_string(),
@@ -374,7 +374,7 @@ where
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Peer's public configs are not ready".to_string(),
             });
         }
@@ -384,7 +384,7 @@ where
     fn post_config_after_peer_collected(&mut self) -> Result<NetworkConfig<KEY>, ServerError> {
         if !self.peer_pub_ready {
             return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Peer's public configs are not ready".to_string(),
             });
         }
@@ -397,7 +397,7 @@ where
         // println!("{}", self.start);
         if !self.start {
             return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
+                status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Network is not ready to start".to_string(),
             });
         }
@@ -428,7 +428,7 @@ where
     fn post_manual_start(&mut self, password_bytes: Vec<u8>) -> Result<(), ServerError> {
         if !self.manual_start_allowed {
             return Err(ServerError {
-            status: tide_disco::StatusCode::Forbidden,
+            status: tide_disco::StatusCode::FORBIDDEN,
             message: "Configs have already been distributed to nodes, and the network can no longer be started manually.".to_string(),
           });
         }
@@ -439,7 +439,7 @@ where
         // Check that the password matches
         if self.config.manual_start_password != Some(password) {
             return Err(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
+                status: tide_disco::StatusCode::FORBIDDEN,
                 message: "Incorrect password.".to_string(),
             });
         }
@@ -455,7 +455,7 @@ where
             self.config.config.da_staked_committee_size = registered_da_nodes;
         } else {
             return Err(ServerError {
-                status: tide_disco::StatusCode::Forbidden,
+                status: tide_disco::StatusCode::FORBIDDEN,
                 message: format!("We cannot manually start the network, because we only have {registered_nodes_with_stake} nodes with stake registered, with {registered_da_nodes} DA nodes.")
             });
         }
@@ -546,14 +546,14 @@ where
             && self.builders.len() != self.config.config.da_staked_committee_size
         {
             return Err(ServerError {
-                status: tide_disco::StatusCode::NotFound,
+                status: tide_disco::StatusCode::NOT_FOUND,
                 message: "Not all builders are registered yet".to_string(),
             });
         }
         let builder_idx = node_index
             .checked_rem(self.builders.len())
             .ok_or(ServerError {
-                status: tide_disco::StatusCode::NotFound,
+                status: tide_disco::StatusCode::NOT_FOUND,
                 message: "Builder pool is empty".to_string(),
             })?;
         Ok(self.builders[builder_idx].clone())
@@ -586,7 +586,7 @@ where
                 vbs::Serializer::<Version01>::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
+                    status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "Malformed body".to_string(),
                 });
             };
@@ -618,7 +618,7 @@ where
                 vbs::Serializer::<Version01>::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
+                    status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "Malformed body".to_string(),
                 });
             };
@@ -665,7 +665,7 @@ where
 
             let Ok(builder_url) = vbs::Serializer::<Version01>::deserialize(&body_bytes) else {
                 return Err(ServerError {
-                    status: tide_disco::StatusCode::BadRequest,
+                    status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "Malformed body".to_string(),
                 });
             };

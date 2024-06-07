@@ -22,14 +22,14 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Nix Caching
-        uses: cachix/cachix-action@v14
+        uses: cachix/cachix-action@v15
         with:
           name: espresso-systems-private
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
           skipPush: ${{ github.actor == 'dependabot[bot]' }}
 
       - name: Update flake.lock
-        uses: DeterminateSystems/update-flake-lock@v21
+        uses: DeterminateSystems/update-flake-lock@v22
         with:
           pr-title: "Weekly PR to bump flake.nix" # Title of PR to be created
           pr-labels: |                  # Labels to be set on the PR
