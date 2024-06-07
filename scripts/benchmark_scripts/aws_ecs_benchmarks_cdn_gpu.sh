@@ -50,8 +50,6 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-# for iteration of assignment
-# see `aws_ecs_benchmarks_webserver.sh` for an example
 for total_nodes in 10 50 100 200 500 1000
 do
     for da_committee_size in 5 10 50 100
