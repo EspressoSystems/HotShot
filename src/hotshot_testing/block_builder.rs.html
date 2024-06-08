@@ -729,7 +729,7 @@
         num_storage_nodes: usize,
         config: <span class="self">Self</span>::Config,
     ) -&gt; (<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;&gt;, Url) {
-        <span class="kw">let </span>url = Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://localhost:{0}"</span>, config.port)).expect(<span class="string">"Valid URL"</span>);
+        <span class="kw">let </span>url = Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://0.0.0.0:{0}"</span>, config.port)).expect(<span class="string">"Valid URL"</span>);
         <span class="kw">let </span>(source, task) = make_simple_builder(num_storage_nodes).<span class="kw">await</span>;
 
         <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
