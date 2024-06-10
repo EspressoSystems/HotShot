@@ -112,6 +112,10 @@ test_with_failures:
   echo Testing nodes leaving the network
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
+test_with_failures_dependency_tasks:
+  echo Testing nodes leaving the network
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_with_failures -- --test-threads=1 --nocapture
+
 test_network_task:
   echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture

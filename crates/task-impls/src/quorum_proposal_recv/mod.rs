@@ -31,6 +31,7 @@ use crate::{
     consensus::helpers::parent_leaf_and_state,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
+    quorum_proposal_recv::handlers::QuorumProposalValidity,
 };
 
 /// Event handlers for this task.
@@ -130,10 +131,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
             match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
-                Ok(true) => {
+                QuorumProposalValidity::FullyValid => {
                     self.cancel_tasks(proposal.data.view_number()).await;
                 }
-                Ok(false) => {
+                QuorumProposalValidity::LivenessValid => {
                     // Build the parent leaf since we didn't find it during the proposal check.
                     let parent_leaf = match parent_leaf_and_state(
                         self.cur_view,
@@ -186,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     )
                     .await;
                 }
-                Err(e) => debug!(?e, "Failed to propose"),
+                QuorumProposalValidity::Failed => debug!("Failed to propose"),
             }
         }
     }

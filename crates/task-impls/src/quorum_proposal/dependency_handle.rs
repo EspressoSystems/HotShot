@@ -39,6 +39,9 @@ pub(crate) enum ProposalDependency {
     /// For the `QcFormed` event timeout branch.
     TimeoutCert,
 
+    /// For the `QuroumProposalRecv` event.
+    Proposal,
+
     /// For the `VidShareValidated` event.
     VidShare,
 

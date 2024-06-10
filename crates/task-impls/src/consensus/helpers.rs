@@ -64,13 +64,36 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
 ) -> Result<()> {
-    let view = proposal.data.view_number();
+    let view_number = proposal.data.view_number();
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
     ensure!(
         proposed_leaf.parent_commitment() == parent_leaf.commit(),
         "Proposed leaf does not extend the parent leaf."
     );
+
+    let state = Arc::new(
+        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
+    );
+    let view = View {
+        view_inner: ViewInner::Leaf {
+            leaf: proposed_leaf.commit(),
+            state,
+            delta: None, // May be updated to `Some` in the vote task.
+        },
+    };
+
+    consensus
+        .write()
+        .await
+        .update_validated_state_map(view_number, view.clone());
+
+    // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
+    broadcast_event(
+        Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
+        &event_stream,
+    )
+    .await;
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     //
@@ -115,7 +138,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         if let Err(e) = outcome {
             broadcast_event(
                 Event {
-                    view_number: view,
+                    view_number,
                     event: EventType::Error { error: Arc::new(e) },
                 },
                 &event_sender,
@@ -130,7 +153,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 
     broadcast_event(
         Event {
-            view_number: view,
+            view_number,
             event: EventType::QuorumProposal {
                 proposal: proposal.clone(),
                 sender,
