@@ -11,26 +11,6 @@ use hotshot_testing::{
 };
 use hotshot_types::{data::Leaf, vote::HasViewNumber};
 
-fn symmetric_difference<T: PartialEq + Clone>(vec1: Vec<T>, vec2: Vec<T>) -> Vec<T> {
-    let mut result = Vec::new();
-
-    // Find elements in vec1 that are not in vec2
-    for item1 in &vec1 {
-        if !vec2.contains(item1) {
-            result.push(item1.clone());
-        }
-    }
-
-    // Find elements in vec2 that are not in vec1
-    for item2 in &vec2 {
-        if !vec1.contains(item2) {
-            result.push(item2.clone());
-        }
-    }
-
-    result
-}
-
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
