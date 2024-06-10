@@ -552,6 +552,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             ),
         ],
         random![
+            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 make_payload_commitment(&quorum_membership, ViewNumber::new(3)),
@@ -566,6 +567,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
+
         random![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
             QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
