@@ -997,7 +997,7 @@ pub async fn visit_leaf_chain<TYPES: NodeType>(
             // These are the views sitting around in memory that have not yet been decided.
             let mut prior_undecided_views: Vec<TYPES::Time> = consensus_reader
                 .validated_state_map()
-                .range(..decided_leaf.view_number())
+                .range(consensus_reader.last_decided_view()..decided_leaf.view_number())
                 .map(|(k, _)| *k)
                 .collect();
             prior_undecided_views.push(decided_leaf.view_number());
@@ -1157,7 +1157,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let consensus = task_state.consensus.read().await;
     drop(consensus);
 
-    let res = visit_leaf_chain2(
+    let res = visit_leaf_chain(
         proposal,
         Arc::clone(&task_state.consensus),
         task_state.public_key.clone(),
