@@ -94,6 +94,7 @@ async fn main() -> Result<()> {
         public_advertise_endpoint: args.public_advertise_endpoint,
         private_bind_endpoint: args.private_bind_endpoint,
         private_advertise_endpoint: args.private_advertise_endpoint,
+        global_memory_pool_size: Some(1024 * 1024 * 1024),
     };
 
     // Create new `Broker`

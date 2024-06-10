@@ -63,6 +63,7 @@ async fn main() -> Result<()> {
         metrics_bind_endpoint: args.metrics_bind_endpoint,
         ca_cert_path: args.ca_cert_path,
         ca_key_path: args.ca_key_path,
+        global_memory_pool_size: Some(1024 * 1024 * 1024),
     };
 
     // Create new `Marshal` from the config
