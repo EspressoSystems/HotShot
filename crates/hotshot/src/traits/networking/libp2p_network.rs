@@ -794,6 +794,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         let result = match self.inner.handle.request_data(&request, pid).await {
             Ok(response) => match response {
                 Some(msg) => {
+                    if msg.0.len() < 8 {
+                        return Err(NetworkError::FailedToDeserialize {
+                            source: anyhow!("insufficient bytes"),
+                        });
+                    }
                     let res: Message<TYPES> = bincode::deserialize(&msg.0[8..])
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
 
