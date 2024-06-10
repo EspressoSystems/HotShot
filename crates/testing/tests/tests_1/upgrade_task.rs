@@ -272,6 +272,7 @@ async fn test_upgrade_and_consensus_task() {
             Expectations {
                 output_asserts: vec![
                     exact::<TestTypes>(ViewChange(ViewNumber::new(1))),
+                    validated_state_updated(),
                     quorum_proposal_validated::<TestTypes>(),
                     quorum_vote_send::<TestTypes>(),
                 ],
@@ -284,6 +285,7 @@ async fn test_upgrade_and_consensus_task() {
             Expectations {
                 output_asserts: vec![
                     exact::<TestTypes>(ViewChange(ViewNumber::new(2))),
+                    validated_state_updated(),
                     quorum_proposal_validated::<TestTypes>(),
                     quorum_vote_send(),
                 ],
@@ -515,6 +517,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact::<TestTypes>(ViewChange(ViewNumber::new(1))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     quorum_vote_send(),
                 ],
@@ -523,6 +526,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(2))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     quorum_vote_send(),
                 ],
@@ -531,6 +535,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(3))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     leaf_decided(),
                     quorum_vote_send(),
@@ -540,6 +545,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(4))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     upgrade_decided(),
                     leaf_decided(),
@@ -550,6 +556,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(5))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     leaf_decided(),
                     // This is between versions, but we are receiving a null block and hence should vote affirmatively on it.

@@ -396,6 +396,7 @@ async fn test_view_sync_finalize_vote() {
         ]),
         Expectations::from_outputs(vec![timeout_vote_send(), timeout_vote_send()]),
         Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
             quorum_proposal_validated(),
             quorum_vote_send()
         ]),
