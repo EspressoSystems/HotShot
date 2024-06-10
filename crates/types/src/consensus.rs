@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{ensure, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::{Commitment, Committable};
 use tracing::{debug, error};
@@ -237,6 +237,55 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the saved DA certs.
     pub fn saved_da_certs(&self) -> &HashMap<TYPES::Time, DaCertificate<TYPES>> {
         &self.saved_da_certs
+    }
+
+    /// Gets a leaf from a given quorum proposal.
+    ///
+    /// # Errors
+    /// - Error when no state map entry exists for the view.
+    /// - Error when the state map entry is not a `ViewInner::View`.
+    /// - Error when the commitment for the state cannot be computed.
+    /// - Error when the saved leaf cannot be found.
+    pub fn leaf_from_view_number(&self, view_number: TYPES::Time) -> Result<Leaf<TYPES>> {
+        let state = match self.validated_state_map.get(&view_number) {
+            Some(state) => state,
+            None => bail!("No state map entry found for view {view_number:?}"),
+        };
+
+        // Make sure this leaf has not already been garbage collected
+        ensure!(
+            view_number > self.last_decided_view,
+            format!(
+                "The provided view {view_number:?} is older than the last decided view {:?}",
+                self.last_decided_view
+            ),
+        );
+
+        // Make sure that this is a leaf view, and not a Da view
+        ensure!(
+            state.state_and_delta() != (None, None),
+            format!("The state associated with view {view_number:?} is not a View state")
+        );
+
+        let commitment = state
+            .leaf_commitment()
+            .context("Failed to compute the commitment for the parent")?;
+
+        let leaf = self
+            .saved_leaves
+            .get(&commitment)
+            .context("Failed to find the saved leaf")?;
+
+        Ok(leaf.clone())
+    }
+
+    /// Find the parent for a given `leaf`.
+    ///
+    /// # Errors
+    /// When the leaf fails to convert from the view number.
+    pub fn leaf_parent(&self, leaf: &Leaf<TYPES>) -> Result<Leaf<TYPES>> {
+        let justify_qc = leaf.justify_qc();
+        self.leaf_from_view_number(justify_qc.view_number())
     }
 
     /// Update the current view.

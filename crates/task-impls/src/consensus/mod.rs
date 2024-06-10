@@ -55,7 +55,7 @@ use crate::{
 };
 
 /// Helper functions to handle proposal-related functionality.
-pub(crate) mod helpers;
+pub mod helpers;
 
 /// Handles view-change related functionality.
 pub(crate) mod view_change;
