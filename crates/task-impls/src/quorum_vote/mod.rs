@@ -41,7 +41,7 @@ use jf_vid::VidScheme;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, trace, warn};
 
-/// Event handlers for [`QuorumProposalValidated`].
+/// Event handlers for `QuorumProposalValidated`.
 mod handlers;
 
 /// Vote dependency types.
