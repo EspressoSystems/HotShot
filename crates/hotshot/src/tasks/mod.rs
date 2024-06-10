@@ -21,13 +21,13 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::constants::Base;
 #[cfg(feature = "dependency-tasks")]
 use hotshot_task_impls::{
     consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
 };
 use hotshot_types::{
+    constants::Base,
     message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
@@ -73,7 +73,7 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         handle.public_key().clone(),
         handle.private_key().clone(),
     );
-    handle.network_registry.register(run_response_task::<TYPES, Base>(
+    handle.network_registry.register(run_response_task::<TYPES>(
         state,
         handle.internal_event_stream.1.activate_cloned(),
     ));

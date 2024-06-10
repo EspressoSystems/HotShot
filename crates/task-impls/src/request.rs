@@ -43,10 +43,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 /// The task will wait a it's `delay` and then send a request iteratively to peers
 /// for any data they don't have related to the proposal.  For now it's just requesting VID
 /// shares.
-pub struct NetworkRequestState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-> {
+pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
     pub network: Arc<I::QuorumNetwork>,
     /// Consensus shared state so we can check if we've gotten the information
@@ -72,9 +69,7 @@ pub struct NetworkRequestState<
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop
-    for NetworkRequestState<TYPES, I>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for NetworkRequestState<TYPES, I> {
     fn drop(&mut self) {
         futures::executor::block_on(async move { self.cancel_subtasks().await });
     }
@@ -85,9 +80,7 @@ type Signature<TYPES> =
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType;
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
-    for NetworkRequestState<TYPES, I>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequestState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
@@ -100,8 +93,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.view_number();
                 if prop_view >= self.view {
-                    self.spawn_requests(prop_view, sender.clone())
-                        .await;
+                    self.spawn_requests(prop_view, sender.clone()).await;
                 }
                 Ok(())
             }
@@ -113,11 +105,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
                 Ok(())
             }
             HotShotEvent::QuorumProposalMissing(view) => {
-                self.run_delay(
-                    RequestKind::Proposal(*view),
-                    sender.clone(),
-                    *view,
-                );
+                self.run_delay(RequestKind::Proposal(*view), sender.clone(), *view);
                 Ok(())
             }
             _ => Ok(()),
@@ -142,9 +130,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    NetworkRequestState<TYPES, I>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
     /// Spawns tasks for a given view to retrieve any data needed.
     async fn spawn_requests(
         &mut self,
@@ -270,50 +256,60 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     }
     /// Handle sending a request for proposal for a view, does
     /// not delay
-    async fn do_proposal(
-        &self,
-        req: ProposalRequest<TYPES>,
-        signature: Signature<TYPES>,
-    ) {
-        let _ = self
-            .network
-            .request_data::<TYPES>(
-                bincode::serialize(&make_proposal_req(&req, signature)).unwrap(),
-                &self.leader,
-            )
-            .await;
+    async fn do_proposal(&self, req: ProposalRequest<TYPES>, signature: Signature<TYPES>) {
+        match bincode::serialize(&make_proposal_req(&req, signature)) {
+            Ok(serialized_msg) => {
+                let _ = self
+                    .network
+                    .request_data::<TYPES>(serialized_msg, &self.leader)
+                    .await;
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to serialize outgoing message: this should never happen. Error: {e}"
+                );
+            }
+        }
     }
     /// Handle sending a VID Share request, runs the loop until the data exists
-    async fn do_vid(
-        &self,
-        req: VidRequest<TYPES>,
-        signature: Signature<TYPES>,
-    ) {
+    async fn do_vid(&self, req: VidRequest<TYPES>, signature: Signature<TYPES>) {
         let message = make_vid(&req, signature);
         let mut recipients_it = self.recipients.iter().cycle();
+
+        let serialized_msg = match bincode::serialize(&message) {
+            Ok(serialized_msg) => serialized_msg,
+            Err(e) => {
+                tracing::error!(
+                    "Failed to serialize outgoing message: this should never happen. Error: {e}"
+                );
+
+                return;
+            }
+        };
 
         while !self.cancel_vid(&req).await {
             match async_timeout(
                 REQUEST_TIMEOUT,
-                self.network.request_data::<TYPES>(
-                    bincode::serialize(&message.clone()).unwrap(),
-                    recipients_it.next().unwrap(),
-                ),
+                self.network
+                    .request_data::<TYPES>(serialized_msg.clone(), recipients_it.next().unwrap()),
             )
             .await
             {
                 Ok(Ok(response)) => {
-                    match bincode::deserialize(&response).unwrap() {
-                        ResponseMessage::Found(data) => {
+                    match bincode::deserialize(&response) {
+                        Ok(ResponseMessage::Found(data)) => {
                             self.handle_response_message(data).await;
                             // keep trying, but expect the map to be populated, or view to increase
                             async_sleep(REQUEST_TIMEOUT).await;
                         }
-                        ResponseMessage::NotFound => {
+                        Ok(ResponseMessage::NotFound) => {
                             info!("Peer Responded they did not have the data");
                         }
-                        ResponseMessage::Denied => {
+                        Ok(ResponseMessage::Denied) => {
                             error!("Request for data was denied by the receiver");
+                        }
+                        Err(e) => {
+                            error!("Failed to deserialize response: {e}");
                         }
                     }
                 }

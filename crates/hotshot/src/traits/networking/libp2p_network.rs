@@ -15,7 +15,6 @@ use std::{
     time::Duration,
 };
 
-use crate::BroadcastDelay;
 use anyhow::anyhow;
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
@@ -36,7 +35,7 @@ use hotshot_types::traits::network::{
 };
 use hotshot_types::{
     boxed_sync,
-    constants::{LOOK_AHEAD},
+    constants::LOOK_AHEAD,
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
@@ -74,6 +73,7 @@ use vbs::{
 };
 
 use super::NetworkingMetricsValue;
+use crate::BroadcastDelay;
 
 /// convenience alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
@@ -535,10 +535,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
     /// Spawns task for looking up nodes pre-emptively
     #[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    fn spawn_node_lookup(
-        &self,
-        node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>,
-    ) {
+    fn spawn_node_lookup(&self, node_lookup_recv: UnboundedReceiver<Option<(ViewNumber, K)>>) {
         let handle = Arc::clone(&self.inner.handle);
         let dht_timeout = self.inner.dht_timeout;
         let latest_seen_view = Arc::clone(&self.inner.latest_seen_view);
@@ -568,7 +565,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&mut self, id: usize){
+    fn spawn_connect(&mut self, id: usize) {
         let pk = self.inner.pk.clone();
         let bootstrap_ref = Arc::clone(&self.inner.bootstrap_addrs);
         let handle = Arc::clone(&self.inner.handle);
@@ -672,37 +669,33 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
-                    sender
-                        .send(msg)
-                        .await
-                        .map_err(|_| NetworkError::ChannelSend)?;
+                sender
+                    .send(msg)
+                    .await
+                    .map_err(|_| NetworkError::ChannelSend)?;
             }
             DirectRequest(msg, _pid, chan) => {
-                    sender
-                        .send(msg)
-                        .await
-                        .map_err(|_| NetworkError::ChannelSend)?;
+                sender
+                    .send(msg)
+                    .await
+                    .map_err(|_| NetworkError::ChannelSend)?;
                 if self
                     .inner
                     .handle
-                    .direct_response(
-                        chan,
-                        &bincode::serialize(&Empty { byte: 0u8 }).unwrap(),
-                    )
+                    .direct_response(chan, &bincode::serialize(&Empty { byte: 0u8 }).unwrap())
                     .await
                     .is_err()
                 {
                     error!("failed to ack!");
                 };
             }
-            DirectResponse(msg, _) => {
-            }
+            DirectResponse(msg, _) => {}
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
             NetworkEvent::ResponseRequested(Request(msg), chan) => {
-                    let res = request_tx.try_send((msg, chan));
-                    res.map_err(|_| NetworkError::ChannelSend)?;
+                let res = request_tx.try_send((msg, chan));
+                res.map_err(|_| NetworkError::ChannelSend)?;
             }
         }
         Ok::<(), NetworkError>(())
@@ -814,19 +807,14 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 });
             }
         };
-        let result = match self
-            .inner
-            .handle
-            .request_data(&request, pid)
-            .await
-        {
+        let result = match self.inner.handle.request_data(&request, pid).await {
             Ok(response) => match response {
                 Some(msg) => {
                     let res: Message<TYPES> = bincode::deserialize(&(&msg.0[8..]).to_vec())
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
                     let result = match res.kind {
                         MessageKind::Data(DataResponse(data)) => data,
-                        _ => ResponseMessage::NotFound
+                        _ => ResponseMessage::NotFound,
                     };
                     result
                 }
@@ -848,7 +836,12 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             while let Some((request, chan)) = internal_rx.next().await {
                 let (response_tx, response_rx) = futures::channel::oneshot::channel();
                 if tx
-                    .try_send((request, network::ResponseChannel { sender: response_tx }))
+                    .try_send((
+                        request,
+                        network::ResponseChannel {
+                            sender: response_tx,
+                        },
+                    ))
                     .is_err()
                 {
                     continue;
@@ -995,11 +988,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     }
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
-    async fn direct_message(
-        &self,
-        message: Vec<u8>,
-        recipient: K,
-    ) -> Result<(), NetworkError> {
+    async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
