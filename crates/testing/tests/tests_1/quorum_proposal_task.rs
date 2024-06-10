@@ -612,7 +612,7 @@ async fn test_quorum_proposal_liveness_check_proposal() {
         Expectations::from_outputs(all_predicates![
             exact(LockedViewUpdated(ViewNumber::new(2))),
             exact(LastDecidedViewUpdated(ViewNumber::new(1))),
-            leaf_decided(),
+            exact(LeafDecided(vec![leaves[0].clone(), leaves[1].clone()])),
             exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
         ]),
     ];
@@ -679,6 +679,9 @@ fn generate_outputs(
     chain_length: i32,
     current_view_number: u64,
 ) -> Vec<Box<dyn Predicate<Arc<HotShotEvent<TestTypes>>>>> {
+    if current_view_number < 2 {
+        return vec![];
+    }
     match chain_length {
         // This is not - 2 because we start from the parent
         2 => vec![exact(LockedViewUpdated(ViewNumber::new(
@@ -746,7 +749,9 @@ async fn test_quorum_proposal_task_happy_path_leaf_ascension() {
     let mut current_chain_length = 0;
     let mut inputs = Vec::new();
     let mut expectations = Vec::new();
-    for view_number in 1..3u64 {
+    for view_number in 0..3u64 {
+        // We can guarantee the chain length is in a particular position since we make sure.
+        // That everything is present as we expect.
         current_chain_length += 1;
         if current_chain_length > 3 {
             current_chain_length = 3;

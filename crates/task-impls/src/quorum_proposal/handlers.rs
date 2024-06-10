@@ -100,12 +100,6 @@ pub async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     // This is the output return type object whose members will be mutated as we traverse.
     let mut ret = LeafChainTraversalOutcome::default();
 
-    // Are these views consecutive (1-chain)
-    if proposal_parent_view_number + 1 != proposal_view_number {
-        // Since they aren't we can return early before we do anything else.
-        return Ok(ret);
-    }
-
     // Unpacking here prevents the need to endlessly call the function. These values don't change during
     // the execution of this code.
     let consensus_reader = task_state.consensus.read().await;
@@ -115,7 +109,7 @@ pub async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let saved_payloads = consensus_reader.saved_payloads();
     let vid_shares = consensus_reader.vid_shares();
 
-    // Start this intentionally at 0 to avoid re-processing the same entry.
+    // Start the length at 0, for each consecutive view, this value will increment.
     let mut current_chain_length: usize = 0;
 
     // The most recently seen view number (the view number of the last leaf we saw).
@@ -149,6 +143,9 @@ pub async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             if ret.new_decided_view_number.is_none() {
                 // Does this leaf extend the chain?
                 if last_seen_view_number == leaf.view_number() + 1 {
+                    // We only set our last seen view when we have a chain forming.
+                    last_seen_view_number = leaf.view_number();
+
                     current_chain_length += 1;
 
                     // We've got a 2 chain, update the locked view.
@@ -225,9 +222,6 @@ pub async fn visit_leaf_chain<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                     "Validated state and delta do not exist for the leaf for view {current_leaf_view_number:?}"
                 )
         };
-
-        // The last seen view is the leaf we just were using.
-        last_seen_view_number = leaf.view_number();
 
         // The next view number that we use is the leaf parent.
         next_view_number = leaf.justify_qc().view_number();

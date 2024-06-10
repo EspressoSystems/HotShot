@@ -59,7 +59,7 @@ async fn visit_valid_chain() {
             assert_eq!(ret.current_chain_length, 2);
         }
 
-        if ii > 2 {
+        if ii >= 3 {
             assert_eq!(ret.current_chain_length, 3);
         }
     }
