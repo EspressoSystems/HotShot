@@ -15,7 +15,7 @@ use hotshot_task_impls::{
     consensus::ConsensusTaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState,
 };
 use hotshot_testing::{
-    helpers::vid_share,
+    helpers::{build_fake_view_with_leaf, vid_share},
     predicates::{event::*, upgrade::*},
     script::{Expectations, TaskScript},
     view_generator::TestViewGenerator,
@@ -24,6 +24,7 @@ use hotshot_types::{
     data::{null_block, ViewNumber},
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
+    vote::HasViewNumber,
 };
 use vbs::version::Version;
 
@@ -58,6 +59,7 @@ async fn test_consensus_task_upgrade() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
@@ -67,6 +69,7 @@ async fn test_consensus_task_upgrade() {
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
     }
 
     generator.add_upgrade(upgrade_data);
@@ -77,6 +80,7 @@ async fn test_consensus_task_upgrade() {
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
     }
     let inputs = vec![
         vec![
@@ -106,6 +110,7 @@ async fn test_consensus_task_upgrade() {
         Expectations {
             output_asserts: vec![
                 exact(ViewChange(ViewNumber::new(1))),
+                validated_state_updated(),
                 quorum_proposal_validated(),
                 exact(QuorumVoteSend(votes[0].clone())),
             ],
@@ -114,6 +119,7 @@ async fn test_consensus_task_upgrade() {
         Expectations {
             output_asserts: vec![
                 exact(ViewChange(ViewNumber::new(2))),
+                validated_state_updated(),
                 quorum_proposal_validated(),
                 exact(QuorumVoteSend(votes[1].clone())),
             ],
@@ -122,6 +128,7 @@ async fn test_consensus_task_upgrade() {
         Expectations {
             output_asserts: vec![
                 exact(ViewChange(ViewNumber::new(3))),
+                validated_state_updated(),
                 quorum_proposal_validated(),
                 leaf_decided(),
                 exact(QuorumVoteSend(votes[2].clone())),
@@ -131,6 +138,7 @@ async fn test_consensus_task_upgrade() {
         Expectations {
             output_asserts: vec![
                 exact(ViewChange(ViewNumber::new(4))),
+                validated_state_updated(),
                 quorum_proposal_validated(),
                 leaf_decided(),
                 exact(QuorumVoteSend(votes[3].clone())),
@@ -140,6 +148,7 @@ async fn test_consensus_task_upgrade() {
         Expectations {
             output_asserts: vec![
                 exact(ViewChange(ViewNumber::new(5))),
+                validated_state_updated(),
                 quorum_proposal_validated(),
                 upgrade_decided(),
                 leaf_decided(),

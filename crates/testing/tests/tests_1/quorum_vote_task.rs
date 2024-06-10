@@ -203,8 +203,10 @@ async fn test_quorum_vote_task_miss_dependency() {
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(vec![exact(VidShareValidated(vids[1].0[0].clone()))]),
-        Expectations::from_outputs(vec![exact(DaCertificateValidated(dacs[2].clone()))]),
+        Expectations::from_outputs(all_predicates![exact(LockedViewUpdated(ViewNumber::new(1))), exact(VidShareValidated(vids[1].0[0].clone()))]),
+        Expectations::from_outputs(all_predicates![exact(LockedViewUpdated(ViewNumber::new(2))), exact(LastDecidedViewUpdated(ViewNumber::new(
+            1,
+        ))),leaf_decided(),exact(DaCertificateValidated(dacs[2].clone()))]),
         Expectations::from_outputs(all_predicates![
             exact(DaCertificateValidated(dacs[3].clone())),
             exact(VidShareValidated(vids[3].0[0].clone())),
@@ -251,20 +253,16 @@ async fn test_quorum_vote_task_incorrect_dependency() {
         vids.push(view.vid_proposal.clone());
     }
 
-    // Send the correct quorum proposal, DAC, and VID share data, and incorrect validated state.
+    // Send the correct quorum proposal and DAC, and incorrect VID share data.
     let inputs = vec![random![
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         DaCertificateRecv(dacs[1].clone()),
-        VidShareRecv(vids[1].0[0].clone()),
-        ValidatedStateUpdated(
-            proposals[0].data.view_number(),
-            build_fake_view_with_leaf(leaves[0].clone()),
-        ),
+        VidShareRecv(vids[0].0[0].clone()),
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(DaCertificateValidated(dacs[1].clone())),
-        exact(VidShareValidated(vids[1].0[0].clone())),
+        exact(VidShareValidated(vids[0].0[0].clone())),
     ])];
 
     let quorum_vote_state =
