@@ -19,3 +19,4 @@
 config/ValidatorConfigOutput
 scripts/preserve_ci_ecs_benchmarks.sh
 **/*.bin
+*.log

@@ -546,7 +546,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
 
 /// Default builder URL, used as placeholder
 fn default_builder_urls() -> Vec1<Url> {
-    vec1::vec1![Url::parse("http://localhost:3311").unwrap()]
+    vec1::vec1![Url::parse("http://0.0.0.0:3311").unwrap()]
 }
 
 /// Holds configuration for a `HotShot`

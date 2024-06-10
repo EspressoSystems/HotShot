@@ -102,7 +102,7 @@ where
         config: Self::Config,
         changes: HashMap<u64, BuilderChange>,
     ) -> (Box<dyn BuilderTask<TYPES>>, Url) {
-        let url = Url::parse(&format!("http://localhost:{0}", config.port)).expect("Valid URL");
+        let url = Url::parse(&format!("http://0.0.0.0:{0}", config.port)).expect("Valid URL");
 
         let (change_sender, change_receiver) = broadcast(128);
         let (source, task) = Self::create(num_storage_nodes, changes, change_sender).await;

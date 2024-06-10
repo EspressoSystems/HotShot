@@ -81,7 +81,7 @@ where
         changes: HashMap<u64, BuilderChange>,
     ) -> (Box<dyn BuilderTask<TYPES>>, Url) {
         let port = portpicker::pick_unused_port().expect("No free ports");
-        let url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
+        let url = Url::parse(&format!("http://0.0.0.0:{port}")).expect("Valid URL");
         let (change_sender, change_receiver) = broadcast(128);
 
         let (task, source) = Self::create(num_storage_nodes, config, changes, change_sender).await;
