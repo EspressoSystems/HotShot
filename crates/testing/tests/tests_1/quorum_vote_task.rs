@@ -70,10 +70,6 @@ async fn test_quorum_vote_task_success() {
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         DaCertificateRecv(dacs[1].clone()),
         VidShareRecv(vids[1].0[0].clone()),
-        ValidatedStateUpdated(
-            proposals[1].data.view_number(),
-            build_fake_view_with_leaf(leaves[1].clone()),
-        ),
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
@@ -171,6 +167,8 @@ async fn test_quorum_vote_task_miss_dependency() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
+    let consensus = handle.hotshot.consensus().clone();
+    let mut consensus_writer = consensus.write().await;
     for view in (&mut generator).take(5).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
@@ -178,7 +176,14 @@ async fn test_quorum_vote_task_miss_dependency() {
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaves.push(view.leaf.clone());
+
+        consensus_writer.update_validated_state_map(
+            view.quorum_proposal.data.view_number(),
+            build_fake_view_with_leaf(view.leaf.clone()),
+        );
+        consensus_writer.update_saved_leaves(view.leaf.clone());
     }
+    drop(consensus_writer);
 
     // Send three of quorum proposal, DAC, VID share data, and validated state, in which case
     // there's no vote.
@@ -186,31 +191,14 @@ async fn test_quorum_vote_task_miss_dependency() {
         random![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
             VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
-            ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
-            ),
         ],
         random![
             QuorumProposalValidated(proposals[2].data.clone(), leaves[1].clone()),
             DaCertificateRecv(dacs[2].clone()),
-            ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
-            ),
         ],
         random![
             DaCertificateRecv(dacs[3].clone()),
             VidShareRecv(vid_share(&vids[3].0, handle.public_key())),
-            ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
-            ),
-        ],
-        random![
-            QuorumProposalValidated(proposals[4].data.clone(), leaves[3].clone()),
-            DaCertificateRecv(dacs[4].clone()),
-            VidShareRecv(vid_share(&vids[4].0, handle.public_key())),
         ],
     ];
 
@@ -220,10 +208,6 @@ async fn test_quorum_vote_task_miss_dependency() {
         Expectations::from_outputs(all_predicates![
             exact(DaCertificateValidated(dacs[3].clone())),
             exact(VidShareValidated(vids[3].0[0].clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(DaCertificateValidated(dacs[4].clone())),
-            exact(VidShareValidated(vids[4].0[0].clone())),
         ]),
     ];
 

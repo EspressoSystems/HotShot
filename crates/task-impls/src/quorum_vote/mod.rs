@@ -55,8 +55,6 @@ enum VoteDependency {
     Vid,
     /// For the `VoteNow` event.
     VoteNow,
-    /// For the `ValidatedStateUpdated` event.
-    ValidatedState,
 }
 
 /// Handler for the vote dependency.
@@ -80,6 +78,8 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// The current version of HotShot
     version: Version,
+    /// The node's id
+    id: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHandle<TYPES, I> {
@@ -160,6 +160,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
     }
 
     /// Submits the `QuorumVoteSend` event if all the dependencies are met.
+    #[instrument(skip_all, fields(id = self.id, name = "Submit quorum vote", level = "error"))]
     async fn submit_vote(
         &self,
         leaf: Leaf<TYPES>,
@@ -184,7 +185,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         )
         .context("Failed to sign vote")?;
         debug!(
-            "Sending vote to next quorum leader {:?}",
+            "sending vote to next quorum leader {:?}",
             vote.view_number() + 1
         );
         // Add to the storage.
@@ -382,13 +383,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                             return false;
                         }
                     }
-                    VoteDependency::ValidatedState => {
-                        if let HotShotEvent::ValidatedStateUpdated(view, _) = event {
-                            *view
-                        } else {
-                            return false;
-                        }
-                    }
                     VoteDependency::VoteNow => {
                         if let HotShotEvent::VoteNow(view, _) = event {
                             *view
@@ -421,11 +415,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             return;
         }
 
-        debug!(
-            "Attempting to make vote dependency task for view {view_number:?} and event {event:?}"
-        );
         if self.vote_dependencies.contains_key(&view_number) {
-            debug!("Task already exists");
             return;
         }
 
@@ -438,11 +428,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             self.create_event_dependency(VoteDependency::Dac, view_number, event_receiver.clone());
         let vid_dependency =
             self.create_event_dependency(VoteDependency::Vid, view_number, event_receiver.clone());
-        let mut validated_state_dependency = self.create_event_dependency(
-            VoteDependency::ValidatedState,
-            view_number,
-            event_receiver.clone(),
-        );
         let mut vote_now_dependency = self.create_event_dependency(
             VoteDependency::VoteNow,
             view_number,
@@ -458,19 +443,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 HotShotEvent::QuorumProposalValidated(..) => {
                     quorum_proposal_dependency.mark_as_completed(event);
                 }
-                HotShotEvent::ValidatedStateUpdated(..) => {
-                    validated_state_dependency.mark_as_completed(event);
-                }
                 _ => {}
             }
         }
 
-        let deps = vec![
-            quorum_proposal_dependency,
-            dac_dependency,
-            vid_dependency,
-            validated_state_dependency,
-        ];
+        let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
         let dependency_chain = OrDependency::from_deps(vec![
             // Either we fulfull the dependencies individiaully.
             AndDependency::from_deps(deps),
@@ -490,6 +467,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 version: self.version,
+                id: self.id,
             },
         );
         self.vote_dependencies
@@ -641,14 +619,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 )
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
-            }
-            HotShotEvent::ValidatedStateUpdated(view_number, _) => {
-                self.create_dependency_task_if_new(
-                    *view_number,
-                    event_receiver,
-                    &event_sender,
-                    Some(event),
-                );
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
                 debug!("All vote dependencies verified for view {:?}", view_number);
