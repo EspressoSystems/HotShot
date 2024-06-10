@@ -243,6 +243,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork<TYPES> {
     /// Generate n Push CDN clients, a marshal, and two brokers (that run locally).
     /// Uses a `SQLite` database instead of Redis.
+    #[allow(clippy::too_many_lines)]
     fn generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
