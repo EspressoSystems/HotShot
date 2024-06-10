@@ -1,7 +1,7 @@
 #![cfg(feature = "dependency-tasks")]
 
 use std::time::Duration;
-
+#[cfg(not(feature = "dependency-tasks"))]
 use committable::Committable;
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
@@ -10,8 +10,16 @@ use hotshot_example_types::state_types::TestValidatedState;
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestInstanceState,
+    
 };
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_example_types::{state_types::TestInstanceState,};
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_testing::{
+    all_predicates,
+    helpers::{
+        build_cert, key_pair_for_id
+    }};
 use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{
     events::HotShotEvent::*,
@@ -20,7 +28,7 @@ use hotshot_task_impls::{
 use hotshot_testing::{
     all_predicates,
     helpers::{
-        build_cert, build_fake_view_with_leaf, build_system_handle, key_pair_for_id,
+        build_fake_view_with_leaf, build_system_handle,
         vid_scheme_from_view_number, vid_share,
     },
     predicates::{
@@ -31,9 +39,10 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
+#[cfg(not(feature = "dependency-tasks"))]
+use hotshot_types::{simple_certificate::QuorumCertificate,};
 use hotshot_types::{
     data::{null_block, Leaf, ViewChangeEvidence, ViewNumber},
-    simple_certificate::QuorumCertificate,
     simple_vote::{TimeoutData, ViewSyncFinalizeData},
     traits::{
         election::Membership,

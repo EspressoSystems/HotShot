@@ -380,7 +380,7 @@ async fn test_quorum_vote_task_happy_path_leaf_ascension() {
         inputs.push(serial![QuorumProposalValidated(proposal.data, leaf)]);
         expectations.push(Expectations::from_outputs(generate_outputs(
             current_chain_length,
-            view_number.try_into().unwrap(),
+            view_number,
         )));
     }
 
@@ -477,7 +477,7 @@ async fn test_quorum_vote_task_fault_injection_leaf_ascension() {
         inputs.push(serial![QuorumProposalValidated(proposal.data, leaf)]);
         expectations.push(Expectations::from_outputs(generate_outputs(
             current_chain_length,
-            view_number.try_into().unwrap(),
+            view_number,
         )));
     }
 

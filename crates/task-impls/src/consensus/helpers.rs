@@ -1,50 +1,67 @@
-use core::time::Duration;
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-    sync::Arc,
+#[cfg(not(feature = "dependency-tasks"))]
+use super::ConsensusTaskState;
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::{
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+    helpers::AnyhowTracing,
 };
-
-use anyhow::{bail, ensure, Context, Result};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
+#[cfg(not(feature = "dependency-tasks"))]
+use anyhow::bail;
+use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
+#[cfg(not(feature = "dependency-tasks"))]
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
+#[cfg(not(feature = "dependency-tasks"))]
 use async_std::task::JoinHandle;
+#[cfg(not(feature = "dependency-tasks"))]
 use chrono::Utc;
 use committable::Committable;
+#[cfg(not(feature = "dependency-tasks"))]
+use core::time::Duration;
+#[cfg(not(feature = "dependency-tasks"))]
 use futures::FutureExt;
+#[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus, View},
+    consensus::CommitmentAndMetadata,
+    event::LeafInfo,
+    traits::{
+        block_contents::BlockHeader,
+        node_implementation::{ConsensusTime, NodeImplementation},
+        storage::Storage,
+        BlockPayload,
+    },
+};
+use hotshot_types::{
+    consensus::{Consensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
-    event::{Event, EventType, LeafInfo},
+    event::{Event, EventType},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
-        block_contents::BlockHeader,
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-        signature_key::SignatureKey,
+        election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
         states::ValidatedState,
-        storage::Storage,
-        BlockPayload,
     },
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData};
+use std::sync::Arc;
+#[cfg(not(feature = "dependency-tasks"))]
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::debug;
+#[cfg(not(feature = "dependency-tasks"))]
+use tracing::{error, info, warn};
+#[cfg(not(feature = "dependency-tasks"))]
 use vbs::version::Version;
-
-use super::ConsensusTaskState;
-use crate::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    events::HotShotEvent,
-    helpers::{broadcast_event, AnyhowTracing},
-};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -178,6 +195,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = "dependency-tasks"))]
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -400,6 +418,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 /// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
 /// standard case proposal scenario.
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
@@ -485,6 +504,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 /// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
 /// `commitment_and_metadata`, or a `decided_upgrade_cert`.
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
     cur_view: TYPES::Time,
     view: TYPES::Time,
@@ -524,6 +544,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 #[allow(clippy::too_many_lines)]
+#[cfg(not(feature = "dependency-tasks"))]
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
@@ -739,6 +760,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
 
 /// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 #[allow(clippy::too_many_lines)]
+#[cfg(not(feature = "dependency-tasks"))]
 pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,

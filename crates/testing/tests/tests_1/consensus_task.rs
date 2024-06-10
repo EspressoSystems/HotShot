@@ -37,6 +37,7 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 use sha2::Digest;
 
+#[cfg(not(feature = "dependency-tasks"))]
 const TIMEOUT: Duration = Duration::from_millis(35);
 
 #[cfg(test)]
