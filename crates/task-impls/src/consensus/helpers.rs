@@ -53,6 +53,11 @@ use crate::{
 ///
 /// TODO - This should just take the QuorumProposalRecv task state after
 /// we merge the dependency tasks.
+///
+/// # Errors
+/// - Proposed leaf does not extend the parent leaf.
+/// - Proposal could not be verified.
+/// - Safety and liveness check fails.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
 pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
@@ -155,7 +160,12 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 }
 
 /// Create the header for a proposal, build the proposal, and broadcast
-/// the proposal send evnet.
+/// the proposal send event.
+///
+/// # Errors
+/// - VID share not found for view.
+/// - Failed to construct block header.
+/// - Failed to sign leaf commitment.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
@@ -253,6 +263,10 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
 /// Validates, from a given `proposal` that the view that it is being submitted for is valid when
 /// compared to `cur_view` which is the highest proposed view (so far) for the caller. If the proposal
 /// is for a view that's later than expected, that the proposal includes a timeout or view sync certificate.
+/// # Errors
+/// - The provided proposal is from an older view.
+/// - The leader key does not match the key in the proposal.
+/// - The view change evidence is invalid for the proposal.
 pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
@@ -378,6 +392,9 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 
 /// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
 /// standard case proposal scenario.
+///
+/// # Errors
+/// - Payload commitment and metadata is for an older view.
 #[allow(clippy::too_many_arguments)]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     cur_view: TYPES::Time,
@@ -981,7 +998,7 @@ pub async fn visit_leaf_chain<TYPES: NodeType>(
             let mut prior_undecided_views: Vec<TYPES::Time> = consensus_reader
                 .validated_state_map()
                 .range(..decided_leaf.view_number())
-                .map(|(k, _)| k.clone())
+                .map(|(k, _)| *k)
                 .collect();
             prior_undecided_views.push(decided_leaf.view_number());
 
@@ -1140,7 +1157,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let consensus = task_state.consensus.read().await;
     drop(consensus);
 
-    let res = visit_leaf_chain(
+    let res = visit_leaf_chain2(
         proposal,
         Arc::clone(&task_state.consensus),
         task_state.public_key.clone(),

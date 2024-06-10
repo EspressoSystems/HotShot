@@ -1,20 +1,12 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{bail, Context, Result};
+use anyhow::Result;
 use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
     data::QuorumProposal,
-    event::{Event, EventType, LeafInfo},
-    traits::{
-        block_contents::BlockHeader,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
-        BlockPayload,
-    },
-    vote::HasViewNumber,
+    event::{Event, EventType},
+    traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
 use tracing::debug;
 

@@ -247,9 +247,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// - Error when the commitment for the state cannot be computed.
     /// - Error when the saved leaf cannot be found.
     pub fn leaf_from_view_number(&self, view_number: TYPES::Time) -> Result<Leaf<TYPES>> {
-        let state = match self.validated_state_map.get(&view_number) {
-            Some(state) => state,
-            None => bail!("No state map entry found for view {view_number:?}"),
+        let Some(state) = self.validated_state_map.get(&view_number) else {
+            bail!("No state map entry found for view {view_number:?}")
         };
 
         // Make sure this leaf has not already been garbage collected
