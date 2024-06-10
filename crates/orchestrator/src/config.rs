@@ -619,9 +619,9 @@ pub struct UpgradeConfig {
 impl Default for UpgradeConfig {
     fn default() -> Self {
         UpgradeConfig {
-            start_proposing_view: 0,
+            start_proposing_view: u64::MAX,
             stop_proposing_view: 0,
-            start_voting_view: 0,
+            start_voting_view: u64::MAX,
             stop_voting_view: 0,
         }
     }

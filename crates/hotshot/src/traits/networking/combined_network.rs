@@ -38,8 +38,6 @@ use hotshot_types::{
     BoxSyncFuture,
 };
 use lru::LruCache;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
 use tracing::{debug, warn};
 
 use super::{push_cdn_network::PushCdnNetwork, NetworkError};
