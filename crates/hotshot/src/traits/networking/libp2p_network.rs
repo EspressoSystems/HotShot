@@ -552,11 +552,15 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
+                    let pk_bytes = match bincode::serialize(&pk) {
+                        Ok(serialized) => serialized,
+                        Err(e) => {
+                            tracing::error!("Failed to serialize public key; this should never happen. Error: {e}");
+                            return;
+                        }
+                    };
                     // look up
-                    if let Err(err) = handle
-                        .lookup_node(&bincode::serialize(&pk).unwrap(), dht_timeout)
-                        .await
-                    {
+                    if let Err(err) = handle.lookup_node(&pk_bytes, dht_timeout).await {
                         error!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
@@ -607,6 +611,9 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
                 // we want our records published before
                 // we begin participating in consensus
+                //
+                // Note: this serialization should never fail,
+                // and if it does the error is unrecoverable.
                 while handle
                     .put_record(
                         &bincode::serialize(&pk).unwrap(),
@@ -682,7 +689,11 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 if self
                     .inner
                     .handle
-                    .direct_response(chan, &bincode::serialize(&Empty { byte: 0u8 }).unwrap())
+                    .direct_response(
+                        chan,
+                        &bincode::serialize(&Empty { byte: 0u8 })
+                            .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
+                    )
                     .await
                     .is_err()
                 {
@@ -691,7 +702,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             }
             DirectResponse(msg, _) => {}
             NetworkEvent::IsBootstrapped => {
-                error!("handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible.");
+                error!("handle_recvd_events received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
             NetworkEvent::ResponseRequested(Request(msg), chan) => {
                 let res = request_tx.try_send((msg, chan));
@@ -790,7 +801,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             .inner
             .handle
             .lookup_node(
-                &bincode::serialize(&recipient).unwrap(),
+                &bincode::serialize(&recipient)
+                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
                 self.inner.dht_timeout,
             )
             .await
@@ -823,7 +835,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Err(e) => return Err(e.into()),
         };
 
-        Ok(bincode::serialize(&result).unwrap())
+        Ok(bincode::serialize(&result).map_err(|e| NetworkError::Libp2p { source: e.into() })?)
     }
 
     async fn spawn_request_receiver_task(
@@ -849,9 +861,18 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 let Ok(response) = response_rx.await else {
                     continue;
                 };
-                let _ = handle
-                    .respond_data(&bincode::serialize(&response).unwrap(), chan)
-                    .await;
+
+                let serialized_response = match bincode::serialize(&response) {
+                    Ok(serialized) => serialized,
+                    Err(e) => {
+                        tracing::error!(
+                            "Failed to serialize response; this should never happen. Error: {e}"
+                        );
+                        continue;
+                    }
+                };
+
+                let _ = handle.respond_data(&serialized_response, chan).await;
             }
         });
 
@@ -1006,7 +1027,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             .inner
             .handle
             .lookup_node(
-                &bincode::serialize(&recipient).unwrap(),
+                &bincode::serialize(&recipient)
+                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
                 self.inner.dht_timeout,
             )
             .await
