@@ -10,7 +10,7 @@ use async_compatibility_layer::{art::async_sleep, art::async_spawn};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
-    connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
+    connection::protocols::Tcp,
     def::{ConnectionDef, RunDef, Topic as TopicTrait},
     discovery::{Embedded, Redis},
 };
@@ -111,7 +111,6 @@ pub struct UserDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for UserDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Quic;
-    type Middleware = UntrustedMiddleware;
 }
 
 /// The broker definition for the Push CDN.
@@ -120,7 +119,6 @@ pub struct BrokerDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for BrokerDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Tcp;
-    type Middleware = TrustedMiddleware;
 }
 
 /// The client definition for the Push CDN. Uses the Quic
@@ -131,7 +129,6 @@ pub struct ClientDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for ClientDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Quic;
-    type Middleware = NoMiddleware;
 }
 
 /// The testing run definition for the Push CDN.
@@ -314,6 +311,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                 discovery_endpoint: discovery_endpoint.clone(),
                 ca_cert_path: None,
                 ca_key_path: None,
+                // 1GB
+                global_memory_pool_size: Some(1024 * 1024 * 1024),
             };
 
             // Create and spawn the broker
@@ -345,6 +344,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
             metrics_bind_endpoint: None,
             ca_cert_path: None,
             ca_key_path: None,
+            // 1GB
+            global_memory_pool_size: Some(1024 * 1024 * 1024),
         };
 
         // Spawn the marshal
