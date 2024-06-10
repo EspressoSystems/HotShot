@@ -27,7 +27,6 @@ use hotshot_task_impls::{
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
 };
 use hotshot_types::{
-    constants::Base,
     message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,

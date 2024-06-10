@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -32,7 +31,6 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
-use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 

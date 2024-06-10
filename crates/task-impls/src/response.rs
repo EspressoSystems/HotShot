@@ -20,7 +20,6 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
 use crate::events::HotShotEvent;
 
@@ -89,7 +88,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         let req: Message<TYPES> = match bincode::deserialize(&raw_req) {
             Ok(deserialized) => deserialized,
             Err(e) => {
-                tracing::error!("Failed to deserialize message!");
+                tracing::error!("Failed to deserialize message! Error: {e}");
                 return;
             }
         };

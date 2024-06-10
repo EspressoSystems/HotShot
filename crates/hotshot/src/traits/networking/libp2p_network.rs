@@ -31,7 +31,7 @@ use futures::{
 use hotshot_orchestrator::config::NetworkConfig;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
-    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation, ViewMessage,
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 use hotshot_types::{
     boxed_sync,
@@ -40,10 +40,7 @@ use hotshot_types::{
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         election::Membership,
-        network::{
-            self, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
-            ResponseMessage,
-        },
+        network::{self, ConnectedNetwork, NetworkError, ResponseMessage},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -65,12 +62,7 @@ use libp2p_networking::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
-use snafu::ResultExt;
 use tracing::{debug, error, info, instrument, warn};
-use vbs::{
-    version::{StaticVersionType, Version},
-    BinarySerializer, Serializer,
-};
 
 use super::NetworkingMetricsValue;
 use crate::BroadcastDelay;
@@ -700,7 +692,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                     error!("failed to ack!");
                 };
             }
-            DirectResponse(msg, _) => {}
+            DirectResponse(_msg, _) => {}
             NetworkEvent::IsBootstrapped => {
                 error!("handle_recvd_events received `NetworkEvent::IsBootstrapped`, which should be impossible.");
             }
@@ -740,33 +732,13 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                             NetworkEvent::IsBootstrapped => {
                                 is_bootstrapped.store(true, Ordering::Relaxed);
                             }
-                            GossipMsg(raw)
-                            | DirectRequest(raw, _, _)
-                            | DirectResponse(raw, _)
-                            | NetworkEvent::ResponseRequested(Request(raw), _) => {
-                                match Version::deserialize(raw) {
-                                    _ => {
-                                        let _ = handle
-                                            .handle_recvd_events(
-                                                message,
-                                                &sender,
-                                                request_tx.clone(),
-                                            )
-                                            .await;
-                                    }
-                                    Ok((version, _)) => {
-                                        warn!(
-                                                "Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}",
-                                                version, message
-                                            );
-                                    }
-                                    Err(e) => {
-                                        warn!(
-                                            "Error recovering version: {:?}.\n\nPayload:\n\n{:?}",
-                                            e, message
-                                        );
-                                    }
-                                }
+                            GossipMsg(_)
+                            | DirectRequest(_, _, _)
+                            | DirectResponse(_, _)
+                            | NetworkEvent::ResponseRequested(Request(_), _) => {
+                                let _ = handle
+                                    .handle_recvd_events(message, &sender, request_tx.clone())
+                                    .await;
                             }
                         }
                         // re-set the `kill_switch` for the next loop
@@ -822,13 +794,13 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         let result = match self.inner.handle.request_data(&request, pid).await {
             Ok(response) => match response {
                 Some(msg) => {
-                    let res: Message<TYPES> = bincode::deserialize(&(&msg.0[8..]).to_vec())
+                    let res: Message<TYPES> = bincode::deserialize(&msg.0[8..])
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
-                    let result = match res.kind {
+
+                    match res.kind {
                         MessageKind::Data(DataResponse(data)) => data,
                         _ => ResponseMessage::NotFound,
-                    };
-                    result
+                    }
                 }
                 None => ResponseMessage::NotFound,
             },
