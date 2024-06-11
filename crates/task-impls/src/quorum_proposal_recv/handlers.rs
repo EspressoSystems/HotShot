@@ -31,15 +31,14 @@ use crate::{
     helpers::broadcast_event,
 };
 
-/// The validity of the proposal contained in `QuorumProposalRecv`.
+/// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
+/// is checked.
 pub(crate) enum QuorumProposalValidity {
     /// Fully validated.
-    FullyValid,
+    Fully,
     /// Not fully validated due to the parent information missing in the internal state, but the
     /// liveness is validated.
-    LivenessValid,
-    /// Proposal is invalid or the storage udpate fails.
-    Failed,
+    Liveness,
 }
 
 /// Update states in the event that the parent state is not found for a given `proposal`.
@@ -47,7 +46,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> QuorumProposalValidity {
+) -> Result<QuorumProposalValidity> {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
 
@@ -97,11 +96,11 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     )
     .await;
 
-    if liveness_check {
-        return QuorumProposalValidity::LivenessValid;
+    if !liveness_check {
+        bail!("Liveness invalid.");
     }
 
-    QuorumProposalValidity::Failed
+    Ok(QuorumProposalValidity::Liveness)
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
@@ -117,22 +116,18 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> QuorumProposalValidity {
+) -> Result<QuorumProposalValidity> {
     let sender = sender.clone();
     let cur_view = task_state.cur_view;
 
-    if validate_proposal_view_and_certs(
+    validate_proposal_view_and_certs(
         proposal,
         &sender,
         task_state.cur_view,
         &task_state.quorum_membership,
         &task_state.timeout_membership,
     )
-    .is_err()
-    {
-        error!("Failed to validate proposal view or attached certs");
-        return QuorumProposalValidity::Failed;
-    }
+    .context("Failed to validate proposal view or attached certs")?;
 
     let view_number = proposal.data.view_number();
     let view_leader_key = task_state.quorum_membership.leader(view_number);
@@ -141,8 +136,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     if !justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
         let consensus = task_state.consensus.read().await;
         consensus.metrics.invalid_qc.update(1);
-        error!("Invalid justify_qc in proposal for view {}", *view_number);
-        return QuorumProposalValidity::Failed;
+        bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
 
     // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
@@ -176,8 +170,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                 if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
                     Some((leaf, Arc::clone(&state)))
                 } else {
-                    error!("Parent state not found! Consensus internally inconsistent");
-                    return QuorumProposalValidity::Failed;
+                    bail!("Parent state not found! Consensus internally inconsistent");
                 }
             }
             None => None,
@@ -191,8 +184,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                 .update_high_qc(justify_qc.clone())
                 .await
             {
-                error!("Failed to store High QC, not voting; error = {:?}", e);
-                return QuorumProposalValidity::Failed;
+                bail!("Failed to store High QC, not voting; error = {:?}", e);
             }
         }
 
@@ -220,7 +212,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     };
 
     // Validate the proposal
-    if validate_proposal_safety_and_liveness(
+    validate_proposal_safety_and_liveness(
         proposal.clone(),
         parent_leaf,
         Arc::clone(&task_state.consensus),
@@ -231,12 +223,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         sender,
         task_state.output_event_stream.clone(),
     )
-    .await
-    .is_err()
-    {
-        error!("Failed to validate proposal safety or liveness");
-        return QuorumProposalValidity::Failed;
-    }
+    .await?;
 
-    QuorumProposalValidity::FullyValid
+    Ok(QuorumProposalValidity::Fully)
 }

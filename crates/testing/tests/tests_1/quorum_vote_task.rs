@@ -203,10 +203,16 @@ async fn test_quorum_vote_task_miss_dependency() {
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(all_predicates![exact(LockedViewUpdated(ViewNumber::new(1))), exact(VidShareValidated(vids[1].0[0].clone()))]),
-        Expectations::from_outputs(all_predicates![exact(LockedViewUpdated(ViewNumber::new(2))), exact(LastDecidedViewUpdated(ViewNumber::new(
-            1,
-        ))),leaf_decided(),exact(DaCertificateValidated(dacs[2].clone()))]),
+        Expectations::from_outputs(all_predicates![
+            exact(LockedViewUpdated(ViewNumber::new(1))),
+            exact(VidShareValidated(vids[1].0[0].clone()))
+        ]),
+        Expectations::from_outputs(all_predicates![
+            exact(LockedViewUpdated(ViewNumber::new(2))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(1,))),
+            leaf_decided(),
+            exact(DaCertificateValidated(dacs[2].clone()))
+        ]),
         Expectations::from_outputs(all_predicates![
             exact(DaCertificateValidated(dacs[3].clone())),
             exact(VidShareValidated(vids[3].0[0].clone())),
