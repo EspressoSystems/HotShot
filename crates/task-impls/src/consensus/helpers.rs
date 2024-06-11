@@ -1044,7 +1044,7 @@ pub async fn visit_leaf_chain2<TYPES: NodeType>(
     consensus: Arc<RwLock<Consensus<TYPES>>>,
     public_key: TYPES::SignatureKey,
     existing_decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-) -> Result<LeafChainTraversalOutcome<TYPES>> {
+) -> LeafChainTraversalOutcome<TYPES> {
     let mut ret = LeafChainTraversalOutcome::default();
     let view_number = proposal.view_number();
     let consensus = consensus.read().await;
@@ -1136,7 +1136,7 @@ pub async fn visit_leaf_chain2<TYPES: NodeType>(
         debug!("Leaf ascension failed; error={e}");
     }
 
-    Ok(ret)
+    ret
 }
 
 /// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
@@ -1162,7 +1162,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         task_state.public_key.clone(),
         task_state.decided_upgrade_cert.clone(),
     )
-    .await?;
+    .await;
 
     if let Some(cert) = res.decided_upgrade_cert {
         let _ = event_stream
