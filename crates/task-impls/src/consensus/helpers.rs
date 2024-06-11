@@ -778,8 +778,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let mut current_chain_length = 0usize;
     let mut res = LeafChainTraversalOutcome::default();
 
-    // if parent_view + 1 == view {
-    // current_chain_length += 1;
     if let Err(e) = consensus.visit_leaf_ancestors(
         parent_view,
         Terminator::Exclusive(old_anchor_view),
@@ -804,6 +802,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                     return false;
                 }
             }
+
             // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
             if let Some(new_anchor_view) = res.new_decided_view_number {
                 let mut leaf = leaf.clone();
@@ -865,7 +864,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     ) {
         debug!("view publish error {e}");
     }
-    // }
     drop(consensus);
 
     if let Some(cert) = res.decided_upgrade_cert {
