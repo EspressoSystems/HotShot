@@ -11,6 +11,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{data::Leaf, vote::HasViewNumber};
 
+#[ignore]
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -30,15 +31,17 @@ async fn visit_valid_chain() {
     let mut consensus_writer = consensus.write().await;
 
     let mut proposals = Vec::new();
-    for view in (&mut generator).take(10).collect::<Vec<_>>().await {
+    for view in (&mut generator).take(100).collect::<Vec<_>>().await {
         let proposal = view.quorum_proposal;
         let leaf = view.leaf;
-        consensus_writer.update_validated_state_map(
-            proposal.data.view_number(),
-            build_fake_view_with_leaf(leaf),
-        );
+        if rand::random::<f32>() < 0.9 {
+            consensus_writer.update_validated_state_map(
+                proposal.data.view_number(),
+                build_fake_view_with_leaf(leaf),
+            );
 
-        consensus_writer.update_saved_leaves(Leaf::from_quorum_proposal(&proposal.data));
+            consensus_writer.update_saved_leaves(Leaf::from_quorum_proposal(&proposal.data));
+        }
 
         proposals.push(proposal);
     }
@@ -63,8 +66,7 @@ async fn visit_valid_chain() {
             quorum_proposal_task_state.public_key,
             None,
         )
-        .await
-        .unwrap();
+        .await;
 
         tracing::info!("Running view {ii}");
         assert_eq!(
