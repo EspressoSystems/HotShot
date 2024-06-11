@@ -757,29 +757,22 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
     }
 }
 
-/// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
-#[allow(clippy::too_many_lines)]
-pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn try_decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal<TYPES>,
-    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut ConsensusTaskState<TYPES, I>,
-) -> Result<()> {
-    let consensus = task_state.consensus.read().await;
-    let view = proposal.view_number();
-    #[cfg(not(feature = "dependency-tasks"))]
-    {
-        task_state.current_proposal = Some(proposal.clone());
-    }
-
+    consensus: &Consensus<TYPES>,
+    existing_upgrade_cert: &Option<UpgradeCertificate<TYPES>>,
+    public_key: &TYPES::SignatureKey,
+) -> LeafChainTraversalOutcome<TYPES> {
+    let view_number = proposal.view_number();
+    let parent_view_number = proposal.justify_qc.view_number();
     let old_anchor_view = consensus.last_decided_view();
-    let parent_view = proposal.justify_qc.view_number();
 
-    let mut last_view_number_visited = view;
+    let mut last_view_number_visited = view_number;
     let mut current_chain_length = 0usize;
     let mut res = LeafChainTraversalOutcome::default();
 
     if let Err(e) = consensus.visit_leaf_ancestors(
-        parent_view,
+        parent_view_number,
         Terminator::Exclusive(old_anchor_view),
         true,
         |leaf, state, delta| {
@@ -813,15 +806,14 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                         .set(usize::try_from(leaf.height()).unwrap_or(0));
                 }
                 if let Some(cert) = leaf.upgrade_certificate() {
-                    if leaf.upgrade_certificate() != task_state.decided_upgrade_cert {
-                        if cert.data.decide_by < view {
+                    if leaf.upgrade_certificate() != *existing_upgrade_cert {
+                        if cert.data.decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
                             info!(
                                 "Updating consensus state with decided upgrade certificate: {:?}",
                                 cert
                             );
-                            task_state.decided_upgrade_cert = Some(cert.clone());
                             res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
@@ -841,7 +833,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                     .vid_shares()
                     .get(&leaf.view_number())
                     .unwrap_or(&HashMap::new())
-                    .get(&task_state.public_key)
+                    .get(&public_key)
                     .cloned()
                     .map(|prop| prop.data);
 
@@ -864,9 +856,36 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     ) {
         debug!("view publish error {e}");
     }
+
+    res
+}
+
+/// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
+#[allow(clippy::too_many_lines)]
+pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    proposal: &QuorumProposal<TYPES>,
+    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    task_state: &mut ConsensusTaskState<TYPES, I>,
+) -> Result<()> {
+    let consensus = task_state.consensus.read().await;
+    let view = proposal.view_number();
+    #[cfg(not(feature = "dependency-tasks"))]
+    {
+        task_state.current_proposal = Some(proposal.clone());
+    }
+
+    let parent_view = proposal.justify_qc.view_number();
+    let res = try_decide_from_proposal(
+        proposal,
+        &consensus,
+        &task_state.decided_upgrade_cert,
+        &task_state.public_key,
+    )
+    .await;
     drop(consensus);
 
     if let Some(cert) = res.decided_upgrade_cert {
+        task_state.decided_upgrade_cert = Some(cert.clone());
         let _ = event_stream
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .await;
