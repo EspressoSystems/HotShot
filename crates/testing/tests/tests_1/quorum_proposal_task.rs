@@ -300,8 +300,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             proposals[3].data.justify_qc.clone(),
         ))]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(3))),
-            exact(LastDecidedViewUpdated(ViewNumber::new(2))),
+            exact(LockedViewUpdated(ViewNumber::new(2))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(1))),
             leaf_decided(),
             exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
         ]),
@@ -611,8 +611,8 @@ async fn test_quorum_proposal_liveness_check_proposal() {
             proposals[3].data.justify_qc.clone(),
         ))]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(3))),
-            exact(LastDecidedViewUpdated(ViewNumber::new(2))),
+            exact(LockedViewUpdated(ViewNumber::new(2))),
+            exact(LastDecidedViewUpdated(ViewNumber::new(1))),
             leaf_decided(),
             exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
         ]),
