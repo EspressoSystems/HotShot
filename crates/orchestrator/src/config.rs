@@ -596,7 +596,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub data_request_delay: Duration,
     /// Builder API base URL
     #[serde(default = "default_builder_urls")]
-    pub builder_url: Vec1<Url>,
+    pub builder_urls: Vec1<Url>,
 }
 
 /// Holds configuration for a validator node
@@ -675,7 +675,7 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
             num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
             data_request_delay: val.data_request_delay,
-            builder_urls: val.builder_url,
+            builder_urls: val.builder_urls,
         }
     }
 }
@@ -744,7 +744,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             num_bootstrap: 5,
             builder_timeout: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(200),
-            builder_url: default_builder_urls(),
+            builder_urls: default_builder_urls(),
         }
     }
 }
