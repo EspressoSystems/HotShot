@@ -222,7 +222,7 @@ async fn libp2p_network_partially_sync() {
     async_compatibility_layer::logging::setup_backtrace();
     let metadata = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
-            num_failed_views: 2,
+            num_failed_views: 0,
             ..Default::default()
         },
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
