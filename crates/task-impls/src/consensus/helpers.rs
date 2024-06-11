@@ -757,21 +757,49 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
     }
 }
 
-pub async fn try_decide_from_proposal<TYPES: NodeType>(
+/// Ascends the leaf chain by traversing through the parent commitments of the proposal. We begin
+/// by obtaining the parent view, and if we are in a chain (i.e. the next view from the parent is
+/// one view newer), then we begin attempting to form the chain. This is a direct impl from
+/// [HotStuff](https://arxiv.org/pdf/1803.05069) section 5:
+///
+/// > When a node b* carries a QC that refers to a direct parent, i.e., b*.justify.node = b*.parent,
+/// we say that it forms a One-Chain. Denote by b'' = b*.justify.node. Node b* forms a Two-Chain,
+/// if in addition to forming a One-Chain, b''.justify.node = b''.parent.
+/// It forms a Three-Chain, if b'' forms a Two-Chain.
+///
+/// We follow this exact logic to determine if we are able to reach a commit and a decide. A commit
+/// is reached when we have a two chain, and a decide is reached when we have a three chain.
+///
+/// # Example
+/// Suppose we have a decide for view 1, and we then move on to get undecided views 2, 3, and 4. Further,
+/// suppose that our *next* proposal is for view 5, but this leader did not see info for view 4, so the
+/// justify qc of the proposal points to view 3. This is fine, and the undecided chain now becomes
+/// 2-3-5.
+///
+/// Assuming we continue with honest leaders, we then eventually could get a chain like: 2-3-5-6-7-8. This
+/// will prompt a decide event to occur (this code), where the `proposal` is for view 8. Now, since the
+/// lowest value in the 3-chain here would be 5 (excluding 8 since we only walk the parents), we begin at
+/// the first link in the chain, and walk back through all undecided views, making our new anchor view 5,
+/// and out new locked view will be 6.
+///
+/// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
+/// the anchor view will be set to view 6, with the locked view as view 7.
+pub async fn decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal<TYPES>,
-    consensus: &Consensus<TYPES>,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
     existing_upgrade_cert: &Option<UpgradeCertificate<TYPES>>,
     public_key: &TYPES::SignatureKey,
 ) -> LeafChainTraversalOutcome<TYPES> {
+    let consensus_reader = consensus.read().await;
     let view_number = proposal.view_number();
     let parent_view_number = proposal.justify_qc.view_number();
-    let old_anchor_view = consensus.last_decided_view();
+    let old_anchor_view = consensus_reader.last_decided_view();
 
     let mut last_view_number_visited = view_number;
     let mut current_chain_length = 0usize;
     let mut res = LeafChainTraversalOutcome::default();
 
-    if let Err(e) = consensus.visit_leaf_ancestors(
+    if let Err(e) = consensus_reader.visit_leaf_ancestors(
         parent_view_number,
         Terminator::Exclusive(old_anchor_view),
         true,
@@ -800,7 +828,7 @@ pub async fn try_decide_from_proposal<TYPES: NodeType>(
             if let Some(new_anchor_view) = res.new_decided_view_number {
                 let mut leaf = leaf.clone();
                 if leaf.view_number() == new_anchor_view {
-                    consensus
+                    consensus_reader
                         .metrics
                         .last_synced_block_height
                         .set(usize::try_from(leaf.height()).unwrap_or(0));
@@ -820,7 +848,9 @@ pub async fn try_decide_from_proposal<TYPES: NodeType>(
                 }
                 // If the block payload is available for this leaf, include it in
                 // the leaf chain that we send to the client.
-                if let Some(encoded_txns) = consensus.saved_payloads().get(&leaf.view_number()) {
+                if let Some(encoded_txns) =
+                    consensus_reader.saved_payloads().get(&leaf.view_number())
+                {
                     let payload =
                         BlockPayload::from_bytes(encoded_txns, leaf.block_header().metadata());
 
@@ -829,7 +859,7 @@ pub async fn try_decide_from_proposal<TYPES: NodeType>(
 
                 // Get the VID share at the leaf's view number, corresponding to our key
                 // (if one exists)
-                let vid_share = consensus
+                let vid_share = consensus_reader
                     .vid_shares()
                     .get(&leaf.view_number())
                     .unwrap_or(&HashMap::new())
@@ -867,21 +897,19 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I>,
 ) -> Result<()> {
-    let consensus = task_state.consensus.read().await;
     let view = proposal.view_number();
     #[cfg(not(feature = "dependency-tasks"))]
     {
         task_state.current_proposal = Some(proposal.clone());
     }
 
-    let res = try_decide_from_proposal(
+    let res = decide_from_proposal(
         proposal,
-        &consensus,
+        Arc::clone(&task_state.consensus),
         &task_state.decided_upgrade_cert,
         &task_state.public_key,
     )
     .await;
-    drop(consensus);
 
     if let Some(cert) = res.decided_upgrade_cert {
         task_state.decided_upgrade_cert = Some(cert.clone());
