@@ -187,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     )
                     .await;
                 }
-                Err(_) => debug!("Failed to propose"),
+                Err(e) => debug!(?e, "Failed to propose"),
             }
         }
     }
