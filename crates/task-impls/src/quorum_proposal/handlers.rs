@@ -6,11 +6,9 @@ use std::{
 use anyhow::{bail, Context, Result};
 use async_broadcast::Sender;
 use chrono::Utc;
-use committable::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumProposal},
     event::{Event, EventType, LeafInfo},
-    simple_certificate::QuorumCertificate,
     traits::{
         block_contents::BlockHeader,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -21,44 +19,9 @@ use hotshot_types::{
 use tracing::debug;
 
 use super::QuorumProposalTaskState;
-use crate::{events::HotShotEvent, helpers::broadcast_event};
-
-/// Helper type to give names and to the output values of the leaf chain traversal operation.
-#[derive(Debug)]
-struct LeafChainTraversalOutcome<TYPES: NodeType> {
-    /// The new locked view obtained from a 2 chain starting from the proposal's parent.
-    pub new_locked_view_number: Option<TYPES::Time>,
-
-    /// The new decided view obtained from a 3 chain starting from the proposal's parent.
-    pub new_decided_view_number: Option<TYPES::Time>,
-
-    /// The qc for the decided chain.
-    pub new_decide_qc: Option<QuorumCertificate<TYPES>>,
-
-    /// The decided leaves with corresponding validated state and VID info.
-    pub leaf_views: Vec<LeafInfo<TYPES>>,
-
-    /// The decided leaves.
-    pub leaves_decided: Vec<Leaf<TYPES>>,
-
-    /// The transactions in the block payload for each leaf.
-    pub included_txns: HashSet<Commitment<<TYPES as NodeType>::Transaction>>,
-    // TODO - add upgrade cert here and fill
-}
-
-impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
-    /// The default method for this type is to set all of the returned values to `None`.
-    fn default() -> Self {
-        Self {
-            new_locked_view_number: None,
-            new_decided_view_number: None,
-            new_decide_qc: None,
-            leaf_views: Vec::new(),
-            leaves_decided: Vec::new(),
-            included_txns: HashSet::new(),
-        }
-    }
-}
+use crate::{
+    consensus::helpers::LeafChainTraversalOutcome, events::HotShotEvent, helpers::broadcast_event,
+};
 
 /// Ascends the leaf chain by traversing through the parent commitments of the proposal. We begin
 /// by obtaining the parent view, and if we are in a chain (i.e. the next view from the parent is
@@ -240,6 +203,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         leaves_decided,
         included_txns,
+        ..
     } = visit_leaf_chain(proposal, task_state).await?;
 
     let included_txns = if new_decided_view_number.is_some() {
