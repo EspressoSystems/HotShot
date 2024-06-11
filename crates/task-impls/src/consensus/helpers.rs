@@ -742,6 +742,9 @@ pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 }
 
+/// We need Default to be implemented because the leaf ascension has very few failure branches,
+/// and when they *do* happen, we still return intermediate states. Default makes the burden
+/// of filling values easier.
 impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
     /// The default method for this type is to set all of the returned values to `None`.
     fn default() -> Self {
@@ -804,35 +807,46 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
         Terminator::Exclusive(old_anchor_view),
         true,
         |leaf, state, delta| {
-            let new_decide_reached = res.new_decided_view_number.is_some();
-
-            if !new_decide_reached {
+            // This is the core paper logic. We're implementing the chain in chained hotstuff.
+            if res.new_decided_view_number.is_none() {
+                // If the last view number is the child of the leaf we've moved to...
                 if last_view_number_visited == leaf.view_number() + 1 {
                     last_view_number_visited = leaf.view_number();
+
+                    // The chain grows by one
                     current_chain_length += 1;
+
+                    // We emit a locked view when the chain length is 2
                     if current_chain_length == 2 {
                         res.new_locked_view_number = Some(leaf.view_number());
                         // The next leaf in the chain, if there is one, is decided, so this
                         // leaf's justify_qc would become the QC for the decided chain.
                         res.new_decide_qc = Some(leaf.justify_qc().clone());
                     } else if current_chain_length == 3 {
+                        // And we decide when the chain length is 3.
                         res.new_decided_view_number = Some(leaf.view_number());
                     }
                 } else {
-                    // nothing more to do here... we don't have a new chain extension
+                    // There isn't a new chain extension available, so we signal to the callback
+                    // owner that we can exit for now.
                     return false;
                 }
             }
 
-            // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
-            if let Some(new_anchor_view) = res.new_decided_view_number {
+            // Now, if we *have* reached a decide, we need to do some state updates.
+            if let Some(new_decided_view) = res.new_decided_view_number {
+                // First, get a mutable reference to the provided leaf.
                 let mut leaf = leaf.clone();
-                if leaf.view_number() == new_anchor_view {
+
+                // Update the metrics
+                if leaf.view_number() == new_decided_view {
                     consensus_reader
                         .metrics
                         .last_synced_block_height
                         .set(usize::try_from(leaf.height()).unwrap_or(0));
                 }
+
+                // Check if there's a new upgrade certificate available.
                 if let Some(cert) = leaf.upgrade_certificate() {
                     if leaf.upgrade_certificate() != *existing_upgrade_cert {
                         if cert.data.decide_by < view_number {

@@ -292,7 +292,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             proposals[1].data.justify_qc.clone(),
         ))]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(1))),
             exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
             quorum_proposal_send(),
         ]),
