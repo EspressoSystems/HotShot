@@ -863,7 +863,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                     .vid_shares()
                     .get(&leaf.view_number())
                     .unwrap_or(&HashMap::new())
-                    .get(&public_key)
+                    .get(public_key)
                     .cloned()
                     .map(|prop| prop.data);
 
