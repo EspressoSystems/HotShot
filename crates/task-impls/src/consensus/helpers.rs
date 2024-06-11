@@ -774,11 +774,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let old_anchor_view = consensus.last_decided_view();
     let parent_view = proposal.justify_qc.view_number();
 
-    let mut decided_upgrade_cert: Option<UpgradeCertificate<TYPES>> = None;
     let mut last_view_number_visited = view;
-    let mut leaf_views = Vec::new();
-    let mut leafs_decided = Vec::new();
-    let mut included_txns = HashSet::new();
     let mut current_chain_length = 0usize;
     let mut res = LeafChainTraversalOutcome::default();
 
@@ -789,7 +785,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         Terminator::Exclusive(old_anchor_view),
         true,
         |leaf, state, delta| {
-            let new_locked_view_reached = res.new_locked_view_number.is_some();
             let new_decide_reached = res.new_decided_view_number.is_some();
 
             if !new_decide_reached {
@@ -828,7 +823,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                                 cert
                             );
                             task_state.decided_upgrade_cert = Some(cert.clone());
-                            decided_upgrade_cert = Some(cert.clone());
+                            res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
                 }
@@ -852,16 +847,16 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
                     .map(|prop| prop.data);
 
                 // Add our data into a new `LeafInfo`
-                leaf_views.push(LeafInfo::new(
+                res.leaf_views.push(LeafInfo::new(
                     leaf.clone(),
                     Arc::clone(&state),
                     delta.clone(),
                     vid_share,
                 ));
-                leafs_decided.push(leaf.clone());
+                res.leaves_decided.push(leaf.clone());
                 if let Some(ref payload) = leaf.block_payload() {
                     for txn in payload.transaction_commitments(leaf.block_header().metadata()) {
-                        included_txns.insert(txn);
+                        res.included_txns.insert(txn);
                     }
                 }
             }
@@ -873,14 +868,14 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     // }
     drop(consensus);
 
-    if let Some(cert) = decided_upgrade_cert {
+    if let Some(cert) = res.decided_upgrade_cert {
         let _ = event_stream
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .await;
     }
 
     let included_txns_set: HashSet<_> = if res.new_decided_view_number.is_some() {
-        included_txns
+        res.included_txns
     } else {
         HashSet::new()
     };
@@ -928,7 +923,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             Event {
                 view_number: new_anchor_view,
                 event: EventType::Decide {
-                    leaf_chain: Arc::new(leaf_views),
+                    leaf_chain: Arc::new(res.leaf_views),
                     qc: Arc::new(res.new_decide_qc.unwrap()),
                     block_size: Some(included_txns_set.len().try_into().unwrap()),
                 },
@@ -966,7 +961,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         debug!("Decided txns len {:?}", included_txns_set.len());
         decide_sent.await;
         broadcast_event(
-            Arc::new(HotShotEvent::LeafDecided(leafs_decided)),
+            Arc::new(HotShotEvent::LeafDecided(res.leaves_decided)),
             &event_stream,
         )
         .await;

@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
-    data::{Leaf, QuorumProposal},
+    data::QuorumProposal,
     event::{Event, EventType, LeafInfo},
     traits::{
         block_contents::BlockHeader,
