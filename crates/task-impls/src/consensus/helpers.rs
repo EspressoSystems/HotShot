@@ -854,7 +854,7 @@ pub async fn try_decide_from_proposal<TYPES: NodeType>(
             true
         },
     ) {
-        debug!("view publish error {e}");
+        debug!("Leaf ascension failed; error={e}");
     }
 
     res
@@ -874,7 +874,6 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
         task_state.current_proposal = Some(proposal.clone());
     }
 
-    let parent_view = proposal.justify_qc.view_number();
     let res = try_decide_from_proposal(
         proposal,
         &consensus,
