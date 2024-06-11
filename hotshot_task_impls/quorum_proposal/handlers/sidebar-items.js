@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["handle_quorum_proposal_validated","visit_leaf_chain"],"struct":["LeafChainTraversalOutcome"]};
+window.SIDEBAR_ITEMS = {"fn":["handle_quorum_proposal_validated"]};
