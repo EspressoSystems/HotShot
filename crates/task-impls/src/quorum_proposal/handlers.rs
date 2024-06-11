@@ -40,7 +40,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         task_state.public_key.clone(),
         None,
     )
-    .await?;
+    .await;
 
     let included_txns = if new_decided_view_number.is_some() {
         included_txns

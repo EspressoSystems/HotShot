@@ -51,14 +51,14 @@ async fn visit_valid_chain() {
         QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     for (ii, proposal) in proposals.into_iter().enumerate() {
+        tracing::info!("Running view {ii}");
         let ret1 = visit_leaf_chain(
             &proposal.data,
             Arc::clone(&consensus),
             quorum_proposal_task_state.public_key,
             None,
         )
-        .await
-        .unwrap();
+        .await;
 
         let ret2 = visit_leaf_chain2(
             &proposal.data,
@@ -68,7 +68,6 @@ async fn visit_valid_chain() {
         )
         .await;
 
-        tracing::info!("Running view {ii}");
         assert_eq!(
             ret1.new_decided_view_number, ret2.new_decided_view_number,
             "Decided View Number"
