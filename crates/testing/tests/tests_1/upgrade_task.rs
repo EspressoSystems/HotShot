@@ -581,6 +581,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(6))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     quorum_proposal_send_with_null_block(
                     quorum_membership.total_nodes(),
@@ -593,6 +594,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(7))),
+                    validated_state_updated(),
                     quorum_proposal_validated(),
                     leaf_decided(),
                     // We do NOT expect a quorum_vote_send() because we have set the block to be non-null in this view.
