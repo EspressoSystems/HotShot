@@ -356,7 +356,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
         new_version,
         decide_by: ViewNumber::new(7),
         new_version_hash: [0u8; 12].to_vec(),
-        old_version_last_view: ViewNumber::new(7),
+        old_version_last_view: ViewNumber::new(6),
         new_version_first_view: ViewNumber::new(8),
     };
 
