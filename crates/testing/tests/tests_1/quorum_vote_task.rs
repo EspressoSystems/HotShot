@@ -6,7 +6,7 @@ use hotshot_macros::{run_test, test_scripts};
 use hotshot_testing::{
     all_predicates,
     helpers::{build_fake_view_with_leaf, vid_share},
-    predicates::event::{all_predicates, leaf_decided},
+    predicates::event::all_predicates,
     random,
     script::{Expectations, InputOrder, TaskScript},
     serial,
@@ -67,7 +67,6 @@ async fn test_quorum_vote_task_success() {
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
-        exact(LockedViewUpdated(ViewNumber::new(1))),
         exact(DaCertificateValidated(dacs[1].clone())),
         exact(VidShareValidated(vids[1].0[0].clone())),
         exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
@@ -179,8 +178,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     }
     drop(consensus_writer);
 
-    // Send three of quorum proposal, DAC, VID share data, and validated state, in which case
-    // there's no vote.
+    // Send two of quorum proposal, DAC, VID share data, in which case there's no vote.
     let inputs = vec![
         random![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
@@ -198,13 +196,10 @@ async fn test_quorum_vote_task_miss_dependency() {
 
     let expectations = vec![
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(1))),
             exact(VidShareValidated(vids[1].0[0].clone()))
         ]),
         Expectations::from_outputs(all_predicates![
-            exact(LockedViewUpdated(ViewNumber::new(2))),
-            exact(LastDecidedViewUpdated(ViewNumber::new(1,))),
-            leaf_decided(),
+            exact(LockedViewUpdated(ViewNumber::new(1))),
             exact(DaCertificateValidated(dacs[2].clone()))
         ]),
         Expectations::from_outputs(all_predicates![
