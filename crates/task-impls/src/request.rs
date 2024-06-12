@@ -294,16 +294,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
         signature: Signature<TYPES>,
         key: TYPES::SignatureKey,
     ) {
-        match self
-            .network
-            .request_data::<TYPES, Ver>(
+        match async_timeout(
+            REQUEST_TIMEOUT,
+            self.network.request_data::<TYPES, Ver>(
                 make_proposal_req(view, signature, key),
                 &self.leader,
                 Ver::instance(),
-            )
-            .await
+            ),
+        )
+        .await
         {
-            Ok(response) => match response {
+            Ok(Ok(response)) => match response {
                 ResponseMessage::Found(msg) => {
                     let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
                     else {
@@ -321,7 +322,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                     broadcast_event(None, &self.sender).await;
                 }
             },
-            Err(_) => todo!(),
+            Ok(Err(_)) => {}
+            Err(_) => {
+                warn!("Request for proposal timed out");
+            }
         }
     }
 }
