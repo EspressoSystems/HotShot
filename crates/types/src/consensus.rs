@@ -299,23 +299,28 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the validated state map with a new view_number/view combo.
+    ///
+    /// Skips the update if the new view contains less information than the exisiting view with the
+    /// same view number.
     pub fn update_validated_state_map(&mut self, view_number: TYPES::Time, view: View<TYPES>) {
-
-        self.validated_state_map.insert(view_number, view);
-        let mut can_update = true;
-        match consensus.validated_state_map().get(view_number) {
-            ViewInner::Leaf{..,delta} => {
-                if consensus.validated_state_map().
+        if let Some(existing_view) = self.validated_state_map().get(&view_number) {
+            if let ViewInner::Leaf { .. } = existing_view.view_inner {
+                match view.view_inner.clone() {
+                    ViewInner::Leaf { delta, .. } => {
+                        if delta.is_none() {
+                            // Don't override a `Leaf` view with `None` state delta.
+                            return;
+                        }
+                    }
+                    _ => {
+                        // Don't override a `Leaf` view with a non-`Leaf` view.
+                        return;
+                    }
+                }
             }
         }
 
-        if view.
-        if !consensus.validated_state_map().contains_key(&view_number) {
-            let view = View {
-                view_inner: ViewInner::Da { payload_commitment },
-            };
-            consensus.update_validated_state_map(view_number, view.clone());
-        }
+        self.validated_state_map.insert(view_number, view);
     }
 
     /// Update the saved leaves with a new leaf.
