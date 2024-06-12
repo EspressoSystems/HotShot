@@ -941,7 +941,7 @@
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
+    #[instrument(skip_all)]
     </span><span class="kw">pub async fn </span>new(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -953,7 +953,7 @@
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;<span class="self">Self</span>&gt;, HotShotError&lt;TYPES&gt;&gt; {
-        <span class="macro">debug!</span>(<span class="string">"Creating a new hotshot"</span>);
+        <span class="macro">trace!</span>(<span class="string">"Creating a new instance of hotshot"</span>);
 
         <span class="kw">let </span>consensus_metrics = Arc::new(metrics);
         <span class="kw">let </span>anchored_leaf = initializer.inner;

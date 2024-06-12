@@ -174,8 +174,6 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -199,13 +197,11 @@
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
-
 <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
 </span><span class="kw">use </span>hotshot_task_impls::{
     consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
 };
-
 <span class="kw">use </span>hotshot_types::{
     constants::{Version01, VERSION_0_1},
     message::{Message, Messages},
