@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{bail, ensure, Context, Result};
-use async_broadcast::Sender;
+use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -44,7 +44,7 @@ use super::ConsensusTaskState;
 use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    events::HotShotEvent,
+    events::{HotShotEvent, ProposalMissing},
     helpers::{broadcast_event, AnyhowTracing},
 };
 
@@ -499,6 +499,34 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     .await
 }
 
+/// Trigger a request to the network for a proposal for a view and wait for the response
+async fn fetch_proposal<TYPES: NodeType>(
+    view: TYPES::Time,
+    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    quorum_membership: Arc<TYPES::Membership>,
+) -> Result<Leaf<TYPES>> {
+    let (tx, mut rx) = broadcast(1);
+    let event = ProposalMissing {
+        view,
+        response_chan: tx,
+    };
+    broadcast_event(
+        Arc::new(HotShotEvent::QuorumProposalMissing(event)),
+        &event_stream,
+    )
+    .await;
+    let Ok(Some(proposal)) = rx.recv_direct().await else {
+        bail!("Request for proposal failed");
+    };
+    let view = proposal.data.view_number();
+    let justify_qc = proposal.data.justify_qc.clone();
+
+    if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
+        bail!("Invalid justify_qc in proposal for view {}", *view);
+    }
+    Ok(Leaf::from_quorum_proposal(&proposal.data))
+}
+
 // TODO: Fix `clippy::too_many_lines`.
 /// Handle the received quorum proposal.
 ///
@@ -558,12 +586,19 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
 
     let consensus_read = task_state.consensus.read().await;
 
-    // Get the parent leaf and state.
-    let parent = match consensus_read
+    let parent_leaf = consensus_read
         .saved_leaves()
         .get(&justify_qc.date().leaf_commit)
         .cloned()
-    {
+        .or(fetch_proposal(
+            justify_qc.view_number(),
+            event_stream.clone(),
+            Arc::clone(&task_state.quorum_membership),
+        )
+        .await
+        .ok());
+    // Get the parent leaf and state.
+    let parent = match parent_leaf {
         Some(leaf) => {
             if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
                 Some((leaf, Arc::clone(&state)))
@@ -1010,7 +1045,14 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let parent = read_consnesus
         .saved_leaves()
         .get(&justify_qc.date().leaf_commit)
-        .cloned();
+        .cloned()
+        .or(fetch_proposal(
+            justify_qc.view_number(),
+            vote_info.3.clone(),
+            Arc::clone(&quorum_membership),
+        )
+        .await
+        .ok());
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     let Some(parent) = parent else {
