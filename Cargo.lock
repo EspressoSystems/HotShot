@@ -3232,6 +3232,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.18",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -3270,6 +3271,7 @@ dependencies = [
  "toml",
  "tracing",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -3379,6 +3381,7 @@ dependencies = [
  "tokio",
  "tracing",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -3432,6 +3435,7 @@ dependencies = [
  "typenum",
  "url",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -8734,6 +8738,15 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "vec1"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffb60dcfffc189bfd4e2a81333c268619fee9db53da71bce2bcbd8e129c56936"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "version_check"
