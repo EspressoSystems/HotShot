@@ -137,8 +137,7 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
-<span class="kw">use </span>std::sync::Arc;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
@@ -147,6 +146,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
+<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     event::{Event, EventType},
