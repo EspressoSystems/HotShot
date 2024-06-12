@@ -300,7 +300,22 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
     /// Update the validated state map with a new view_number/view combo.
     pub fn update_validated_state_map(&mut self, view_number: TYPES::Time, view: View<TYPES>) {
+
         self.validated_state_map.insert(view_number, view);
+        let mut can_update = true;
+        match consensus.validated_state_map().get(view_number) {
+            ViewInner::Leaf{..,delta} => {
+                if consensus.validated_state_map().
+            }
+        }
+
+        if view.
+        if !consensus.validated_state_map().contains_key(&view_number) {
+            let view = View {
+                view_inner: ViewInner::Da { payload_commitment },
+            };
+            consensus.update_validated_state_map(view_number, view.clone());
+        }
     }
 
     /// Update the saved leaves with a new leaf.
