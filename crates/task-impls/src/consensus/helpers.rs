@@ -1,11 +1,15 @@
-use crate::{
-    events::{HotShotEvent, ProposalMissing},
-    helpers::broadcast_event,
-    request::REQUEST_TIMEOUT,
-};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
+
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::{events::ProposalMissing, request::REQUEST_TIMEOUT};
+
+#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::bail;
 use anyhow::{ensure, Context, Result};
-use async_broadcast::{broadcast, Sender};
+#[cfg(not(feature = "dependency-tasks"))]
+use async_broadcast::broadcast;
+use async_broadcast::Sender;
+#[cfg(not(feature = "dependency-tasks"))]
 use async_compatibility_layer::art::async_timeout;
 #[cfg(not(feature = "dependency-tasks"))]
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -543,6 +547,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 }
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
+#[cfg(not(feature = "dependency-tasks"))]
 async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
