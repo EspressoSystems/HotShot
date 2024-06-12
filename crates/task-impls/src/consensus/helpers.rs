@@ -1,11 +1,12 @@
 #[cfg(not(feature = "dependency-tasks"))]
-use super::ConsensusTaskState;
+use core::time::Duration;
 #[cfg(not(feature = "dependency-tasks"))]
-use crate::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
+use std::marker::PhantomData;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
-use crate::{events::HotShotEvent, helpers::broadcast_event};
+
 #[cfg(not(feature = "dependency-tasks"))]
 use anyhow::bail;
 use anyhow::{ensure, Context, Result};
@@ -19,8 +20,6 @@ use async_std::task::JoinHandle;
 #[cfg(not(feature = "dependency-tasks"))]
 use chrono::Utc;
 use committable::{Commitment, Committable};
-#[cfg(not(feature = "dependency-tasks"))]
-use core::time::Duration;
 #[cfg(not(feature = "dependency-tasks"))]
 use futures::FutureExt;
 #[cfg(not(feature = "dependency-tasks"))]
@@ -46,12 +45,6 @@ use hotshot_types::{
 };
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData};
-#[cfg(not(feature = "dependency-tasks"))]
-use std::marker::PhantomData;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 #[cfg(not(feature = "dependency-tasks"))]
@@ -59,6 +52,15 @@ use tracing::error;
 use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]
 use vbs::version::Version;
+
+#[cfg(not(feature = "dependency-tasks"))]
+use super::ConsensusTaskState;
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::{
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+    helpers::AnyhowTracing,
+};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
