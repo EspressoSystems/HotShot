@@ -525,6 +525,14 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -534,23 +542,22 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    constants::{BASE_VERSION, STATIC_VER_0_1},
     data::{VidDisperse, VidDisperseShare},
     event::HotShotAction,
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage,
+        SequencingMessage, VersionedMessage,
     },
+    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, TransmitType, ViewMessage},
+        network::{BroadcastDelay, ConnectedNetwork, TransmitType, ViewMessage},
         node_implementation::{ConsensusTime, NodeType},
         storage::Storage,
     },
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
-<span class="kw">use </span>vbs::version::Version;
+<span class="kw">use </span>tracing::{error, instrument, warn};
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -565,7 +572,7 @@
             | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
             | HotShotEvent::DacSend(<span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::TimeoutVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
+            | HotShotEvent::UpgradeDecided(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
 }
@@ -576,7 +583,7 @@
         event.as_ref(),
         HotShotEvent::UpgradeProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::UpgradeVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
+            | HotShotEvent::UpgradeDecided(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
 }
@@ -587,7 +594,7 @@
         event.as_ref(),
         HotShotEvent::DaProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::DaVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
+            | HotShotEvent::UpgradeDecided(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
 }
@@ -597,7 +604,7 @@
     !<span class="macro">matches!</span>(
         event.as_ref(),
         HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
+            | HotShotEvent::UpgradeDecided(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
 }
@@ -612,7 +619,7 @@
             | HotShotEvent::ViewSyncPreCommitVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewSyncCommitVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewSyncFinalizeVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::VersionUpgrade(<span class="kw">_</span>)
+            | HotShotEvent::UpgradeDecided(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
 }
@@ -717,15 +724,13 @@
 <span class="doccomment">/// network event task state
 </span><span class="kw">pub struct </span>NetworkEventTaskState&lt;
     TYPES: NodeType,
-    COMMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    COMMCHANNEL: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
     S: Storage&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// comm channel
     </span><span class="kw">pub </span>channel: Arc&lt;COMMCHANNEL&gt;,
     <span class="doccomment">/// view number
     </span><span class="kw">pub </span>view: TYPES::Time,
-    <span class="doccomment">/// version
-    </span><span class="kw">pub </span>version: Version,
     <span class="doccomment">/// membership for the channel
     </span><span class="kw">pub </span>membership: TYPES::Membership,
     <span class="comment">// TODO ED Need to add exchange so we can get the recipient key and our own key?
@@ -733,12 +738,14 @@
     </span><span class="kw">pub </span>filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool,
     <span class="doccomment">/// Storage to store actionable events
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;S&gt;&gt;,
+    <span class="doccomment">/// Decided upgrade certificate
+    </span><span class="kw">pub </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 }
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        COMMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+        COMMCHANNEL: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
         S: Storage&lt;TYPES&gt; + <span class="lifetime">'static</span>,
     &gt; TaskState <span class="kw">for </span>NetworkEventTaskState&lt;TYPES, COMMCHANNEL, S&gt;
 {
@@ -764,7 +771,7 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        COMMCHANNEL: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+        COMMCHANNEL: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
         S: Storage&lt;TYPES&gt; + <span class="lifetime">'static</span>,
     &gt; NetworkEventTaskState&lt;TYPES, COMMCHANNEL, S&gt;
 {
@@ -777,7 +784,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) {
         <span class="kw">let </span><span class="kw-2">mut </span>maybe_action = <span class="prelude-val">None</span>;
         <span class="kw">let </span>(sender, message_kind, transmit): (<span class="kw">_</span>, <span class="kw">_</span>, TransmitType&lt;TYPES&gt;) =
             <span class="kw">match </span>event.as_ref().clone() {
@@ -804,7 +811,8 @@
                     )
                 }
                 HotShotEvent::VidDisperseSend(proposal, sender) =&gt; {
-                    <span class="kw">return </span><span class="self">self</span>.handle_vid_disperse_proposal(proposal, <span class="kw-2">&amp;</span>sender);
+                    <span class="self">self</span>.handle_vid_disperse_proposal(proposal, <span class="kw-2">&amp;</span>sender);
+                    <span class="kw">return</span>;
                 }
                 HotShotEvent::DaProposalSend(proposal, sender) =&gt; {
                     maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaPropose);
@@ -908,22 +916,23 @@
                     <span class="self">self</span>.channel
                         .update_view::&lt;TYPES&gt;(<span class="self">self</span>.view.u64(), membership)
                         .<span class="kw">await</span>;
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                    <span class="kw">return</span>;
                 }
-                HotShotEvent::VersionUpgrade(version) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">"Updating internal version in network task to {:?}"</span>, version);
-                    <span class="self">self</span>.version = version;
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                HotShotEvent::UpgradeDecided(cert) =&gt; {
+                    <span class="self">self</span>.decided_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
+                    <span class="kw">return</span>;
                 }
-                HotShotEvent::Shutdown =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"Networking task shutting down"</span>);
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
-                }
-                event =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"Receieved unexpected message in network task {:?}"</span>, event);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">return</span>;
                 }
             };
+        <span class="kw">let </span>broadcast_delay = <span class="kw">match </span><span class="kw-2">&amp;</span>message_kind {
+            MessageKind::Consensus(
+                SequencingMessage::General(GeneralConsensusMessage::Vote(<span class="kw">_</span>))
+                | SequencingMessage::Da(<span class="kw">_</span>),
+            ) =&gt; BroadcastDelay::View(<span class="kw-2">*</span>message_kind.view_number()),
+            <span class="kw">_ </span>=&gt; BroadcastDelay::None,
+        };
         <span class="kw">let </span>message = Message {
             sender,
             kind: message_kind,
@@ -932,7 +941,7 @@
         <span class="kw">let </span>committee = membership.whole_committee(view);
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
-        <span class="kw">let </span>version = <span class="self">self</span>.version;
+        <span class="kw">let </span>decided_upgrade_certificate = <span class="self">self</span>.decided_upgrade_certificate.clone();
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, COMMCHANNEL, S&gt;::maybe_record_action(
                 maybe_action,
@@ -953,23 +962,26 @@
                 }
             }
 
-            <span class="kw">let </span>transmit_result = <span class="kw">if </span>version == BASE_VERSION {
-                <span class="kw">match </span>transmit {
-                    TransmitType::Direct(recipient) =&gt; {
-                        net.direct_message(message, recipient, STATIC_VER_0_1).<span class="kw">await
-                    </span>}
-                    TransmitType::Broadcast =&gt; {
-                        net.broadcast_message(message, committee, STATIC_VER_0_1)
-                            .<span class="kw">await
-                    </span>}
-                    TransmitType::DaCommitteeBroadcast =&gt; {
-                        net.da_broadcast_message(message, committee, STATIC_VER_0_1)
-                            .<span class="kw">await
-                    </span>}
+            <span class="kw">let </span>serialized_message = <span class="kw">match </span>message.serialize(<span class="kw-2">&amp;</span>decided_upgrade_certificate) {
+                <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">error!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
+                    <span class="kw">return</span>;
                 }
-            } <span class="kw">else </span>{
-                <span class="macro">error!</span>(<span class="string">"The network has upgraded to {:?}, which is not implemented in this instance of HotShot."</span>, version);
-                <span class="kw">return</span>;
+            };
+
+            <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit {
+                TransmitType::Direct(recipient) =&gt; {
+                    net.direct_message(serialized_message, recipient).<span class="kw">await
+                </span>}
+                TransmitType::Broadcast =&gt; {
+                    net.broadcast_message(serialized_message, committee, broadcast_delay)
+                        .<span class="kw">await
+                </span>}
+                TransmitType::DaCommitteeBroadcast =&gt; {
+                    net.da_broadcast_message(serialized_message, committee, broadcast_delay)
+                        .<span class="kw">await
+                </span>}
             };
 
             <span class="kw">match </span>transmit_result {
@@ -977,9 +989,7 @@
                 <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
             }
         });
-
-        <span class="prelude-val">None
-    </span>}
+    }
 
     <span class="doccomment">/// handle `VidDisperseSend`
     </span><span class="kw">fn </span>handle_vid_disperse_proposal(
@@ -989,20 +999,26 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>view = vid_proposal.data.view_number;
         <span class="kw">let </span>vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
-        <span class="kw">let </span>messages: HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = vid_share_proposals
-            .into_iter()
-            .map(|proposal| {
-                (
-                    proposal.data.recipient_key.clone(),
-                    Message {
-                        sender: sender.clone(),
-                        kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
-                            DaConsensusMessage::VidDisperseMsg(proposal),
-                        )), <span class="comment">// TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
-                    </span>},
-                )
-            })
-            .collect();
+        <span class="kw">let </span><span class="kw-2">mut </span>messages = HashMap::new();
+
+        <span class="kw">for </span>proposal <span class="kw">in </span>vid_share_proposals {
+            <span class="kw">let </span>recipient = proposal.data.recipient_key.clone();
+            <span class="kw">let </span>message = Message {
+                sender: sender.clone(),
+                kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
+                    DaConsensusMessage::VidDisperseMsg(proposal),
+                )), <span class="comment">// TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+            </span>};
+            <span class="kw">let </span>serialized_message = <span class="kw">match </span>message.serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate) {
+                <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">error!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
+                    <span class="kw">continue</span>;
+                }
+            };
+
+            messages.insert(recipient, serialized_message);
+        }
 
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
@@ -1017,7 +1033,7 @@
             {
                 <span class="kw">return</span>;
             }
-            <span class="kw">match </span>net.vid_broadcast_message(messages, STATIC_VER_0_1).<span class="kw">await </span>{
+            <span class="kw">match </span>net.vid_broadcast_message(messages).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(()) =&gt; {}
                 <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
             }

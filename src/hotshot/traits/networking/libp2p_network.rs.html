@@ -1093,42 +1093,6 @@
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1162,19 +1126,16 @@
 <span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{
-    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation, ViewMessage,
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
-    constants::{Version01, LOOK_AHEAD, STATIC_VER_0_1, VERSION_0_1},
+    constants::LOOK_AHEAD,
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         election::Membership,
-        network::{
-            <span class="self">self</span>, ConnectedNetwork, FailedToSerializeSnafu, NetworkError, NetworkMsg,
-            ResponseMessage,
-        },
+        network::{<span class="self">self</span>, ConnectedNetwork, NetworkError, ResponseMessage},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -1196,14 +1157,10 @@
 };
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
-<span class="kw">use </span>vbs::{
-    version::{StaticVersionType, Version},
-    BinarySerializer, Serializer,
-};
 
 <span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
+<span class="kw">use </span><span class="kw">crate</span>::BroadcastDelay;
 
 <span class="doccomment">/// convenience alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
@@ -1227,33 +1184,33 @@
     </span>byte: u8,
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; Debug <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; Debug <span class="kw">for </span>Libp2pNetwork&lt;K&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">"Libp2p"</span>).field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="string">"inner"</span>).finish()
     }
 }
 
 <span class="doccomment">/// Locked Option of a receiver for moving the value out of the option
-</span><span class="kw">type </span>TakeReceiver&lt;M&gt; = Mutex&lt;<span class="prelude-ty">Option</span>&lt;Receiver&lt;(M, ResponseChannel&lt;Response&gt;)&gt;&gt;&gt;;
+</span><span class="kw">type </span>TakeReceiver = Mutex&lt;<span class="prelude-ty">Option</span>&lt;Receiver&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Response&gt;)&gt;&gt;&gt;;
 
 <span class="doccomment">/// Type alias for a shared collection of peerid, multiaddrs
 </span><span class="kw">pub type </span>PeerInfoVec = Arc&lt;RwLock&lt;Vec&lt;(PeerId, Multiaddr)&gt;&gt;&gt;;
 
 <span class="doccomment">/// The underlying state of the libp2p network
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>Libp2pNetworkInner&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">struct </span>Libp2pNetworkInner&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// this node's public key
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
     </span>handle: Arc&lt;NetworkNodeHandle&gt;,
     <span class="doccomment">/// Message Receiver
-    </span>receiver: UnboundedReceiver&lt;M&gt;,
+    </span>receiver: UnboundedReceiver&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Receiver for Requests for Data, includes the request and the response chan
     /// Lock should only be used once to take the channel and move it into the request
     /// handler task
-    </span>requests_rx: TakeReceiver&lt;M&gt;,
+    </span>requests_rx: TakeReceiver,
     <span class="doccomment">/// Sender for broadcast messages
-    </span>sender: UnboundedSender&lt;M&gt;,
+    </span>sender: UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
     </span>node_lookup_send: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
@@ -1287,16 +1244,14 @@
 <span class="doccomment">/// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Libp2pNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">pub struct </span>Libp2pNetwork&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// holds the state of the libp2p network
-    </span>inner: Arc&lt;Libp2pNetworkInner&lt;M, K&gt;&gt;,
+    </span>inner: Arc&lt;Libp2pNetworkInner&lt;K&gt;&gt;,
 }
 
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
-    <span class="kw">for </span>Libp2pNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
-<span class="kw">where
-    </span>MessageKind&lt;TYPES&gt;: ViewMessage&lt;TYPES&gt;,
+    <span class="kw">for </span>Libp2pNetwork&lt;TYPES::SignatureKey&gt;
 {
     <span class="doccomment">/// Returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -1467,7 +1422,7 @@
     </span><span class="prelude-val">Ok</span>(PeerId::from_public_key(<span class="kw-2">&amp;</span>keypair.public()))
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey&gt; Libp2pNetwork&lt;M, K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; Libp2pNetwork&lt;K&gt; {
     <span class="doccomment">/// Create and return a Libp2p network from a network config file
     /// and various other configuration-specific values.
     ///
@@ -1593,7 +1548,7 @@
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         da_public_keys: BTreeSet&lt;K&gt;,
         is_da: bool,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, K&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
         <span class="comment">// Error if there were no bootstrap nodes specified
         </span><span class="attr">#[cfg(not(feature = <span class="string">"hotshot-testing"</span>))]
         </span><span class="kw">if </span>bootstrap_addrs.read().<span class="kw">await</span>.len() == <span class="number">0 </span>{
@@ -1659,19 +1614,15 @@
         };
 
         result.handle_event_generator(sender, requests_tx, rx);
-        result.spawn_node_lookup(node_lookup_recv, STATIC_VER_0_1);
-        result.spawn_connect(id, STATIC_VER_0_1);
+        result.spawn_node_lookup(node_lookup_recv);
+        result.spawn_connect(id);
 
         <span class="prelude-val">Ok</span>(result)
     }
 
     <span class="doccomment">/// Spawns task for looking up nodes pre-emptively
     </span><span class="attr">#[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    </span><span class="kw">fn </span>spawn_node_lookup&lt;Ver: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
-        <span class="kw">_</span>: Ver,
-    ) {
+    </span><span class="kw">fn </span>spawn_node_lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;) {
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
         <span class="kw">let </span>latest_seen_view = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.latest_seen_view);
@@ -1688,11 +1639,15 @@
 
                 <span class="comment">// only run if we are not too close to the next view number
                 </span><span class="kw">if </span>latest_seen_view.load(Ordering::Relaxed) + THRESHOLD &lt;= <span class="kw-2">*</span>view_number {
+                    <span class="kw">let </span>pk_bytes = <span class="kw">match </span>bincode::serialize(<span class="kw-2">&amp;</span>pk) {
+                        <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
+                        <span class="prelude-val">Err</span>(e) =&gt; {
+                            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize public key; this should never happen. Error: {e}"</span>);
+                            <span class="kw">return</span>;
+                        }
+                    };
                     <span class="comment">// look up
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle
-                        .lookup_node::&lt;K, Ver&gt;(pk.clone(), dht_timeout, Ver::instance())
-                        .<span class="kw">await
-                    </span>{
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle.lookup_node(<span class="kw-2">&amp;</span>pk_bytes, dht_timeout).<span class="kw">await </span>{
                         <span class="macro">error!</span>(<span class="string">"Failed to perform lookup for key {:?}: {}"</span>, pk, err);
                     };
                 }
@@ -1701,7 +1656,7 @@
     }
 
     <span class="doccomment">/// Initiates connection to the outside world
-    </span><span class="kw">fn </span>spawn_connect&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize, bind_version: VER) {
+    </span><span class="kw">fn </span>spawn_connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize) {
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.pk.clone();
         <span class="kw">let </span>bootstrap_ref = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.bootstrap_addrs);
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
@@ -1743,8 +1698,14 @@
 
                 <span class="comment">// we want our records published before
                 // we begin participating in consensus
+                //
+                // Note: this serialization should never fail,
+                // and if it does the error is unrecoverable.
                 </span><span class="kw">while </span>handle
-                    .put_record(<span class="kw-2">&amp;</span>pk, <span class="kw-2">&amp;</span>handle.peer_id(), bind_version)
+                    .put_record(
+                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>pk).unwrap(),
+                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>handle.peer_id()).unwrap(),
+                    )
                     .<span class="kw">await
                     </span>.is_err()
                 {
@@ -1757,7 +1718,10 @@
                 );
 
                 <span class="kw">while </span>handle
-                    .put_record(<span class="kw-2">&amp;</span>handle.peer_id(), <span class="kw-2">&amp;</span>pk, bind_version)
+                    .put_record(
+                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>handle.peer_id()).unwrap(),
+                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>pk).unwrap(),
+                    )
                     .<span class="kw">await
                     </span>.is_err()
                 {
@@ -1790,55 +1754,46 @@
         });
     }
 
-    <span class="doccomment">/// Handle events for Version 0.1 of the protocol.
-    </span><span class="kw">async fn </span>handle_recvd_events_0_1(
+    <span class="doccomment">/// Handle events
+    </span><span class="kw">async fn </span>handle_recvd_events(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         msg: NetworkEvent,
-        sender: <span class="kw-2">&amp;</span>UnboundedSender&lt;M&gt;,
-        <span class="kw-2">mut </span>request_tx: Sender&lt;(M, ResponseChannel&lt;Response&gt;)&gt;,
+        sender: <span class="kw-2">&amp;</span>UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
+        <span class="kw-2">mut </span>request_tx: Sender&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Response&gt;)&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">match </span>msg {
             GossipMsg(msg) =&gt; {
-                <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; = Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>msg);
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
-                    sender
-                        .send(result)
-                        .<span class="kw">await
-                        </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
-                }
+                sender
+                    .send(msg)
+                    .<span class="kw">await
+                    </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
             }
             DirectRequest(msg, _pid, chan) =&gt; {
-                <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; =
-                    Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>msg).context(FailedToSerializeSnafu);
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
-                    sender
-                        .send(result)
-                        .<span class="kw">await
-                        </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
-                }
+                sender
+                    .send(msg)
+                    .<span class="kw">await
+                    </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
                 <span class="kw">if </span><span class="self">self
                     </span>.inner
                     .handle
-                    .direct_response(chan, <span class="kw-2">&amp;</span>Empty { byte: <span class="number">0u8 </span>}, STATIC_VER_0_1)
+                    .direct_response(
+                        chan,
+                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>Empty { byte: <span class="number">0u8 </span>})
+                            .map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>,
+                    )
                     .<span class="kw">await
                     </span>.is_err()
                 {
                     <span class="macro">error!</span>(<span class="string">"failed to ack!"</span>);
                 };
             }
-            DirectResponse(msg, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>_result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; =
-                    Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>msg).context(FailedToSerializeSnafu);
-            }
+            DirectResponse(_msg, <span class="kw">_</span>) =&gt; {}
             NetworkEvent::IsBootstrapped =&gt; {
-                <span class="macro">error!</span>(<span class="string">"handle_recvd_events_0_1 received `NetworkEvent::IsBootstrapped`, which should be impossible."</span>);
+                <span class="macro">error!</span>(<span class="string">"handle_recvd_events received `NetworkEvent::IsBootstrapped`, which should be impossible."</span>);
             }
-            NetworkEvent::ResponseRequested(msg, chan) =&gt; {
-                <span class="kw">let </span>reqeust =
-                    Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
-                request_tx
-                    .try_send((reqeust, chan))
-                    .map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
+            NetworkEvent::ResponseRequested(Request(msg), chan) =&gt; {
+                <span class="kw">let </span>res = request_tx.try_send((msg, chan));
+                res.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
             }
         }
         <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
@@ -1848,8 +1803,8 @@
     /// terminates on shut down of network
     </span><span class="kw">fn </span>handle_event_generator(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        sender: UnboundedSender&lt;M&gt;,
-        request_tx: Sender&lt;(M, ResponseChannel&lt;Response&gt;)&gt;,
+        sender: UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
+        request_tx: Sender&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Response&gt;)&gt;,
         <span class="kw-2">mut </span>network_rx: NetworkNodeReceiver,
     ) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
@@ -1872,33 +1827,13 @@
                             NetworkEvent::IsBootstrapped =&gt; {
                                 is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                             }
-                            GossipMsg(raw)
-                            | DirectRequest(raw, <span class="kw">_</span>, <span class="kw">_</span>)
-                            | DirectResponse(raw, <span class="kw">_</span>)
-                            | NetworkEvent::ResponseRequested(Request(raw), <span class="kw">_</span>) =&gt; {
-                                <span class="kw">match </span>Version::deserialize(raw) {
-                                    <span class="prelude-val">Ok</span>((VERSION_0_1, _rest)) =&gt; {
-                                        <span class="kw">let _ </span>= handle
-                                            .handle_recvd_events_0_1(
-                                                message,
-                                                <span class="kw-2">&amp;</span>sender,
-                                                request_tx.clone(),
-                                            )
-                                            .<span class="kw">await</span>;
-                                    }
-                                    <span class="prelude-val">Ok</span>((version, <span class="kw">_</span>)) =&gt; {
-                                        <span class="macro">warn!</span>(
-                                                <span class="string">"Received message with unsupported version: {:?}.\n\nPayload:\n\n{:?}"</span>,
-                                                version, message
-                                            );
-                                    }
-                                    <span class="prelude-val">Err</span>(e) =&gt; {
-                                        <span class="macro">warn!</span>(
-                                            <span class="string">"Error recovering version: {:?}.\n\nPayload:\n\n{:?}"</span>,
-                                            e, message
-                                        );
-                                    }
-                                }
+                            GossipMsg(<span class="kw">_</span>)
+                            | DirectRequest(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
+                            | DirectResponse(<span class="kw">_</span>, <span class="kw">_</span>)
+                            | NetworkEvent::ResponseRequested(Request(<span class="kw">_</span>), <span class="kw">_</span>) =&gt; {
+                                <span class="kw">let _ </span>= handle
+                                    .handle_recvd_events(message, <span class="kw-2">&amp;</span>sender, request_tx.clone())
+                                    .<span class="kw">await</span>;
                             }
                         }
                         <span class="comment">// re-set the `kill_switch` for the next loop
@@ -1921,19 +1856,22 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
-    <span class="kw">async fn </span>request_data&lt;TYPES: NodeType, VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;K&gt; <span class="kw">for </span>Libp2pNetwork&lt;K&gt; {
+    <span class="kw">async fn </span>request_data&lt;TYPES: NodeType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        request: M,
+        request: Vec&lt;u8&gt;,
         recipient: <span class="kw-2">&amp;</span>K,
-        bind_version: VER,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;TYPES&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
 
         <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
             </span>.inner
             .handle
-            .lookup_node::&lt;K, VER&gt;(recipient.clone(), <span class="self">self</span>.inner.dht_timeout, bind_version)
+            .lookup_node(
+                <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>recipient)
+                    .map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>,
+                <span class="self">self</span>.inner.dht_timeout,
+            )
             .<span class="kw">await
         </span>{
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
@@ -1948,34 +1886,33 @@
                 });
             }
         };
-        <span class="kw">match </span><span class="self">self
-            </span>.inner
-            .handle
-            .request_data(<span class="kw-2">&amp;</span>request, pid, bind_version)
-            .<span class="kw">await
-        </span>{
+        <span class="kw">let </span>result = <span class="kw">match </span><span class="self">self</span>.inner.handle.request_data(<span class="kw-2">&amp;</span>request, pid).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(response) =&gt; <span class="kw">match </span>response {
                 <span class="prelude-val">Some</span>(msg) =&gt; {
-                    <span class="kw">let </span>res: Message&lt;TYPES&gt; = Serializer::&lt;VER&gt;::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
-                        .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
-                    <span class="kw">let </span>DataResponse(res) = (<span class="kw">match </span>res.kind {
-                        MessageKind::Data(data) =&gt; data,
-                        MessageKind::Consensus(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ResponseMessage::NotFound),
-                    }) <span class="kw">else </span>{
-                        <span class="kw">return </span><span class="prelude-val">Ok</span>(ResponseMessage::NotFound);
-                    };
-                    <span class="prelude-val">Ok</span>(res)
+                    <span class="kw">if </span>msg.<span class="number">0</span>.len() &lt; <span class="number">8 </span>{
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::FailedToDeserialize {
+                            source: <span class="macro">anyhow!</span>(<span class="string">"insufficient bytes"</span>),
+                        });
+                    }
+                    <span class="kw">let </span>res: Message&lt;TYPES&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
+                        .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })<span class="question-mark">?</span>;
+
+                    <span class="kw">match </span>res.kind {
+                        MessageKind::Data(DataResponse(data)) =&gt; data,
+                        <span class="kw">_ </span>=&gt; ResponseMessage::NotFound,
+                    }
                 }
-                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(ResponseMessage::NotFound),
+                <span class="prelude-val">None </span>=&gt; ResponseMessage::NotFound,
             },
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
-        }
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e.into()),
+        };
+
+        <span class="prelude-val">Ok</span>(bincode::serialize(<span class="kw-2">&amp;</span>result).map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>)
     }
 
-    <span class="kw">async fn </span>spawn_request_receiver_task&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+    <span class="kw">async fn </span>spawn_request_receiver_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        bind_version: VER,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(M, network::ResponseChannel&lt;M&gt;)&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, network::ResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>internal_rx = <span class="self">self</span>.inner.requests_rx.lock().<span class="kw">await</span>.take()<span class="question-mark">?</span>;
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = mpsc::channel(<span class="number">100</span>);
@@ -1983,7 +1920,12 @@
             <span class="kw">while let </span><span class="prelude-val">Some</span>((request, chan)) = internal_rx.next().<span class="kw">await </span>{
                 <span class="kw">let </span>(response_tx, response_rx) = futures::channel::oneshot::channel();
                 <span class="kw">if </span>tx
-                    .try_send((request, network::ResponseChannel(response_tx)))
+                    .try_send((
+                        request,
+                        network::ResponseChannel {
+                            sender: response_tx,
+                        },
+                    ))
                     .is_err()
                 {
                     <span class="kw">continue</span>;
@@ -1991,7 +1933,8 @@
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(response) = response_rx.<span class="kw">await else </span>{
                     <span class="kw">continue</span>;
                 };
-                <span class="kw">let _ </span>= handle.respond_data(<span class="kw-2">&amp;</span>response, chan, bind_version).<span class="kw">await</span>;
+
+                <span class="kw">let _ </span>= handle.respond_data(response, chan).<span class="kw">await</span>;
             }
         });
 
@@ -2025,11 +1968,11 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::broadcast_message"</span>, skip_all)]
-    </span><span class="kw">async fn </span>broadcast_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
+        message: Vec&lt;u8&gt;,
         recipients: BTreeSet&lt;K&gt;,
-        bind_version: VER,
+        _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
         <span class="macro">info!</span>(
@@ -2064,10 +2007,8 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
                 <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
 
-                <span class="kw">let </span>serialized_msg =
-                    Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
                 <span class="kw">let </span>fut = config.clone().chaos_send_msg(
-                    serialized_msg,
+                    message,
                     Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                         <span class="kw">let </span>topic_2 = topic.clone();
                         <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
@@ -2090,12 +2031,7 @@
             }
         }
 
-        <span class="kw">match </span><span class="self">self
-            </span>.inner
-            .handle
-            .gossip(topic, <span class="kw-2">&amp;</span>message, bind_version)
-            .<span class="kw">await
-        </span>{
+        <span class="kw">match </span><span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(()) =&gt; {
                 <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
                 <span class="prelude-val">Ok</span>(())
@@ -2108,15 +2044,15 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::da_broadcast_message"</span>, skip_all)]
-    </span><span class="kw">async fn </span>da_broadcast_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
+        message: Vec&lt;u8&gt;,
         recipients: BTreeSet&lt;K&gt;,
-        bind_version: VER,
+        _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>future_results = recipients
             .into_iter()
-            .map(|r| <span class="self">self</span>.direct_message(message.clone(), r, bind_version));
+            .map(|r| <span class="self">self</span>.direct_message(message.clone(), r));
         <span class="kw">let </span>results = join_all(future_results).<span class="kw">await</span>;
 
         <span class="kw">let </span>errors: Vec&lt;<span class="kw">_</span>&gt; = results
@@ -2135,12 +2071,7 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::direct_message"</span>, skip_all)]
-    </span><span class="kw">async fn </span>direct_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
-        recipient: K,
-        bind_version: VER,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// short circuit if we're dming ourselves
         </span><span class="kw">if </span>recipient == <span class="self">self</span>.inner.pk {
             <span class="comment">// panic if we already shut down?
@@ -2157,7 +2088,11 @@
         <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
             </span>.inner
             .handle
-            .lookup_node::&lt;K, VER&gt;(recipient.clone(), <span class="self">self</span>.inner.dht_timeout, bind_version)
+            .lookup_node(
+                <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>recipient)
+                    .map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>,
+                <span class="self">self</span>.inner.dht_timeout,
+            )
             .<span class="kw">await
         </span>{
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
@@ -2179,10 +2114,8 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
                 <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
 
-                <span class="kw">let </span>serialized_msg =
-                    Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
                 <span class="kw">let </span>fut = config.clone().chaos_send_msg(
-                    serialized_msg,
+                    message,
                     Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                         <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
@@ -2204,12 +2137,7 @@
             }
         }
 
-        <span class="kw">match </span><span class="self">self
-            </span>.inner
-            .handle
-            .direct_request(pid, <span class="kw-2">&amp;</span>message, bind_version)
-            .<span class="kw">await
-        </span>{
+        <span class="kw">match </span><span class="self">self</span>.inner.handle.direct_request(pid, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
             <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
         }
@@ -2220,7 +2148,7 @@
     /// # Errors
     /// If there is a network-related failure.
     </span><span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt; {
         <span class="kw">let </span>result = <span class="self">self
             </span>.inner
             .receiver

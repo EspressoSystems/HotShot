@@ -114,6 +114,8 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Error type for `HotShot`
 //!
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
@@ -198,6 +200,8 @@
         <span class="doccomment">/// source of error
         </span>context: String,
     },
+    <span class="doccomment">/// Failed to serialize message
+    </span>FailedToSerialize,
     <span class="doccomment">/// Internal value used to drive the state machine
     </span>Continue,
 }

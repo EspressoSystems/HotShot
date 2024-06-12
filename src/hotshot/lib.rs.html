@@ -745,12 +745,31 @@
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
 </span><span class="comment">// Documentation module
 </span><span class="attr">#[cfg(feature = <span class="string">"docs"</span>)]
 </span><span class="kw">pub mod </span>documentation;
+
+<span class="kw">use </span>hotshot_types::traits::network::BroadcastDelay;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="doccomment">/// Contains traits consumed by [`SystemContext`]
 </span><span class="kw">pub mod </span>traits;
@@ -780,13 +799,11 @@
 </span><span class="kw">pub use </span>hotshot_types::error::HotShotError;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{
-        Version01, BASE_VERSION, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE, STATIC_VER_0_1,
-    },
+    constants::{Base, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::QuorumCertificate,
+    message::{DataMessage, Message, MessageKind, Proposal, VersionedMessage},
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -909,6 +926,9 @@
 
     <span class="doccomment">/// Reference to the internal storage for consensus datum.
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
+
+    <span class="doccomment">/// a potential upgrade certificate that has been decided on by the consensus tasks.
+    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Clone <span class="kw">for </span>SystemContext&lt;TYPES, I&gt; {
     <span class="attr">#![allow(deprecated)]
@@ -930,6 +950,7 @@
             internal_event_stream: <span class="self">self</span>.internal_event_stream.clone(),
             id: <span class="self">self</span>.id,
             storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
+            decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
         }
     }
 }
@@ -961,6 +982,8 @@
 
         <span class="kw">let </span>(internal_tx, internal_rx) = broadcast(EVENT_CHANNEL_SIZE);
         <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, <span class="kw-2">mut </span>external_rx) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
+
+        <span class="kw">let </span>decided_upgrade_certificate = Arc::new(RwLock::new(<span class="prelude-val">None</span>));
 
         <span class="comment">// Allow overflow on the channel, otherwise sending to it may block.
         </span>external_rx.set_overflow(<span class="bool-val">true</span>);
@@ -1018,7 +1041,7 @@
         );
 
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
-        <span class="kw">let </span>version = Arc::new(RwLock::new(BASE_VERSION));
+        <span class="kw">let </span>version = Arc::new(RwLock::new(Base::VERSION));
 
         <span class="comment">// This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
@@ -1041,6 +1064,7 @@
             external_event_stream: (external_tx, external_rx.deactivate()),
             anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
+            decided_upgrade_certificate,
         });
 
         <span class="prelude-val">Ok</span>(inner)
@@ -1154,6 +1178,7 @@
     </span><span class="kw">pub async fn </span>publish_transaction_async(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transaction: TYPES::Transaction,
+        decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">trace!</span>(<span class="string">"Adding transaction to our own queue"</span>);
 
@@ -1161,7 +1186,18 @@
         <span class="kw">let </span>view_number = api.consensus.read().<span class="kw">await</span>.cur_view();
 
         <span class="comment">// Wrap up a message
-        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction.clone(), view_number);
+        </span><span class="kw">let </span>message_kind: DataMessage&lt;TYPES&gt; =
+            DataMessage::SubmitTransaction(transaction.clone(), view_number);
+        <span class="kw">let </span>message = Message {
+            sender: api.public_key.clone(),
+            kind: MessageKind::from(message_kind),
+        };
+
+        <span class="kw">let </span>cert = decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
+
+        <span class="kw">let </span>serialized_message = message
+            .serialize(<span class="kw-2">&amp;</span>cert)
+            .map_err(|<span class="kw">_</span>| HotShotError::FailedToSerialize)<span class="question-mark">?</span>;
 
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.memberships.da_membership.clone();
@@ -1177,12 +1213,9 @@
                     .networks
                     .da_network
                     .broadcast_message(
-                        Message {
-                            sender: api.public_key.clone(),
-                            kind: MessageKind::from(message),
-                        },
+                        serialized_message,
                         da_membership.whole_committee(view_number),
-                        STATIC_VER_0_1,
+                        BroadcastDelay::None,
                     ),
                 api
                     .send_external_event(Event {
@@ -1330,8 +1363,7 @@
         add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>quorum_network)).<span class="kw">await</span>;
         add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>da_network)).<span class="kw">await</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(request_receiver) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).<span class="kw">await
-        </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(request_receiver) = da_network.spawn_request_receiver_task().<span class="kw">await </span>{
             add_response_task(<span class="kw-2">&amp;mut </span>handle, request_receiver).<span class="kw">await</span>;
             add_request_network_task(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
         }
@@ -1371,7 +1403,7 @@
             network::vid_filter,
         )
         .<span class="kw">await</span>;
-        add_consensus_tasks::&lt;TYPES, I, Version01&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
+        add_consensus_tasks::&lt;TYPES, I, Base&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
         handle
     }
 }

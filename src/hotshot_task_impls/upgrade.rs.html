@@ -285,15 +285,31 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
+    constants::{Base, Upgrade, UPGRADE_HASH},
+    data::UpgradeProposal,
     event::{Event, EventType},
+    message::Proposal,
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
@@ -304,6 +320,7 @@
     vote::HasViewNumber,
 };
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -329,9 +346,6 @@
     <span class="doccomment">/// Network for all nodes
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
 
-    <span class="doccomment">/// Whether we should vote affirmatively on a given upgrade proposal (true) or not (false)
-    </span><span class="kw">pub </span>should_vote: <span class="kw">fn</span>(UpgradeProposalData&lt;TYPES&gt;) -&gt; bool,
-
     <span class="doccomment">/// The current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector:
         RwLock&lt;VoteCollectorOption&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;&gt;&gt;,
@@ -344,6 +358,18 @@
 
     <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// View to start proposing an upgrade
+    </span><span class="kw">pub </span>start_proposing_view: u64,
+
+    <span class="doccomment">/// View to stop proposing an upgrade
+    </span><span class="kw">pub </span>stop_proposing_view: u64,
+
+    <span class="doccomment">/// View to start voting on an upgrade
+    </span><span class="kw">pub </span>start_voting_view: u64,
+
+    <span class="doccomment">/// View to stop voting on an upgrade
+    </span><span class="kw">pub </span>stop_voting_view: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; UpgradeTaskState&lt;TYPES, I&gt; {
@@ -358,9 +384,17 @@
             HotShotEvent::UpgradeProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">info!</span>(<span class="string">"Received upgrade proposal: {:?}"</span>, proposal);
 
+                <span class="kw">if </span><span class="kw-2">*</span>proposal.data.view_number() &lt; <span class="self">self</span>.start_voting_view
+                    || <span class="kw-2">*</span>proposal.data.view_number() &gt;= <span class="self">self</span>.stop_voting_view
+                {
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+
                 <span class="comment">// If the proposal does not match our upgrade target, we immediately exit.
-                </span><span class="kw">if </span>!(<span class="self">self</span>.should_vote)(proposal.data.upgrade_proposal.clone()) {
-                    <span class="macro">info!</span>(<span class="string">"Received unexpected upgrade proposal:\n{:?}"</span>, proposal.data);
+                </span><span class="kw">if </span>proposal.data.upgrade_proposal.new_version_hash != UPGRADE_HASH
+                    || proposal.data.upgrade_proposal.old_version != Base::VERSION
+                    || proposal.data.upgrade_proposal.new_version != Upgrade::VERSION
+                {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -477,9 +511,6 @@
                     }
                 }
             }
-            HotShotEvent::VersionUpgrade(version) =&gt; {
-                <span class="macro">error!</span>(<span class="string">"The network was upgraded to {:?}. This instance of HotShot did not expect an upgrade."</span>, version);
-            }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
@@ -490,54 +521,47 @@
                     <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
-
-                <span class="attr">#[cfg(feature = <span class="string">"example-upgrade"</span>)]
-                </span>{
-                    <span class="kw">use </span>std::marker::PhantomData;
-
-                    <span class="kw">use </span>committable::Committable;
-                    <span class="kw">use </span>hotshot_types::{
-                        data::UpgradeProposal, message::Proposal,
-                        traits::node_implementation::ConsensusTime,
+                <span class="comment">// We try to form a certificate 5 views before we're leader.
+                </span><span class="kw">if </span><span class="kw-2">*</span>view &gt;= <span class="self">self</span>.start_proposing_view
+                    &amp;&amp; <span class="kw-2">*</span>view &lt; <span class="self">self</span>.stop_proposing_view
+                    &amp;&amp; <span class="self">self</span>.quorum_membership.leader(view + <span class="number">5</span>) == <span class="self">self</span>.public_key
+                {
+                    <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
+                        old_version: Base::VERSION,
+                        new_version: Upgrade::VERSION,
+                        new_version_hash: UPGRADE_HASH.to_vec(),
+                        <span class="comment">// We schedule the upgrade to begin 15 views in the future
+                        </span>old_version_last_view: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">15</span>),
+                        <span class="comment">// and end 20 views in the future
+                        </span>new_version_first_view: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">20</span>),
+                        decide_by: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">10</span>),
                     };
-                    <span class="kw">use </span>vbs::version::Version;
 
-                    <span class="kw">if </span><span class="kw-2">*</span>view == <span class="number">5 </span>&amp;&amp; <span class="self">self</span>.quorum_membership.leader(view + <span class="number">5</span>) == <span class="self">self</span>.public_key {
-                        <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
-                            old_version: Version { major: <span class="number">0</span>, minor: <span class="number">1 </span>},
-                            new_version: Version { major: <span class="number">1</span>, minor: <span class="number">0 </span>},
-                            new_version_hash: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>],
-                            old_version_last_view: TYPES::Time::new(<span class="number">15</span>),
-                            new_version_first_view: TYPES::Time::new(<span class="number">18</span>),
-                            decide_by: TYPES::Time::new(<span class="number">12</span>),
-                        };
+                    <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
+                        upgrade_proposal: upgrade_proposal_data.clone(),
+                        view_number: view + <span class="number">5</span>,
+                    };
 
-                        <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
-                            upgrade_proposal: upgrade_proposal_data.clone(),
-                            view_number: view + <span class="number">5</span>,
-                        };
+                    <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                        upgrade_proposal_data.commit().as_ref(),
+                    )
+                    .expect(<span class="string">"Failed to sign upgrade proposal commitment!"</span>);
 
-                        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                            upgrade_proposal_data.commit().as_ref(),
-                        )
-                        .expect(<span class="string">"Failed to sign upgrade proposal commitment!"</span>);
+                    <span class="kw">let </span>message = Proposal {
+                        data: upgrade_proposal,
+                        signature,
+                        _pd: PhantomData,
+                    };
 
-                        <span class="kw">let </span>message = Proposal {
-                            data: upgrade_proposal,
-                            signature,
-                            _pd: PhantomData,
-                        };
-
-                        broadcast_event(
-                            Arc::new(HotShotEvent::UpgradeProposalSend(
-                                message,
-                                <span class="self">self</span>.public_key.clone(),
-                            )),
-                            <span class="kw-2">&amp;</span>tx,
-                        )
-                        .<span class="kw">await</span>;
-                    }
+                    broadcast_event(
+                        Arc::new(HotShotEvent::UpgradeProposalSend(
+                            message,
+                            <span class="self">self</span>.public_key.clone(),
+                        )),
+                        <span class="kw-2">&amp;</span>tx,
+                    )
+                    .<span class="kw">await</span>;
                 }
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;

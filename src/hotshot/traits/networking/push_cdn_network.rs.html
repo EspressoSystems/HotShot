@@ -523,57 +523,6 @@
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
@@ -609,11 +558,9 @@
 };
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
-    constants::{Version01, VERSION_0_1},
     data::ViewNumber,
-    message::Message,
     traits::{
-        network::{ConnectedNetwork, PushCdnNetworkError},
+        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -623,11 +570,7 @@
 <span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
-<span class="kw">use </span>tracing::{error, warn};
-<span class="kw">use </span>vbs::{
-    version::{StaticVersionType, Version},
-    BinarySerializer, Serializer,
-};
+<span class="kw">use </span>tracing::error;
 
 <span class="kw">use </span><span class="kw">super</span>::NetworkError;
 
@@ -782,32 +725,18 @@
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    </span><span class="kw">async fn </span>broadcast_message&lt;Ver: StaticVersionType&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES&gt;,
-        topic: Topic,
-        <span class="kw">_</span>: Ver,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>broadcast_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, topic: Topic) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're paused, don't send the message
         </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
-        <span class="comment">// Bincode the message
-        </span><span class="kw">let </span>serialized_message = <span class="kw">match </span>Serializer::&lt;Ver&gt;::serialize(<span class="kw-2">&amp;</span>message) {
-            <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::FailedToSerialize { source: e });
-            }
-        };
-
         <span class="comment">// Send the message
         // TODO: check if we need to print this error
         </span><span class="kw">if </span><span class="self">self
             </span>.client
-            .send_broadcast_message(<span class="macro">vec!</span>[topic <span class="kw">as </span>u8], serialized_message)
+            .send_broadcast_message(<span class="macro">vec!</span>[topic <span class="kw">as </span>u8], message)
             .<span class="kw">await
             </span>.is_err()
         {
@@ -985,9 +914,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
-    <span class="kw">for </span>PushCdnNetwork&lt;TYPES&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;TYPES::SignatureKey&gt; <span class="kw">for </span>PushCdnNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Pause sending and receiving on the PushCDN network.
     </span><span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -1019,14 +946,13 @@
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    </span><span class="kw">async fn </span>broadcast_message&lt;Ver: StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES&gt;,
+        message: Vec&lt;u8&gt;,
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
-        bind_version: Ver,
+        _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::Global, bind_version)
-            .<span class="kw">await
+        <span class="self">self</span>.broadcast_message(message, Topic::Global).<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Broadcast a message to all members of the DA committee.
@@ -1034,25 +960,23 @@
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    </span><span class="kw">async fn </span>da_broadcast_message&lt;Ver: StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES&gt;,
+        message: Vec&lt;u8&gt;,
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
-        bind_version: Ver,
+        _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::Da, bind_version)
-            .<span class="kw">await
+        <span class="self">self</span>.broadcast_message(message, Topic::Da).<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Send a direct message to a node with a particular key. Does not retry.
     ///
     /// - If we fail to serialize the message
     /// - If we fail to send the direct message
-    </span><span class="kw">async fn </span>direct_message&lt;Ver: StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES&gt;,
+        message: Vec&lt;u8&gt;,
         recipient: TYPES::SignatureKey,
-        <span class="kw">_</span>: Ver,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're paused, don't send the message
         </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -1060,20 +984,11 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
-        <span class="comment">// Bincode the message
-        </span><span class="kw">let </span>serialized_message = <span class="kw">match </span>Serializer::&lt;Ver&gt;::serialize(<span class="kw-2">&amp;</span>message) {
-            <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::FailedToSerialize { source: e });
-            }
-        };
-
         <span class="comment">// Send the message
         // TODO: check if we need to print this error
         </span><span class="kw">if </span><span class="self">self
             </span>.client
-            .send_direct_message(<span class="kw-2">&amp;</span>WrappedSignatureKey(recipient), serialized_message)
+            .send_direct_message(<span class="kw-2">&amp;</span>WrappedSignatureKey(recipient), message)
             .<span class="kw">await
             </span>.is_err()
         {
@@ -1088,7 +1003,7 @@
     ///
     /// # Errors
     /// - If we fail to receive messages. Will trigger a retry automatically.
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt; {
         <span class="comment">// Receive a message
         </span><span class="kw">let </span>message = <span class="self">self</span>.client.receive_message().<span class="kw">await</span>;
 
@@ -1119,24 +1034,7 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[]);
         };
 
-        <span class="kw">let </span>message_version = Version::deserialize(<span class="kw-2">&amp;</span>message)
-            .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
-        <span class="kw">if </span>message_version.<span class="number">0 </span>== VERSION_0_1 {
-            <span class="kw">let </span>result: Message&lt;TYPES&gt; = Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>message)
-                .map_err(|e| NetworkError::FailedToDeserialize { source: e })<span class="question-mark">?</span>;
-
-            <span class="comment">// Deserialize it
-            // Return it
-            </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[result])
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(NetworkError::FailedToDeserialize {
-                source: <span class="macro">anyhow::format_err!</span>(
-                    <span class="string">"version mismatch, expected {}, got {}"</span>,
-                    VERSION_0_1,
-                    message_version.<span class="number">0
-                </span>),
-            })
-        }
+        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[message])
     }
 
     <span class="doccomment">/// Do nothing here, as we don't need to look up nodes.

@@ -1257,14 +1257,18 @@
 <a href="#1255" id="1255">1255</a>
 <a href="#1256" id="1256">1256</a>
 <a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
+</span><span class="kw">use </span>core::time::Duration;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use crate</span>::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
+</span><span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
-<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
+
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>anyhow::bail;
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
@@ -1278,8 +1282,6 @@
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>core::time::Duration;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>futures::FutureExt;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1305,12 +1307,6 @@
 };
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1318,6 +1314,15 @@
 <span class="kw">use </span>tracing::{debug, info, warn};
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>vbs::version::Version;
+
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use crate</span>::{
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+    helpers::AnyhowTracing,
+};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -2149,10 +2154,7 @@
                         <span class="kw">if </span>cert.data.decide_by &lt; view_number {
                             <span class="macro">warn!</span>(<span class="string">"Failed to decide an upgrade certificate in time. Ignoring."</span>);
                         } <span class="kw">else </span>{
-                            <span class="macro">info!</span>(
-                                <span class="string">"Updating consensus state with decided upgrade certificate: {:?}"</span>,
-                                cert
-                            );
+                            <span class="macro">info!</span>(<span class="string">"Reached decide on upgrade certificate: {:?}"</span>, cert);
                             res.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                         }
                     }
@@ -2225,6 +2227,10 @@
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = res.decided_upgrade_cert {
         task_state.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
+
+        <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state.decided_upgrade_certificate.write().<span class="kw">await</span>;
+        <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
+        drop(decided_certificate_lock);
         <span class="kw">let _ </span>= event_stream
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .<span class="kw">await</span>;

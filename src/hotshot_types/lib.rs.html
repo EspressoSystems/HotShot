@@ -204,6 +204,14 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
@@ -407,5 +415,13 @@
     </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// Builder API base URL
     </span><span class="kw">pub </span>builder_url: Url,
+    <span class="doccomment">/// View to start proposing an upgrade
+    </span><span class="kw">pub </span>start_proposing_view: u64,
+    <span class="doccomment">/// View to stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_view &lt;= start_proposing_view.
+    </span><span class="kw">pub </span>stop_proposing_view: u64,
+    <span class="doccomment">/// View to start voting on an upgrade
+    </span><span class="kw">pub </span>start_voting_view: u64,
+    <span class="doccomment">/// View to stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_view &lt;= start_voting_view.
+    </span><span class="kw">pub </span>stop_voting_view: u64,
 }
 </code></pre></div></section></main></body></html>

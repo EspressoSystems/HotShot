@@ -230,6 +230,8 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
@@ -367,7 +369,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tx: TYPES::Transaction,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.hotshot.publish_transaction_async(tx).<span class="kw">await
+        <span class="self">self</span>.hotshot
+            .publish_transaction_async(tx, Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.decided_upgrade_certificate))
+            .<span class="kw">await
     </span>}
 
     <span class="doccomment">/// Get the underlying consensus state for this [`SystemContext`]

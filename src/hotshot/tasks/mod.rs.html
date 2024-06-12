@@ -174,6 +174,26 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -181,7 +201,6 @@
 
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>hotshot_task::task::Task;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -205,14 +224,15 @@
     view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::{
-    constants::{Version01, VERSION_0_1},
-    message::{Message, Messages},
+    message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
 <span class="kw">use </span>vbs::version::StaticVersionType;
+
+<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -227,7 +247,7 @@
 </span><span class="kw">pub async fn </span>add_request_network_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
-    <span class="kw">let </span>state = NetworkRequestState::&lt;TYPES, I, Version01&gt;::create_from(handle).<span class="kw">await</span>;
+    <span class="kw">let </span>state = NetworkRequestState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>;
 
     <span class="kw">let </span>task = Task::new(
         state,
@@ -240,7 +260,7 @@
 <span class="doccomment">/// Add a task which responds to requests on the network.
 </span><span class="kw">pub async fn </span>add_response_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;,
-    request_receiver: RequestReceiver&lt;TYPES&gt;,
+    request_receiver: RequestReceiver,
 ) {
     <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
         handle.hotshot.consensus(),
@@ -249,18 +269,16 @@
         handle.public_key().clone(),
         handle.private_key().clone(),
     );
-    handle
-        .network_registry
-        .register(run_response_task::&lt;TYPES, Version01&gt;(
-            state,
-            handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
-        ));
+    handle.network_registry.register(run_response_task::&lt;TYPES&gt;(
+        state,
+        handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+    ));
 }
 <span class="doccomment">/// Add the network task to handle messages and publish events.
 </span><span class="kw">pub async fn </span>add_network_message_task&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    NET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    NET: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
 &gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;,
     channel: Arc&lt;NET&gt;,
@@ -270,12 +288,34 @@
         event_stream: handle.internal_event_stream.<span class="number">0</span>.clone(),
     };
 
+    <span class="kw">let </span>decided_upgrade_certificate = Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate);
+
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>net);
     <span class="kw">let </span><span class="kw-2">mut </span>state = network_state.clone();
     <span class="kw">let </span>task_handle = async_spawn(<span class="kw">async move </span>{
         <span class="kw">loop </span>{
+            <span class="kw">let </span>decided_upgrade_certificate_lock = decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
             <span class="kw">let </span>msgs = <span class="kw">match </span>network.recv_msgs().<span class="kw">await </span>{
-                <span class="prelude-val">Ok</span>(msgs) =&gt; Messages(msgs),
+                <span class="prelude-val">Ok</span>(msgs) =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>deserialized_messages = Vec::new();
+
+                    <span class="kw">for </span>msg <span class="kw">in </span>msgs {
+                        <span class="kw">let </span>deserialized_message = <span class="kw">match </span>VersionedMessage::deserialize(
+                            <span class="kw-2">&amp;</span>msg,
+                            <span class="kw-2">&amp;</span>decided_upgrade_certificate_lock,
+                        ) {
+                            <span class="prelude-val">Ok</span>(deserialized) =&gt; deserialized,
+                            <span class="prelude-val">Err</span>(e) =&gt; {
+                                <span class="macro">tracing::error!</span>(<span class="string">"Failed to deserialize message: {}"</span>, e);
+                                <span class="kw">return</span>;
+                            }
+                        };
+
+                        deserialized_messages.push(deserialized_message);
+                    }
+
+                    Messages(deserialized_messages)
+                }
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">tracing::error!</span>(<span class="string">"failed to receive messages: {err}"</span>);
 
@@ -297,7 +337,7 @@
 </span><span class="kw">pub async fn </span>add_network_event_task&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    NET: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    NET: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
 &gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;,
     channel: Arc&lt;NET&gt;,
@@ -307,10 +347,10 @@
     <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
-        version: VERSION_0_1,
         membership,
         filter,
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
+        decided_upgrade_certificate: <span class="prelude-val">None</span>,
     };
     <span class="kw">let </span>task = Task::new(
         network_state,

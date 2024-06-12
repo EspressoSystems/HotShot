@@ -54,20 +54,9 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
-</span><span class="kw">use </span>vbs::version::{StaticVersion, Version};
+</span><span class="kw">use </span>vbs::version::StaticVersion;
 
 <span class="doccomment">/// the number of views to gather information for ahead of time
 </span><span class="kw">pub const </span>LOOK_AHEAD: u64 = <span class="number">5</span>;
@@ -84,26 +73,15 @@
 <span class="doccomment">/// the number of messages to send over the secondary network without delay before re-attempting the (presumed down) primary network
 </span><span class="kw">pub const </span>COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = <span class="number">50</span>;
 
-<span class="doccomment">/// CONSTANT for protocol major version
-</span><span class="kw">pub const </span>VERSION_MAJ: u16 = <span class="number">0</span>;
+<span class="doccomment">/// Base protocol version, set to 0.1
+</span><span class="kw">pub type </span>Base = StaticVersion&lt;<span class="number">0</span>, <span class="number">1</span>&gt;;
+<span class="doccomment">/// Upgraded protocol version, set to 0.2
+</span><span class="kw">pub type </span>Upgrade = StaticVersion&lt;<span class="number">0</span>, <span class="number">2</span>&gt;;
 
-<span class="doccomment">/// CONSTANT for protocol major version
-</span><span class="kw">pub const </span>VERSION_MIN: u16 = <span class="number">1</span>;
-
-<span class="doccomment">/// Constant for protocol version 0.1.
-</span><span class="kw">pub const </span>VERSION_0_1: Version = Version {
-    major: VERSION_MAJ,
-    minor: VERSION_MIN,
-};
-
-<span class="doccomment">/// Constant for the base protocol version in this instance of HotShot.
-</span><span class="kw">pub const </span>BASE_VERSION: Version = VERSION_0_1;
-
-<span class="doccomment">/// Type for protocol static version 0.1.
-</span><span class="kw">pub type </span>Version01 = StaticVersion&lt;VERSION_MAJ, VERSION_MIN&gt;;
-
-<span class="doccomment">/// Constant for protocol static version 0.1.
-</span><span class="kw">pub const </span>STATIC_VER_0_1: Version01 = StaticVersion {};
+<span class="doccomment">/// Hash for the upgrade from version 0.1 to version 0.2.
+</span><span class="kw">pub const </span>UPGRADE_HASH: [u8; <span class="number">32</span>] = [
+    <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+];
 
 <span class="doccomment">/// Default channel size for consensus event sharing
 </span><span class="kw">pub const </span>EVENT_CHANNEL_SIZE: usize = <span class="number">100_000</span>;

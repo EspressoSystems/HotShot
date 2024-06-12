@@ -358,25 +358,6 @@
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -402,39 +383,37 @@
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
-    constants::Version01,
-    message::Message,
     traits::{
-        network::{AsyncGenerator, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
+        network::{
+            AsyncGenerator, BroadcastDelay, ConnectedNetwork, TestableNetworkingImplementation,
+        },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
 };
 <span class="kw">use </span>rand::Rng;
-<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-<span class="kw">use </span>vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-<span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
+<span class="kw">use super</span>::{NetworkError, NetworkReliability, NetworkingMetricsValue};
 
 <span class="doccomment">/// Shared state for in-memory mock networking.
 ///
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
 </span><span class="attr">#[derive(custom_debug::Debug)]
-</span><span class="kw">pub struct </span>MasterMap&lt;M: NetworkMsg, K: SignatureKey&gt; {
+</span><span class="kw">pub struct </span>MasterMap&lt;K: SignatureKey&gt; {
     <span class="doccomment">/// The list of `MemoryNetwork`s
     </span><span class="attr">#[debug(skip)]
-    </span>map: DashMap&lt;K, MemoryNetwork&lt;M, K&gt;&gt;,
+    </span>map: DashMap&lt;K, MemoryNetwork&lt;K&gt;&gt;,
     <span class="doccomment">/// The id of this `MemoryNetwork` cluster
     </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey&gt; MasterMap&lt;M, K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; MasterMap&lt;K&gt; {
     <span class="doccomment">/// Create a new, empty, `MasterMap`
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new() -&gt; Arc&lt;MasterMap&lt;M, K&gt;&gt; {
+    </span><span class="kw">pub fn </span>new() -&gt; Arc&lt;MasterMap&lt;K&gt;&gt; {
         Arc::new(MasterMap {
             map: DashMap::new(),
             id: rand::thread_rng().gen(),
@@ -444,13 +423,13 @@
 
 <span class="doccomment">/// Internal state for a `MemoryNetwork` instance
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>MemoryNetworkInner&lt;M: NetworkMsg, K: SignatureKey&gt; {
+</span><span class="kw">struct </span>MemoryNetworkInner&lt;K: SignatureKey&gt; {
     <span class="doccomment">/// Input for messages
     </span>input: RwLock&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Output for messages
-    </span>output: Mutex&lt;Receiver&lt;M&gt;&gt;,
+    </span>output: Mutex&lt;Receiver&lt;Vec&lt;u8&gt;&gt;&gt;,
     <span class="doccomment">/// The master map
-    </span>master_map: Arc&lt;MasterMap&lt;M, K&gt;&gt;,
+    </span>master_map: Arc&lt;MasterMap&lt;K&gt;&gt;,
 
     <span class="doccomment">/// Count of messages that are in-flight (send but not processed yet)
     </span>in_flight_message_count: AtomicUsize,
@@ -470,12 +449,12 @@
 /// Under the hood, this simply maintains mpmc channels to every other `MemoryNetwork` insane of the
 /// same group.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>MemoryNetwork&lt;M: NetworkMsg, K: SignatureKey&gt; {
+</span><span class="kw">pub struct </span>MemoryNetwork&lt;K: SignatureKey&gt; {
     <span class="doccomment">/// The actual internal state
-    </span>inner: Arc&lt;MemoryNetworkInner&lt;M, K&gt;&gt;,
+    </span>inner: Arc&lt;MemoryNetworkInner&lt;K&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey&gt; Debug <span class="kw">for </span>MemoryNetwork&lt;M, K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; Debug <span class="kw">for </span>MemoryNetwork&lt;K&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">"MemoryNetwork"</span>)
             .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="string">"inner"</span>)
@@ -483,15 +462,15 @@
     }
 }
 
-<span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey&gt; MemoryNetwork&lt;M, K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; MemoryNetwork&lt;K&gt; {
     <span class="doccomment">/// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     </span><span class="attr">#[instrument(skip(metrics))]
     </span><span class="kw">pub fn </span>new(
         pub_key: K,
         metrics: NetworkingMetricsValue,
-        master_map: Arc&lt;MasterMap&lt;M, K&gt;&gt;,
+        master_map: Arc&lt;MasterMap&lt;K&gt;&gt;,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; MemoryNetwork&lt;M, K&gt; {
+    ) -&gt; MemoryNetwork&lt;K&gt; {
         <span class="macro">info!</span>(<span class="string">"Attaching new MemoryNetwork"</span>);
         <span class="kw">let </span>(input, task_recv) = bounded(<span class="number">128</span>);
         <span class="kw">let </span>(task_send, output) = bounded(<span class="number">128</span>);
@@ -506,20 +485,12 @@
                 <span class="kw">while let </span><span class="prelude-val">Some</span>(vec) = task_stream.next().<span class="kw">await </span>{
                     <span class="macro">trace!</span>(<span class="question-mark">?</span>vec, <span class="string">"Incoming message"</span>);
                     <span class="comment">// Attempt to decode message
-                    </span><span class="kw">let </span>x = Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>vec);
-                    <span class="kw">match </span>x {
-                        <span class="prelude-val">Ok</span>(x) =&gt; {
-                            <span class="kw">let </span>ts = task_send.clone();
-                            <span class="kw">let </span>res = ts.send(x).<span class="kw">await</span>;
-                            <span class="kw">if </span>res.is_ok() {
-                                <span class="macro">trace!</span>(<span class="string">"Passed message to output queue"</span>);
-                            } <span class="kw">else </span>{
-                                <span class="macro">error!</span>(<span class="string">"Output queue receivers are shutdown"</span>);
-                            }
-                        }
-                        <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to decode incoming message, skipping"</span>);
-                        }
+                    </span><span class="kw">let </span>ts = task_send.clone();
+                    <span class="kw">let </span>res = ts.send(vec).<span class="kw">await</span>;
+                    <span class="kw">if </span>res.is_ok() {
+                        <span class="macro">trace!</span>(<span class="string">"Passed message to output queue"</span>);
+                    } <span class="kw">else </span>{
+                        <span class="macro">error!</span>(<span class="string">"Output queue receivers are shutdown"</span>);
                     }
                     <span class="macro">warn!</span>(<span class="string">"Stream shutdown"</span>);
                 }
@@ -560,7 +531,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
-    <span class="kw">for </span>MemoryNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;
+    <span class="kw">for </span>MemoryNetwork&lt;TYPES::SignatureKey&gt;
 {
     <span class="kw">fn </span>generator(
         _expected_node_count: usize,
@@ -593,7 +564,7 @@
 
 <span class="comment">// TODO instrument these functions
 </span><span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>MemoryNetwork&lt;M, K&gt; {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;K&gt; <span class="kw">for </span>MemoryNetwork&lt;K&gt; {
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::ready_blocking"</span>)]
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 
@@ -618,16 +589,13 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::broadcast_message"</span>)]
-    </span><span class="kw">async fn </span>broadcast_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
+        message: Vec&lt;u8&gt;,
         recipients: BTreeSet&lt;K&gt;,
-        <span class="kw">_</span>: VER,
+        _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="macro">trace!</span>(<span class="question-mark">?</span>message, <span class="string">"Broadcasting message"</span>);
-        <span class="comment">// Bincode the message
-        </span><span class="kw">let </span>vec = Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
-        <span class="macro">trace!</span>(<span class="string">"Message bincoded, sending"</span>);
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.master_map.map {
             <span class="comment">// TODO delay/drop etc here
             </span><span class="kw">let </span>(key, node) = node.pair();
@@ -639,7 +607,7 @@
                 {
                     <span class="kw">let </span>node2 = node.clone();
                     <span class="kw">let </span>fut = config.chaos_send_msg(
-                        vec.clone(),
+                        message.clone(),
                         Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                             <span class="kw">let </span>node3 = (node2).clone();
                             boxed_sync(<span class="kw">async move </span>{
@@ -652,7 +620,7 @@
                     async_spawn(fut);
                 }
             } <span class="kw">else </span>{
-                <span class="kw">let </span>res = node.input(vec.clone()).<span class="kw">await</span>;
+                <span class="kw">let </span>res = node.input(message.clone()).<span class="kw">await</span>;
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(()) =&gt; {
                         <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
@@ -669,33 +637,27 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::da_broadcast_message"</span>)]
-    </span><span class="kw">async fn </span>da_broadcast_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
+    </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
+        message: Vec&lt;u8&gt;,
         recipients: BTreeSet&lt;K&gt;,
-        bind_version: VER,
+        broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, recipients, bind_version)
+        <span class="self">self</span>.broadcast_message(message, recipients, broadcast_delay)
             .<span class="kw">await
     </span>}
 
     <span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::direct_message"</span>)]
-    </span><span class="kw">async fn </span>direct_message&lt;VER: <span class="lifetime">'static </span>+ StaticVersionType&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
-        recipient: K,
-        <span class="kw">_</span>: VER,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
-        </span><span class="kw">let </span>vec = Serializer::&lt;VER&gt;::serialize(<span class="kw-2">&amp;</span>message).context(FailedToSerializeSnafu)<span class="question-mark">?</span>;
-        <span class="macro">trace!</span>(<span class="string">"Message bincoded, finding recipient"</span>);
+        </span><span class="macro">trace!</span>(<span class="string">"Message bincoded, finding recipient"</span>);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.inner.master_map.map.get(<span class="kw-2">&amp;</span>recipient) {
             <span class="kw">let </span>node = node.value().clone();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>config) = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.reliability_config {
                 {
                     <span class="kw">let </span>fut = config.chaos_send_msg(
-                        vec.clone(),
+                        message.clone(),
                         Arc::new(<span class="kw">move </span>|msg: Vec&lt;u8&gt;| {
                             <span class="kw">let </span>node2 = node.clone();
                             boxed_sync(<span class="kw">async move </span>{
@@ -709,7 +671,7 @@
                 }
                 <span class="prelude-val">Ok</span>(())
             } <span class="kw">else </span>{
-                <span class="kw">let </span>res = node.input(vec).<span class="kw">await</span>;
+                <span class="kw">let </span>res = node.input(message).<span class="kw">await</span>;
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(()) =&gt; {
                         <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
@@ -738,7 +700,7 @@
     /// # Errors
     /// If the other side of the channel is closed
     </span><span class="attr">#[instrument(name = <span class="string">"MemoryNetwork::recv_msgs"</span>, skip_all)]
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt; {
         <span class="kw">let </span>ret = <span class="self">self
             </span>.inner
             .output

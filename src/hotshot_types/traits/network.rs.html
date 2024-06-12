@@ -664,6 +664,13 @@
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -700,7 +707,6 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
-<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use super</span>::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{
@@ -840,9 +846,13 @@
 </span>{
 }
 
+<span class="kw">impl</span>&lt;T&gt; NetworkMsg <span class="kw">for </span>T <span class="kw">where
+    </span>T: Serialize + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt; + Clone + Sync + Send + Debug + <span class="lifetime">'static
+</span>{
+}
+
 <span class="doccomment">/// Trait that bundles what we need from a request ID
 </span><span class="kw">pub trait </span>Id: Eq + PartialEq + Hash {}
-<span class="kw">impl </span>NetworkMsg <span class="kw">for </span>Vec&lt;u8&gt; {}
 
 <span class="doccomment">/// a message
 </span><span class="kw">pub trait </span>ViewMessage&lt;TYPES: NodeType&gt; {
@@ -854,7 +864,10 @@
 }
 
 <span class="doccomment">/// Wraps a oneshot channel for responding to requests
-</span><span class="kw">pub struct </span>ResponseChannel&lt;M: NetworkMsg&gt;(<span class="kw">pub </span>oneshot::Sender&lt;M&gt;);
+</span><span class="kw">pub struct </span>ResponseChannel&lt;M: NetworkMsg&gt; {
+    <span class="doccomment">/// underlying sender for this channel
+    </span><span class="kw">pub </span>sender: oneshot::Sender&lt;M&gt;,
+}
 
 <span class="doccomment">/// A request for some data that the consensus layer is asking for.
 </span><span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
@@ -895,14 +908,23 @@
     </span>Denied,
 }
 
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="doccomment">/// When a message should be broadcast to the network.
+///
+/// Network implementations may or may not respect this, at their discretion.
+</span><span class="kw">pub enum </span>BroadcastDelay {
+    <span class="doccomment">/// Broadcast the message immediately
+    </span><span class="prelude-val">None</span>,
+    <span class="doccomment">/// Delay the broadcast to a given view.
+    </span>View(u64),
+}
+
 <span class="attr">#[async_trait]
 </span><span class="doccomment">/// represents a networking implmentration
 /// exposes low level API for interacting with a network
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
-</span><span class="kw">pub trait </span>ConnectedNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">'static</span>&gt;:
-    Clone + Send + Sync + <span class="lifetime">'static
-</span>{
+</span><span class="kw">pub trait </span>ConnectedNetwork&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;: Clone + Send + Sync + <span class="lifetime">'static </span>{
     <span class="doccomment">/// Pauses the underlying network
     </span><span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>);
 
@@ -920,32 +942,31 @@
 
     <span class="doccomment">/// broadcast message to some subset of nodes
     /// blocking
-    </span><span class="kw">async fn </span>broadcast_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
+    </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
+        message: Vec&lt;u8&gt;,
         recipients: BTreeSet&lt;K&gt;,
-        bind_version: VER,
+        broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// broadcast a message only to a DA committee
     /// blocking
-    </span><span class="kw">async fn </span>da_broadcast_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
+    </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
+        message: Vec&lt;u8&gt;,
         recipients: BTreeSet&lt;K&gt;,
-        bind_version: VER,
+        broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// send messages with vid shares to its recipients
     /// blocking
-    </span><span class="kw">async fn </span>vid_broadcast_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
+    </span><span class="kw">async fn </span>vid_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        messages: HashMap&lt;K, M&gt;,
-        bind_version: VER,
+        messages: HashMap&lt;K, Vec&lt;u8&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>future_results = messages.into_iter().map(|(recipient_key, message)| {
-            <span class="self">self</span>.direct_message(message, recipient_key, bind_version)
-        });
+        <span class="kw">let </span>future_results = messages
+            .into_iter()
+            .map(|(recipient_key, message)| <span class="self">self</span>.direct_message(message, recipient_key));
         <span class="kw">let </span>results = join_all(future_results).<span class="kw">await</span>;
 
         <span class="kw">let </span>errors: Vec&lt;<span class="kw">_</span>&gt; = results
@@ -965,27 +986,21 @@
 
     <span class="doccomment">/// Sends a direct message to a specific node
     /// blocking
-    </span><span class="kw">async fn </span>direct_message&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: M,
-        recipient: K,
-        bind_version: VER,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
+    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Receive one or many messages from the underlying network.
     ///
     /// # Errors
     /// If there is a network-related failure.
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;;
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt;;
 
     <span class="doccomment">/// Ask request the network for some data.  Returns the request ID for that data,
     /// The ID returned can be used for cancelling the request
-    </span><span class="kw">async fn </span>request_data&lt;TYPES: NodeType, VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
+    </span><span class="kw">async fn </span>request_data&lt;TYPES: NodeType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _request: M,
+        _request: Vec&lt;u8&gt;,
         _recipient: <span class="kw-2">&amp;</span>K,
-        _bind_version: VER,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;ResponseMessage&lt;TYPES&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
         <span class="prelude-val">Err</span>(NetworkError::UnimplementedFeature)
     }
 
@@ -995,10 +1010,9 @@
     /// with a return channel to send the response back to.
     ///
     /// Returns `None`` if network does not support handling requests
-    </span><span class="kw">async fn </span>spawn_request_receiver_task&lt;VER: StaticVersionType + <span class="lifetime">'static</span>&gt;(
+    </span><span class="kw">async fn </span>spawn_request_receiver_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _bind_version: VER,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(M, ResponseChannel&lt;M&gt;)&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
         <span class="prelude-val">None
     </span>}
 

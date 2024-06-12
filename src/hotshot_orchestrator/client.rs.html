@@ -443,7 +443,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
 <span class="kw">use </span>hotshot_types::{
-    constants::Version01, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
+    constants::Base, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
 };
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
@@ -650,7 +650,7 @@
 
         <span class="comment">// Serialize our (possible) libp2p-specific data
         </span><span class="kw">let </span>request_body =
-            vbs::Serializer::&lt;Version01&gt;::serialize(<span class="kw-2">&amp;</span>(libp2p_address, libp2p_public_key))<span class="question-mark">?</span>;
+            vbs::Serializer::&lt;Base&gt;::serialize(<span class="kw-2">&amp;</span>(libp2p_address, libp2p_public_key))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>identity = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="comment">// We need to clone here to move it into the closure
@@ -764,7 +764,7 @@
 
         <span class="comment">// Serialize our (possible) libp2p-specific data
         </span><span class="kw">let </span>request_body =
-            vbs::Serializer::&lt;Version01&gt;::serialize(<span class="kw-2">&amp;</span>(pubkey, libp2p_address, libp2p_public_key))
+            vbs::Serializer::&lt;Base&gt;::serialize(<span class="kw-2">&amp;</span>(pubkey, libp2p_address, libp2p_public_key))
                 .expect(<span class="string">"failed to serialize request"</span>);
 
         <span class="comment">// register our public key with the orchestrator

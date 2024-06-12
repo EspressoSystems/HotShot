@@ -491,7 +491,6 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -517,7 +516,6 @@
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
     data::Leaf,
-    message::Message,
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
@@ -550,7 +548,7 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;InstanceState = TestInstanceState, ValidatedState = TestValidatedState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
-        N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+        N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
     &gt; TestRunner&lt;TYPES, I, N&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES&gt;,
@@ -971,7 +969,7 @@
 </span><span class="kw">pub struct </span>TestRunner&lt;
     TYPES: NodeType,
     I: TestableNodeImplementation&lt;TYPES&gt;,
-    N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;,
+    N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
 &gt; {
     <span class="doccomment">/// test launcher, contains a bunch of useful metadata and closures
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,

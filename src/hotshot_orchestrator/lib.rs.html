@@ -643,7 +643,7 @@
 <span class="kw">use </span>client::{BenchResults, BenchResultsDownloadConfig};
 <span class="kw">use </span>csv::Writer;
 <span class="kw">use </span>futures::FutureExt;
-<span class="kw">use </span>hotshot_types::{constants::Version01, traits::signature_key::SignatureKey, PeerConfig};
+<span class="kw">use </span>hotshot_types::{constants::Base, traits::signature_key::SignatureKey, PeerConfig};
 <span class="kw">use </span>libp2p::{
     identity::{
         ed25519::{Keypair <span class="kw">as </span>EdKeypair, SecretKey},
@@ -1150,7 +1150,7 @@
 
             <span class="comment">// Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             </span><span class="kw">let </span><span class="prelude-val">Ok</span>((libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
+                vbs::Serializer::&lt;Base&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
             <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
@@ -1182,7 +1182,7 @@
 
             <span class="comment">// Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             </span><span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw-2">mut </span>pubkey, libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::&lt;Version01&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
+                vbs::Serializer::&lt;Base&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
             <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,

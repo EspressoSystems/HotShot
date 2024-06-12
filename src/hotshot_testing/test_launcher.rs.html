@@ -63,15 +63,11 @@
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_types::{
-    message::Message,
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::NodeType,
@@ -111,9 +107,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
     <span class="doccomment">/// launch the test
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>launch&lt;N: ConnectedNetwork&lt;Message&lt;TYPES&gt;, TYPES::SignatureKey&gt;&gt;(
-        <span class="self">self</span>,
-    ) -&gt; TestRunner&lt;TYPES, I, N&gt; {
+    </span><span class="kw">pub fn </span>launch&lt;N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;&gt;(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I, N&gt; {
         TestRunner::&lt;TYPES, I, N&gt; {
             launcher: <span class="self">self</span>,
             nodes: Vec::new(),

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DaConsensusMessage","DataMessage","GeneralConsensusMessage","MessageKind","MessagePurpose","SequencingMessage"],"struct":["Message","Messages","Proposal"]};
+window.SIDEBAR_ITEMS = {"enum":["DaConsensusMessage","DataMessage","GeneralConsensusMessage","MessageKind","MessagePurpose","SequencingMessage"],"struct":["Message","Messages","Proposal"],"trait":["VersionedMessage"]};

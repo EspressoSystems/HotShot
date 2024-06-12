@@ -630,7 +630,6 @@
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -656,7 +655,7 @@
 <span class="kw">use </span>hotshot_example_types::block_types::TestTransaction;
 <span class="kw">use </span>hotshot_orchestrator::config::RandomBuilderConfig;
 <span class="kw">use </span>hotshot_types::{
-    constants::{Version01, STATIC_VER_0_1},
+    constants::Base,
     traits::{
         block_contents::{precompute_vid_commitment, BlockHeader, EncodeBytes},
         node_implementation::NodeType,
@@ -668,6 +667,7 @@
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 <span class="kw">use </span>tide_disco::{method::ReadState, App, Url};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>TestBuilderImplementation&lt;TYPES: NodeType&gt;
@@ -732,18 +732,17 @@
         <span class="kw">let </span>url = Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://0.0.0.0:{0}"</span>, config.port)).expect(<span class="string">"Valid URL"</span>);
         <span class="kw">let </span>(source, task) = make_simple_builder(num_storage_nodes).<span class="kw">await</span>;
 
-        <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
-            SimpleBuilderSource&lt;TYPES&gt;,
-            TYPES,
-            Version01,
-        &gt;(<span class="kw-2">&amp;</span>Options::default())
-        .expect(<span class="string">"Failed to construct the builder API"</span>);
+        <span class="kw">let </span>builder_api =
+            hotshot_builder_api::builder::define_api::&lt;SimpleBuilderSource&lt;TYPES&gt;, TYPES, Base&gt;(
+                <span class="kw-2">&amp;</span>Options::default(),
+            )
+            .expect(<span class="string">"Failed to construct the builder API"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource&lt;TYPES&gt;, hotshot_builder_api::builder::Error&gt; =
             App::with_state(source);
         app.register_module(<span class="string">"block_info"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
-        async_spawn(app.serve(url.clone(), STATIC_VER_0_1));
+        async_spawn(app.serve(url.clone(), Base::instance()));
         (<span class="prelude-val">Some</span>(Box::new(task)), url)
     }
 }
@@ -924,15 +923,15 @@
     source.run(num_storage_nodes, options);
 
     <span class="kw">let </span>builder_api =
-        hotshot_builder_api::builder::define_api::&lt;RandomBuilderSource&lt;TYPES&gt;, TYPES, Version01&gt;(
+        hotshot_builder_api::builder::define_api::&lt;RandomBuilderSource&lt;TYPES&gt;, TYPES, Base&gt;(
             <span class="kw-2">&amp;</span>Options::default(),
         )
         .expect(<span class="string">"Failed to construct the builder API"</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;RandomBuilderSource&lt;TYPES&gt;, Error&gt; = App::with_state(source);
-    app.register_module::&lt;Error, Version01&gt;(<span class="string">"block_info"</span>, builder_api)
+    app.register_module::&lt;Error, Base&gt;(<span class="string">"block_info"</span>, builder_api)
         .expect(<span class="string">"Failed to register the builder API"</span>);
 
-    async_spawn(app.serve(url, STATIC_VER_0_1));
+    async_spawn(app.serve(url, Base::instance()));
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -1074,17 +1073,16 @@
     <span class="kw">where
         </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
     {
-        <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
-            SimpleBuilderSource&lt;TYPES&gt;,
-            TYPES,
-            Version01,
-        &gt;(<span class="kw-2">&amp;</span>Options::default())
-        .expect(<span class="string">"Failed to construct the builder API"</span>);
+        <span class="kw">let </span>builder_api =
+            hotshot_builder_api::builder::define_api::&lt;SimpleBuilderSource&lt;TYPES&gt;, TYPES, Base&gt;(
+                <span class="kw-2">&amp;</span>Options::default(),
+            )
+            .expect(<span class="string">"Failed to construct the builder API"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource&lt;TYPES&gt;, Error&gt; = App::with_state(<span class="self">self</span>);
-        app.register_module::&lt;Error, Version01&gt;(<span class="string">"block_info"</span>, builder_api)
+        app.register_module::&lt;Error, Base&gt;(<span class="string">"block_info"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
-        async_spawn(app.serve(url, STATIC_VER_0_1));
+        async_spawn(app.serve(url, Base::instance()));
     }
 }
 
