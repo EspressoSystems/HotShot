@@ -294,7 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
         signature: Signature<TYPES>,
         key: TYPES::SignatureKey,
     ) {
-        match async_timeout(
+        if let Ok(Ok(ResponseMessage::Found(msg))) = async_timeout(
             REQUEST_TIMEOUT,
             self.network.request_data::<TYPES, Ver>(
                 make_proposal_req(view, signature, key),
@@ -304,31 +304,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
         )
         .await
         {
-            Ok(Ok(response)) => match response {
-                ResponseMessage::Found(msg) => {
-                    let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
-                    else {
-                        error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
-                        broadcast_event(None, &self.sender).await;
-                        return;
-                    };
-                    broadcast_event(Some(prop), &self.sender).await;
-                }
-                ResponseMessage::NotFound => {
-                    broadcast_event(None, &self.sender).await;
-                }
-                ResponseMessage::Denied => {
-                    error!("Request for Proposal was denied for view {:?}", view);
-                    broadcast_event(None, &self.sender).await;
-                }
-            },
-            Ok(Err(_)) => {
+            let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg else {
+                error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
                 broadcast_event(None, &self.sender).await;
-            }
-            Err(_) => {
-                warn!("Request for proposal timed out");
-                broadcast_event(None, &self.sender).await;
-            }
+                return;
+            };
+            broadcast_event(Some(prop), &self.sender).await;
+        } else {
+            broadcast_event(None, &self.sender).await;
         }
     }
 }
