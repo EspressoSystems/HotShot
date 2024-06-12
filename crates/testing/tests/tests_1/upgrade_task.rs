@@ -164,6 +164,15 @@ async fn test_consensus_task_upgrade() {
                 exact(ViewChange(ViewNumber::new(6))),
                 validated_state_updated(),
                 quorum_proposal_validated(),
+                leaf_decided(),
+                exact(QuorumVoteSend(votes[4].clone())),
+            ],
+            task_state_asserts: vec![no_decided_upgrade_cert()],
+        },
+        Expectations {
+            output_asserts: vec![
+                exact(ViewChange(ViewNumber::new(6))),
+                quorum_proposal_validated(),
                 upgrade_decided(),
                 leaf_decided(),
             ],
