@@ -12,7 +12,7 @@ use hotshot_builder_api::{
 };
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_types::{
-    constants::{Version01, STATIC_VER_0_1},
+    constants::Base,
     traits::{
         block_contents::{precompute_vid_commitment, EncodeBytes},
         node_implementation::NodeType,
@@ -20,6 +20,7 @@ use hotshot_types::{
     },
 };
 use tide_disco::{method::ReadState, App, Url};
+use vbs::version::StaticVersionType;
 
 use crate::test_builder::BuilderChange;
 
@@ -74,14 +75,14 @@ pub fn run_builder_source<TYPES, Source>(
 {
     async_spawn(async move {
         let start_builder = |url: Url, source: Source| -> _ {
-            let builder_api = hotshot_builder_api::builder::define_api::<Source, TYPES, Version01>(
+            let builder_api = hotshot_builder_api::builder::define_api::<Source, TYPES, Base>(
                 &Options::default(),
             )
             .expect("Failed to construct the builder API");
             let mut app: App<Source, Error> = App::with_state(source);
-            app.register_module::<Error, Version01>("block_info", builder_api)
+            app.register_module("block_info", builder_api)
                 .expect("Failed to register the builder API");
-            async_spawn(app.serve(url, STATIC_VER_0_1))
+            async_spawn(app.serve(url, Base::instance()))
         };
 
         let mut handle = Some(start_builder(url.clone(), source.clone()));

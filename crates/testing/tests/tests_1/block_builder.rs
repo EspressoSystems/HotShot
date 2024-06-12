@@ -15,7 +15,7 @@ use hotshot_testing::block_builder::{
     BuilderTask, RandomBuilderImplementation, TestBuilderImplementation,
 };
 use hotshot_types::{
-    constants::Version01,
+    constants::Base,
     traits::{
         block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
         BlockPayload,
@@ -44,7 +44,7 @@ async fn test_random_block_builder() {
 
     let builder_started = Instant::now();
 
-    let client: BuilderClient<TestTypes, Version01> = BuilderClient::new(api_url);
+    let client: BuilderClient<TestTypes, Base> = BuilderClient::new(api_url);
     assert!(client.connect(Duration::from_millis(100)).await);
 
     let (pub_key, private_key) =

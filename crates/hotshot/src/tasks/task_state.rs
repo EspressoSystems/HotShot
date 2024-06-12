@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, HashMap},
-    marker::PhantomData,
     sync::{atomic::AtomicBool, Arc},
 };
 
@@ -35,12 +34,10 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> CreateTaskState<TYPES, I>
-    for NetworkRequestState<TYPES, I, V>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for NetworkRequestState<TYPES, I>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
-    ) -> NetworkRequestState<TYPES, I, V> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> NetworkRequestState<TYPES, I> {
         NetworkRequestState {
             network: Arc::clone(&handle.hotshot.networks.quorum_network),
             state: handle.hotshot.consensus(),
@@ -50,7 +47,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: StaticVersionType> Create
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            _phantom: PhantomData,
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
             spawned_tasks: BTreeMap::new(),
@@ -63,20 +59,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for UpgradeTaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> UpgradeTaskState<TYPES, I> {
-        UpgradeTaskState {
+        #[cfg(not(feature = "example-upgrade"))]
+        return UpgradeTaskState {
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
-            #[cfg(not(feature = "example-upgrade"))]
-            should_vote: |_upgrade_proposal| false,
-            #[cfg(feature = "example-upgrade")]
-            should_vote: |_upgrade_proposal| true,
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
-        }
+            start_proposing_view: handle.hotshot.config.start_proposing_view,
+            stop_proposing_view: handle.hotshot.config.stop_proposing_view,
+            start_voting_view: handle.hotshot.config.start_voting_view,
+            stop_voting_view: handle.hotshot.config.stop_voting_view,
+        };
+
+        #[cfg(feature = "example-upgrade")]
+        return UpgradeTaskState {
+            output_event_stream: handle.hotshot.external_event_stream.0.clone(),
+            cur_view: handle.cur_view().await,
+            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            vote_collector: None.into(),
+            public_key: handle.public_key().clone(),
+            private_key: handle.private_key().clone(),
+            id: handle.hotshot.id,
+            start_proposing_view: 5,
+            stop_proposing_view: 10,
+            start_voting_view: 0,
+            stop_voting_view: 20,
+        };
     }
 }
 
@@ -215,6 +228,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: Arc::clone(&handle.storage),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }

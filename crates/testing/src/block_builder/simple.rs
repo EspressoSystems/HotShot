@@ -25,7 +25,7 @@ use hotshot_builder_api::{
 };
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_types::{
-    constants::{Version01, STATIC_VER_0_1},
+    constants::Base,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
@@ -35,6 +35,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use tide_disco::{method::ReadState, App, Url};
+use vbs::version::StaticVersionType;
 
 use super::{build_block, run_builder_source, BlockEntry, BuilderTask, TestBuilderImplementation};
 use crate::test_builder::BuilderChange;
@@ -253,17 +254,16 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
     where
         <TYPES as NodeType>::InstanceState: Default,
     {
-        let builder_api = hotshot_builder_api::builder::define_api::<
-            SimpleBuilderSource<TYPES>,
-            TYPES,
-            Version01,
-        >(&Options::default())
-        .expect("Failed to construct the builder API");
+        let builder_api =
+            hotshot_builder_api::builder::define_api::<SimpleBuilderSource<TYPES>, TYPES, Base>(
+                &Options::default(),
+            )
+            .expect("Failed to construct the builder API");
         let mut app: App<SimpleBuilderSource<TYPES>, Error> = App::with_state(self);
-        app.register_module::<Error, Version01>("block_info", builder_api)
+        app.register_module::<Error, Base>("block_info", builder_api)
             .expect("Failed to register the builder API");
 
-        async_spawn(app.serve(url, STATIC_VER_0_1));
+        async_spawn(app.serve(url, Base::instance()));
     }
 }
 

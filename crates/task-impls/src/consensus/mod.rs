@@ -147,6 +147,9 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// an upgrade certificate that has been decided on, if any
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
@@ -288,6 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
+        #[cfg(not(feature = "dependency-tasks"))]
         let version = *self.version.read().await;
         match event.as_ref() {
             #[cfg(not(feature = "dependency-tasks"))]
