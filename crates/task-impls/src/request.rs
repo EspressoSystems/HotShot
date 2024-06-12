@@ -44,7 +44,7 @@ use crate::{
 };
 
 /// Amount of time to try for a request before timing out.
-const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
+pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// Long running task which will request information after a proposal is received.
 /// The task will wait a it's `delay` and then send a request iteratively to peers

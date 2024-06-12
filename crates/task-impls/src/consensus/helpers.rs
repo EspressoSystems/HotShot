@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -45,7 +45,7 @@ use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, AnyhowTracing},
+    helpers::{broadcast_event, AnyhowTracing}, request::REQUEST_TIMEOUT,
 };
 
 /// Validate the state and safety and liveness of a proposal then emit
@@ -504,6 +504,7 @@ async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
 ) -> Result<Leaf<TYPES>> {
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
@@ -515,7 +516,7 @@ async fn fetch_proposal<TYPES: NodeType>(
         &event_stream,
     )
     .await;
-    let Ok(Some(proposal)) = rx.recv_direct().await else {
+    let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
     let view = proposal.data.view_number();
@@ -524,7 +525,25 @@ async fn fetch_proposal<TYPES: NodeType>(
     if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
         bail!("Invalid justify_qc in proposal for view {}", *view);
     }
-    Ok(Leaf::from_quorum_proposal(&proposal.data))
+    let mut consensus_write = consensus.write().await;
+    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let state = Arc::new(
+        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
+    );
+
+    consensus_write.update_validated_state_map(
+        view,
+        View {
+            view_inner: ViewInner::Leaf {
+                leaf: leaf.commit(),
+                state,
+                delta: None,
+            },
+        },
+    );
+
+    consensus_write.update_saved_leaves(leaf.clone());
+    Ok(leaf)
 }
 
 // TODO: Fix `clippy::too_many_lines`.
@@ -584,19 +603,24 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         debug!("Failed to update view; error = {e:#}");
     }
 
-    let consensus_read = task_state.consensus.read().await;
-
-    let parent_leaf = consensus_read
+    let mut parent_leaf = task_state
+        .consensus
+        .read()
+        .await
         .saved_leaves()
         .get(&justify_qc.date().leaf_commit)
-        .cloned()
-        .or(fetch_proposal(
-            justify_qc.view_number(),
-            event_stream.clone(),
-            Arc::clone(&task_state.quorum_membership),
-        )
-        .await
-        .ok());
+        .cloned();
+
+    parent_leaf = parent_leaf.or(fetch_proposal(
+        justify_qc.view_number(),
+        event_stream.clone(),
+        Arc::clone(&task_state.quorum_membership),
+        Arc::clone(&task_state.consensus),
+    )
+    .await
+    .ok());
+    let consensus_read = task_state.consensus.read().await;
+
     // Get the parent leaf and state.
     let parent = match parent_leaf {
         Some(leaf) => {
@@ -1038,21 +1062,28 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view).cloned() else {
         return false;
     };
+    drop(read_consnesus);
 
     let view = cert.view_number;
     // TODO: do some of this logic without the vote token check, only do that when voting.
     let justify_qc = proposal.justify_qc.clone();
-    let parent = read_consnesus
+    let mut parent = consensus
+        .read()
+        .await
         .saved_leaves()
         .get(&justify_qc.date().leaf_commit)
-        .cloned()
-        .or(fetch_proposal(
-            justify_qc.view_number(),
-            vote_info.3.clone(),
-            Arc::clone(&quorum_membership),
-        )
-        .await
-        .ok());
+        .cloned();
+
+    parent = parent.or(fetch_proposal(
+        justify_qc.view_number(),
+        vote_info.3.clone(),
+        Arc::clone(&quorum_membership),
+        Arc::clone(&consensus),
+    )
+    .await
+    .ok());
+
+    let read_consnesus = consensus.read().await;
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     let Some(parent) = parent else {
