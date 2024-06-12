@@ -233,6 +233,7 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::Receiver;
@@ -434,6 +435,7 @@
         <span class="self">self</span>.quorum.has_stake(sender)
     }
     <span class="doccomment">/// Lookup the proposal for the view and respond if it's found/not found
+    </span><span class="attr">#[allow(clippy::no_effect_underscore_binding)]
     </span><span class="kw">async fn </span>respond_with_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, _view: TYPES::Time) -&gt; ResponseMessage&lt;TYPES&gt; {
         <span class="comment">// Complete after we are storing our last proposed view:
         // https://github.com/EspressoSystems/HotShot/issues/3240

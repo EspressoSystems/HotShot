@@ -227,8 +227,6 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -262,6 +260,7 @@
     consensus::helpers::parent_leaf_and_state,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
+    quorum_proposal_recv::handlers::QuorumProposalValidity,
 };
 
 <span class="doccomment">/// Event handlers for this task.
@@ -361,7 +360,10 @@
         <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
         </span><span class="kw">if let </span>HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
             <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>).<span class="kw">await </span>{
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(current_proposal)) =&gt; {
+                <span class="prelude-val">Ok</span>(QuorumProposalValidity::Fully) =&gt; {
+                    <span class="self">self</span>.cancel_tasks(proposal.data.view_number()).<span class="kw">await</span>;
+                }
+                <span class="prelude-val">Ok</span>(QuorumProposalValidity::Liveness) =&gt; {
                     <span class="comment">// Build the parent leaf since we didn't find it during the proposal check.
                     </span><span class="kw">let </span>parent_leaf = <span class="kw">match </span>parent_leaf_and_state(
                         <span class="self">self</span>.cur_view,
@@ -379,13 +381,13 @@
                         }
                     };
 
-                    <span class="kw">let </span>view = current_proposal.view_number();
-                    <span class="self">self</span>.cancel_tasks(proposal.data.view_number()).<span class="kw">await</span>;
+                    <span class="kw">let </span>view_number = proposal.data.view_number();
+                    <span class="self">self</span>.cancel_tasks(view_number).<span class="kw">await</span>;
                     <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                    <span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares().get(<span class="kw-2">&amp;</span>view) <span class="kw">else </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus.vid_shares().get(<span class="kw-2">&amp;</span>view_number) <span class="kw">else </span>{
                         <span class="macro">debug!</span>(
                                 <span class="string">"We have not seen the VID share for this view {:?} yet, so we cannot vote."</span>,
-                                view
+                                view_number
                             );
                         <span class="kw">return</span>;
                     };
@@ -393,21 +395,18 @@
                         <span class="macro">error!</span>(<span class="string">"Did not get a VID share for our public key, aborting vote"</span>);
                         <span class="kw">return</span>;
                     };
-                    <span class="kw">let </span><span class="prelude-val">Some</span>(da_cert) = consensus
-                        .saved_da_certs()
-                        .get(<span class="kw-2">&amp;</span>current_proposal.view_number())
-                    <span class="kw">else </span>{
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(da_cert) = consensus.saved_da_certs().get(<span class="kw-2">&amp;</span>view_number) <span class="kw">else </span>{
                         <span class="macro">debug!</span>(
                             <span class="string">"Received VID share, but couldn't find DAC cert for view {:?}"</span>,
-                            current_proposal.view_number()
+                            view_number
                         );
                         <span class="kw">return</span>;
                     };
                     broadcast_event(
                         Arc::new(HotShotEvent::VoteNow(
-                            view,
+                            view_number,
                             VoteDependencyData {
-                                quorum_proposal: current_proposal,
+                                quorum_proposal: proposal.data.clone(),
                                 parent_leaf,
                                 vid_share: vid_share.clone(),
                                 da_cert: da_cert.clone(),
@@ -416,9 +415,6 @@
                         <span class="kw-2">&amp;</span>event_stream,
                     )
                     .<span class="kw">await</span>;
-                }
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                    <span class="self">self</span>.cancel_tasks(proposal.data.view_number()).<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(<span class="question-mark">?</span>e, <span class="string">"Failed to propose"</span>),
             }

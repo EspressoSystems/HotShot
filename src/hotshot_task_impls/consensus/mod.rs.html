@@ -769,6 +769,7 @@
 <a href="#767" id="767">767</a>
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -1059,7 +1060,8 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
+        <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+        </span><span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
         <span class="kw">match </span>event.as_ref() {
             <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
             </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
