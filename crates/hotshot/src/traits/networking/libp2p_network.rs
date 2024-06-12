@@ -799,7 +799,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                             source: anyhow!("insufficient bytes"),
                         });
                     }
-                    let res: Message<TYPES> = bincode::deserialize(&msg.0[8..])
+                    let res: Message<TYPES> = bincode::deserialize(&msg.0)
                         .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })?;
 
                     match res.kind {
@@ -839,17 +839,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                     continue;
                 };
 
-                let serialized_response = match bincode::serialize(&response) {
-                    Ok(serialized) => serialized,
-                    Err(e) => {
-                        tracing::error!(
-                            "Failed to serialize response; this should never happen. Error: {e}"
-                        );
-                        continue;
-                    }
-                };
-
-                let _ = handle.respond_data(&serialized_response, chan).await;
+                let _ = handle.respond_data(response, chan).await;
             }
         });
 

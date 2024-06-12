@@ -204,11 +204,11 @@ impl NetworkNodeHandle {
     /// Will error if the client request channel is closed, or serialization fails.
     pub async fn respond_data(
         &self,
-        response: &[u8],
+        response: Vec<u8>,
         chan: ResponseChannel<Response>,
     ) -> Result<(), NetworkNodeHandleError> {
         let req = ClientRequest::DataResponse {
-            response: Response(response.to_vec()),
+            response: Response(response),
             chan,
         };
         self.send_request(req).await
