@@ -322,9 +322,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                     broadcast_event(None, &self.sender).await;
                 }
             },
-            Ok(Err(_)) => {}
+            Ok(Err(_)) => {
+                broadcast_event(None, &self.sender).await;
+            }
             Err(_) => {
                 warn!("Request for proposal timed out");
+                broadcast_event(None, &self.sender).await;
             }
         }
     }
