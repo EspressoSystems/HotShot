@@ -8,6 +8,7 @@ use light_client::StateVerKey;
 use tracing::error;
 use traits::signature_key::SignatureKey;
 use url::Url;
+use vec1::Vec1;
 
 use crate::utils::bincode_opts;
 pub mod consensus;
@@ -200,5 +201,13 @@ pub struct HotShotConfig<KEY: SignatureKey> {
     /// time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// Builder API base URL
-    pub builder_url: Url,
+    pub builder_urls: Vec1<Url>,
+    /// View to start proposing an upgrade
+    pub start_proposing_view: u64,
+    /// View to stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_view <= start_proposing_view.
+    pub stop_proposing_view: u64,
+    /// View to start voting on an upgrade
+    pub start_voting_view: u64,
+    /// View to stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_view <= start_voting_view.
+    pub stop_voting_view: u64,
 }

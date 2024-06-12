@@ -4,7 +4,7 @@ use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
 use hotshot_types::{
-    constants::Version01, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
+    constants::Base, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
 };
 use libp2p::{Multiaddr, PeerId};
 use surf_disco::{error::ClientError, Client};
@@ -224,7 +224,7 @@ impl OrchestratorClient {
 
         // Serialize our (possible) libp2p-specific data
         let request_body =
-            vbs::Serializer::<Version01>::serialize(&(libp2p_address, libp2p_public_key))?;
+            vbs::Serializer::<Base>::serialize(&(libp2p_address, libp2p_public_key))?;
 
         let identity = |client: Client<ClientError, OrchestratorVersion>| {
             // We need to clone here to move it into the closure
@@ -316,8 +316,8 @@ impl OrchestratorClient {
     /// if unable to serialize `address`
     pub async fn post_builder_address(&self, address: Url) {
         let send_builder_f = |client: Client<ClientError, OrchestratorVersion>| {
-            let request_body = vbs::Serializer::<Version01>::serialize(&address)
-                .expect("Failed to serialize request");
+            let request_body =
+                vbs::Serializer::<Base>::serialize(&address).expect("Failed to serialize request");
 
             async move {
                 let result: Result<_, ClientError> = client
@@ -386,7 +386,7 @@ impl OrchestratorClient {
 
         // Serialize our (possible) libp2p-specific data
         let request_body =
-            vbs::Serializer::<Version01>::serialize(&(pubkey, libp2p_address, libp2p_public_key))
+            vbs::Serializer::<Base>::serialize(&(pubkey, libp2p_address, libp2p_public_key))
                 .expect("failed to serialize request");
 
         // register our public key with the orchestrator

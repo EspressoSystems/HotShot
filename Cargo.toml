@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.56"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.57"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
@@ -90,8 +90,9 @@ typenum = "1"
 memoize = { version = "0.4", features = ["full"] }
 vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
-url = { version = "2.5.0", features = ["serde"] }
+url = { version = "2.5.1", features = ["serde"] }
 get_if_addrs = "0.5.3"
+vec1 = { version = "1.12", features = ["serde"] }
 
 libp2p = { package = "libp2p", version = "0.53", features = [
   "macros",
