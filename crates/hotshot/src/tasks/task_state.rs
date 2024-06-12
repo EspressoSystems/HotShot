@@ -3,7 +3,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::types::SystemContextHandle;
 use async_trait::async_trait;
 use chrono::Utc;
 #[cfg(feature = "rewind")]
@@ -20,6 +19,8 @@ use hotshot_types::traits::{
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
 use vbs::version::StaticVersionType;
+
+use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]

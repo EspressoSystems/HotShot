@@ -926,6 +926,8 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     .await;
 
     if let Some(cert) = res.decided_upgrade_cert {
+        task_state.decided_upgrade_cert = Some(cert.clone());
+
         let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);
