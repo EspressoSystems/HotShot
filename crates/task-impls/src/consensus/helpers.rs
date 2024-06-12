@@ -5,11 +5,16 @@ use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     helpers::AnyhowTracing,
 };
-use crate::{events::HotShotEvent, helpers::broadcast_event};
+use crate::{
+    events::{HotShotEvent, ProposalMissing},
+    helpers::broadcast_event,
+    request::REQUEST_TIMEOUT,
+};
 #[cfg(not(feature = "dependency-tasks"))]
 use anyhow::bail;
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
+use async_compatibility_layer::art::async_timeout;
 #[cfg(not(feature = "dependency-tasks"))]
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
