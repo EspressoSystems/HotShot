@@ -483,6 +483,7 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 ViewNumber::new(6),
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
+            QuorumProposalRecv(proposals[5].clone(), leaders[5]),
             QcFormed(either::Either::Left(proposals[5].data.justify_qc.clone())),
         ],
         vec![
@@ -549,14 +550,22 @@ async fn test_upgrade_and_consensus_task_blank_blocks() {
                 task_state_asserts: vec![],
             },
             Expectations {
-                output_asserts: vec![quorum_proposal_send_with_null_block(
+                output_asserts: vec![
+                    exact(ViewChange(ViewNumber::new(6))),
+                    quorum_proposal_validated(),
+                    quorum_proposal_send_with_null_block(
                     quorum_membership.total_nodes(),
-                )],
+                    ),
+                    leaf_decided(),
+                    quorum_vote_send(),
+                ],
                 task_state_asserts: vec![],
             },
             Expectations {
                 output_asserts: vec![
                     exact(ViewChange(ViewNumber::new(7))),
+                    quorum_proposal_validated(),
+                    leaf_decided(),
                     // We do NOT expect a quorum_vote_send() because we have set the block to be non-null in this view.
                 ],
                 task_state_asserts: vec![],
