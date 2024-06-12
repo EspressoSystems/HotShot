@@ -840,6 +840,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     if let Some(cert) = decided_upgrade_cert {
         let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
         *decided_certificate_lock = Some(cert.clone());
+        drop(decided_certificate_lock);
         let _ = event_stream
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .await;
