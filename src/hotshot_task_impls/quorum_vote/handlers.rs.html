@@ -119,13 +119,7 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, sync::Arc};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::Sender;
@@ -169,12 +163,6 @@
         <span class="kw-2">&amp;</span>task_state.public_key,
     )
     .<span class="kw">await</span>;
-
-    <span class="kw">let </span>included_txns = <span class="kw">if </span>new_decided_view_number.is_some() {
-        included_txns
-    } <span class="kw">else </span>{
-        HashSet::new()
-    };
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(locked_view_number) = new_locked_view_number {
@@ -237,7 +225,7 @@
                     leaf_chain: Arc::new(leaf_views),
                     <span class="comment">// This is never *not* none if we've reached a new decide, so this is safe to unwrap.
                     </span>qc: Arc::new(new_decide_qc.unwrap()),
-                    block_size: <span class="prelude-val">Some</span>(included_txns.len().try_into().unwrap()),
+                    block_size: included_txns.map(|txns| txns.len().try_into().unwrap()),
                 },
             },
             <span class="kw-2">&amp;</span>task_state.output_event_stream,

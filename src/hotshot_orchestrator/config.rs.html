@@ -783,6 +783,7 @@
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
 <a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     env, fs,
     net::SocketAddr,
@@ -803,6 +804,7 @@
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>toml;
 <span class="kw">use </span>tracing::{error, info};
+<span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use </span><span class="kw">crate</span>::client::OrchestratorClient;
 
@@ -1329,8 +1331,8 @@
 }
 
 <span class="doccomment">/// Default builder URL, used as placeholder
-</span><span class="kw">fn </span>default_builder_url() -&gt; Url {
-    Url::parse(<span class="string">"http://localhost:3311"</span>).unwrap()
+</span><span class="kw">fn </span>default_builder_urls() -&gt; Vec1&lt;Url&gt; {
+    <span class="macro">vec1::vec1!</span>[Url::parse(<span class="string">"http://0.0.0.0:3311"</span>).unwrap()]
 }
 
 <span class="doccomment">/// Holds configuration for a `HotShot`
@@ -1379,8 +1381,8 @@
     <span class="doccomment">/// Time to wait until we request data associated with a proposal
     </span><span class="kw">pub </span>data_request_delay: Duration,
     <span class="doccomment">/// Builder API base URL
-    </span><span class="attr">#[serde(default = <span class="string">"default_builder_url"</span>)]
-    </span><span class="kw">pub </span>builder_url: Url,
+    </span><span class="attr">#[serde(default = <span class="string">"default_builder_urls"</span>)]
+    </span><span class="kw">pub </span>builder_urls: Vec1&lt;Url&gt;,
     <span class="doccomment">/// Upgrade config
     </span><span class="kw">pub </span>upgrade: UpgradeConfig,
 }
@@ -1488,7 +1490,7 @@
             num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
             data_request_delay: val.data_request_delay,
-            builder_url: val.builder_url,
+            builder_urls: val.builder_urls,
             start_proposing_view: val.upgrade.start_proposing_view,
             stop_proposing_view: val.upgrade.stop_proposing_view,
             start_voting_view: val.upgrade.start_voting_view,
@@ -1561,7 +1563,7 @@
             num_bootstrap: <span class="number">5</span>,
             builder_timeout: Duration::from_secs(<span class="number">10</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
-            builder_url: default_builder_url(),
+            builder_urls: default_builder_urls(),
             upgrade: UpgradeConfig::default(),
         }
     }

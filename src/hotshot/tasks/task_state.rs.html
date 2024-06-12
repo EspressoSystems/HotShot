@@ -365,6 +365,13 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -547,7 +554,14 @@
             private_key: handle.private_key().clone(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            builder_client: BuilderClient::new(handle.hotshot.config.builder_url.clone()),
+            builder_clients: handle
+                .hotshot
+                .config
+                .builder_urls
+                .iter()
+                .cloned()
+                .map(BuilderClient::new)
+                .collect(),
             decided_upgrade_certificate: <span class="prelude-val">None</span>,
         }
     }

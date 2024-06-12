@@ -523,7 +523,6 @@
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
@@ -570,7 +569,7 @@
 </span><span class="kw">pub enum </span>OverallSafetyTaskErr&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// inconsistent txn nums
     </span>InconsistentTxnsNum {
-        <span class="doccomment">/// node idx -&gt; number transactions
+        <span class="doccomment">/// number of transactions -&gt; number of nodes reporting that number
         </span>map: HashMap&lt;u64, usize&gt;,
     },
     <span class="doccomment">/// too many failed  views
@@ -779,7 +778,7 @@
     <span class="doccomment">/// block -&gt; # entries decided on that block
     </span><span class="kw">pub </span>block_map: HashMap&lt;VidCommitment, usize&gt;,
 
-    <span class="doccomment">/// node idx -&gt; number transactions
+    <span class="doccomment">/// number of transactions -&gt; number of nodes reporting that number
     </span><span class="kw">pub </span>num_txns_map: HashMap&lt;u64, usize&gt;,
 }
 
@@ -905,9 +904,6 @@
     }
     <span class="doccomment">/// determines whether or not the round passes
     /// also do a safety check
-    /// # Panics
-    /// if the `num_txns_map` is somehow empty
-    /// This should never happen because this function should never be called in that case
     </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::let_unit_value)]
     </span><span class="kw">pub fn </span>update_status(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -951,9 +947,11 @@
                 });
                 <span class="kw">return</span>;
             }
-            <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.num_txns_map.iter().last().unwrap().<span class="number">0 </span>&lt; transaction_threshold {
-                <span class="self">self</span>.status = ViewStatus::Failed;
-                <span class="kw">return</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((n_txn, <span class="kw">_</span>)) = <span class="self">self</span>.num_txns_map.iter().last() {
+                <span class="kw">if </span><span class="kw-2">*</span>n_txn &lt; transaction_threshold {
+                    <span class="self">self</span>.status = ViewStatus::Failed;
+                    <span class="kw">return</span>;
+                }
             }
         }
 

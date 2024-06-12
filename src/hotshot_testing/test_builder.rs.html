@@ -343,7 +343,37 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
 <span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
@@ -351,6 +381,7 @@
     traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
+<span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use super</span>::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -415,6 +446,27 @@
     </span><span class="kw">pub </span>unreliable_network: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     <span class="doccomment">/// view sync check task
     </span><span class="kw">pub </span>view_sync_properties: ViewSyncTaskDescription,
+    <span class="doccomment">/// description of builders to run
+    </span><span class="kw">pub </span>builders: Vec1&lt;BuilderDescription&gt;,
+}
+
+<span class="doccomment">/// Describes a possible change to builder status during test
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub enum </span>BuilderChange {
+    <span class="comment">// Builder should start up
+    </span>Up,
+    <span class="comment">// Builder should shut down completely
+    </span>Down,
+    <span class="comment">// Toggles whether builder should always respond
+    // to claim calls with errors
+    </span>FailClaims(bool),
+}
+
+<span class="doccomment">/// Metadata describing builder behaviour during a test
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>BuilderDescription {
+    <span class="doccomment">/// view number -&gt; change to builder status
+    </span><span class="kw">pub </span>changes: HashMap&lt;u64, BuilderChange&gt;,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>TimingData {
@@ -442,8 +494,8 @@
 
         TestDescription {
             num_bootstrap_nodes: num_nodes_with_stake,
-            num_nodes_with_stake: num_nodes_with_stake,
-            num_nodes_without_stake: num_nodes_without_stake,
+            num_nodes_with_stake,
+            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: <span class="number">50</span>,
@@ -503,8 +555,8 @@
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">20</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         TestDescription {
-            num_nodes_with_stake: num_nodes_with_stake,
-            num_nodes_without_stake: num_nodes_without_stake,
+            num_nodes_with_stake,
+            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             num_bootstrap_nodes: num_nodes_with_stake,
             <span class="comment">// The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
@@ -561,6 +613,14 @@
             ),
             unreliable_network: <span class="prelude-val">None</span>,
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
+            builders: <span class="macro">vec1::vec1!</span>[
+                BuilderDescription {
+                    changes: HashMap::new()
+                },
+                BuilderDescription {
+                    changes: HashMap::new()
+                }
+            ],
         }
     }
 }
@@ -641,7 +701,7 @@
             builder_timeout: Duration::from_millis(<span class="number">1000</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             <span class="comment">// Placeholder until we spin up the builder
-            </span>builder_url: Url::parse(<span class="string">"http://localhost:9999"</span>).expect(<span class="string">"Valid URL"</span>),
+            </span>builder_urls: <span class="macro">vec1::vec1!</span>[Url::parse(<span class="string">"http://localhost:9999"</span>).expect(<span class="string">"Valid URL"</span>)],
             start_proposing_view: <span class="number">0</span>,
             stop_proposing_view: <span class="number">0</span>,
             start_voting_view: <span class="number">0</span>,

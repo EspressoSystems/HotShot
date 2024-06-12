@@ -1258,8 +1258,6 @@
 <a href="#1256" id="1256">1256</a>
 <a href="#1257" id="1257">1257</a>
 <a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
-<a href="#1260" id="1260">1260</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>core::time::Duration;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -2038,7 +2036,7 @@
     </span><span class="kw">pub </span>leaves_decided: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// The transactions in the block payload for each leaf.
-    </span><span class="kw">pub </span>included_txns: HashSet&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;,
+    </span><span class="kw">pub </span>included_txns: <span class="prelude-ty">Option</span>&lt;HashSet&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;&gt;,
 
     <span class="doccomment">/// The most recent upgrade certificate from one of the leaves.
     </span><span class="kw">pub </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
@@ -2056,7 +2054,7 @@
             new_decide_qc: <span class="prelude-val">None</span>,
             leaf_views: Vec::new(),
             leaves_decided: Vec::new(),
-            included_txns: HashSet::new(),
+            included_txns: <span class="prelude-val">None</span>,
             decided_upgrade_cert: <span class="prelude-val">None</span>,
         }
     }
@@ -2189,9 +2187,12 @@
                 ));
                 res.leaves_decided.push(leaf.clone());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload() {
-                    <span class="kw">for </span>txn <span class="kw">in </span>payload.transaction_commitments(leaf.block_header().metadata()) {
-                        res.included_txns.insert(txn);
-                    }
+                    res.included_txns = <span class="prelude-val">Some</span>(
+                        payload
+                            .transaction_commitments(leaf.block_header().metadata())
+                            .into_iter()
+                            .collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;(),
+                    );
                 }
             }
             <span class="bool-val">true
@@ -2236,12 +2237,6 @@
             .<span class="kw">await</span>;
     }
 
-    <span class="kw">let </span>included_txns_set: HashSet&lt;<span class="kw">_</span>&gt; = <span class="kw">if </span>res.new_decided_view_number.is_some() {
-        res.included_txns
-    } <span class="kw">else </span>{
-        HashSet::new()
-    };
-
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = task_state.consensus.write().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(new_locked_view) = res.new_locked_view_number {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_locked_view(new_locked_view) {
@@ -2281,13 +2276,14 @@
 
     <span class="attr">#[allow(clippy::cast_precision_loss)]
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(new_anchor_view) = res.new_decided_view_number {
+        <span class="kw">let </span>block_size = res.included_txns.map(|set| set.len().try_into().unwrap());
         <span class="kw">let </span>decide_sent = broadcast_event(
             Event {
                 view_number: new_anchor_view,
                 event: EventType::Decide {
                     leaf_chain: Arc::new(res.leaf_views),
                     qc: Arc::new(res.new_decide_qc.unwrap()),
-                    block_size: <span class="prelude-val">Some</span>(included_txns_set.len().try_into().unwrap()),
+                    block_size,
                 },
             },
             <span class="kw-2">&amp;</span>task_state.output_event_stream,
@@ -2320,7 +2316,7 @@
             consensus.last_decided_view()
         );
         drop(consensus);
-        <span class="macro">debug!</span>(<span class="string">"Decided txns len {:?}"</span>, included_txns_set.len());
+        <span class="macro">debug!</span>(<span class="string">"Decided txns len {:?}"</span>, block_size);
         decide_sent.<span class="kw">await</span>;
         broadcast_event(
             Arc::new(HotShotEvent::LeafDecided(res.leaves_decided)),
