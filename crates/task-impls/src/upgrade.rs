@@ -235,7 +235,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         old_version_last_view: TYPES::Time::new(*view + 10),
                         // and end 20 views in the future
                         new_version_first_view: TYPES::Time::new(*view + 20),
-                        decide_by: TYPES::Time::new(*view + 7),
+                        decide_by: TYPES::Time::new(*view + 8),
                     };
 
                     let upgrade_proposal = UpgradeProposal {

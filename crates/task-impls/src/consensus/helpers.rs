@@ -853,7 +853,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
                             info!(
-                                "Updating consensus state with decided upgrade certificate: {:?}",
+                                "Reached decide on upgrade certificate: {:?}",
                                 cert
                             );
                             res.decided_upgrade_cert = Some(cert.clone());
