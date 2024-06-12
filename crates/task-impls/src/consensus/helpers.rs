@@ -45,7 +45,8 @@ use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, AnyhowTracing}, request::REQUEST_TIMEOUT,
+    helpers::{broadcast_event, AnyhowTracing},
+    request::REQUEST_TIMEOUT,
 };
 
 /// Validate the state and safety and liveness of a proposal then emit
@@ -611,14 +612,17 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .get(&justify_qc.date().leaf_commit)
         .cloned();
 
-    parent_leaf = parent_leaf.or(fetch_proposal(
-        justify_qc.view_number(),
-        event_stream.clone(),
-        Arc::clone(&task_state.quorum_membership),
-        Arc::clone(&task_state.consensus),
-    )
-    .await
-    .ok());
+    parent_leaf = match parent_leaf {
+        Some(p) => Some(p),
+        None => fetch_proposal(
+            justify_qc.view_number(),
+            event_stream.clone(),
+            Arc::clone(&task_state.quorum_membership),
+            Arc::clone(&task_state.consensus),
+        )
+        .await
+        .ok(),
+    };
     let consensus_read = task_state.consensus.read().await;
 
     // Get the parent leaf and state.
@@ -1073,15 +1077,17 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         .saved_leaves()
         .get(&justify_qc.date().leaf_commit)
         .cloned();
-
-    parent = parent.or(fetch_proposal(
-        justify_qc.view_number(),
-        vote_info.3.clone(),
-        Arc::clone(&quorum_membership),
-        Arc::clone(&consensus),
-    )
-    .await
-    .ok());
+    parent = match parent {
+        Some(p) => Some(p),
+        None => fetch_proposal(
+            justify_qc.view_number(),
+            vote_info.3.clone(),
+            Arc::clone(&quorum_membership),
+            Arc::clone(&consensus),
+        )
+        .await
+        .ok(),
+    };
 
     let read_consnesus = consensus.read().await;
 
