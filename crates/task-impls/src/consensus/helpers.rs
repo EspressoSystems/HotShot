@@ -10,7 +10,6 @@ use crate::{
     helpers::broadcast_event,
     request::REQUEST_TIMEOUT,
 };
-#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::bail;
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
@@ -64,9 +63,6 @@ use tracing::error;
 use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]
 use vbs::version::Version;
-
-#[cfg(feature = "dependency-tasks")]
-use crate::quorum_proposal_recv::QuorumProposalRecvTaskState;
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
