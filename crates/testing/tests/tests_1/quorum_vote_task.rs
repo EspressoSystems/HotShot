@@ -3,26 +3,17 @@ use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
 use hotshot_macros::{run_test, test_scripts};
-use hotshot_task_impls::{
-    events::HotShotEvent::{self, *},
-    quorum_vote::QuorumVoteTaskState,
-};
 use hotshot_testing::{
     all_predicates,
-    helpers::{build_fake_view_with_leaf, build_system_handle, vid_share},
-    predicates::{
-        event::{all_predicates, exact, leaf_decided},
-        Predicate,
-    },
+    helpers::{build_fake_view_with_leaf, vid_share},
+    predicates::event::{all_predicates, leaf_decided},
     random,
     script::{Expectations, InputOrder, TaskScript},
     serial,
-    view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     data::ViewNumber, traits::node_implementation::ConsensusTime, vote::HasViewNumber,
 };
-use std::sync::Arc;
 
 use std::time::Duration;
 
@@ -283,27 +274,4 @@ async fn test_quorum_vote_task_incorrect_dependency() {
         expectations,
     };
     run_test![inputs, script].await;
-}
-
-/// This function generates the outputs to the quorum proposal task (i.e. the emitted events).
-/// This happens depending on the view and chain length.
-fn generate_outputs(
-    chain_length: i32,
-    current_view_number: u64,
-) -> Vec<Box<dyn Predicate<Arc<HotShotEvent<TestTypes>>>>> {
-    match chain_length {
-        // This is not - 2 because we start from the parent
-        2 => vec![exact(LockedViewUpdated(ViewNumber::new(
-            current_view_number - 1,
-        )))],
-        // This is not - 3 because we start from the parent
-        3 => vec![
-            exact(LockedViewUpdated(ViewNumber::new(current_view_number - 1))),
-            exact(LastDecidedViewUpdated(ViewNumber::new(
-                current_view_number - 2,
-            ))),
-            leaf_decided(),
-        ],
-        _ => vec![],
-    }
 }
