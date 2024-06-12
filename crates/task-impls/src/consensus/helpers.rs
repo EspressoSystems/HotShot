@@ -852,10 +852,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                         if cert.data.decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
-                            info!(
-                                "Reached decide on upgrade certificate: {:?}",
-                                cert
-                            );
+                            info!("Reached decide on upgrade certificate: {:?}", cert);
                             res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }

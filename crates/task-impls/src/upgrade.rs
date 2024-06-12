@@ -231,11 +231,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         old_version: Base::VERSION,
                         new_version: Upgrade::VERSION,
                         new_version_hash: UPGRADE_HASH.to_vec(),
-                        // We schedule the upgrade to begin 10 views in the future
-                        old_version_last_view: TYPES::Time::new(*view + 10),
+                        // We schedule the upgrade to begin 15 views in the future
+                        old_version_last_view: TYPES::Time::new(*view + 15),
                         // and end 20 views in the future
                         new_version_first_view: TYPES::Time::new(*view + 20),
-                        decide_by: TYPES::Time::new(*view + 8),
+                        decide_by: TYPES::Time::new(*view + 10),
                     };
 
                     let upgrade_proposal = UpgradeProposal {

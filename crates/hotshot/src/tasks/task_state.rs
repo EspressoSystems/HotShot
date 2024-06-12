@@ -86,9 +86,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
             start_proposing_view: 5,
-            stop_proposing_view: 6,
-            start_voting_view: 10,
-            stop_voting_view: 11,
+            stop_proposing_view: 10,
+            start_voting_view: 0,
+            stop_voting_view: 20,
         };
     }
 }
