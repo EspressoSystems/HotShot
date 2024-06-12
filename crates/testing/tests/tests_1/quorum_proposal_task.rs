@@ -10,7 +10,7 @@ use hotshot_example_types::state_types::TestValidatedState;
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
-    
+
 };
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_example_types::{state_types::TestInstanceState,};
