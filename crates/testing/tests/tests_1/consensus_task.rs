@@ -1,43 +1,50 @@
+#![cfg(not(feature = "dependency-tasks"))]
+
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
+    block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
+use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
 use hotshot_testing::{
+    all_predicates,
     helpers::{
         build_system_handle, key_pair_for_id, permute_input_with_index_order,
-        vid_scheme_from_view_number, vid_share,
+        vid_scheme_from_view_number, vid_share, build_fake_view_with_leaf
     },
     predicates::event::{
-        exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send, timeout_vote_send,
+        all_predicates, exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send,
+        timeout_vote_send, validated_state_updated
     },
-    script::{run_test_script, TestScriptStage},
+    random,
+    script::{Expectations, InputOrder, TaskScript},
+    serial,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{ViewChangeEvidence, ViewNumber},
+    data::{null_block, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
+    vote::HasViewNumber,
 };
 use jf_vid::VidScheme;
 use sha2::Digest;
 
+const TIMEOUT: Duration = Duration::from_millis(35);
+
 #[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
-    use hotshot_types::data::null_block;
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -57,42 +64,32 @@ async fn test_consensus_task() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
 
-    // Run view 1 (the genesis stage).
-    let view_1 = TestScriptStage {
-        inputs: vec![
+    let cert = proposals[1].data.justify_qc.clone();
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+
+    let inputs = vec![
+        random![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             DaCertificateRecv(dacs[0].clone()),
             VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
         ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
-    };
-
-    let cert = proposals[1].data.justify_qc.clone();
-    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
-
-    // Run view 2 and propose.
-    let view_2 = TestScriptStage {
-        inputs: vec![
+        serial![
             VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QcFormed(either::Left(cert)),
-            // We must have a payload commitment and metadata to propose.
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
@@ -101,32 +98,37 @@ async fn test_consensus_task() {
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
             ),
         ],
-        outputs: vec![
+    ];
+
+    let expectations = vec![
+        Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
+            exact(ViewChange(ViewNumber::new(1))),
+            quorum_proposal_validated(),
+            exact(QuorumVoteSend(votes[0].clone())),
+        ]),
+        Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
             exact(ViewChange(ViewNumber::new(2))),
             quorum_proposal_validated(),
             quorum_proposal_send(),
-        ],
-        asserts: vec![],
-    };
+        ]),
+    ];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let mut consensus_script = TaskScript {
+        timeout: TIMEOUT,
+        state: consensus_state,
+        expectations,
+    };
 
-    run_test_script(vec![view_1, view_2], consensus_state).await;
+    run_test![inputs, consensus_script].await;
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_vote() {
-    use hotshot::tasks::task_state::CreateTaskState;
-    use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*};
-    use hotshot_testing::{
-        helpers::build_system_handle,
-        script::{run_test_script, TestScriptStage},
-        view_generator::TestViewGenerator,
-    };
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
@@ -139,123 +141,45 @@ async fn test_consensus_vote() {
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
+    let mut leaves = Vec::new();
     let mut votes = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
+        leaves.push(view.leaf.clone());
         votes.push(view.create_quorum_vote(&handle));
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
 
     // Send a proposal, vote on said proposal, update view based on proposal QC, receive vote as next leader
-    let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DaCertificateRecv(dacs[0].clone()),
-            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
-            QuorumVoteRecv(votes[0].clone()),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
-    };
+    let inputs = vec![random![
+        QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+        DaCertificateRecv(dacs[0].clone()),
+        VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
+        QuorumVoteRecv(votes[0].clone()),
+    ]];
+
+    let expectations = vec![Expectations::from_outputs(all_predicates![
+        validated_state_updated(),
+        exact(ViewChange(ViewNumber::new(1))),
+        quorum_proposal_validated(),
+        exact(QuorumVoteSend(votes[0].clone())),
+    ])];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-
-    run_test_script(vec![view_1], consensus_state).await;
-}
-
-/// Tests the voting behavior by allowing the input to be permuted in any order desired. This
-/// assures that, no matter what, a vote is indeed sent no matter what order the precipitating
-/// events occur. The permutation is specified as `input_permutation` and is a vector of indices.
-#[cfg(not(feature = "dependency-tasks"))]
-async fn test_vote_with_specific_order(input_permutation: Vec<usize>) {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
-
-    let handle = build_system_handle(2).await.0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
-
-    let mut generator =
-        TestViewGenerator::generate(quorum_membership.clone(), da_membership.clone());
-
-    let mut proposals = Vec::new();
-    let mut leaders = Vec::new();
-    let mut votes = Vec::new();
-    let mut dacs = Vec::new();
-    let mut vids = Vec::new();
-    for view in (&mut generator).take(2).collect::<Vec<_>>().await {
-        proposals.push(view.quorum_proposal.clone());
-        leaders.push(view.leader_public_key);
-        votes.push(view.create_quorum_vote(&handle));
-        dacs.push(view.da_certificate.clone());
-        vids.push(view.vid_proposal.clone());
-    }
-
-    // Get out of the genesis view first
-    let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DaCertificateRecv(dacs[0].clone()),
-            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
+    let mut consensus_script = TaskScript {
+        timeout: TIMEOUT,
+        state: consensus_state,
+        expectations,
     };
 
-    let inputs = vec![
-        // We need a VID share for view 2 otherwise we cannot vote at view 2 (as node 2).
-        VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
-        DaCertificateRecv(dacs[1].clone()),
-        QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-    ];
-    let view_2_inputs = permute_input_with_index_order(inputs, input_permutation);
-
-    // Use the permuted inputs for view 2 depending on the provided index ordering.
-    let view_2 = TestScriptStage {
-        inputs: view_2_inputs,
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(2))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[1].clone())),
-        ],
-        asserts: vec![],
-    };
-
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-
-    run_test_script(vec![view_1, view_2], consensus_state).await;
+    run_test![inputs, consensus_script].await;
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-async fn test_consensus_vote_with_permuted_dac() {
-    // These tests verify that a vote is indeed sent no matter when it receives a DaCertificateRecv
-    // event. In particular, we want to verify that receiving events in an unexpected (but still
-    // valid) order allows the system to proceed as it normally would.
-    test_vote_with_specific_order(vec![0, 1, 2]).await;
-    test_vote_with_specific_order(vec![0, 2, 1]).await;
-    test_vote_with_specific_order(vec![1, 0, 2]).await;
-    test_vote_with_specific_order(vec![2, 0, 1]).await;
-    test_vote_with_specific_order(vec![1, 2, 0]).await;
-    test_vote_with_specific_order(vec![2, 1, 0]).await;
-}
-
-#[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
@@ -312,37 +236,13 @@ async fn test_view_sync_finalize_propose() {
     votes.push(view.create_quorum_vote(&handle));
     vids.push(view.vid_proposal);
 
-    // This is a bog standard view and covers the situation where everything is going normally.
-    let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DaCertificateRecv(dacs[0].clone()),
-            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
-    };
-
-    // Fail twice here to "trigger" a view sync event. This is accomplished above by advancing the
-    // view number in the generator.
-    let view_2_3 = TestScriptStage {
-        inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![timeout_vote_send(), timeout_vote_send()],
-        // Times out, so we now have a delayed view
-        asserts: vec![],
-    };
-
     // Handle the view sync finalize cert, get the requisite data, propose.
     let cert = match proposals[1].data.proposal_certificate.clone().unwrap() {
         ViewChangeEvidence::ViewSync(vsc) => vsc,
         _ => panic!("Found a TC when there should have been a view sync cert"),
     };
 
-    // Generate the timeout votes for the timeouts that just occurred.
+    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let timeout_vote_view_2 = TimeoutVote::create_signed_vote(
         TimeoutData {
             view: ViewNumber::new(2),
@@ -363,10 +263,15 @@ async fn test_view_sync_finalize_propose() {
     )
     .unwrap();
 
-    let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
-    let view_4 = TestScriptStage {
-        inputs: vec![
-            VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
+    let inputs = vec![
+        serial![VidShareRecv(vid_share(&vids[0].0, handle.public_key()))],
+        random![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            DaCertificateRecv(dacs[0].clone()),
+        ],
+        serial![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
+        serial![VidShareRecv(vid_share(&vids[1].0, handle.public_key()))],
+        random![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             TimeoutVoteRecv(timeout_vote_view_2),
             TimeoutVoteRecv(timeout_vote_view_3),
@@ -379,23 +284,37 @@ async fn test_view_sync_finalize_propose() {
                 null_block::builder_fee(4).unwrap(),
             ),
         ],
-        outputs: vec![
+    ];
+
+    let expectations = vec![
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
+            exact(ViewChange(ViewNumber::new(1))),
+            quorum_proposal_validated(),
+            exact(QuorumVoteSend(votes[0].clone())),
+        ]),
+        Expectations::from_outputs(vec![timeout_vote_send(), timeout_vote_send()]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
             exact(ViewChange(ViewNumber::new(4))),
             quorum_proposal_validated(),
             quorum_proposal_send(),
-        ],
-        asserts: vec![],
-    };
+        ]),
+    ];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let mut consensus_script = TaskScript {
+        timeout: TIMEOUT,
+        state: consensus_state,
+        expectations,
+    };
 
-    let stages = vec![view_1, view_2_3, view_4];
-
-    run_test_script(stages, consensus_state).await;
+    run_test![inputs, consensus_script].await;
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
@@ -439,28 +358,7 @@ async fn test_view_sync_finalize_vote() {
         dacs.push(view.da_certificate.clone());
     }
 
-    let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DaCertificateRecv(dacs[0].clone()),
-            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
-    };
-
-    let view_2 = TestScriptStage {
-        inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![timeout_vote_send(), timeout_vote_send()],
-        // Times out, so we now have a delayed view
-        asserts: vec![],
-    };
-
-    // Now we're on the latest view. We want to set the quorum
+    // When we're on the latest view. We want to set the quorum
     // certificate to be the previous highest QC (before the timeouts). This will be distinct from
     // the view sync cert, which is saying "hey, I'm _actually_ at view 4, but my highest QC is
     // only for view 1." This forces the QC to be for view 1, and we can move on under this
@@ -472,27 +370,46 @@ async fn test_view_sync_finalize_vote() {
         _ => panic!("Found a TC when there should have been a view sync cert"),
     };
 
-    // Now at view 3 we receive the proposal received response.
-    let view_3 = TestScriptStage {
-        inputs: vec![
-            // Receive a proposal for view 4, but with the highest qc being from view 1.
+    let inputs = vec![
+        serial![VidShareRecv(vid_share(&vids[0].0, handle.public_key()))],
+        random![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            // Multiple timeouts in a row, so we call for a view sync
+            DaCertificateRecv(dacs[0].clone()),
+        ],
+        serial![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
+        random![
+            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             ViewSyncFinalizeCertificate2Recv(cert),
         ],
-        outputs: vec![quorum_proposal_validated(), quorum_vote_send()],
-        asserts: vec![],
-    };
+    ];
+
+    let expectations = vec![
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
+            exact(ViewChange(ViewNumber::new(1))),
+            quorum_proposal_validated(),
+            exact(QuorumVoteSend(votes[0].clone()))
+        ]),
+        Expectations::from_outputs(vec![timeout_vote_send(), timeout_vote_send()]),
+        Expectations::from_outputs(all_predicates![
+            validated_state_updated(),
+            quorum_proposal_validated(),
+            quorum_vote_send()
+        ]),
+    ];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let mut consensus_script = TaskScript {
+        timeout: TIMEOUT,
+        state: consensus_state,
+        expectations,
+    };
 
-    let stages = vec![view_1, view_2, view_3];
-
-    run_test_script(stages, consensus_state).await;
+    run_test![inputs, consensus_script].await;
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
@@ -536,28 +453,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         dacs.push(view.da_certificate.clone());
     }
 
-    let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DaCertificateRecv(dacs[0].clone()),
-            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            exact(QuorumVoteSend(votes[0].clone())),
-        ],
-        asserts: vec![],
-    };
-
-    let view_2 = TestScriptStage {
-        inputs: vec![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
-        outputs: vec![timeout_vote_send(), timeout_vote_send()],
-        // Times out, so we now have a delayed view
-        asserts: vec![],
-    };
-
-    // Now we're on the latest view. We want to set the quorum
+    // When we're on the latest view. We want to set the quorum
     // certificate to be the previous highest QC (before the timeouts). This will be distinct from
     // the view sync cert, which is saying "hey, I'm _actually_ at view 4, but my highest QC is
     // only for view 1." This forces the QC to be for view 1, and we can move on under this
@@ -572,34 +468,50 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     // intentionally skip the proposal for this node so we can get the proposal and fail to vote.
     cert.view_number = ViewNumber::new(10);
 
-    // We introduce an error by setting a different view number as well, this makes the task check
+    // Get a good proposal first.
+    let good_proposal = proposals[0].clone();
+
+    // Now We introduce an error by setting a different view number as well, this makes the task check
     // for a view sync or timeout cert. This value could be anything as long as it is not the
     // previous view number.
     proposals[0].data.justify_qc.view_number = proposals[3].data.justify_qc.view_number;
 
-    // Now at view 3 we receive the proposal received response.
-    let view_3 = TestScriptStage {
-        inputs: vec![
-            // Multiple timeouts in a row, so we call for a view sync
+    let inputs = vec![
+        random![
+            QuorumProposalRecv(good_proposal, leaders[0]),
+            DaCertificateRecv(dacs[0].clone()),
+        ],
+        serial![VidShareRecv(vid_share(&vids[0].0, handle.public_key()))],
+        serial![Timeout(ViewNumber::new(2)), Timeout(ViewNumber::new(3))],
+        random![
             ViewSyncFinalizeCertificate2Recv(cert),
-            // Receive a proposal for view 4, but with the highest qc being from view 1.
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
         ],
-        outputs: vec![
-            /* No outputs make it through. We never got a valid proposal, so we never vote */
-        ],
-        asserts: vec![],
-    };
+    ];
+
+    let expectations = vec![
+        Expectations::from_outputs(all_predicates![
+            quorum_proposal_validated(),
+            validated_state_updated(),
+            exact(ViewChange(ViewNumber::new(1))),
+        ]),
+        Expectations::from_outputs(vec![exact(QuorumVoteSend(votes[0].clone()))]),
+        Expectations::from_outputs(vec![timeout_vote_send(), timeout_vote_send()]),
+        // We get no output here due to the invalid view number.
+        Expectations::from_outputs(vec![]),
+    ];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let mut consensus_script = TaskScript {
+        timeout: TIMEOUT,
+        state: consensus_state,
+        expectations,
+    };
 
-    let stages = vec![view_1, view_2, view_3];
-
-    run_test_script(stages, consensus_state).await;
+    run_test![inputs, consensus_script].await;
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_disperse_storage_failure() {
@@ -629,22 +541,24 @@ async fn test_vid_disperse_storage_failure() {
         vids.push(view.vid_proposal.clone());
     }
 
-    // Run view 1 (the genesis stage).
-    let view_1 = TestScriptStage {
-        inputs: vec![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
-            DaCertificateRecv(dacs[0].clone()),
-            VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
-        ],
-        outputs: vec![
-            exact(ViewChange(ViewNumber::new(1))),
-            quorum_proposal_validated(),
-            /* Does not vote */
-        ],
-        asserts: vec![],
-    };
+    let inputs = vec![random![
+        QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+        DaCertificateRecv(dacs[0].clone()),
+        VidShareRecv(vid_share(&vids[0].0, handle.public_key())),
+    ]];
+
+    let expectations = vec![Expectations::from_outputs(all_predicates![
+        validated_state_updated(),
+        exact(ViewChange(ViewNumber::new(1))),
+        quorum_proposal_validated(),
+    ])];
 
     let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let mut consensus_script = TaskScript {
+        timeout: TIMEOUT,
+        state: consensus_state,
+        expectations,
+    };
 
-    run_test_script(vec![view_1], consensus_state).await;
+    run_test![inputs, consensus_script].await;
 }

@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.43"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.57"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
@@ -35,7 +35,7 @@ ark-ff = "0.4"
 ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7"
-async-compatibility-layer = { version = "1.1", default-features = false, features = [
+async-compatibility-layer = { version = "1.2", default-features = false, features = [
   "logging-utils",
 ] }
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
@@ -80,9 +80,9 @@ serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0" }
 sha2 = "0.10"
 snafu = "0.8"
-surf-disco = "0.7"
+surf-disco = "0.8"
 tagged-base64 = "0.4"
-tide-disco = "0.7"
+tide-disco = "0.8"
 time = "0.3"
 toml = "0.8"
 tracing = "0.1"
@@ -90,7 +90,7 @@ typenum = "1"
 memoize = { version = "0.4", features = ["full"] }
 vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
-url = { version = "2.5.0", features = ["serde"] }
+url = { version = "2.5.1", features = ["serde"] }
 
 libp2p = { package = "libp2p", version = "0.53", features = [
   "macros",
