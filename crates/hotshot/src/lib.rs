@@ -586,8 +586,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         if let Some(request_receiver) = da_network.spawn_request_receiver_task(STATIC_VER_0_1).await
         {
             add_response_task(&mut handle, request_receiver).await;
-            add_request_network_task(&mut handle).await;
         }
+        add_request_network_task(&mut handle).await;
 
         add_network_event_task(
             &mut handle,
