@@ -1,10 +1,3 @@
-#[cfg(not(feature = "dependency-tasks"))]
-use super::ConsensusTaskState;
-#[cfg(not(feature = "dependency-tasks"))]
-use crate::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
-};
 use crate::{
     events::{HotShotEvent, ProposalMissing},
     helpers::broadcast_event,
@@ -63,6 +56,14 @@ use tracing::error;
 use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]
 use vbs::version::Version;
+
+#[cfg(not(feature = "dependency-tasks"))]
+use super::ConsensusTaskState;
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::{
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+    helpers::AnyhowTracing,
+};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -956,10 +957,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                         if cert.data.decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
-                            info!(
-                                "Updating consensus state with decided upgrade certificate: {:?}",
-                                cert
-                            );
+                            info!("Reached decide on upgrade certificate: {:?}", cert);
                             res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
@@ -1032,6 +1030,10 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
     if let Some(cert) = res.decided_upgrade_cert {
         task_state.decided_upgrade_cert = Some(cert.clone());
+
+        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        *decided_certificate_lock = Some(cert.clone());
+        drop(decided_certificate_lock);
         let _ = event_stream
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .await;
