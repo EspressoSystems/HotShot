@@ -218,7 +218,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             sender: response_chan,
             leader,
         };
-        let Ok(data) = Serializer::<Ver>::serialize(&request) else {
+        let Ok(data) = bincode::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
             return;
         };
@@ -229,7 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         };
         let pub_key = self.public_key.clone();
         async_spawn(async move {
-            requester.do_proposal::<Ver>(view, signature, pub_key).await;
+            requester.do_proposal(view, signature, pub_key).await;
         });
     }
 
@@ -271,20 +271,20 @@ struct ProposalRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> {
     /// Handle sending a request for proposal for a view, does
     /// not delay
-    async fn do_proposal<Ver: StaticVersionType + 'static>(
+    async fn do_proposal(
         &self,
         view: TYPES::Time,
         signature: Signature<TYPES>,
         key: TYPES::SignatureKey,
     ) {
-        let response = match bincode::serialize(&make_proposal_req(&req, signature, key)) {
+        let response = match bincode::serialize(&make_proposal_req::<TYPES>(view, signature, key)) {
             Ok(serialized_msg) => {
                 async_timeout(
                     REQUEST_TIMEOUT,
                     self.network
                         .request_data::<TYPES>(serialized_msg, &self.leader),
                 )
-                .await;
+                .await
             }
             Err(e) => {
                 tracing::error!(
@@ -294,13 +294,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                 return;
             }
         };
-        if let Ok(Ok(ResponseMessage::Found(msg))) = response {
-            let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg else {
-                error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
-                broadcast_event(None, &self.sender).await;
-                return;
-            };
-            broadcast_event(Some(prop), &self.sender).await;
+        if let Ok(Ok(serialized_response)) = response {
+            if let Ok(ResponseMessage::Found(msg)) = bincode::deserialize(&serialized_response) {
+                let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
+                else {
+                    error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
+                    broadcast_event(None, &self.sender).await;
+                    return;
+                };
+                broadcast_event(Some(prop), &self.sender).await;
+            }
+            broadcast_event(None, &self.sender).await;
         } else {
             broadcast_event(None, &self.sender).await;
         }
@@ -322,28 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 }
                 self.do_vid(VidRequest(view, key), signature).await;
             }
-            RequestKind::Proposal(view) => {
-                self.do_proposal(ProposalRequest(view, pub_key), signature)
-                    .await;
-            }
-            RequestKind::DaProposal(..) => {}
-        }
-    }
-    /// Handle sending a request for proposal for a view, does
-    /// not delay
-    async fn do_proposal(&self, req: ProposalRequest<TYPES>, signature: Signature<TYPES>) {
-        match bincode::serialize(&make_proposal_req(&req, signature)) {
-            Ok(serialized_msg) => {
-                let _ = self
-                    .network
-                    .request_data::<TYPES>(serialized_msg, &self.leader)
-                    .await;
-            }
-            Err(e) => {
-                tracing::error!(
-                    "Failed to serialize outgoing message: this should never happen. Error: {e}"
-                );
-            }
+            RequestKind::Proposal(..) | RequestKind::DaProposal(..) => {}
         }
     }
     /// Handle sending a VID Share request, runs the loop until the data exists
