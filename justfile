@@ -92,6 +92,10 @@ test_success:
   echo Testing success test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
+test_success_dependency_tasks:
+  echo Testing success test
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_success -- --test-threads=1 --nocapture
+
 test_timeout:
   echo Testing timeout test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
@@ -107,6 +111,10 @@ test_web_server:
 test_with_failures:
   echo Testing nodes leaving the network
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
+
+test_with_failures_dependency_tasks:
+  echo Testing nodes leaving the network
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_with_failures -- --test-threads=1 --nocapture
 
 test_network_task:
   echo Testing the DA task
