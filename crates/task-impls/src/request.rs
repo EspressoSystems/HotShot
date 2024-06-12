@@ -18,7 +18,11 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
-    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    data::QuorumProposal,
+    message::{
+        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
+        SequencingMessage,
+    },
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
@@ -121,14 +125,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             HotShotEvent::QuorumProposalMissing(missing) => {
                 let ProposalMissing {
                     view,
-                    response_chan: _,
+                    response_chan: chan,
                 } = missing;
-                self.run_delay(
-                    RequestKind::Proposal(*view),
-                    sender.clone(),
-                    *view,
-                    Ver::instance(),
-                );
+                self.run_proposal(&RequestKind::Proposal(*view), chan.clone(), *view);
                 Ok(())
             }
             _ => Ok(()),
@@ -197,7 +196,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             .whole_committee(view)
             .into_iter()
             .collect();
-        let leader = self.da_membership.leader(view);
         // Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         recipients.shuffle(&mut thread_rng());
@@ -207,7 +205,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             sender,
             delay: self.delay,
             recipients,
-            leader,
             shutdown_flag: Arc::clone(&self.shutdown_flag),
         };
         let Ok(data) = Serializer::<Ver>::serialize(&request) else {
@@ -220,9 +217,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'st
             return;
         };
         debug!("Requesting data: {:?}", request);
-        let handle = async_spawn(requester.run::<Ver>(request, signature, self.public_key.clone()));
+        let handle = async_spawn(requester.run::<Ver>(request, signature));
 
         self.spawned_tasks.entry(view).or_default().push(handle);
+    }
+
+    /// Spawns a task to send a request for the proposal and send the response on a channel
+    fn run_proposal(
+        &mut self,
+        request: &RequestKind<TYPES>,
+        response_chan: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
+        view: TYPES::Time,
+    ) {
+        let leader = self.da_membership.leader(view);
+        let requester = ProposalRequester::<TYPES, I> {
+            network: Arc::clone(&self.network),
+            sender: response_chan,
+            leader,
+        };
+        let Ok(data) = Serializer::<Ver>::serialize(&request) else {
+            tracing::error!("Failed to serialize request!");
+            return;
+        };
+        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
+        else {
+            error!("Failed to sign Data Request");
+            return;
+        };
+        let pub_key = self.public_key.clone();
+        async_spawn(async move {
+            requester.do_proposal::<Ver>(view, signature, pub_key).await;
+        });
     }
 
     /// Signals delayed requesters to finish
@@ -245,17 +270,64 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     delay: Duration,
     /// The peers we will request in a random order
     recipients: Vec<TYPES::SignatureKey>,
-    /// Leader for the view of the request
-    leader: TYPES::SignatureKey,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     shutdown_flag: Arc<AtomicBool>,
 }
 
+/// A task the requests some data immediately from one peer
+
+struct ProposalRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Network to send requests
+    network: Arc<I::QuorumNetwork>,
+    /// Channel to send the event when we receive a response
+    sender: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
+    /// Leader for the view of the request
+    leader: TYPES::SignatureKey,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> {
+    /// Handle sending a request for proposal for a view, does
+    /// not delay
+    async fn do_proposal<Ver: StaticVersionType + 'static>(
+        &self,
+        view: TYPES::Time,
+        signature: Signature<TYPES>,
+        key: TYPES::SignatureKey,
+    ) {
+        match self
+            .network
+            .request_data::<TYPES, Ver>(
+                make_proposal_req(view, signature, key),
+                &self.leader,
+                Ver::instance(),
+            )
+            .await
+        {
+            Ok(response) => match response {
+                ResponseMessage::Found(msg) => {
+                    let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
+                    else {
+                        error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
+                        broadcast_event(None, &self.sender).await;
+                        return;
+                    };
+                    broadcast_event(Some(prop), &self.sender).await;
+                }
+                ResponseMessage::NotFound => {
+                    broadcast_event(None, &self.sender).await;
+                }
+                ResponseMessage::Denied => {
+                    error!("Request for Proposal was denied for view {:?}", view);
+                    broadcast_event(None, &self.sender).await;
+                }
+            },
+            Err(_) => todo!(),
+        }
+    }
+}
+
 /// Wrapper for the info in a VID request
 struct VidRequest<TYPES: NodeType>(TYPES::Time, TYPES::SignatureKey);
-
-/// Wrapper for the info in a Proposal fetch request
-struct ProposalRequest<TYPES: NodeType>(TYPES::Time, TYPES::SignatureKey);
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     /// Wait the delay, then try to complete the request.  Iterates over peers
@@ -264,7 +336,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         self,
         request: RequestKind<TYPES>,
         signature: Signature<TYPES>,
-        pub_key: TYPES::SignatureKey,
     ) {
         match request {
             RequestKind::Vid(view, key) => {
@@ -274,29 +345,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 }
                 self.do_vid::<Ver>(VidRequest(view, key), signature).await;
             }
-            RequestKind::Proposal(view) => {
-                self.do_proposal::<Ver>(ProposalRequest(view, pub_key), signature)
-                    .await;
-            }
-            RequestKind::DaProposal(..) => {}
+            RequestKind::Proposal(..) | RequestKind::DaProposal(..) => {}
         }
     }
-    /// Handle sending a request for proposal for a view, does
-    /// not delay
-    async fn do_proposal<Ver: StaticVersionType + 'static>(
-        &self,
-        req: ProposalRequest<TYPES>,
-        signature: Signature<TYPES>,
-    ) {
-        let _ = self
-            .network
-            .request_data::<TYPES, Ver>(
-                make_proposal_req(&req, signature),
-                &self.leader,
-                Ver::instance(),
-            )
-            .await;
-    }
+
     /// Handle sending a VID Share request, runs the loop until the data exists
     async fn do_vid<Ver: StaticVersionType + 'static>(
         &self,
@@ -382,17 +434,18 @@ fn make_vid<TYPES: NodeType>(
 
 /// Build a request for a Proposal
 fn make_proposal_req<TYPES: NodeType>(
-    req: &ProposalRequest<TYPES>,
+    view: TYPES::Time,
     signature: Signature<TYPES>,
+    key: TYPES::SignatureKey,
 ) -> Message<TYPES> {
-    let kind = RequestKind::Proposal(req.0);
+    let kind = RequestKind::Proposal(view);
     let data_request = DataRequest {
-        view: req.0,
+        view,
         request: kind,
         signature,
     };
     Message {
-        sender: req.1.clone(),
+        sender: key,
         kind: MessageKind::Data(DataMessage::RequestData(data_request)),
     }
 }

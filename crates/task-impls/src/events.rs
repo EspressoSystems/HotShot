@@ -36,7 +36,7 @@ pub struct ProposalMissing<TYPES: NodeType> {
     /// View of missing proposal
     pub view: TYPES::Time,
     /// Channel to send the response back to
-    pub response_chan: Sender<Proposal<TYPES, QuorumProposal<TYPES>>>,
+    pub response_chan: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
 }
 
 impl<TYPES: NodeType> PartialEq for ProposalMissing<TYPES> {
