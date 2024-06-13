@@ -35,6 +35,7 @@ use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
     traits::{
+        metrics::{Counter, Metrics, NoMetrics},
         network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -48,6 +49,33 @@ use rand::{rngs::StdRng, RngCore, SeedableRng};
 use tracing::error;
 
 use super::NetworkError;
+
+/// CDN-specific metrics
+#[derive(Clone)]
+pub struct CdnMetricsValue {
+    /// The number of failed messages
+    pub num_failed_messages: Box<dyn Counter>,
+}
+
+impl CdnMetricsValue {
+    /// Populate the metrics with the CDN-specific ones
+    pub fn new(metrics: &dyn Metrics) -> Self {
+        // Create a subgroup for the CDN
+        let subgroup = metrics.subgroup("cdn".into());
+
+        // Create the CDN-specific metrics
+        Self {
+            num_failed_messages: subgroup.create_counter("num_failed_messages".into(), None),
+        }
+    }
+}
+
+impl Default for CdnMetricsValue {
+    // The default is empty metrics
+    fn default() -> Self {
+        Self::new(&*NoMetrics::boxed())
+    }
+}
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -145,6 +173,8 @@ impl<TYPES: NodeType> RunDef for TestingDef<TYPES> {
 pub struct PushCdnNetwork<TYPES: NodeType> {
     /// The underlying client
     client: Client<ClientDef<TYPES>>,
+    /// The CDN-specific metrics
+    metrics: Arc<CdnMetricsValue>,
     /// Whether or not the underlying network is supposed to be paused
     #[cfg(feature = "hotshot-testing")]
     is_paused: Arc<AtomicBool>,
@@ -175,6 +205,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         marshal_endpoint: String,
         topics: Vec<Topic>,
         keypair: KeyPair<WrappedSignatureKey<TYPES::SignatureKey>>,
+        metrics: CdnMetricsValue,
     ) -> anyhow::Result<Self> {
         // Build config
         let config = ClientConfig {
@@ -189,6 +220,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
 
         Ok(Self {
             client,
+            metrics: Arc::from(metrics),
             // Start unpaused
             #[cfg(feature = "hotshot-testing")]
             is_paused: Arc::from(AtomicBool::new(false)),
@@ -372,6 +404,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                     // Create our client
                     let client = Arc::new(PushCdnNetwork {
                         client: Client::new(client_config),
+                        metrics: Arc::new(CdnMetricsValue::default()),
                         #[cfg(feature = "hotshot-testing")]
                         is_paused: Arc::from(AtomicBool::new(false)),
                     });
@@ -427,7 +460,12 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<T
         _recipients: BTreeSet<TYPES::SignatureKey>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Global).await
+        self.broadcast_message(message, Topic::Global)
+            .await
+            .map_err(|e| {
+                self.metrics.num_failed_messages.add(1);
+                e
+            })
     }
 
     /// Broadcast a message to all members of the DA committee.
@@ -441,7 +479,12 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<T
         _recipients: BTreeSet<TYPES::SignatureKey>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Da).await
+        self.broadcast_message(message, Topic::Da)
+            .await
+            .map_err(|e| {
+                self.metrics.num_failed_messages.add(1);
+                e
+            })
     }
 
     /// Send a direct message to a node with a particular key. Does not retry.
@@ -467,6 +510,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<T
             .await
             .is_err()
         {
+            self.metrics.num_failed_messages.add(1);
             return Err(NetworkError::CouldNotDeliver);
         };
 
