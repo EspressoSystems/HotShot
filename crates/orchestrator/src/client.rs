@@ -336,14 +336,11 @@ impl OrchestratorClient {
     }
 
     /// Requests a builder URL from orchestrator
-    pub async fn get_builder_address(&self, node_index: u64) -> Url {
+    pub async fn get_builder_addresses(&self) -> Vec<Url> {
         // Define the request for post-register configurations
         let get_builder = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
-                let result = client
-                    .get(&format!("api/builder/{node_index}"))
-                    .send()
-                    .await;
+                let result = client.get(&format!("api/builders")).send().await;
 
                 if let Err(ref err) = result {
                     tracing::error!("{err}");

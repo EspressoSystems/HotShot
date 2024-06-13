@@ -960,6 +960,23 @@ pub async fn main_entry_point<
 
     let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
 
+    run_config.config.builder_urls = orchestrator_client
+        .get_builder_addresses()
+        .await
+        .try_into()
+        .expect("Orchestrator didn't provide any builder addresses");
+
+    debug!(
+        "Assigned urls from orchestrator: {}",
+        run_config
+            .config
+            .builder_urls
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+            .join(",")
+    );
+
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
     let hotshot = run.initialize_state_and_hotshot().await;
@@ -1030,6 +1047,10 @@ where
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
+    if !run_config.config.my_own_validator_config.is_da {
+        return None;
+    }
+
     let mut advertise_urls = Vec::new();
     let bind_address: Url;
     match args.builder_address {
@@ -1050,52 +1071,39 @@ where
         }
     };
 
-    let mut builder_task = None;
+    match run_config.builder {
+        BuilderType::External => None,
+        BuilderType::Random => {
+            let builder_task =
+                <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                    bind_address,
+                    run_config.random_builder.clone().unwrap_or_default(),
+                    HashMap::new(),
+                )
+                .await;
 
-    if run_config.config.my_own_validator_config.is_da {
-        match run_config.builder {
-            BuilderType::External => {}
-            BuilderType::Random => {
-                run_config.config.builder_urls = vec1::vec1![bind_address.clone()];
-
-                builder_task = Some(
-                    <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                        run_config.config.num_nodes_with_stake.into(),
-                        bind_address,
-                        run_config.random_builder.clone().unwrap_or_default(),
-                        HashMap::new(),
-                    )
-                    .await,
-                );
-
-                orchestrator_client
-                    .post_builder_addresses(advertise_urls)
-                    .await;
-            }
-            BuilderType::Simple => {
-                run_config.config.builder_urls = vec1::vec1![bind_address.clone()];
-
-                builder_task = Some(
-                    <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                        run_config.config.num_nodes_with_stake.into(),
-                        bind_address,
-                        (),
-                        HashMap::new(),
-                    )
-                    .await,
-                );
-
-                orchestrator_client
-                    .post_builder_addresses(advertise_urls)
-                    .await;
-            }
-        }
-    } else {
-        run_config.config.builder_urls = vec1::vec1![
             orchestrator_client
-                .get_builder_address(run_config.node_index)
-                .await
-        ];
+                .post_builder_addresses(advertise_urls)
+                .await;
+
+            Some(builder_task)
+        }
+        BuilderType::Simple => {
+            let builder_task =
+                <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.config.num_nodes_with_stake.into(),
+                    bind_address,
+                    (),
+                    HashMap::new(),
+                )
+                .await;
+
+            orchestrator_client
+                .post_builder_addresses(advertise_urls)
+                .await;
+
+            Some(builder_task)
+        }
     }
-    builder_task
 }

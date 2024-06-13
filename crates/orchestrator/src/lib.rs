@@ -231,10 +231,10 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// # Errors
     /// if unable to serve
     fn post_builder(&mut self, builder: Url) -> Result<(), ServerError>;
-    /// get endpoint for a builder
+    /// get endpoints for builders
     /// # Errors
     /// if not all builders are registered yet
-    fn get_builder(&self, node_index: usize) -> Result<Url, ServerError>;
+    fn get_builders(&self) -> Result<Vec<Url>, ServerError>;
 }
 
 impl<KEY> OrchestratorApi<KEY> for OrchestratorState<KEY>
@@ -546,7 +546,7 @@ where
         Ok(())
     }
 
-    fn get_builder(&self, node_index: usize) -> Result<Url, ServerError> {
+    fn get_builders(&self) -> Result<Vec<Url>, ServerError> {
         if !matches!(self.config.builder, BuilderType::External)
             && self.builders.len() != self.config.config.da_staked_committee_size
         {
@@ -555,13 +555,7 @@ where
                 message: "Not all builders are registered yet".to_string(),
             });
         }
-        let builder_idx = node_index
-            .checked_rem(self.builders.len())
-            .ok_or(ServerError {
-                status: tide_disco::StatusCode::NOT_FOUND,
-                message: "Builder pool is empty".to_string(),
-            })?;
-        Ok(self.builders[builder_idx].clone())
+        Ok(self.builders.clone())
     }
 }
 
@@ -700,12 +694,8 @@ where
         }
         .boxed()
     })?
-    .get("get_builder", |req, state| {
-        async move {
-            let node_index: usize = req.integer_param("node_index")?;
-            state.get_builder(node_index)
-        }
-        .boxed()
+    .get("get_builders", |_req, state| {
+        async move { state.get_builders() }.boxed()
     })?;
     Ok(api)
 }

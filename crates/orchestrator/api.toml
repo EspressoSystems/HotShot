@@ -88,12 +88,11 @@ DOC = """
 Post whether the orchestrator should start the run immediately, with the nodes that have already registered.
 """
 
-# GET builder URL
-[route.get_builder]
-PATH = ["builder/:node_index"]
-":node_index" = "Integer"
+# GET builder URLs
+[route.get_builders]
+PATH = ["builders"]
 DOC = """
-Assign a builder URL from orchestrator's pool of URLs
+Get list of builder URLs
 """
 
 # POST builder URL
