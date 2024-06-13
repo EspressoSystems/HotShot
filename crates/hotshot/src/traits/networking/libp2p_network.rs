@@ -664,12 +664,12 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 }
                 // perform connection
                 info!("WAITING TO CONNECT ON NODE {:?}", id);
-                handle.wait_to_connect(4, id).await.unwrap();
-                info!(
-                    "node {:?} is barring bootstrap, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
+
+                // Wait for the network to connect to the required number of peers
+                if let Err(e) = handle.wait_to_connect(4, id).await {
+                    error!("Failed to connect to peers: {:?}", e);
+                    return Err::<(), NetworkError>(e.into());
+                }
 
                 is_ready.store(true, Ordering::Relaxed);
                 Ok::<(), NetworkError>(())
