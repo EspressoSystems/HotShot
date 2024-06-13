@@ -4,11 +4,14 @@
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Context, Result};
-use async_broadcast::Sender;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 use committable::Committable;
-use hotshot_task::dependency_task::HandleDepOutput;
+use hotshot_task::{
+    dependency::{Dependency, EventDependency},
+    dependency_task::HandleDepOutput,
+};
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
@@ -56,6 +59,9 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// The event sender.
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
+
+    /// The event receiver.
+    pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
 
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
@@ -173,17 +179,27 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
-        loop {
-            // Loop until the validated state map contains the view corresponding to the high QC.
-            if self
-                .consensus
-                .read()
-                .await
-                .validated_state_map()
-                .contains_key(&high_qc_view_number)
-            {
-                break;
-            }
+        if !self
+            .consensus
+            .read()
+            .await
+            .validated_state_map()
+            .contains_key(&high_qc_view_number)
+        {
+            // Block on receiving the event from the event stream.
+            EventDependency::new(
+                self.receiver.clone(),
+                Box::new(move |event| {
+                    let event = event.as_ref();
+                    if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
+                        *view_number == high_qc_view_number
+                    } else {
+                        false
+                    }
+                }),
+            )
+            .completed()
+            .await;
         }
 
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
