@@ -103,7 +103,7 @@ impl<K: SignatureKey> MemoryNetwork<K> {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     pub fn new(
         pub_key: K,
-        master_map: Arc<MasterMap<K>>,
+        master_map: &Arc<MasterMap<K>>,
         reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> MemoryNetwork<K> {
         info!("Attaching new MemoryNetwork");
@@ -138,7 +138,7 @@ impl<K: SignatureKey> MemoryNetwork<K> {
             inner: Arc::new(MemoryNetworkInner {
                 input: RwLock::new(Some(input)),
                 output: Mutex::new(output),
-                master_map: Arc::clone(&master_map),
+                master_map: Arc::clone(master_map),
                 in_flight_message_count,
                 reliability_config,
             }),
@@ -180,7 +180,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         Box::pin(move |node_id| {
             let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            let net = MemoryNetwork::new(pubkey, Arc::clone(&master), reliability_config.clone());
+            let net = MemoryNetwork::new(pubkey, &Arc::clone(&master), reliability_config.clone());
             Box::pin(async move { (net.clone().into(), net.into()) })
         })
     }
