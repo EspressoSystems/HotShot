@@ -1,8 +1,6 @@
 #![cfg(feature = "dependency-tasks")]
 
 use std::time::Duration;
-#[cfg(not(feature = "dependency-tasks"))]
-use committable::Committable;
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot::traits::ValidatedState;
@@ -12,14 +10,6 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
 
 };
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_example_types::{state_types::TestInstanceState,};
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_testing::{
-    all_predicates,
-    helpers::{
-        build_cert, key_pair_for_id
-    }};
 use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{
     events::HotShotEvent::*,
@@ -39,8 +29,6 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{simple_certificate::QuorumCertificate,};
 use hotshot_types::{
     data::{null_block, Leaf, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, ViewSyncFinalizeData},
@@ -388,8 +376,6 @@ async fn test_quorum_proposal_task_view_sync() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    // We need to propose as the leader for view 2, otherwise we get caught up with the special
-    // case in the genesis view.
     let node_id = 2;
     let handle = build_system_handle(node_id).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -620,8 +606,6 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    // We need to propose as the leader for view 2, otherwise we get caught up with the special
-    // case in the genesis view.
     let handle = build_system_handle(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
@@ -640,8 +624,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // We run the task here at view 2, but this time we ignore the crucial piece of evidence: the
     // payload commitment and metadata. Instead we send only one of the three "OR" required fields.
     // This should result in the proposal failing to be sent.
-    let inputs = vec![serial![            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
-    ]];
+    let inputs = vec![serial![QuorumProposalRecv(proposals[1].clone(), leaders[1])]];
 
     let expectations = vec![Expectations::from_outputs(vec![])];
 
@@ -655,3 +638,4 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     };
     run_test![inputs, script].await;
 }
+
