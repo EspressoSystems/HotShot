@@ -31,7 +31,7 @@ pub(crate) enum ProposalDependency {
     PayloadAndMetadata,
 
     /// For the `QcFormed` event.
-    QC,
+    Qc,
 
     /// For the `ViewSyncFinalizeCertificate2Recv` event.
     ViewSyncCert,
@@ -44,13 +44,10 @@ pub(crate) enum ProposalDependency {
 
     /// For the `VidShareValidated` event.
     VidShare,
-
-    /// For the `ValidatedStateUpdated` event.
-    ValidatedState,
 }
 
 /// Handler for the proposal dependency
-pub(crate) struct ProposalDependencyHandle<TYPES: NodeType> {
+pub struct ProposalDependencyHandle<TYPES: NodeType> {
     /// Latest view number that has been proposed for (proxy for cur_view).
     pub latest_proposed_view: TYPES::Time,
 
@@ -175,6 +172,20 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
+        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
+        loop {
+            // Loop until the validated state map contains the view corresponding to the high QC.
+            if self
+                .consensus
+                .read()
+                .await
+                .validated_state_map()
+                .contains_key(&high_qc_view_number)
+            {
+                break;
+            }
+        }
+
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
