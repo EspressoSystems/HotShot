@@ -134,7 +134,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
                 delta: Some(Arc::clone(&delta)),
             },
         };
-        consensus_writer.update_validated_state_map(proposed_leaf.view_number(), view.clone());
+        if let Err(e) =
+            consensus_writer.update_validated_state_map(proposed_leaf.view_number(), view.clone())
+        {
+            tracing::trace!("{e:?}");
+        }
         consensus_writer.update_saved_leaves(proposed_leaf.clone());
 
         // Kick back our updated structures for downstream usage.

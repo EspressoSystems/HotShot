@@ -116,7 +116,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     consensus_writer.update_validated_state_map(
         ViewNumber::new(0),
         build_fake_view_with_leaf(genesis_leaf.clone()),
-    );
+    ).unwrap();
     drop(consensus_writer);
 
     let inputs = vec![
@@ -205,7 +205,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     consensus_writer.update_validated_state_map(
         ViewNumber::new(0),
         build_fake_view_with_leaf(genesis_leaf.clone()),
-    );
+    ).unwrap();
 
     drop(consensus_writer);
 

@@ -203,7 +203,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 let view = View {
                     view_inner: ViewInner::Da { payload_commitment },
                 };
-                consensus.update_validated_state_map(view_number, view.clone());
+                if let Err(e) = consensus.update_validated_state_map(view_number, view.clone()) {
+                    tracing::trace!("{e:?}");
+                }
 
                 // Record the payload we have promised to make available.
                 if let Err(e) = consensus.update_saved_payloads(
