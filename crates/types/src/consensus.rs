@@ -310,8 +310,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> Result<()> {
         if let Some(existing_view) = self.validated_state_map().get(&view_number) {
             if let ViewInner::Leaf { .. } = existing_view.view_inner {
-                match view.view_inner.clone() {
-                    ViewInner::Leaf { delta, .. } => {
+                match view.view_inner {
+                    ViewInner::Leaf { ref delta, .. } => {
                         ensure!(
                             delta.is_some(),
                             "Skipping the state update to not override a `Leaf` view with `None` state delta."
