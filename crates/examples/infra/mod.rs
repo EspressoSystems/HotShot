@@ -18,7 +18,6 @@ use cdn_broker::reexports::crypto::signature::KeyPair;
 use chrono::Utc;
 use clap::{value_parser, Arg, Command, Parser};
 use futures::StreamExt;
-use get_if_addrs::get_if_addrs;
 use hotshot::{
     traits::{
         implementations::{
@@ -917,7 +916,7 @@ pub async fn main_entry_point<
     >,
     RUNDA: RunDa<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(
-    mut args: ValidatorArgs,
+    args: ValidatorArgs,
 ) where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -958,32 +957,6 @@ pub async fn main_entry_point<
     )
     .await
     .expect("failed to get config");
-
-    match get_if_addrs() {
-        Ok(interfaces) => {
-            for interface in interfaces {
-                if let IpAddr::V4(ipv4_addr) = interface.addr.ip() {
-                    // Exclude loopback addresses
-                    if !ipv4_addr.is_loopback() && ipv4_addr.to_string().starts_with("172.31.") {
-                        args.builder_address =
-                            Some(Url::parse(&format!("http://{ipv4_addr}:1234")).unwrap());
-                    }
-                } else if let IpAddr::V6(ipv6_addr) = interface.addr.ip() {
-                    // Exclude loopback addresses
-                    if !ipv6_addr.is_loopback() {
-                        println!("Local IPv6 Address: {ipv6_addr:?}");
-                        args.builder_address =
-                            Some(Url::parse(&format!("http://{ipv6_addr}:1234")).unwrap());
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Error: {e:?}");
-        }
-    }
-    // only when builder_address is not set
-    debug!("args.builder_address = {:?}", args.builder_address);
 
     let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
 
@@ -1057,48 +1030,64 @@ where
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
+    let mut advertise_urls = Vec::new();
+    let bind_address: Url;
+    match args.builder_address {
+        None => {
+            let port = portpicker::pick_unused_port().expect("Failed to pick an unused port");
+            let possible_urls = local_ip_address::list_afinet_netifas()
+                .expect("Couldn't get list of local IP addresses")
+                .into_iter()
+                .map(|(_name, ip)| ip)
+                .filter(|ip| !ip.is_loopback())
+                .map(|ip| Url::parse(&format!("http://{ip}:{port}")).unwrap());
+            advertise_urls.extend(possible_urls);
+            bind_address = Url::parse(&format!("http://0.0.0.0:{port}")).unwrap()
+        }
+        Some(ref addr) => {
+            advertise_urls.push(addr.clone());
+            bind_address = addr.clone()
+        }
+    };
+
     let mut builder_task = None;
 
     if run_config.config.my_own_validator_config.is_da {
         match run_config.builder {
             BuilderType::External => {}
             BuilderType::Random => {
-                let builder_address = args.builder_address.clone().expect(
-                    "Node is supposed to run a builder, but no builder address is specified",
-                );
-                run_config.config.builder_urls = vec1::vec1![builder_address.clone()];
-                orchestrator_client
-                    .post_builder_address(builder_address.clone())
-                    .await;
+                run_config.config.builder_urls = vec1::vec1![bind_address.clone()];
 
                 builder_task = Some(
                     <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                         run_config.config.num_nodes_with_stake.into(),
-                        builder_address,
+                        bind_address,
                         run_config.random_builder.clone().unwrap_or_default(),
                         HashMap::new(),
                     )
                     .await,
                 );
+
+                orchestrator_client
+                    .post_builder_addresses(advertise_urls)
+                    .await;
             }
             BuilderType::Simple => {
-                let builder_address = args.builder_address.clone().expect(
-                    "Node is supposed to run a builder, but no builder address is specified",
-                );
-                run_config.config.builder_urls = vec1::vec1![builder_address.clone()];
-                orchestrator_client
-                    .post_builder_address(builder_address.clone())
-                    .await;
+                run_config.config.builder_urls = vec1::vec1![bind_address.clone()];
 
                 builder_task = Some(
                     <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                         run_config.config.num_nodes_with_stake.into(),
-                        builder_address,
+                        bind_address,
                         (),
                         HashMap::new(),
                     )
                     .await,
                 );
+
+                orchestrator_client
+                    .post_builder_addresses(advertise_urls)
+                    .await;
             }
         }
     } else {

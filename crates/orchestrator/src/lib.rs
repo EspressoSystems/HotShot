@@ -5,13 +5,18 @@ pub mod client;
 /// Configuration for the orchestrator
 pub mod config;
 
-use std::{collections::HashMap, fs::OpenOptions, io, io::ErrorKind};
+use std::{
+    collections::HashMap,
+    fs::OpenOptions,
+    io::{self, ErrorKind},
+    time::Duration,
+};
 
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
 use config::BuilderType;
 use csv::Writer;
-use futures::FutureExt;
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use hotshot_types::{constants::Base, traits::signature_key::SignatureKey, PeerConfig};
 use libp2p::{
     identity::{
@@ -663,14 +668,35 @@ where
             let mut body_bytes = req.body_bytes();
             body_bytes.drain(..12);
 
-            let Ok(builder_url) = vbs::Serializer::<Base>::deserialize(&body_bytes) else {
+            let Ok(urls) = vbs::Serializer::<Base>::deserialize::<Vec<Url>>(&body_bytes) else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "Malformed body".to_string(),
                 });
             };
 
-            state.post_builder(builder_url)
+            let mut futures = urls
+                .into_iter()
+                .map(|url| async {
+                    let client: surf_disco::Client<ServerError, Base> =
+                        surf_disco::client::Client::builder(url.clone()).build();
+                    if client.connect(Some(Duration::from_secs(2))).await {
+                        Some(url)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<FuturesUnordered<_>>()
+                .filter_map(futures::future::ready);
+
+            if let Some(url) = futures.next().await {
+                state.post_builder(url)
+            } else {
+                Err(ServerError {
+                    status: tide_disco::StatusCode::BAD_REQUEST,
+                    message: "No reachable adddresses".to_string(),
+                })
+            }
         }
         .boxed()
     })?

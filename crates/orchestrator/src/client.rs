@@ -314,10 +314,10 @@ impl OrchestratorClient {
     ///
     /// # Panics
     /// if unable to serialize `address`
-    pub async fn post_builder_address(&self, address: Url) {
+    pub async fn post_builder_addresses(&self, addresses: Vec<Url>) {
         let send_builder_f = |client: Client<ClientError, OrchestratorVersion>| {
-            let request_body =
-                vbs::Serializer::<Base>::serialize(&address).expect("Failed to serialize request");
+            let request_body = vbs::Serializer::<Base>::serialize(&addresses)
+                .expect("Failed to serialize request");
 
             async move {
                 let result: Result<_, ClientError> = client
