@@ -193,7 +193,6 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -201,6 +200,7 @@
 
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
+<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>hotshot_task::task::Task;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -231,8 +231,6 @@
     },
 };
 <span class="kw">use </span>vbs::version::StaticVersionType;
-
-<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]

@@ -655,8 +655,16 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+    quorum_vote::handlers::handle_quorum_proposal_validated,
+};
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
@@ -692,12 +700,6 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, instrument, trace, warn};
 <span class="kw">use </span>vbs::version::Version;
-
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-    quorum_vote::handlers::handle_quorum_proposal_validated,
-};
 
 <span class="doccomment">/// Event handlers for `QuorumProposalValidated`.
 </span><span class="kw">mod </span>handlers;
@@ -792,7 +794,11 @@
                 delta: <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
             },
         };
-        consensus_writer.update_validated_state_map(proposed_leaf.view_number(), view.clone());
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
+            consensus_writer.update_validated_state_map(proposed_leaf.view_number(), view.clone())
+        {
+            <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+        }
         consensus_writer.update_saved_leaves(proposed_leaf.clone());
 
         <span class="comment">// Kick back our updated structures for downstream usage.

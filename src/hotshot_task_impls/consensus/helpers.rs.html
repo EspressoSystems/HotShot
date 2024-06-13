@@ -1258,6 +1258,12 @@
 <a href="#1256" id="1256">1256</a>
 <a href="#1257" id="1257">1257</a>
 <a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>core::time::Duration;
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
@@ -1267,6 +1273,14 @@
     sync::Arc,
 };
 
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use crate</span>::{
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+    helpers::AnyhowTracing,
+};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>anyhow::bail;
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
@@ -1313,15 +1327,6 @@
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">use </span>vbs::version::Version;
 
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use crate</span>::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
-};
-<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
-
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 ///
@@ -1359,10 +1364,13 @@
         </span>},
     };
 
-    consensus
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus
         .write()
         .<span class="kw">await
-        </span>.update_validated_state_map(view_number, view.clone());
+        </span>.update_validated_state_map(view_number, view.clone())
+    {
+        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+    }
 
     <span class="comment">// Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     </span>broadcast_event(
@@ -1907,7 +1915,7 @@
             ),
         );
 
-        consensus_write.update_validated_state_map(
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(
             view,
             View {
                 view_inner: ViewInner::Leaf {
@@ -1916,7 +1924,9 @@
                     delta: <span class="prelude-val">None</span>,
                 },
             },
-        );
+        ) {
+            <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+        }
 
         consensus_write.update_saved_leaves(leaf.clone());
         <span class="kw">let </span>new_leaves = consensus_write.saved_leaves().clone();
@@ -2470,7 +2480,7 @@
     };
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = consensus.write().<span class="kw">await</span>;
-    consensus.update_validated_state_map(
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_validated_state_map(
         cur_view,
         View {
             view_inner: ViewInner::Leaf {
@@ -2479,7 +2489,9 @@
                 delta: <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
             },
         },
-    );
+    ) {
+        <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+    }
     consensus.update_saved_leaves(proposed_leaf.clone());
     <span class="kw">let </span>new_leaves = consensus.saved_leaves().clone();
     <span class="kw">let </span>new_state = consensus.validated_state_map().clone();

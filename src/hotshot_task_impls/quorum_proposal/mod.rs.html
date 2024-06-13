@@ -539,6 +539,10 @@
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -1013,10 +1017,14 @@
             }
             HotShotEvent::ValidatedStateUpdated(view_number, view) =&gt; {
                 <span class="comment">// Update the internal validated state map.
-                </span><span class="self">self</span>.consensus
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                    </span>.consensus
                     .write()
                     .<span class="kw">await
-                    </span>.update_validated_state_map(<span class="kw-2">*</span>view_number, view.clone());
+                    </span>.update_validated_state_map(<span class="kw-2">*</span>view_number, view.clone())
+                {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+                }
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     <span class="kw-2">*</span>view_number + <span class="number">1</span>,
