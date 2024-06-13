@@ -8,6 +8,7 @@ use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::{TestDescription, TimingData},
+    spinning_task::{SpinningTaskDescription, UpDown, ChangeNode},
 };
 use tracing::instrument;
 
@@ -43,7 +44,6 @@ async fn libp2p_network() {
 }
 
 /// libp2p network test with failures
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[instrument]

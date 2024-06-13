@@ -65,11 +65,11 @@ jobs:
           - tokio
         test_suites:
           - test-ci-1
-          # - test-ci-2
+          - test-ci-2
           # - test-ci-3
           # - test-ci-4
           # - test-ci-5
-          # - test-ci-rest
+          - test-ci-rest
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
