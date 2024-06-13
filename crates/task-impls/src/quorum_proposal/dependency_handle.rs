@@ -86,7 +86,7 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
-    /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperseShare`]
+    /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
     async fn publish_proposal(
