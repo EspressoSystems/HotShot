@@ -8,14 +8,6 @@ use std::{
 };
 
 #[cfg(not(feature = "dependency-tasks"))]
-use super::ConsensusTaskState;
-#[cfg(not(feature = "dependency-tasks"))]
-use crate::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
-};
-use crate::{events::HotShotEvent, helpers::broadcast_event};
-#[cfg(not(feature = "dependency-tasks"))]
 use anyhow::bail;
 use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
@@ -60,6 +52,15 @@ use tracing::error;
 use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]
 use vbs::version::Version;
+
+#[cfg(not(feature = "dependency-tasks"))]
+use super::ConsensusTaskState;
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::{
+    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+    helpers::AnyhowTracing,
+};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.

@@ -1051,25 +1051,26 @@ where
         return None;
     }
 
-    let mut advertise_urls = Vec::new();
+    let advertise_urls: Vec<Url>;
     let bind_address: Url;
+
     match args.builder_address {
         None => {
             let port = portpicker::pick_unused_port().expect("Failed to pick an unused port");
-            let possible_urls = local_ip_address::list_afinet_netifas()
+            advertise_urls = local_ip_address::list_afinet_netifas()
                 .expect("Couldn't get list of local IP addresses")
                 .into_iter()
                 .map(|(_name, ip)| ip)
                 .filter(|ip| !ip.is_loopback())
-                .map(|ip| Url::parse(&format!("http://{ip}:{port}")).unwrap());
-            advertise_urls.extend(possible_urls);
-            bind_address = Url::parse(&format!("http://0.0.0.0:{port}")).unwrap()
+                .map(|ip| Url::parse(&format!("http://{ip}:{port}")).unwrap())
+                .collect();
+            bind_address = Url::parse(&format!("http://0.0.0.0:{port}")).unwrap();
         }
         Some(ref addr) => {
-            advertise_urls.push(addr.clone());
-            bind_address = addr.clone()
+            advertise_urls = vec![addr.clone()];
+            bind_address = addr.clone();
         }
-    };
+    }
 
     match run_config.builder {
         BuilderType::External => None,

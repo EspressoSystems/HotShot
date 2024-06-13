@@ -340,7 +340,7 @@ impl OrchestratorClient {
         // Define the request for post-register configurations
         let get_builder = |client: Client<ClientError, OrchestratorVersion>| {
             async move {
-                let result = client.get(&format!("api/builders")).send().await;
+                let result = client.get("api/builders").send().await;
 
                 if let Err(ref err) = result {
                     tracing::error!("{err}");
