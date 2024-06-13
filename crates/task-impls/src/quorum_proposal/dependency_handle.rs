@@ -14,7 +14,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence},
+    data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
@@ -92,7 +92,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
-        vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+        vid_share: Proposal<TYPES, VidDisperse<TYPES>>,
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
@@ -234,7 +234,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
                     view_sync_finalize_cert = Some(cert.clone());
                 }
-                HotShotEvent::VidShareValidated(share) => {
+                HotShotEvent::VidDisperseSend(share, _) => {
                     vid_share = Some(share.clone());
                 }
                 _ => {}

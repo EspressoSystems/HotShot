@@ -149,7 +149,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::VidShare => {
-                        if let HotShotEvent::VidShareValidated(vid_share) = event {
+                        if let HotShotEvent::VidDisperseSend(vid_share, _) = event {
                             vid_share.data.view_number()
                         } else {
                             return false;
@@ -226,7 +226,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
                 view_sync_dependency.mark_as_completed(event);
             }
-            HotShotEvent::VidShareValidated(_) => {
+            HotShotEvent::VidDisperseSend(_, _) => {
                 vid_share_dependency.mark_as_completed(event);
             }
             HotShotEvent::UpdateHighQc(_) => {
@@ -434,15 +434,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
             }
-            HotShotEvent::VidShareValidated(vid_share) => {
+            HotShotEvent::VidDisperseSend(vid_share, _) => {
                 let view_number = vid_share.data.view_number();
-
-                // Update the vid shares map if we need to include the new value.
-                let share = vid_share.clone();
-                self.consensus
-                    .write()
-                    .await
-                    .update_vid_shares(view_number, share.clone());
 
                 self.create_dependency_task_if_new(
                     view_number,
