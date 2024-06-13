@@ -149,10 +149,10 @@ async fn memory_network_direct_queue() {
     trace!(?group);
 
     let pub_key_1 = pubkey();
-    let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
+    let network1 = MemoryNetwork::new(pub_key_1, &group.clone(), Option::None);
 
     let pub_key_2 = pubkey();
-    let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+    let network2 = MemoryNetwork::new(pub_key_2, &group, Option::None);
 
     let first_messages: Vec<Message<Test>> = gen_messages(5, 100, pub_key_1);
 
@@ -205,9 +205,9 @@ async fn memory_network_broadcast_queue() {
     let group: Arc<MasterMap<<Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
     let pub_key_1 = pubkey();
-    let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
+    let network1 = MemoryNetwork::new(pub_key_1, &group.clone(), Option::None);
     let pub_key_2 = pubkey();
-    let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+    let network2 = MemoryNetwork::new(pub_key_2, &group, Option::None);
 
     let first_messages: Vec<Message<Test>> = gen_messages(5, 100, pub_key_1);
 
@@ -268,9 +268,9 @@ async fn memory_network_test_in_flight_message_count() {
     let group: Arc<MasterMap<<Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
     let pub_key_1 = pubkey();
-    let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
+    let network1 = MemoryNetwork::new(pub_key_1, &group.clone(), Option::None);
     let pub_key_2 = pubkey();
-    let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+    let network2 = MemoryNetwork::new(pub_key_2, &group, Option::None);
 
     // Create some dummy messages
     let messages: Vec<Message<Test>> = gen_messages(5, 100, pub_key_1);
