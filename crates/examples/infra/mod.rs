@@ -1,5 +1,6 @@
 #![allow(clippy::panic)]
 use std::{
+    collections::HashMap,
     fmt::Debug,
     fs,
     marker::PhantomData,
@@ -50,7 +51,6 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
-    message::Message,
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
@@ -323,12 +323,45 @@ fn calculate_num_tx_per_round(
         )
 }
 
+/// Helper function to generate transactions a given node should send
+fn generate_transactions<TYPES: NodeType<Transaction = TestTransaction>>(
+    node_index: u64,
+    rounds: usize,
+    transactions_to_send_per_round: usize,
+    transaction_size: usize,
+) -> Vec<TestTransaction>
+where
+    <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
+    <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
+{
+    let mut txn_rng = StdRng::seed_from_u64(node_index);
+    let mut transactions = Vec::new();
+
+    for round in 0..rounds {
+        for _ in 0..transactions_to_send_per_round {
+            let txn = <TYPES::ValidatedState>::create_random_transaction(
+                None,
+                &mut txn_rng,
+                transaction_size as u64,
+            );
+
+            // prepend destined view number to transaction
+            let view_execute_number: u64 = round as u64 + 4;
+            let mut bytes = txn.into_bytes();
+            bytes[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
+
+            transactions.push(TestTransaction::new(bytes));
+        }
+    }
+    transactions
+}
+
 /// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait RunDa<
     TYPES: NodeType<InstanceState = TestInstanceState>,
-    DANET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    QUORUMNET: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    DANET: ConnectedNetwork<TYPES::SignatureKey>,
+    QUORUMNET: ConnectedNetwork<TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMNET,
@@ -674,9 +707,9 @@ pub struct Libp2pDaRun<TYPES: NodeType> {
     /// the network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
     /// quorum channel
-    quorum_channel: Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    quorum_channel: Libp2pNetwork<TYPES::SignatureKey>,
     /// data availability channel
-    da_channel: Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    da_channel: Libp2pNetwork<TYPES::SignatureKey>,
 }
 
 #[async_trait]
@@ -689,17 +722,12 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-            DaNetwork = Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+            QuorumNetwork = Libp2pNetwork<TYPES::SignatureKey>,
+            DaNetwork = Libp2pNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
         >,
-    >
-    RunDa<
-        TYPES,
-        Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-        Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-        NODE,
-    > for Libp2pDaRun<TYPES>
+    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, Libp2pNetwork<TYPES::SignatureKey>, NODE>
+    for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -752,11 +780,11 @@ where
         }
     }
 
-    fn da_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
+    fn da_channel(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
         self.da_channel.clone()
     }
 
-    fn quorum_channel(&self) -> Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey> {
+    fn quorum_channel(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
         self.quorum_channel.clone()
     }
 
@@ -806,8 +834,8 @@ where
         let libp2p_da_run: Libp2pDaRun<TYPES> =
             <Libp2pDaRun<TYPES> as RunDa<
                 TYPES,
-                Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
-                Libp2pNetwork<Message<TYPES>, TYPES::SignatureKey>,
+                Libp2pNetwork<TYPES::SignatureKey>,
+                Libp2pNetwork<TYPES::SignatureKey>,
                 Libp2pImpl,
             >>::initialize_networking(config.clone(), libp2p_advertise_address)
             .await;
@@ -870,8 +898,8 @@ pub async fn main_entry_point<
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     >,
-    DACHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
-    QUORUMCHANNEL: ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>,
+    DACHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
+    QUORUMCHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
         QuorumNetwork = QUORUMCHANNEL,
@@ -929,24 +957,26 @@ pub async fn main_entry_point<
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
                     run_config.random_builder.clone().unwrap_or_default(),
+                    HashMap::new(),
                 )
                 .await;
 
-            run_config.config.builder_url = builder_url;
+            run_config.config.builder_urls = vec1::vec1![builder_url];
 
-            builder_task
+            Some(builder_task)
         }
         BuilderType::Simple => {
             let (builder_task, builder_url) =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
                     run_config.config.num_nodes_with_stake.into(),
                     SimpleBuilderConfig::default(),
+                    HashMap::new(),
                 )
                 .await;
 
-            run_config.config.builder_url = builder_url;
+            run_config.config.builder_urls = vec1::vec1![builder_url];
 
-            builder_task
+            Some(builder_task)
         }
     };
 
@@ -971,30 +1001,18 @@ pub async fn main_entry_point<
         ..
     } = run_config;
 
-    let mut txn_rng = StdRng::seed_from_u64(node_index);
     let transactions_to_send_per_round = calculate_num_tx_per_round(
         node_index,
         num_nodes_with_stake.get(),
         transactions_per_round,
     );
-    let mut transactions = Vec::new();
+    let mut transactions: Vec<TestTransaction> = generate_transactions::<TYPES>(
+        node_index,
+        rounds,
+        transactions_to_send_per_round,
+        transaction_size,
+    );
 
-    for round in 0..rounds {
-        for _ in 0..transactions_to_send_per_round {
-            let txn = <TYPES::ValidatedState>::create_random_transaction(
-                None,
-                &mut txn_rng,
-                transaction_size as u64,
-            );
-
-            // prepend destined view number to transaction
-            let view_execute_number: u64 = round as u64 + 4;
-            let mut bytes = txn.into_bytes();
-            bytes[0..8].copy_from_slice(&view_execute_number.to_be_bytes());
-
-            transactions.push(TestTransaction::new(bytes));
-        }
-    }
     if let NetworkConfigSource::Orchestrator = source {
         info!("Waiting for the start command from orchestrator");
         orchestrator_client

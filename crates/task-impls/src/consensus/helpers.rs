@@ -2,6 +2,8 @@
 use core::time::Duration;
 #[cfg(not(feature = "dependency-tasks"))]
 use std::marker::PhantomData;
+#[cfg(not(feature = "dependency-tasks"))]
+use std::marker::PhantomData;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -56,6 +58,8 @@ use vbs::version::Version;
 #[cfg(not(feature = "dependency-tasks"))]
 use super::ConsensusTaskState;
 #[cfg(not(feature = "dependency-tasks"))]
+use super::ConsensusTaskState;
+#[cfg(not(feature = "dependency-tasks"))]
 use crate::{
     consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
     helpers::AnyhowTracing,
@@ -99,10 +103,13 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         },
     };
 
-    consensus
+    if let Err(e) = consensus
         .write()
         .await
-        .update_validated_state_map(view_number, view.clone());
+        .update_validated_state_map(view_number, view.clone())
+    {
+        tracing::trace!("{e:?}");
+    }
 
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     broadcast_event(
@@ -647,7 +654,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             ),
         );
 
-        consensus_write.update_validated_state_map(
+        if let Err(e) = consensus_write.update_validated_state_map(
             view,
             View {
                 view_inner: ViewInner::Leaf {
@@ -656,7 +663,9 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                     delta: None,
                 },
             },
-        );
+        ) {
+            tracing::trace!("{e:?}");
+        }
 
         consensus_write.update_saved_leaves(leaf.clone());
         let new_leaves = consensus_write.saved_leaves().clone();
@@ -776,7 +785,7 @@ pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     pub leaves_decided: Vec<Leaf<TYPES>>,
 
     /// The transactions in the block payload for each leaf.
-    pub included_txns: HashSet<Commitment<<TYPES as NodeType>::Transaction>>,
+    pub included_txns: Option<HashSet<Commitment<<TYPES as NodeType>::Transaction>>>,
 
     /// The most recent upgrade certificate from one of the leaves.
     pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -794,7 +803,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
             new_decide_qc: None,
             leaf_views: Vec::new(),
             leaves_decided: Vec::new(),
-            included_txns: HashSet::new(),
+            included_txns: None,
             decided_upgrade_cert: None,
         }
     }
@@ -892,10 +901,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                         if cert.data.decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
-                            info!(
-                                "Updating consensus state with decided upgrade certificate: {:?}",
-                                cert
-                            );
+                            info!("Reached decide on upgrade certificate: {:?}", cert);
                             res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
@@ -930,9 +936,12 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                 ));
                 res.leaves_decided.push(leaf.clone());
                 if let Some(ref payload) = leaf.block_payload() {
-                    for txn in payload.transaction_commitments(leaf.block_header().metadata()) {
-                        res.included_txns.insert(txn);
-                    }
+                    res.included_txns = Some(
+                        payload
+                            .transaction_commitments(leaf.block_header().metadata())
+                            .into_iter()
+                            .collect::<HashSet<_>>(),
+                    );
                 }
             }
             true
@@ -968,16 +977,14 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
     if let Some(cert) = res.decided_upgrade_cert {
         task_state.decided_upgrade_cert = Some(cert.clone());
+
+        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        *decided_certificate_lock = Some(cert.clone());
+        drop(decided_certificate_lock);
         let _ = event_stream
             .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
             .await;
     }
-
-    let included_txns_set: HashSet<_> = if res.new_decided_view_number.is_some() {
-        res.included_txns
-    } else {
-        HashSet::new()
-    };
 
     let mut consensus = task_state.consensus.write().await;
     if let Some(new_locked_view) = res.new_locked_view_number {
@@ -1018,13 +1025,14 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
     #[allow(clippy::cast_precision_loss)]
     if let Some(new_anchor_view) = res.new_decided_view_number {
+        let block_size = res.included_txns.map(|set| set.len().try_into().unwrap());
         let decide_sent = broadcast_event(
             Event {
                 view_number: new_anchor_view,
                 event: EventType::Decide {
                     leaf_chain: Arc::new(res.leaf_views),
                     qc: Arc::new(res.new_decide_qc.unwrap()),
-                    block_size: Some(included_txns_set.len().try_into().unwrap()),
+                    block_size,
                 },
             },
             &task_state.output_event_stream,
@@ -1057,7 +1065,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             consensus.last_decided_view()
         );
         drop(consensus);
-        debug!("Decided txns len {:?}", included_txns_set.len());
+        debug!("Decided txns len {:?}", block_size);
         decide_sent.await;
         broadcast_event(
             Arc::new(HotShotEvent::LeafDecided(res.leaves_decided)),
@@ -1211,7 +1219,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     };
 
     let mut consensus = consensus.write().await;
-    consensus.update_validated_state_map(
+    if let Err(e) = consensus.update_validated_state_map(
         cur_view,
         View {
             view_inner: ViewInner::Leaf {
@@ -1220,7 +1228,9 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
                 delta: Some(Arc::clone(&delta)),
             },
         },
-    );
+    ) {
+        tracing::trace!("{e:?}");
+    }
     consensus.update_saved_leaves(proposed_leaf.clone());
     let new_leaves = consensus.saved_leaves().clone();
     let new_state = consensus.validated_state_map().clone();

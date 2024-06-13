@@ -3232,6 +3232,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.18",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -3270,6 +3271,7 @@ dependencies = [
  "toml",
  "tracing",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -3379,6 +3381,7 @@ dependencies = [
  "tokio",
  "tracing",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -3432,6 +3435,7 @@ dependencies = [
  "typenum",
  "url",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
@@ -4563,9 +4567,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identity"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "999ec70441b2fb35355076726a6bc466c932e9bdc66f6a11c6c0aa17c7ab9be0"
+checksum = "55cca1eb2bc1fd29f099f3daaab7effd01e1a54b7c577d0ed082521034d912e8"
 dependencies = [
  "asn1_der",
  "bs58",
@@ -4664,6 +4668,7 @@ dependencies = [
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
+ "bincode",
  "blake3",
  "custom_debug",
  "derive_builder",
@@ -4683,7 +4688,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
- "vbs",
  "void",
 ]
 
@@ -8736,6 +8740,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "vec1"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab68b56840f69efb0fefbe3ab6661499217ffdc58e2eef7c3f6f69835386322"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9347,9 +9360,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.7.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
+checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"
 dependencies = [
  "zeroize_derive",
 ]
