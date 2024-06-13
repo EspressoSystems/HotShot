@@ -2,8 +2,6 @@
 use core::time::Duration;
 #[cfg(not(feature = "dependency-tasks"))]
 use std::marker::PhantomData;
-#[cfg(not(feature = "dependency-tasks"))]
-use std::marker::PhantomData;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -55,8 +53,6 @@ use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]
 use vbs::version::Version;
 
-#[cfg(not(feature = "dependency-tasks"))]
-use super::ConsensusTaskState;
 #[cfg(not(feature = "dependency-tasks"))]
 use super::ConsensusTaskState;
 #[cfg(not(feature = "dependency-tasks"))]
