@@ -11,7 +11,7 @@ cdn_marshal_address="$AWS_METADATA_IP":9000
 keydb_address=redis://"$AWS_METADATA_IP":6379
 
 # Check if at least two arguments are provided
-if [ $# -lt 2 ]; then
+if [ $# -lt 1 ]; then
     echo "Usage: $0 <REMOTE_USER> <REMOTE_BROKER_HOST>"
     exit 1
 fi
