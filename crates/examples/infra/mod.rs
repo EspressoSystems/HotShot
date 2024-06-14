@@ -21,8 +21,8 @@ use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topic,
-            WrappedSignatureKey,
+            derive_libp2p_peer_id, CdnMetricsValue, CombinedNetworks, Libp2pMetricsValue,
+            Libp2pNetwork, PushCdnNetwork, Topic, WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
     },
@@ -682,6 +682,7 @@ where
                 .expect("`cdn_marshal_address` needs to be supplied for a push CDN run"),
             topics,
             keypair,
+            CdnMetricsValue::default(),
         )
         .expect("failed to create network");
 
@@ -774,6 +775,7 @@ where
             bind_address,
             &public_key,
             &private_key,
+            Libp2pMetricsValue::default(),
         )
         .await
         .expect("failed to create libp2p network");

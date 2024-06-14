@@ -23,7 +23,6 @@ use hotshot_builder_api::{
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
-use hotshot_example_types::block_types::TestTransaction;
 use hotshot_types::{
     constants::Base,
     traits::{
@@ -78,8 +77,7 @@ impl SimpleBuilderImplementation {
 }
 
 #[async_trait]
-impl<TYPES: NodeType<Transaction = TestTransaction>> TestBuilderImplementation<TYPES>
-    for SimpleBuilderImplementation
+impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplementation
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
