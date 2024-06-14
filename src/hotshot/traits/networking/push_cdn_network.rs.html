@@ -523,6 +523,8 @@
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
@@ -535,7 +537,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>cdn_broker::reexports::{
-    connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
+    connection::protocols::Tcp,
     def::{ConnectionDef, RunDef, Topic <span class="kw">as </span>TopicTrait},
     discovery::{Embedded, Redis},
 };
@@ -630,7 +632,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>UserDef&lt;TYPES&gt; {
     <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
     <span class="kw">type </span>Protocol = Quic;
-    <span class="kw">type </span>Middleware = UntrustedMiddleware;
 }
 
 <span class="doccomment">/// The broker definition for the Push CDN.
@@ -639,7 +640,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>BrokerDef&lt;TYPES&gt; {
     <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
     <span class="kw">type </span>Protocol = Tcp;
-    <span class="kw">type </span>Middleware = TrustedMiddleware;
 }
 
 <span class="doccomment">/// The client definition for the Push CDN. Uses the Quic
@@ -650,7 +650,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>ClientDef&lt;TYPES&gt; {
     <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
     <span class="kw">type </span>Protocol = Quic;
-    <span class="kw">type </span>Middleware = NoMiddleware;
 }
 
 <span class="doccomment">/// The testing run definition for the Push CDN.
@@ -751,6 +750,7 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>PushCdnNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Generate n Push CDN clients, a marshal, and two brokers (that run locally).
     /// Uses a `SQLite` database instead of Redis.
+    </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">fn </span>generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
@@ -819,6 +819,8 @@
                 discovery_endpoint: discovery_endpoint.clone(),
                 ca_cert_path: <span class="prelude-val">None</span>,
                 ca_key_path: <span class="prelude-val">None</span>,
+                <span class="comment">// 1GB
+                </span>global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
             };
 
             <span class="comment">// Create and spawn the broker
@@ -850,6 +852,8 @@
             metrics_bind_endpoint: <span class="prelude-val">None</span>,
             ca_cert_path: <span class="prelude-val">None</span>,
             ca_key_path: <span class="prelude-val">None</span>,
+            <span class="comment">// 1GB
+            </span>global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
         };
 
         <span class="comment">// Spawn the marshal

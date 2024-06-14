@@ -107,6 +107,14 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 </span><span class="kw">use </span>anyhow::Result;
@@ -163,6 +171,13 @@
     <span class="doccomment">/// The seed for broker key generation
     </span><span class="attr">#[arg(short, long, default_value_t = <span class="number">0</span>)]
     </span>key_seed: u64,
+
+    <span class="doccomment">/// The size of the global memory pool (in bytes). This is the maximum number of bytes that
+    /// can be allocated at once for all connections. A connection will block if it
+    /// tries to allocate more than this amount until some memory is freed.
+    /// Default is 1GB.
+    </span><span class="attr">#[arg(long, default_value_t = <span class="number">1_073_741_824</span>)]
+    </span>global_memory_pool_size: usize,
 }
 <span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main)]
 #[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
@@ -203,6 +218,7 @@
         public_advertise_endpoint: args.public_advertise_endpoint,
         private_bind_endpoint: args.private_bind_endpoint,
         private_advertise_endpoint: args.private_advertise_endpoint,
+        global_memory_pool_size: <span class="prelude-val">Some</span>(args.global_memory_pool_size),
     };
 
     <span class="comment">// Create new `Broker`

@@ -157,6 +157,8 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -242,6 +244,7 @@
             metrics_bind_endpoint: <span class="prelude-val">None</span>,
             ca_cert_path: <span class="prelude-val">None</span>,
             ca_key_path: <span class="prelude-val">None</span>,
+            global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
         };
 
         <span class="comment">// Create and spawn the broker
@@ -269,6 +272,7 @@
         metrics_bind_endpoint: <span class="prelude-val">None</span>,
         ca_cert_path: <span class="prelude-val">None</span>,
         ca_key_path: <span class="prelude-val">None</span>,
+        global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
     };
 
     <span class="comment">// Spawn the marshal

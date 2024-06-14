@@ -133,6 +133,8 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
@@ -209,6 +211,7 @@
             metrics_bind_endpoint: <span class="prelude-val">None</span>,
             ca_cert_path: <span class="prelude-val">None</span>,
             ca_key_path: <span class="prelude-val">None</span>,
+            global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
         };
 
         <span class="comment">// Create and spawn the broker
@@ -234,6 +237,7 @@
         metrics_bind_endpoint: <span class="prelude-val">None</span>,
         ca_cert_path: <span class="prelude-val">None</span>,
         ca_key_path: <span class="prelude-val">None</span>,
+        global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
     };
 
     <span class="comment">// Spawn the marshal
