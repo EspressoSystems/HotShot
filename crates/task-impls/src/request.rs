@@ -165,6 +165,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         reqs
     }
 
+    /// Sign the serialized version of the request
+    fn serialize_and_sign(
+        &self,
+        request: &RequestKind<TYPES>,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType> {
+        let Ok(data) = bincode::serialize(&request) else {
+            tracing::error!("Failed to serialize request!");
+            return None;
+        };
+        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
+        else {
+            error!("Failed to sign Data Request");
+            return None;
+        };
+        Some(signature)
+    }
     /// run a delayed request task for a request.  The first response
     /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
@@ -190,13 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             recipients,
             shutdown_flag: Arc::clone(&self.shutdown_flag),
         };
-        let Ok(data) = bincode::serialize(&request) else {
-            tracing::error!("Failed to serialize request!");
-            return;
-        };
-        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
-        else {
-            error!("Failed to sign Data Request");
+        let Some(signature) = self.serialize_and_sign(&request) else {
             return;
         };
         debug!("Requesting data: {:?}", request);
@@ -218,15 +228,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             sender: response_chan,
             leader,
         };
-        let Ok(data) = bincode::serialize(&request) else {
-            tracing::error!("Failed to serialize request!");
+        let Some(signature) = self.serialize_and_sign(request) else {
             return;
         };
-        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
-        else {
-            error!("Failed to sign Data Request");
-            return;
-        };
+
         let pub_key = self.public_key.clone();
         async_spawn(async move {
             requester.do_proposal(view, signature, pub_key).await;
