@@ -84,7 +84,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A quorum proposal with the given parent leaf is validated.
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
     /// A quorum proposal is missing for a view that we meed
-    QuorumProposalMissing(ProposalMissing<TYPES>),
+    QuorumProposalRequest(ProposalMissing<TYPES>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -414,8 +414,8 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::UpgradeDecided(cert) => {
                 write!(f, "UpgradeDecided(view_number{:?})", cert.view_number())
             }
-            HotShotEvent::QuorumProposalMissing(view_number) => {
-                write!(f, "QuorumProposalMissing(view_number={view_number:?})")
+            HotShotEvent::QuorumProposalRequest(view_number) => {
+                write!(f, "QuorumProposalRequest(view_number={view_number:?})")
             }
             HotShotEvent::VoteNow(view_number, _) => {
                 write!(f, "VoteNow(view_number={view_number:?})")

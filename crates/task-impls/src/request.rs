@@ -109,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                 }
                 Ok(())
             }
-            HotShotEvent::QuorumProposalMissing(missing) => {
+            HotShotEvent::QuorumProposalRequest(missing) => {
                 let ProposalMissing {
                     view,
                     response_chan: chan,

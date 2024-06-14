@@ -562,7 +562,7 @@ async fn fetch_proposal<TYPES: NodeType>(
         response_chan: tx,
     };
     broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalMissing(event)),
+        Arc::new(HotShotEvent::QuorumProposalRequest(event)),
         &event_stream,
     )
     .await;
