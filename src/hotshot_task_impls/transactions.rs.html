@@ -922,7 +922,7 @@
             query_start
                 .elapsed()
                 .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),
-            BUILDER_MINIMUM_QUERY_TIME - query_start.elapsed(),
+            BUILDER_MINIMUM_QUERY_TIME.saturating_sub(query_start.elapsed()),
         ));
         <span class="macro">futures::pin_mut!</span>(timeout); <span class="comment">// Stream::next requires Self::Unpin
         </span><span class="kw">let </span><span class="kw-2">mut </span>tasks = tasks.into_inner().take_until(timeout);
