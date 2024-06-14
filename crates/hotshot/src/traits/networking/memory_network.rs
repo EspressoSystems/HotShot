@@ -180,7 +180,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         Box::pin(move |node_id| {
             let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            let net = MemoryNetwork::new(pubkey, &Arc::clone(&master), reliability_config.clone());
+            let net = MemoryNetwork::new(pubkey, &master, reliability_config.clone());
             Box::pin(async move { (net.clone().into(), net.into()) })
         })
     }
