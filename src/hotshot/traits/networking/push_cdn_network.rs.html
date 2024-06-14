@@ -569,11 +569,13 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>std::{path::Path, sync::Arc, time::Duration};
+</span><span class="kw">use </span>std::{path::Path, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
