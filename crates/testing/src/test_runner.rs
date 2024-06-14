@@ -284,7 +284,12 @@ where
 
         assert!(
             error_list.is_empty(),
-            "TEST FAILED! Results: {error_list:?}"
+            "{}",
+            error_list
+                .iter()
+                .fold(format!("TEST FAILED! Results:"), |acc, error| {
+                    format!("{acc}\n\n{error:#}")
+                })
         );
     }
 

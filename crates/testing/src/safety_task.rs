@@ -57,14 +57,14 @@ impl<TYPES: NodeType> Validatable for NodeMapSanitized<TYPES> {
         // Check that the child leaf follows the parent, possibly with a gap.
         for (parent, child) in leaf_pairs {
             ensure!(
-              child.justify_qc().view_number < parent.view_number(),
-              "The node has provided leaf:\n\n{child}\n\nbut its quorum certificate does not to point to the most recent leaf:\n\n{parent}"
+              child.justify_qc().view_number >= parent.view_number(),
+              "The node has provided leaf:\n\n{child:?}\n\nbut its quorum certificate points to a view before the most recent leaf:\n\n{parent:?}"
             );
 
             if child.justify_qc().view_number == parent.view_number()
                 && child.justify_qc().data.leaf_commit != parent.commit()
             {
-                bail!("The node has provided leaf:\n\n{child}\n\nwhich points to:\n\n{parent}\n\nbut the commits do not match.");
+                bail!("The node has provided leaf:\n\n{child:?}\n\nwhich points to:\n\n{parent:?}\n\nbut the commits do not match.");
             }
         }
 
@@ -83,7 +83,8 @@ pub fn sanitize_network_map<TYPES: NodeType>(
     for (node, node_map) in network_map {
         result.insert(
             *node,
-            sanitize_node_map(node_map).context("Node {node_id} produced inconsistent leaves.")?,
+            sanitize_node_map(node_map)
+                .context(format!("Node {node} produced inconsistent leaves."))?,
         );
     }
 
@@ -106,7 +107,7 @@ impl<TYPES: NodeType> Validatable for NetworkMapSanitized<TYPES> {
         for (node_id, node_map) in self.iter() {
             node_map
                 .valid()
-                .context("Node {node_id} has an invalid leaf history")?;
+                .context(format!("Node {node_id} has an invalid leaf history"))?;
 
             // validate each node's leaf map
             for (view, leaf) in node_map.iter() {
@@ -123,7 +124,9 @@ impl<TYPES: NodeType> Validatable for NetworkMapSanitized<TYPES> {
             if leaves.len() > 1 {
                 bail!(view_map.iter().fold(
                     format!("The network does not agree on view {view:?}."),
-                    |acc, (node, leaf)| { format!("{acc}\n\nNode {node} sent us leaf:\n\n{leaf}") }
+                    |acc, (node, leaf)| {
+                        format!("{acc}\n\nNode {node} sent us leaf:\n\n{leaf:?}")
+                    }
                 ));
             }
         }
@@ -165,7 +168,7 @@ impl<TYPES: NodeType> TestTaskState for SafetyTask<TYPES> {
 
     fn check(&self) -> TestResult {
         if let Err(e) = self.consensus_leaves.valid() {
-            return TestResult::Fail(e.into());
+            return TestResult::Fail(Box::new(e));
         }
 
         TestResult::Pass
