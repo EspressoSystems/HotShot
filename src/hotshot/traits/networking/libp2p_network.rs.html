@@ -1093,6 +1093,16 @@
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1135,6 +1145,7 @@
     message::{DataMessage::DataResponse, Message, MessageKind},
     traits::{
         election::Membership,
+        metrics::{Counter, Gauge, Metrics, NoMetrics},
         network::{<span class="self">self</span>, ConnectedNetwork, NetworkError, ResponseMessage},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
@@ -1157,10 +1168,39 @@
 };
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
 
-<span class="kw">use </span><span class="kw">super</span>::NetworkingMetricsValue;
 <span class="kw">use </span><span class="kw">crate</span>::BroadcastDelay;
+
+<span class="doccomment">/// Libp2p-specific metrics
+</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>Libp2pMetricsValue {
+    <span class="doccomment">/// The number of currently connected peers
+    </span><span class="kw">pub </span>num_connected_peers: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
+    <span class="doccomment">/// The number of failed messages
+    </span><span class="kw">pub </span>num_failed_messages: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+}
+
+<span class="kw">impl </span>Libp2pMetricsValue {
+    <span class="doccomment">/// Populate the metrics with Libp2p-specific metrics
+    </span><span class="kw">pub fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
+        <span class="comment">// Create a `libp2p subgroup
+        </span><span class="kw">let </span>subgroup = metrics.subgroup(<span class="string">"libp2p"</span>.into());
+
+        <span class="comment">// Create the metrics
+        </span><span class="self">Self </span>{
+            num_connected_peers: subgroup.create_gauge(<span class="string">"num_connected_peers"</span>.into(), <span class="prelude-val">None</span>),
+            num_failed_messages: subgroup.create_counter(<span class="string">"num_failed_messages"</span>.into(), <span class="prelude-val">None</span>),
+        }
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>Libp2pMetricsValue {
+    <span class="doccomment">/// Initialize with empty metrics
+    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(<span class="kw-2">&amp;*</span>NoMetrics::boxed())
+    }
+}
 
 <span class="doccomment">/// convenience alias for the type for bootstrap addresses
 /// concurrency primitives are needed for having tests
@@ -1222,8 +1262,8 @@
     </span>dht_timeout: Duration,
     <span class="doccomment">/// whether or not we've bootstrapped into the DHT yet
     </span>is_bootstrapped: Arc&lt;AtomicBool&gt;,
-    <span class="doccomment">/// The networking metrics we're keeping track of
-    </span>metrics: NetworkingMetricsValue,
+    <span class="doccomment">/// The Libp2p metrics we're managing
+    </span>metrics: Libp2pMetricsValue,
     <span class="doccomment">/// topic map
     /// hash(hashset) -&gt; topic
     /// btreemap ordered so is hashable
@@ -1362,7 +1402,7 @@
                 Box::pin(<span class="kw">async move </span>{
                     <span class="kw">let </span>net = Arc::new(
                         <span class="kw">match </span>Libp2pNetwork::new(
-                            NetworkingMetricsValue::default(),
+                            Libp2pMetricsValue::default(),
                             config,
                             pubkey.clone(),
                             bootstrap_addrs_ref,
@@ -1436,6 +1476,7 @@
         bind_address: SocketAddr,
         pub_key: <span class="kw-2">&amp;</span>K,
         priv_key: <span class="kw-2">&amp;</span>K::PrivateKey,
+        metrics: Libp2pMetricsValue,
     ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Try to take our Libp2p config from our broader network config
         </span><span class="kw">let </span>libp2p_config = config
@@ -1498,7 +1539,7 @@
         }
 
         <span class="prelude-val">Ok</span>(Libp2pNetwork::new(
-            NetworkingMetricsValue::default(),
+            metrics,
             node_config,
             pub_key.clone(),
             Arc::new(RwLock::new(bootstrap_nodes)),
@@ -1538,7 +1579,7 @@
     /// This will panic if there are less than 5 bootstrap nodes
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>new(
-        metrics: NetworkingMetricsValue,
+        metrics: Libp2pMetricsValue,
         config: NetworkNodeConfig,
         pk: K,
         bootstrap_addrs: BootstrapAddrs,
@@ -1635,7 +1676,7 @@
                 </span><span class="attr">#[allow(clippy::cast_possible_truncation)]
                 </span><span class="kw">const </span>THRESHOLD: u64 = (LOOK_AHEAD <span class="kw">as </span>f64 * <span class="number">0.8</span>) <span class="kw">as </span>u64;
 
-                <span class="macro">info!</span>(<span class="string">"Performing lookup for peer {:?}"</span>, pk);
+                <span class="macro">trace!</span>(<span class="string">"Performing lookup for peer {:?}"</span>, pk);
 
                 <span class="comment">// only run if we are not too close to the next view number
                 </span><span class="kw">if </span>latest_seen_view.load(Ordering::Relaxed) + THRESHOLD &lt;= <span class="kw-2">*</span>view_number {
@@ -1662,7 +1703,6 @@
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>is_bootstrapped = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_bootstrapped);
         <span class="kw">let </span>node_type = <span class="self">self</span>.inner.handle.config().node_type;
-        <span class="kw">let </span>metrics_connected_peers = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
         <span class="kw">let </span>is_da = <span class="self">self</span>.inner.is_da;
 
         async_spawn({
@@ -1727,28 +1767,16 @@
                 {
                     async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
-                <span class="comment">// 10 minute timeout
-                </span><span class="kw">let </span>timeout_duration = Duration::from_secs(<span class="number">600</span>);
                 <span class="comment">// perform connection
                 </span><span class="macro">info!</span>(<span class="string">"WAITING TO CONNECT ON NODE {:?}"</span>, id);
-                handle
-                    .wait_to_connect(<span class="number">4</span>, id, timeout_duration)
-                    .<span class="kw">await
-                    </span>.unwrap();
-                <span class="macro">info!</span>(
-                    <span class="string">"node {:?} is barring bootstrap, type: {:?}"</span>,
-                    handle.peer_id(),
-                    node_type
-                );
 
-                <span class="kw">let </span>connected_num = handle.num_connected().<span class="kw">await</span><span class="question-mark">?</span>;
-                metrics_connected_peers
-                    .metrics
-                    .connected_peers
-                    .set(connected_num);
+                <span class="comment">// Wait for the network to connect to the required number of peers
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle.wait_to_connect(<span class="number">4</span>, id).<span class="kw">await </span>{
+                    <span class="macro">error!</span>(<span class="string">"Failed to connect to peers: {:?}"</span>, e);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>::&lt;(), NetworkError&gt;(e.into());
+                }
 
                 is_ready.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-                <span class="macro">info!</span>(<span class="string">"STARTING CONSENSUS ON {:?}"</span>, handle.peer_id());
                 <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
             }
         });
@@ -1795,6 +1823,7 @@
                 <span class="kw">let </span>res = request_tx.try_send((msg, chan));
                 res.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
             }
+            NetworkEvent::ConnectedPeersUpdate(<span class="kw">_</span>) =&gt; {}
         }
         <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
     }
@@ -1834,6 +1863,9 @@
                                 <span class="kw">let _ </span>= handle
                                     .handle_recvd_events(message, <span class="kw-2">&amp;</span>sender, request_tx.clone())
                                     .<span class="kw">await</span>;
+                            }
+                            NetworkEvent::ConnectedPeersUpdate(num_peers) =&gt; {
+                                handle.inner.metrics.num_connected_peers.set(<span class="kw-2">*</span>num_peers);
                             }
                         }
                         <span class="comment">// re-set the `kill_switch` for the next loop
@@ -1876,7 +1908,7 @@
         </span>{
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
                 <span class="macro">error!</span>(
                     <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
                     request, recipient
@@ -1904,7 +1936,10 @@
                 }
                 <span class="prelude-val">None </span>=&gt; ResponseMessage::NotFound,
             },
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e.into()),
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
+            }
         };
 
         <span class="prelude-val">Ok</span>(bincode::serialize(<span class="kw-2">&amp;</span>result).map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>)
@@ -1975,7 +2010,7 @@
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
-        <span class="macro">info!</span>(
+        <span class="macro">trace!</span>(
             <span class="string">"broadcasting msg: {:?} with nodes: {:?} connected"</span>,
             message,
             <span class="self">self</span>.inner.handle.connected_pids().<span class="kw">await
@@ -1988,7 +2023,7 @@
                 source: Box::new(NetworkNodeHandleError::NoSuchTopic),
             })<span class="question-mark">?
             </span>.clone();
-        <span class="macro">info!</span>(<span class="string">"broadcasting to topic: {}"</span>, topic);
+        <span class="macro">trace!</span>(<span class="string">"broadcasting to topic: {}"</span>, topic);
 
         <span class="comment">// gossip doesn't broadcast from itself, so special case
         </span><span class="kw">if </span>recipients.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.pk) {
@@ -2014,14 +2049,9 @@
                         <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
                         boxed_sync(<span class="kw">async move </span>{
-                            <span class="kw">match </span>handle_2.gossip_no_serialize(topic_2, msg).<span class="kw">await </span>{
-                                <span class="prelude-val">Err</span>(e) =&gt; {
-                                    metrics_2.message_failed_to_send.add(<span class="number">1</span>);
-                                    <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
-                                }
-                                <span class="prelude-val">Ok</span>(()) =&gt; {
-                                    metrics_2.outgoing_direct_message_count.add(<span class="number">1</span>);
-                                }
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_2.gossip_no_serialize(topic_2, msg).<span class="kw">await </span>{
+                                metrics_2.num_failed_messages.add(<span class="number">1</span>);
+                                <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
                             }
                         })
                     }),
@@ -2031,16 +2061,12 @@
             }
         }
 
-        <span class="kw">match </span><span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
-            <span class="prelude-val">Ok</span>(()) =&gt; {
-                <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
-                <span class="prelude-val">Ok</span>(())
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
-                <span class="prelude-val">Err</span>(e.into())
-            }
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
+            <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
         }
+
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::da_broadcast_message"</span>, skip_all)]
@@ -2097,7 +2123,7 @@
         </span>{
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
+                <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
                 <span class="macro">error!</span>(
                     <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
                     message, recipient
@@ -2120,14 +2146,9 @@
                         <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
                         boxed_sync(<span class="kw">async move </span>{
-                            <span class="kw">match </span>handle_2.direct_request_no_serialize(pid, msg).<span class="kw">await </span>{
-                                <span class="prelude-val">Err</span>(e) =&gt; {
-                                    metrics_2.message_failed_to_send.add(<span class="number">1</span>);
-                                    <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
-                                }
-                                <span class="prelude-val">Ok</span>(()) =&gt; {
-                                    metrics_2.outgoing_direct_message_count.add(<span class="number">1</span>);
-                                }
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_2.direct_request_no_serialize(pid, msg).<span class="kw">await </span>{
+                                metrics_2.num_failed_messages.add(<span class="number">1</span>);
+                                <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
                             }
                         })
                     }),
@@ -2155,7 +2176,6 @@
             .drain_at_least_one()
             .<span class="kw">await
             </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
-        <span class="self">self</span>.inner.metrics.incoming_message_count.add(result.len());
 
         <span class="prelude-val">Ok</span>(result)
     }

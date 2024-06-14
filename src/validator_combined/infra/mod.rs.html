@@ -1033,6 +1033,8 @@
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::HashMap,
@@ -1056,8 +1058,8 @@
 <span class="kw">use </span>hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CombinedNetworks, Libp2pNetwork, PushCdnNetwork, Topic,
-            WrappedSignatureKey,
+            derive_libp2p_peer_id, CdnMetricsValue, CombinedNetworks, Libp2pMetricsValue,
+            Libp2pNetwork, PushCdnNetwork, Topic, WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
     },
@@ -1709,6 +1711,7 @@
                 .expect(<span class="string">"`cdn_marshal_address` needs to be supplied for a push CDN run"</span>),
             topics,
             keypair,
+            CdnMetricsValue::default(),
         )
         .expect(<span class="string">"failed to create network"</span>);
 
@@ -1801,6 +1804,7 @@
             bind_address,
             <span class="kw-2">&amp;</span>public_key,
             <span class="kw-2">&amp;</span>private_key,
+            Libp2pMetricsValue::default(),
         )
         .<span class="kw">await
         </span>.expect(<span class="string">"failed to create libp2p network"</span>);

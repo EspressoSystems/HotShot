@@ -525,6 +525,50 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData};
@@ -562,6 +606,7 @@
     boxed_sync,
     data::ViewNumber,
     traits::{
+        metrics::{Counter, Metrics, NoMetrics},
         network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -575,6 +620,33 @@
 <span class="kw">use </span>tracing::error;
 
 <span class="kw">use </span><span class="kw">super</span>::NetworkError;
+
+<span class="doccomment">/// CDN-specific metrics
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>CdnMetricsValue {
+    <span class="doccomment">/// The number of failed messages
+    </span><span class="kw">pub </span>num_failed_messages: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+}
+
+<span class="kw">impl </span>CdnMetricsValue {
+    <span class="doccomment">/// Populate the metrics with the CDN-specific ones
+    </span><span class="kw">pub fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
+        <span class="comment">// Create a subgroup for the CDN
+        </span><span class="kw">let </span>subgroup = metrics.subgroup(<span class="string">"cdn"</span>.into());
+
+        <span class="comment">// Create the CDN-specific metrics
+        </span><span class="self">Self </span>{
+            num_failed_messages: subgroup.create_counter(<span class="string">"num_failed_messages"</span>.into(), <span class="prelude-val">None</span>),
+        }
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>CdnMetricsValue {
+    <span class="comment">// The default is empty metrics
+    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(<span class="kw-2">&amp;*</span>NoMetrics::boxed())
+    }
+}
 
 <span class="doccomment">/// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -669,6 +741,8 @@
 </span><span class="kw">pub struct </span>PushCdnNetwork&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying client
     </span>client: Client&lt;ClientDef&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// The CDN-specific metrics
+    </span>metrics: Arc&lt;CdnMetricsValue&gt;,
     <span class="doccomment">/// Whether or not the underlying network is supposed to be paused
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span>is_paused: Arc&lt;AtomicBool&gt;,
@@ -699,6 +773,7 @@
         marshal_endpoint: String,
         topics: Vec&lt;Topic&gt;,
         keypair: KeyPair&lt;WrappedSignatureKey&lt;TYPES::SignatureKey&gt;&gt;,
+        metrics: CdnMetricsValue,
     ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Build config
         </span><span class="kw">let </span>config = ClientConfig {
@@ -713,6 +788,7 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             client,
+            metrics: Arc::from(metrics),
             <span class="comment">// Start unpaused
             </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
             </span>is_paused: Arc::from(AtomicBool::new(<span class="bool-val">false</span>)),
@@ -901,6 +977,7 @@
                     <span class="comment">// Create our client
                     </span><span class="kw">let </span>client = Arc::new(PushCdnNetwork {
                         client: Client::new(client_config),
+                        metrics: Arc::new(CdnMetricsValue::default()),
                         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                         </span>is_paused: Arc::from(AtomicBool::new(<span class="bool-val">false</span>)),
                     });
@@ -956,8 +1033,13 @@
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::Global).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.broadcast_message(message, Topic::Global)
+            .<span class="kw">await
+            </span>.map_err(|e| {
+                <span class="self">self</span>.metrics.num_failed_messages.add(<span class="number">1</span>);
+                e
+            })
+    }
 
     <span class="doccomment">/// Broadcast a message to all members of the DA committee.
     ///
@@ -970,8 +1052,13 @@
         _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::Da).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.broadcast_message(message, Topic::Da)
+            .<span class="kw">await
+            </span>.map_err(|e| {
+                <span class="self">self</span>.metrics.num_failed_messages.add(<span class="number">1</span>);
+                e
+            })
+    }
 
     <span class="doccomment">/// Send a direct message to a node with a particular key. Does not retry.
     ///
@@ -996,6 +1083,7 @@
             .<span class="kw">await
             </span>.is_err()
         {
+            <span class="self">self</span>.metrics.num_failed_messages.add(<span class="number">1</span>);
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver);
         };
 

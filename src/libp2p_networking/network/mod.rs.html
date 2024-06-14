@@ -233,6 +233,8 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p's behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="doccomment">/// defines the swarm and network definition (internal)
@@ -405,6 +407,8 @@
     </span>ResponseRequested(Request, ResponseChannel&lt;Response&gt;),
     <span class="doccomment">/// Report that kademlia has successfully bootstrapped into the network
     </span>IsBootstrapped,
+    <span class="doccomment">/// The number of connected peers has possibly changed
+    </span>ConnectedPeersUpdate(usize),
 }
 
 <span class="attr">#[derive(Debug)]

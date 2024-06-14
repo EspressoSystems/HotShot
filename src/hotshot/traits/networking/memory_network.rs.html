@@ -340,24 +340,6 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -395,7 +377,7 @@
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
-<span class="kw">use super</span>::{NetworkError, NetworkReliability, NetworkingMetricsValue};
+<span class="kw">use super</span>::{NetworkError, NetworkReliability};
 
 <span class="doccomment">/// Shared state for in-memory mock networking.
 ///
@@ -434,9 +416,6 @@
     <span class="doccomment">/// Count of messages that are in-flight (send but not processed yet)
     </span>in_flight_message_count: AtomicUsize,
 
-    <span class="doccomment">/// The networking metrics we're keeping track of
-    </span>metrics: NetworkingMetricsValue,
-
     <span class="doccomment">/// config to introduce unreliability to the network
     </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
 }
@@ -464,11 +443,9 @@
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; MemoryNetwork&lt;K&gt; {
     <span class="doccomment">/// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
-    </span><span class="attr">#[instrument(skip(metrics))]
     </span><span class="kw">pub fn </span>new(
         pub_key: K,
-        metrics: NetworkingMetricsValue,
-        master_map: Arc&lt;MasterMap&lt;K&gt;&gt;,
+        master_map: <span class="kw-2">&amp;</span>Arc&lt;MasterMap&lt;K&gt;&gt;,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;K&gt; {
         <span class="macro">info!</span>(<span class="string">"Attaching new MemoryNetwork"</span>);
@@ -503,9 +480,8 @@
             inner: Arc::new(MemoryNetworkInner {
                 input: RwLock::new(<span class="prelude-val">Some</span>(input)),
                 output: Mutex::new(output),
-                master_map: Arc::clone(<span class="kw-2">&amp;</span>master_map),
+                master_map: Arc::clone(master_map),
                 in_flight_message_count,
-                metrics,
                 reliability_config,
             }),
         };
@@ -522,7 +498,6 @@
             .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
         <span class="kw">let </span>input = <span class="self">self</span>.inner.input.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
-            <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
             input.send(message).<span class="kw">await
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(SendError(message))
@@ -547,12 +522,7 @@
         </span>Box::pin(<span class="kw">move </span>|node_id| {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            <span class="kw">let </span>net = MemoryNetwork::new(
-                pubkey,
-                NetworkingMetricsValue::default(),
-                Arc::clone(<span class="kw-2">&amp;</span>master),
-                reliability_config.clone(),
-            );
+            <span class="kw">let </span>net = MemoryNetwork::new(pubkey, <span class="kw-2">&amp;</span>master, reliability_config.clone());
             Box::pin(<span class="kw">async move </span>{ (net.clone().into(), net.into()) })
         })
     }
@@ -623,11 +593,9 @@
                 <span class="kw">let </span>res = node.input(message.clone()).<span class="kw">await</span>;
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(()) =&gt; {
-                        <span class="self">self</span>.inner.metrics.outgoing_broadcast_message_count.add(<span class="number">1</span>);
                         <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">"Delivered message to remote"</span>);
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
                         <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>key, <span class="string">"Error sending broadcast message to node"</span>);
                     }
                 }
@@ -674,19 +642,16 @@
                 <span class="kw">let </span>res = node.input(message).<span class="kw">await</span>;
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Ok</span>(()) =&gt; {
-                        <span class="self">self</span>.inner.metrics.outgoing_direct_message_count.add(<span class="number">1</span>);
                         <span class="macro">trace!</span>(<span class="question-mark">?</span>recipient, <span class="string">"Delivered message to remote"</span>);
                         <span class="prelude-val">Ok</span>(())
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
                         <span class="macro">warn!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>recipient, <span class="string">"Error delivering direct message"</span>);
                         <span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver)
                     }
                 }
             }
         } <span class="kw">else </span>{
-            <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
             <span class="macro">warn!</span>(
                 <span class="string">"{:#?} {:#?} {:#?}"</span>,
                 recipient, <span class="self">self</span>.inner.master_map.map, <span class="string">"Node does not exist in map"
@@ -712,7 +677,6 @@
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
-        <span class="self">self</span>.inner.metrics.incoming_message_count.add(ret.len());
         <span class="prelude-val">Ok</span>(ret)
     }
 }

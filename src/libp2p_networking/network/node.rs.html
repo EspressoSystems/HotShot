@@ -786,6 +786,18 @@
 <a href="#784" id="784">784</a>
 <a href="#785" id="785">785</a>
 <a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -1343,6 +1355,12 @@
                 } <span class="kw">else </span>{
                     <span class="macro">info!</span>(<span class="string">"peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left"</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
                 }
+
+                <span class="comment">// Send the number of connected peers to the client
+                </span>send_to_client
+                    .send(NetworkEvent::ConnectedPeersUpdate(<span class="self">self</span>.num_connected()))
+                    .<span class="kw">await
+                    </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
             }
             SwarmEvent::ConnectionClosed {
                 connection_id: <span class="kw">_</span>,
@@ -1359,6 +1377,12 @@
                 } <span class="kw">else </span>{
                     <span class="macro">info!</span>(<span class="string">"peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}"</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, num_established, cause);
                 }
+
+                <span class="comment">// Send the number of connected peers to the client
+                </span>send_to_client
+                    .send(NetworkEvent::ConnectedPeersUpdate(<span class="self">self</span>.num_connected()))
+                    .<span class="kw">await
+                    </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
             }
             SwarmEvent::Dialing {
                 peer_id,
