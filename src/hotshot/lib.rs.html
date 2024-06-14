@@ -1364,8 +1364,8 @@
         add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>da_network)).<span class="kw">await</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(request_receiver) = da_network.spawn_request_receiver_task().<span class="kw">await </span>{
-            add_response_task(<span class="kw-2">&amp;mut </span>handle, request_receiver).<span class="kw">await</span>;
             add_request_network_task(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
+            add_response_task(<span class="kw-2">&amp;mut </span>handle, request_receiver).<span class="kw">await</span>;
         }
 
         add_network_event_task(

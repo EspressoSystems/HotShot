@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HotShotEvent"],"struct":["HotShotTaskCompleted"]};
+window.SIDEBAR_ITEMS = {"enum":["HotShotEvent"],"struct":["HotShotTaskCompleted","ProposalMissing"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["REQUEST_TIMEOUT"],"fn":["make_proposal_req","make_vid"],"struct":["DelayedRequester","NetworkRequestState","ProposalRequest","VidRequest"],"type":["Signature"]};
+window.SIDEBAR_ITEMS = {"constant":["REQUEST_TIMEOUT"],"fn":["make_proposal_req","make_vid"],"struct":["DelayedRequester","NetworkRequestState","ProposalRequester","VidRequest"],"type":["Signature"]};

@@ -421,8 +421,28 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, sync::Arc};
 
+<span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::task::TaskEvent;
 <span class="kw">use </span>hotshot_types::{
@@ -450,6 +470,24 @@
         HotShotEvent::Shutdown
     }
 }
+
+<span class="doccomment">/// Wrapper type for the event to notify tasks that a proposal for a view is missing
+/// and the channel to send the event back to
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>ProposalMissing&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// View of missing proposal
+    </span><span class="kw">pub </span>view: TYPES::Time,
+    <span class="doccomment">/// Channel to send the response back to
+    </span><span class="kw">pub </span>response_chan: Sender&lt;<span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; PartialEq <span class="kw">for </span>ProposalMissing&lt;TYPES&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.view == other.view
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Eq <span class="kw">for </span>ProposalMissing&lt;TYPES&gt; {}
 
 <span class="doccomment">/// Marker that the task completed
 </span><span class="attr">#[derive(Eq, PartialEq, Debug, Clone)]
@@ -488,7 +526,7 @@
     <span class="doccomment">/// A quorum proposal with the given parent leaf is validated.
     </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;, Leaf&lt;TYPES&gt;),
     <span class="doccomment">/// A quorum proposal is missing for a view that we meed
-    </span>QuorumProposalMissing(TYPES::Time),
+    </span>QuorumProposalRequest(ProposalMissing&lt;TYPES&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DaProposalSend(Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -818,8 +856,8 @@
             HotShotEvent::UpgradeDecided(cert) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"UpgradeDecided(view_number{:?})"</span>, cert.view_number())
             }
-            HotShotEvent::QuorumProposalMissing(view_number) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"QuorumProposalMissing(view_number={view_number:?})"</span>)
+            HotShotEvent::QuorumProposalRequest(view_number) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"QuorumProposalRequest(view_number={view_number:?})"</span>)
             }
             HotShotEvent::VoteNow(view_number, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"VoteNow(view_number={view_number:?})"</span>)

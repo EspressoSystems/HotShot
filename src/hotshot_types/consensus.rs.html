@@ -567,6 +567,11 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -806,6 +811,11 @@
     <span class="doccomment">/// Get the saved DA certs.
     </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::Time, DaCertificate&lt;TYPES&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_da_certs
+    }
+
+    <span class="doccomment">/// Get the map of our recent proposals
+    </span><span class="kw">pub fn </span>last_proposals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.last_proposals
     }
 
     <span class="doccomment">/// Update the current view.

@@ -377,6 +377,72 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::BTreeMap,
     sync::{
@@ -396,7 +462,11 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
+    data::QuorumProposal,
+    message::{
+        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
+        SequencingMessage,
+    },
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
@@ -411,10 +481,13 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
-<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, ProposalMissing},
+    helpers::broadcast_event,
+};
 
 <span class="doccomment">/// Amount of time to try for a request before timing out.
-</span><span class="kw">const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);
+</span><span class="kw">pub const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);
 
 <span class="doccomment">/// Long running task which will request information after a proposal is received.
 /// The task will wait a it's `delay` and then send a request iteratively to peers
@@ -481,8 +554,12 @@
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            HotShotEvent::QuorumProposalMissing(view) =&gt; {
-                <span class="self">self</span>.run_delay(RequestKind::Proposal(<span class="kw-2">*</span>view), sender.clone(), <span class="kw-2">*</span>view);
+            HotShotEvent::QuorumProposalRequest(missing) =&gt; {
+                <span class="kw">let </span>ProposalMissing {
+                    view,
+                    response_chan: chan,
+                } = missing;
+                <span class="self">self</span>.run_proposal(<span class="kw-2">&amp;</span>RequestKind::Proposal(<span class="kw-2">*</span>view), chan.clone(), <span class="kw-2">*</span>view);
                 <span class="prelude-val">Ok</span>(())
             }
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
@@ -533,6 +610,22 @@
         </span>reqs
     }
 
+    <span class="doccomment">/// Sign the serialized version of the request
+    </span><span class="kw">fn </span>serialize_and_sign(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request: <span class="kw-2">&amp;</span>RequestKind&lt;TYPES&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt; {
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = bincode::serialize(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
+            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize request!"</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>Sha256::digest(data))
+        <span class="kw">else </span>{
+            <span class="macro">error!</span>(<span class="string">"Failed to sign Data Request"</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="prelude-val">Some</span>(signature)
+    }
     <span class="doccomment">/// run a delayed request task for a request.  The first response
     /// received will be sent over `sender`
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">"NetworkRequestState run_delay"</span>, level = <span class="string">"error"</span>)]
@@ -547,7 +640,6 @@
             .whole_committee(view)
             .into_iter()
             .collect();
-        <span class="kw">let </span>leader = <span class="self">self</span>.da_membership.leader(view);
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         </span>recipients.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
@@ -557,22 +649,38 @@
             sender,
             delay: <span class="self">self</span>.delay,
             recipients,
-            leader,
             shutdown_flag: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag),
         };
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = bincode::serialize(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
-            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize request!"</span>);
-            <span class="kw">return</span>;
-        };
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>Sha256::digest(data))
-        <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"Failed to sign Data Request"</span>);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(signature) = <span class="self">self</span>.serialize_and_sign(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
             <span class="kw">return</span>;
         };
         <span class="macro">debug!</span>(<span class="string">"Requesting data: {:?}"</span>, request);
-        <span class="kw">let </span>handle = async_spawn(requester.run(request, signature, <span class="self">self</span>.public_key.clone()));
+        <span class="kw">let </span>handle = async_spawn(requester.run(request, signature));
 
         <span class="self">self</span>.spawned_tasks.entry(view).or_default().push(handle);
+    }
+
+    <span class="doccomment">/// Spawns a task to send a request for the proposal and send the response on a channel
+    </span><span class="kw">fn </span>run_proposal(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        request: <span class="kw-2">&amp;</span>RequestKind&lt;TYPES&gt;,
+        response_chan: Sender&lt;<span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;,
+        view: TYPES::Time,
+    ) {
+        <span class="kw">let </span>leader = <span class="self">self</span>.da_membership.leader(view);
+        <span class="kw">let </span>requester = ProposalRequester::&lt;TYPES, I&gt; {
+            network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
+            sender: response_chan,
+            leader,
+        };
+        <span class="kw">let </span><span class="prelude-val">Some</span>(signature) = <span class="self">self</span>.serialize_and_sign(request) <span class="kw">else </span>{
+            <span class="kw">return</span>;
+        };
+
+        <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
+        async_spawn(<span class="kw">async move </span>{
+            requester.do_proposal(view, signature, pub_key).<span class="kw">await</span>;
+        });
     }
 
     <span class="doccomment">/// Signals delayed requesters to finish
@@ -595,27 +703,71 @@
     </span>delay: Duration,
     <span class="doccomment">/// The peers we will request in a random order
     </span>recipients: Vec&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// Leader for the view of the request
-    </span>leader: TYPES::SignatureKey,
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
+}
+
+<span class="doccomment">/// A task the requests some data immediately from one peer
+
+</span><span class="kw">struct </span>ProposalRequester&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// Network to send requests
+    </span>network: Arc&lt;I::QuorumNetwork&gt;,
+    <span class="doccomment">/// Channel to send the event when we receive a response
+    </span>sender: Sender&lt;<span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Leader for the view of the request
+    </span>leader: TYPES::SignatureKey,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ProposalRequester&lt;TYPES, I&gt; {
+    <span class="doccomment">/// Handle sending a request for proposal for a view, does
+    /// not delay
+    </span><span class="kw">async fn </span>do_proposal(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view: TYPES::Time,
+        signature: Signature&lt;TYPES&gt;,
+        key: TYPES::SignatureKey,
+    ) {
+        <span class="kw">let </span>response = <span class="kw">match </span>bincode::serialize(<span class="kw-2">&amp;</span>make_proposal_req::&lt;TYPES&gt;(view, signature, key)) {
+            <span class="prelude-val">Ok</span>(serialized_msg) =&gt; {
+                async_timeout(
+                    REQUEST_TIMEOUT,
+                    <span class="self">self</span>.network
+                        .request_data::&lt;TYPES&gt;(serialized_msg, <span class="kw-2">&amp;</span><span class="self">self</span>.leader),
+                )
+                .<span class="kw">await
+            </span>}
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::error!</span>(
+                    <span class="string">"Failed to serialize outgoing message: this should never happen. Error: {e}"
+                </span>);
+                broadcast_event(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
+                <span class="kw">return</span>;
+            }
+        };
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(serialized_response)) = response {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(ResponseMessage::Found(msg)) = bincode::deserialize(<span class="kw-2">&amp;</span>serialized_response) {
+                <span class="kw">let </span>SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
+                <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">"Requested Proposal but received a non-proposal in response.  Response was {:?}"</span>, msg);
+                    broadcast_event(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
+                    <span class="kw">return</span>;
+                };
+                broadcast_event(<span class="prelude-val">Some</span>(prop), <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
+            }
+            broadcast_event(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
+        } <span class="kw">else </span>{
+            broadcast_event(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
+        }
+    }
 }
 
 <span class="doccomment">/// Wrapper for the info in a VID request
 </span><span class="kw">struct </span>VidRequest&lt;TYPES: NodeType&gt;(TYPES::Time, TYPES::SignatureKey);
 
-<span class="doccomment">/// Wrapper for the info in a Proposal fetch request
-</span><span class="kw">struct </span>ProposalRequest&lt;TYPES: NodeType&gt;(TYPES::Time, TYPES::SignatureKey);
-
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; DelayedRequester&lt;TYPES, I&gt; {
     <span class="doccomment">/// Wait the delay, then try to complete the request.  Iterates over peers
     /// until the request is completed, or the data is no longer needed.
-    </span><span class="kw">async fn </span>run(
-        <span class="self">self</span>,
-        request: RequestKind&lt;TYPES&gt;,
-        signature: Signature&lt;TYPES&gt;,
-        pub_key: TYPES::SignatureKey,
-    ) {
+    </span><span class="kw">async fn </span>run(<span class="self">self</span>, request: RequestKind&lt;TYPES&gt;, signature: Signature&lt;TYPES&gt;) {
         <span class="kw">match </span>request {
             RequestKind::Vid(view, key) =&gt; {
                 <span class="comment">// Do the delay only if primary is up and then start sending
@@ -624,28 +776,7 @@
                 }
                 <span class="self">self</span>.do_vid(VidRequest(view, key), signature).<span class="kw">await</span>;
             }
-            RequestKind::Proposal(view) =&gt; {
-                <span class="self">self</span>.do_proposal(ProposalRequest(view, pub_key), signature)
-                    .<span class="kw">await</span>;
-            }
-            RequestKind::DaProposal(..) =&gt; {}
-        }
-    }
-    <span class="doccomment">/// Handle sending a request for proposal for a view, does
-    /// not delay
-    </span><span class="kw">async fn </span>do_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, req: ProposalRequest&lt;TYPES&gt;, signature: Signature&lt;TYPES&gt;) {
-        <span class="kw">match </span>bincode::serialize(<span class="kw-2">&amp;</span>make_proposal_req(<span class="kw-2">&amp;</span>req, signature)) {
-            <span class="prelude-val">Ok</span>(serialized_msg) =&gt; {
-                <span class="kw">let _ </span>= <span class="self">self
-                    </span>.network
-                    .request_data::&lt;TYPES&gt;(serialized_msg, <span class="kw-2">&amp;</span><span class="self">self</span>.leader)
-                    .<span class="kw">await</span>;
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::error!</span>(
-                    <span class="string">"Failed to serialize outgoing message: this should never happen. Error: {e}"
-                </span>);
-            }
+            RequestKind::Proposal(..) | RequestKind::DaProposal(..) =&gt; {}
         }
     }
     <span class="doccomment">/// Handle sending a VID Share request, runs the loop until the data exists
@@ -740,17 +871,18 @@
 
 <span class="doccomment">/// Build a request for a Proposal
 </span><span class="kw">fn </span>make_proposal_req&lt;TYPES: NodeType&gt;(
-    req: <span class="kw-2">&amp;</span>ProposalRequest&lt;TYPES&gt;,
+    view: TYPES::Time,
     signature: Signature&lt;TYPES&gt;,
+    key: TYPES::SignatureKey,
 ) -&gt; Message&lt;TYPES&gt; {
-    <span class="kw">let </span>kind = RequestKind::Proposal(req.<span class="number">0</span>);
+    <span class="kw">let </span>kind = RequestKind::Proposal(view);
     <span class="kw">let </span>data_request = DataRequest {
-        view: req.<span class="number">0</span>,
+        view,
         request: kind,
         signature,
     };
     Message {
-        sender: req.<span class="number">1</span>.clone(),
+        sender: key,
         kind: MessageKind::Data(DataMessage::RequestData(data_request)),
     }
 }
