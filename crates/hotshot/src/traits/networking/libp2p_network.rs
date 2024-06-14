@@ -831,7 +831,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 }
                 None => ResponseMessage::NotFound,
             },
-            Err(e) => return Err(e.into()),
+            Err(e) => {
+                self.inner.metrics.num_failed_messages.add(1);
+                return Err(e.into());
+            }
         };
 
         Ok(bincode::serialize(&result).map_err(|e| NetworkError::Libp2p { source: e.into() })?)
@@ -984,7 +987,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         if errors.is_empty() {
             Ok(())
         } else {
-            self.inner.metrics.num_failed_messages.add(errors.len());
             Err(NetworkError::Libp2pMulti { sources: errors })
         }
     }
