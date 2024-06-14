@@ -1062,7 +1062,10 @@ where
                 .into_iter()
                 .map(|(_name, ip)| ip)
                 .filter(|ip| !ip.is_loopback())
-                .map(|ip| Url::parse(&format!("http://{ip}:{port}")).unwrap())
+                .map(|ip| match ip {
+                    IpAddr::V4(addr) => Url::parse(&format!("http://{addr}:{port}")).unwrap(),
+                    IpAddr::V6(addr) => Url::parse(&format!("http://[{addr}]:{port}")).unwrap(),
+                })
                 .collect();
             bind_address = Url::parse(&format!("http://0.0.0.0:{port}")).unwrap();
         }
