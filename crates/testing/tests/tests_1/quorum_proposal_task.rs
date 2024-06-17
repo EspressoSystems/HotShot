@@ -168,6 +168,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         // to make sure they show up during tests.
         consensus_writer
             .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+
+        consensus_writer
+            .update_validated_state_map(
+                view.quorum_proposal.data.view_number(),
+                build_fake_view_with_leaf(view.leaf.clone()),
+            ).unwrap();
     }
 
     // We need to handle the views where we aren't the leader to ensure that the states are
@@ -483,6 +489,11 @@ async fn test_quorum_proposal_task_liveness_check() {
         // to make sure they show up during tests.
         consensus_writer
             .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+        consensus_writer
+            .update_validated_state_map(
+                view.quorum_proposal.data.view_number(),
+                build_fake_view_with_leaf(view.leaf.clone()),
+            ).unwrap();
     }
     drop(consensus_writer);
 

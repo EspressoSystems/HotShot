@@ -444,17 +444,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::ValidatedStateUpdated(view_number, view) => {
-                // Update the internal validated state map.
-                if let Err(e) = self
-                    .consensus
-                    .write()
-                    .await
-                    .update_validated_state_map(*view_number, view.clone())
-                {
-                    tracing::trace!("{e:?}");
-                }
-            }
+            // HotShotEvent::ValidatedStateUpdated(view_number, view) => {
+            //     // Update the internal validated state map.
+            //     if let Err(e) = self
+            //         .consensus
+            //         .write()
+            //         .await
+            //         .update_validated_state_map(*view_number, view.clone())
+            //     {
+            //         tracing::trace!("{e:?}");
+            //     }
+            // }
             HotShotEvent::UpdateHighQc(qc) => {
                 // First, update the high QC.
                 if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
