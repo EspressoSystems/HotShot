@@ -105,6 +105,10 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     {
         tracing::trace!("{e:?}");
     }
+    consensus
+        .write()
+        .await
+        .update_saved_leaves(proposed_leaf.clone());
 
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     broadcast_event(
