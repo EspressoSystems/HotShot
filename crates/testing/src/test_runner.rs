@@ -288,7 +288,7 @@ where
             error_list
                 .iter()
                 .fold("TEST FAILED! Results:".to_string(), |acc, error| {
-                    format!("{acc}\n\n{error:#}")
+                    format!("{acc}\n\n{error:?}")
                 })
         );
     }
