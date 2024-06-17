@@ -136,7 +136,7 @@ impl<TYPES: NodeType> Validatable for NetworkMapSanitized<TYPES> {
 }
 
 /// Data availability task state
-pub struct SafetyTask<TYPES: NodeType> {
+pub struct ConsistencyTask<TYPES: NodeType> {
     /// A map from node ids to (leaves keyed on view number)
     pub consensus_leaves: NetworkMap<TYPES>,
     /// safety task requirements
@@ -144,7 +144,7 @@ pub struct SafetyTask<TYPES: NodeType> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType> TestTaskState for SafetyTask<TYPES> {
+impl<TYPES: NodeType> TestTaskState for ConsistencyTask<TYPES> {
     type Event = Event<TYPES>;
 
     /// Handles an event from one of multiple receivers.

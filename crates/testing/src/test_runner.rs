@@ -36,8 +36,8 @@ use tracing::info;
 
 use super::{
     completion_task::CompletionTask,
+    consistency_task::ConsistencyTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
-    safety_task::SafetyTask,
     txn_task::TxnTask,
 };
 use crate::{
@@ -175,13 +175,13 @@ where
             test_sender,
         };
 
-        let safety_task_state = SafetyTask {
+        let consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
             safety_properties: self.launcher.metadata.overall_safety_properties,
         };
 
-        let safety_task = TestTask::<SafetyTask<TYPES>>::new(
-            safety_task_state,
+        let consistency_task = TestTask::<ConsistencyTask<TYPES>>::new(
+            consistency_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
         );
@@ -223,7 +223,7 @@ where
         drop(nodes);
 
         task_futs.push(overall_safety_task.run());
-        task_futs.push(safety_task.run());
+        task_futs.push(consistency_task.run());
         task_futs.push(view_sync_task.run());
         task_futs.push(spinning_task.run());
 
@@ -287,7 +287,7 @@ where
             "{}",
             error_list
                 .iter()
-                .fold(format!("TEST FAILED! Results:"), |acc, error| {
+                .fold("TEST FAILED! Results:".to_string(), |acc, error| {
                     format!("{acc}\n\n{error:#}")
                 })
         );
