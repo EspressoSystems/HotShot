@@ -10,7 +10,11 @@ use std::{
 #[cfg(not(feature = "dependency-tasks"))]
 use anyhow::bail;
 use anyhow::{ensure, Context, Result};
+#[cfg(not(feature = "dependency-tasks"))]
+use async_broadcast::broadcast;
 use async_broadcast::Sender;
+#[cfg(not(feature = "dependency-tasks"))]
+use async_compatibility_layer::art::async_timeout;
 #[cfg(not(feature = "dependency-tasks"))]
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -61,6 +65,8 @@ use crate::{
     helpers::AnyhowTracing,
 };
 use crate::{events::HotShotEvent, helpers::broadcast_event};
+#[cfg(not(feature = "dependency-tasks"))]
+use crate::{events::ProposalMissing, request::REQUEST_TIMEOUT};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -542,6 +548,56 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     .await
 }
 
+/// Trigger a request to the network for a proposal for a view and wait for the response
+#[cfg(not(feature = "dependency-tasks"))]
+async fn fetch_proposal<TYPES: NodeType>(
+    view: TYPES::Time,
+    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    quorum_membership: Arc<TYPES::Membership>,
+    consensus: Arc<RwLock<Consensus<TYPES>>>,
+) -> Result<Leaf<TYPES>> {
+    let (tx, mut rx) = broadcast(1);
+    let event = ProposalMissing {
+        view,
+        response_chan: tx,
+    };
+    broadcast_event(
+        Arc::new(HotShotEvent::QuorumProposalRequest(event)),
+        &event_stream,
+    )
+    .await;
+    let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
+        bail!("Request for proposal failed");
+    };
+    let view = proposal.data.view_number();
+    let justify_qc = proposal.data.justify_qc.clone();
+
+    if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
+        bail!("Invalid justify_qc in proposal for view {}", *view);
+    }
+    let mut consensus_write = consensus.write().await;
+    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let state = Arc::new(
+        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
+    );
+
+    if let Err(e) = consensus_write.update_validated_state_map(
+        view,
+        View {
+            view_inner: ViewInner::Leaf {
+                leaf: leaf.commit(),
+                state,
+                delta: None,
+            },
+        },
+    ) {
+        tracing::trace!("{e:?}");
+    }
+
+    consensus_write.update_saved_leaves(leaf.clone());
+    Ok(leaf)
+}
+
 /// Handle the received quorum proposal.
 ///
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
@@ -599,14 +655,29 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         debug!("Failed to update view; error = {e:#}");
     }
 
+    let mut parent_leaf = task_state
+        .consensus
+        .read()
+        .await
+        .saved_leaves()
+        .get(&justify_qc.date().leaf_commit)
+        .cloned();
+
+    parent_leaf = match parent_leaf {
+        Some(p) => Some(p),
+        None => fetch_proposal(
+            justify_qc.view_number(),
+            event_stream.clone(),
+            Arc::clone(&task_state.quorum_membership),
+            Arc::clone(&task_state.consensus),
+        )
+        .await
+        .ok(),
+    };
     let consensus_read = task_state.consensus.read().await;
 
     // Get the parent leaf and state.
-    let parent = match consensus_read
-        .saved_leaves()
-        .get(&justify_qc.date().leaf_commit)
-        .cloned()
-    {
+    let parent = match parent_leaf {
         Some(leaf) => {
             if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
                 Some((leaf, Arc::clone(&state)))
@@ -1137,14 +1208,30 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view).cloned() else {
         return false;
     };
+    drop(read_consnesus);
 
     let view = cert.view_number;
     // TODO: do some of this logic without the vote token check, only do that when voting.
     let justify_qc = proposal.justify_qc.clone();
-    let parent = read_consnesus
+    let mut parent = consensus
+        .read()
+        .await
         .saved_leaves()
         .get(&justify_qc.date().leaf_commit)
         .cloned();
+    parent = match parent {
+        Some(p) => Some(p),
+        None => fetch_proposal(
+            justify_qc.view_number(),
+            vote_info.3.clone(),
+            Arc::clone(&quorum_membership),
+            Arc::clone(&consensus),
+        )
+        .await
+        .ok(),
+    };
+
+    let read_consnesus = consensus.read().await;
 
     // Justify qc's leaf commitment is not the same as the parent's leaf commitment, but it should be (in this case)
     let Some(parent) = parent else {
