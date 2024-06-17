@@ -768,29 +768,16 @@
 <a href="#766" id="766">766</a>
 <a href="#767" id="767">767</a>
 <a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::TaskState;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::data::VidDisperseShare;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::message::Proposal;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::vid::vid_scheme;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
     data::{QuorumProposal, ViewChangeEvidence},
@@ -804,22 +791,25 @@
     },
     vote::HasViewNumber,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::{traits::storage::Storage, vote::Certificate};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>jf_vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>tracing::info;
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
-
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::consensus::helpers::{
-    handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
-    update_state_and_vote_if_able,
+</span><span class="kw">use </span>{
+    <span class="kw">crate</span>::consensus::helpers::{
+        handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
+        update_state_and_vote_if_able,
+    },
+    async_compatibility_layer::art::async_spawn,
+    hotshot_types::data::VidDisperseShare,
+    hotshot_types::message::Proposal,
+    hotshot_types::vid::vid_scheme,
+    hotshot_types::{traits::storage::Storage, vote::Certificate},
+    jf_vid::VidScheme,
+    tracing::info,
 };
+
 <span class="kw">use crate</span>::{
     consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, HotShotTaskCompleted},

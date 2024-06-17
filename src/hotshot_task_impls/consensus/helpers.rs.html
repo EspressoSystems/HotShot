@@ -1339,60 +1339,17 @@
 <a href="#1337" id="1337">1337</a>
 <a href="#1338" id="1338">1338</a>
 <a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
-<a href="#1348" id="1348">1348</a>
-<a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
-<a href="#1351" id="1351">1351</a>
-<a href="#1352" id="1352">1352</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
-
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use crate</span>::{events::ProposalMissing, request::REQUEST_TIMEOUT};
-
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use crate</span>::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>anyhow::bail;
+
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_broadcast::Sender;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>async_compatibility_layer::art::async_timeout;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>core::time::Duration;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>futures::FutureExt;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::{
-    consensus::CommitmentAndMetadata,
-    traits::{
-        node_implementation::{ConsensusTime, NodeImplementation},
-        storage::Storage,
-    },
-};
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -1406,21 +1363,38 @@
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData};
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>tracing::error;
 <span class="kw">use </span>tracing::{debug, info, warn};
 <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>vbs::version::Version;
+</span><span class="kw">use </span>{
+    <span class="kw">super</span>::ConsensusTaskState,
+    <span class="kw">crate</span>::{
+        consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+        helpers::AnyhowTracing,
+    },
+    <span class="kw">crate</span>::{events::ProposalMissing, request::REQUEST_TIMEOUT},
+    anyhow::bail,
+    async_broadcast::broadcast,
+    async_compatibility_layer::art::async_timeout,
+    async_compatibility_layer::art::{async_sleep, async_spawn},
+    chrono::Utc,
+    core::time::Duration,
+    futures::FutureExt,
+    hotshot_types::{
+        consensus::CommitmentAndMetadata,
+        traits::{
+            node_implementation::{ConsensusTime, NodeImplementation},
+            storage::Storage,
+        },
+    },
+    hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData},
+    std::marker::PhantomData,
+    tracing::error,
+    vbs::version::Version,
+};
+
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
