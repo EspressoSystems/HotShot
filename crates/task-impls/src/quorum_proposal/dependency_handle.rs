@@ -96,7 +96,6 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
-            self.latest_proposed_view,
             self.view_number,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),

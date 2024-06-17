@@ -360,15 +360,14 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 
 /// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
-    cur_view: TYPES::Time,
-    view_number: TYPES::Time,
+    next_proposal_view_number: TYPES::Time,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     ensure!(
-        quorum_membership.leader(view_number) == public_key,
-        "Somehow we formed a QC but are not the leader for the next view {view_number:?}",
+        quorum_membership.leader(next_proposal_view_number) == public_key,
+        "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
 
     let consensus_reader = consensus.read().await;
@@ -403,7 +402,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 
     // Walk back until we find a decide
     if !reached_decided {
-        debug!("We have not reached decide from view {:?}", cur_view);
+        debug!("We have not reached decide");
         while let Some(next_parent_leaf) = consensus_reader.saved_leaves().get(&next_parent_hash) {
             if next_parent_leaf.view_number() <= consensus_reader.last_decided_view() {
                 break;
@@ -421,7 +420,6 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
-    cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -437,7 +435,6 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     version: Version,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = parent_leaf_and_state(
-        cur_view,
         view,
         quorum_membership,
         public_key.clone(),
@@ -507,7 +504,6 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
-    cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -523,7 +519,6 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     version: Version,
 ) -> Result<JoinHandle<()>> {
     publish_proposal_from_commitment_and_metadata(
-        cur_view,
         view,
         sender,
         quorum_membership,
@@ -706,7 +701,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                         *new_view
                     );
                     let create_and_send_proposal_handle = publish_proposal_if_able(
-                        task_state.cur_view,
                         qc.view_number + 1,
                         event_stream,
                         Arc::clone(&task_state.quorum_membership),
