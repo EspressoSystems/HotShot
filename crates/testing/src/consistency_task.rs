@@ -19,10 +19,13 @@ trait Validatable {
     fn valid(&self) -> Result<()>;
 }
 
+/// Map from views to leaves for a single node, allowing multiple leaves for each view (because the node may a priori send us multiple leaves for a given view).
 pub type NodeMap<TYPES> = BTreeMap<<TYPES as NodeType>::Time, Vec<Leaf<TYPES>>>;
 
+/// A sanitized map from views to leaves for a single node, with only a single leaf per view.
 pub type NodeMapSanitized<TYPES> = BTreeMap<<TYPES as NodeType>::Time, Leaf<TYPES>>;
 
+/// Validate that the `NodeMap` only has a single leaf per view.
 pub fn sanitize_node_map<TYPES: NodeType>(
     node_map: &NodeMap<TYPES>,
 ) -> Result<NodeMapSanitized<TYPES>> {
@@ -72,9 +75,13 @@ impl<TYPES: NodeType> Validatable for NodeMapSanitized<TYPES> {
     }
 }
 
+/// A map from node ids to `NodeMap`s; note that the latter may have multiple leaves per view in principle.
 pub type NetworkMap<TYPES> = BTreeMap<usize, NodeMap<TYPES>>;
+
+/// A map from node ids to `NodeMapSanitized`s; the latter has been sanitized validated to have a single leaf per view.
 pub type NetworkMapSanitized<TYPES> = BTreeMap<usize, NodeMapSanitized<TYPES>>;
 
+/// Validate that each node has only produced one unique leaf per view, and produce a `NetworkMapSanitized`.
 pub fn sanitize_network_map<TYPES: NodeType>(
     network_map: &NetworkMap<TYPES>,
 ) -> Result<NetworkMapSanitized<TYPES>> {
@@ -121,14 +128,15 @@ impl<TYPES: NodeType> Validatable for NetworkMapSanitized<TYPES> {
 
             leaves.dedup_by(|(_node_a, leaf_a), (_node_b, leaf_b)| leaf_a == leaf_b);
 
-            if leaves.len() > 1 {
-                bail!(view_map.iter().fold(
+            ensure!(
+                leaves.len() <= 1,
+                view_map.iter().fold(
                     format!("The network does not agree on view {view:?}."),
                     |acc, (node, leaf)| {
                         format!("{acc}\n\nNode {node} sent us leaf:\n\n{leaf:?}")
                     }
-                ));
-            }
+                )
+            );
         }
 
         Ok(())
