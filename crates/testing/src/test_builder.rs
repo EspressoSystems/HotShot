@@ -102,8 +102,8 @@ impl Default for TimingData {
             round_start_delay: 100,
             start_delay: 100,
             builder_timeout: Duration::from_millis(500),
-            data_request_delay: Duration::from_millis(200),
-            secondary_network_delay: Duration::from_millis(1000),
+            data_request_delay: Duration::from_millis(5000),
+            secondary_network_delay: Duration::from_millis(5000),
             view_sync_timeout: Duration::from_millis(2000),
         }
     }
@@ -324,7 +324,7 @@ impl TestDescription {
             round_start_delay: 25,
             start_delay: 1,
             builder_timeout: Duration::from_millis(1000),
-            data_request_delay: Duration::from_millis(200),
+            data_request_delay: Duration::from_millis(5000),
             // Placeholder until we spin up the builder
             builder_urls: vec1::vec1![Url::parse("http://localhost:9999").expect("Valid URL")],
             start_proposing_view: 0,
