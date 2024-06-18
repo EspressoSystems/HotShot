@@ -767,7 +767,6 @@
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
 <a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -984,7 +983,6 @@
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
-            <span class="self">self</span>.cur_view,
             view,
             event_stream,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),

@@ -1337,8 +1337,6 @@
 <a href="#1335" id="1335">1335</a>
 <a href="#1336" id="1336">1336</a>
 <a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -1440,6 +1438,10 @@
     {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
+    consensus
+        .write()
+        .<span class="kw">await
+        </span>.update_saved_leaves(proposed_leaf.clone());
 
     <span class="comment">// Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     </span>broadcast_event(
@@ -1695,15 +1697,14 @@
 
 <span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType&gt;(
-    cur_view: TYPES::Time,
-    view_number: TYPES::Time,
+    next_proposal_view_number: TYPES::Time,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
     <span class="macro">ensure!</span>(
-        quorum_membership.leader(view_number) == public_key,
-        <span class="string">"Somehow we formed a QC but are not the leader for the next view {view_number:?}"</span>,
+        quorum_membership.leader(next_proposal_view_number) == public_key,
+        <span class="string">"Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}"</span>,
     );
 
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
@@ -1738,7 +1739,7 @@
 
     <span class="comment">// Walk back until we find a decide
     </span><span class="kw">if </span>!reached_decided {
-        <span class="macro">debug!</span>(<span class="string">"We have not reached decide from view {:?}"</span>, cur_view);
+        <span class="macro">debug!</span>(<span class="string">"We have not reached decide"</span>);
         <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus_reader.saved_leaves().get(<span class="kw-2">&amp;</span>next_parent_hash) {
             <span class="kw">if </span>next_parent_leaf.view_number() &lt;= consensus_reader.last_decided_view() {
                 <span class="kw">break</span>;
@@ -1756,7 +1757,6 @@
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">pub async fn </span>publish_proposal_from_commitment_and_metadata&lt;TYPES: NodeType&gt;(
-    cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1772,7 +1772,6 @@
     version: Version,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
-        cur_view,
         view,
         quorum_membership,
         public_key.clone(),
@@ -1842,7 +1841,6 @@
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">pub async fn </span>publish_proposal_if_able&lt;TYPES: NodeType&gt;(
-    cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1858,7 +1856,6 @@
     version: Version,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     publish_proposal_from_commitment_and_metadata(
-        cur_view,
         view,
         sender,
         quorum_membership,
@@ -2106,7 +2103,6 @@
                         <span class="kw-2">*</span>new_view
                     );
                     <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
-                        task_state.cur_view,
                         qc.view_number + <span class="number">1</span>,
                         event_stream,
                         Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),

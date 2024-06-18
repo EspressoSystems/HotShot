@@ -645,7 +645,7 @@
 
         QuorumProposalTaskState {
             latest_proposed_view: handle.cur_view().<span class="kw">await</span>,
-            propose_dependencies: HashMap::new(),
+            proposal_dependencies: HashMap::new(),
             quorum_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.quorum_network),
             da_network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.networks.da_network),
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),

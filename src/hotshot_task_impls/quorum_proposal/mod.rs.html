@@ -499,50 +499,6 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -587,7 +543,7 @@
     </span><span class="kw">pub </span>latest_proposed_view: TYPES::Time,
 
     <span class="doccomment">/// Table for the in-progress proposal depdencey tasks.
-    </span><span class="kw">pub </span>propose_dependencies: HashMap&lt;TYPES::Time, JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>proposal_dependencies: HashMap&lt;TYPES::Time, JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// Network for all nodes
     </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
@@ -649,7 +605,7 @@
             Box::new(<span class="kw">move </span>|event| {
                 <span class="kw">let </span>event = event.as_ref();
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
-                    ProposalDependency::QC =&gt; {
+                    ProposalDependency::Qc =&gt; {
                         <span class="kw">if let </span>HotShotEvent::UpdateHighQc(qc) = event {
                             qc.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
@@ -694,16 +650,9 @@
                         }
                     }
                     ProposalDependency::VidShare =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::VidShareValidated(vid_share) = event {
+                        <span class="kw">if let </span>HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) = event {
                             vid_share.data.view_number()
                         } <span class="kw">else </span>{
-                            <span class="kw">return </span><span class="bool-val">false</span>;
-                        }
-                    }
-                    ProposalDependency::ValidatedState =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) = event {
-                            <span class="kw-2">*</span>view_number + <span class="number">1
-                        </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
@@ -721,7 +670,7 @@
     </span><span class="kw">fn </span>create_and_complete_dependencies(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::Time,
-        event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) -&gt; AndDependency&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>proposal_dependency = <span class="self">self</span>.create_event_dependency(
@@ -731,7 +680,7 @@
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>qc_dependency = <span class="self">self</span>.create_event_dependency(
-            ProposalDependency::QC,
+            ProposalDependency::Qc,
             view_number,
             event_receiver.clone(),
         );
@@ -760,12 +709,6 @@
             event_receiver.clone(),
         );
 
-        <span class="kw">let </span><span class="kw-2">mut </span>validated_state_update_dependency = <span class="self">self</span>.create_event_dependency(
-            ProposalDependency::ValidatedState,
-            view_number,
-            event_receiver,
-        );
-
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) =&gt; {
                 payload_commitment_dependency.mark_as_completed(Arc::clone(<span class="kw-2">&amp;</span>event));
@@ -784,11 +727,8 @@
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>) =&gt; {
                 view_sync_dependency.mark_as_completed(event);
             }
-            HotShotEvent::VidShareValidated(<span class="kw">_</span>) =&gt; {
+            HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 vid_share_dependency.mark_as_completed(event);
-            }
-            HotShotEvent::ValidatedStateUpdated(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                validated_state_update_dependency.mark_as_completed(event);
             }
             HotShotEvent::UpdateHighQc(<span class="kw">_</span>) =&gt; {
                 qc_dependency.mark_as_completed(event);
@@ -813,11 +753,7 @@
             secondary_deps.push(AndDependency::from_deps(<span class="macro">vec!</span>[qc_dependency]));
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>primary_deps = <span class="macro">vec!</span>[payload_commitment_dependency, vid_share_dependency];
-
-        <span class="kw">if </span><span class="kw-2">*</span>view_number &gt; <span class="number">1 </span>{
-            primary_deps.push(validated_state_update_dependency);
-        }
+        <span class="kw">let </span>primary_deps = <span class="macro">vec!</span>[payload_commitment_dependency, vid_share_dependency];
 
         AndDependency::from_deps(<span class="macro">vec!</span>[OrDependency::from_deps(<span class="macro">vec!</span>[
             AndDependency::from_deps(<span class="macro">vec!</span>[
@@ -853,13 +789,13 @@
         }
 
         <span class="macro">debug!</span>(<span class="string">"Attempting to make dependency task for view {view_number:?} and event {event:?}"</span>);
-        <span class="kw">if </span><span class="self">self</span>.propose_dependencies.contains_key(<span class="kw-2">&amp;</span>view_number) {
+        <span class="kw">if </span><span class="self">self</span>.proposal_dependencies.contains_key(<span class="kw-2">&amp;</span>view_number) {
             <span class="macro">debug!</span>(<span class="string">"Task already exists"</span>);
             <span class="kw">return</span>;
         }
 
         <span class="kw">let </span>dependency_chain =
-            <span class="self">self</span>.create_and_complete_dependencies(view_number, event_receiver, event);
+            <span class="self">self</span>.create_and_complete_dependencies(view_number, <span class="kw-2">&amp;</span>event_receiver, event);
 
         <span class="kw">let </span>dependency_task = DependencyTask::new(
             dependency_chain,
@@ -867,6 +803,7 @@
                 latest_proposed_view: <span class="self">self</span>.latest_proposed_view,
                 view_number,
                 sender: event_sender,
+                receiver: event_receiver,
                 quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
@@ -876,7 +813,7 @@
                 version: <span class="self">self</span>.version,
             },
         );
-        <span class="self">self</span>.propose_dependencies
+        <span class="self">self</span>.proposal_dependencies
             .insert(view_number, dependency_task.run());
     }
 
@@ -891,7 +828,7 @@
 
             <span class="comment">// Cancel the old dependency tasks.
             </span><span class="kw">for </span>view <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view + <span class="number">1</span>)..=(<span class="kw-2">*</span>new_view) {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.propose_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::Time::new(view))
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.proposal_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::Time::new(view))
                 {
                     cancel_task(dependency).<span class="kw">await</span>;
                 }
@@ -998,36 +935,11 @@
                     <span class="kw">return</span>;
                 }
             }
-            HotShotEvent::VidShareValidated(vid_share) =&gt; {
+            HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view_number = vid_share.data.view_number();
-
-                <span class="comment">// Update the vid shares map if we need to include the new value.
-                </span><span class="kw">let </span>share = vid_share.clone();
-                <span class="self">self</span>.consensus
-                    .write()
-                    .<span class="kw">await
-                    </span>.update_vid_shares(view_number, share.clone());
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
-                    event_receiver,
-                    event_sender,
-                    Arc::clone(<span class="kw-2">&amp;</span>event),
-                );
-            }
-            HotShotEvent::ValidatedStateUpdated(view_number, view) =&gt; {
-                <span class="comment">// Update the internal validated state map.
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
-                    </span>.consensus
-                    .write()
-                    .<span class="kw">await
-                    </span>.update_validated_state_map(<span class="kw-2">*</span>view_number, view.clone())
-                {
-                    <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
-                }
-
-                <span class="self">self</span>.create_dependency_task_if_new(
-                    <span class="kw-2">*</span>view_number + <span class="number">1</span>,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
@@ -1075,7 +987,7 @@
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">for </span>handle <span class="kw">in </span><span class="self">self
-            </span>.propose_dependencies
+            </span>.proposal_dependencies
             .drain()
             .map(|(_view, handle)| handle)
         {

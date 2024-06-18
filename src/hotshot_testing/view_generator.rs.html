@@ -536,6 +536,12 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     cmp::max,
     marker::PhantomData,
@@ -553,7 +559,10 @@
     state_types::{TestInstanceState, TestValidatedState},
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare, ViewChangeEvidence, ViewNumber},
+    data::{
+        DaProposal, Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewChangeEvidence,
+        ViewNumber,
+    },
     message::Proposal,
     simple_certificate::{
         DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
@@ -583,6 +592,7 @@
     <span class="kw">pub </span>view_number: ViewNumber,
     <span class="kw">pub </span>quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     <span class="kw">pub </span>da_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
+    <span class="kw">pub </span>vid_disperse: Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>vid_proposal: (
         Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt;,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
@@ -625,7 +635,7 @@
 
         <span class="kw">let </span>payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
-        <span class="kw">let </span>vid_proposal = build_vid_proposal(
+        <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
             genesis_view,
             transactions.clone(),
@@ -698,6 +708,7 @@
             view_number: genesis_view,
             quorum_membership: quorum_membership.clone(),
             da_membership: da_membership.clone(),
+            vid_disperse,
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
             transactions,
@@ -753,7 +764,7 @@
 
         <span class="kw">let </span>payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
 
-        <span class="kw">let </span>vid_proposal = build_vid_proposal(
+        <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
             next_view,
             transactions.clone(),
@@ -898,6 +909,7 @@
             view_number: next_view,
             quorum_membership: quorum_membership.clone(),
             da_membership: <span class="self">self</span>.da_membership.clone(),
+            vid_disperse,
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
             leader_public_key,

@@ -348,6 +348,22 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -591,12 +607,16 @@
 }
 
 <span class="doccomment">/// TODO: &lt;https://github.com/EspressoSystems/HotShot/issues/2821&gt;
+</span><span class="attr">#[allow(clippy::type_complexity)]
 </span><span class="kw">pub fn </span>build_vid_proposal(
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     view_number: ViewNumber,
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-) -&gt; Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt; {
+) -&gt; (
+    Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
+    Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt;,
+) {
     <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
@@ -606,14 +626,26 @@
         quorum_membership,
     );
 
-    VidDisperseShare::from_vid_disperse(vid_disperse)
-        .into_iter()
-        .map(|vid_disperse| {
-            vid_disperse
-                .to_proposal(private_key)
-                .expect(<span class="string">"Failed to sign payload commitment"</span>)
-        })
-        .collect()
+    <span class="kw">let </span>signature =
+        &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, vid_disperse.payload_commitment.as_ref())
+            .expect(<span class="string">"Failed to sign VID commitment"</span>);
+    <span class="kw">let </span>vid_disperse_proposal = Proposal {
+        data: vid_disperse.clone(),
+        signature,
+        _pd: PhantomData,
+    };
+
+    (
+        vid_disperse_proposal,
+        VidDisperseShare::from_vid_disperse(vid_disperse)
+            .into_iter()
+            .map(|vid_disperse| {
+                vid_disperse
+                    .to_proposal(private_key)
+                    .expect(<span class="string">"Failed to sign payload commitment"</span>)
+            })
+            .collect(),
+    )
 }
 
 <span class="kw">pub fn </span>build_da_certificate(
