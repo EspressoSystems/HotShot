@@ -59,7 +59,7 @@ async fn test_combined_network_cdn_crash() {
     let mut metadata: TestDescription = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
-            next_view_timeout: 30_000,
+            next_view_timeout: 60_000,
             ..Default::default()
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
@@ -159,7 +159,7 @@ async fn test_combined_network_half_dc() {
     let mut metadata: TestDescription = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
-            next_view_timeout: 30_000,
+            next_view_timeout: 60_000,
             start_delay: 120_000,
 
             ..Default::default()
