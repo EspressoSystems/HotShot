@@ -30,7 +30,7 @@ use async_trait::async_trait;
 use committable::Committable;
 use futures::join;
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
-use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event, network};
+use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
@@ -56,12 +56,11 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
-use tasks::{add_request_network_task, add_response_task};
 use tracing::{debug, instrument, trace};
 use vbs::version::Version;
 
 use crate::{
-    tasks::{add_consensus_tasks, add_network_event_task, add_network_message_task},
+    tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
@@ -581,13 +580,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let output_event_stream = self.external_event_stream.clone();
         let internal_event_stream = self.internal_event_stream.clone();
 
-        let quorum_network = Arc::clone(&self.networks.quorum_network);
-        let da_network = Arc::clone(&self.networks.da_network);
-        let quorum_membership = self.memberships.quorum_membership.clone();
-        let da_membership = self.memberships.da_membership.clone();
-        let vid_membership = self.memberships.vid_membership.clone();
-        let view_sync_membership = self.memberships.view_sync_membership.clone();
-
         let mut handle = SystemContextHandle {
             consensus_registry,
             network_registry,
@@ -595,52 +587,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: Arc::clone(&self.storage),
+            networks: Arc::clone(&self.networks),
+            memberships: Arc::clone(&self.memberships),
         };
 
-        add_network_message_task(&mut handle, Arc::clone(&quorum_network)).await;
-        add_network_message_task(&mut handle, Arc::clone(&da_network)).await;
-
-        if let Some(request_receiver) = da_network.spawn_request_receiver_task().await {
-            add_request_network_task(&mut handle).await;
-            add_response_task(&mut handle, request_receiver).await;
-        }
-
-        add_network_event_task(
-            &mut handle,
-            Arc::clone(&quorum_network),
-            quorum_membership.clone(),
-            network::quorum_filter,
-        )
-        .await;
-        add_network_event_task(
-            &mut handle,
-            Arc::clone(&quorum_network),
-            quorum_membership,
-            network::upgrade_filter,
-        )
-        .await;
-        add_network_event_task(
-            &mut handle,
-            Arc::clone(&da_network),
-            da_membership,
-            network::da_filter,
-        )
-        .await;
-        add_network_event_task(
-            &mut handle,
-            Arc::clone(&quorum_network),
-            view_sync_membership,
-            network::view_sync_filter,
-        )
-        .await;
-        add_network_event_task(
-            &mut handle,
-            Arc::clone(&quorum_network),
-            vid_membership,
-            network::vid_filter,
-        )
-        .await;
+        add_network_tasks::<TYPES, I>(&mut handle).await;
         add_consensus_tasks::<TYPES, I, Base>(&mut handle).await;
+
         handle
     }
 }

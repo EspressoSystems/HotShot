@@ -5,6 +5,7 @@ pub mod task_state;
 
 use std::{sync::Arc, time::Duration};
 
+use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use hotshot_task::task::Task;
 #[cfg(not(feature = "dependency-tasks"))]
@@ -19,6 +20,7 @@ use hotshot_task_impls::{
 use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
+    network,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState, RequestReceiver},
@@ -28,6 +30,7 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
+    constants::EVENT_CHANNEL_SIZE,
     message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
@@ -62,7 +65,7 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
 }
 
 /// Add a task which responds to requests on the network.
-pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &mut SystemContextHandle<TYPES, I>,
     request_receiver: RequestReceiver,
 ) {
@@ -78,23 +81,23 @@ pub async fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         handle.internal_event_stream.1.activate_cloned(),
     ));
 }
+
 /// Add the network task to handle messages and publish events.
-pub async fn add_network_message_task<
+pub fn add_network_message_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     NET: ConnectedNetwork<TYPES::SignatureKey>,
 >(
     handle: &mut SystemContextHandle<TYPES, I>,
-    channel: Arc<NET>,
+    channel: &Arc<NET>,
 ) {
-    let net = Arc::clone(&channel);
     let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
         event_stream: handle.internal_event_stream.0.clone(),
     };
 
     let decided_upgrade_certificate = Arc::clone(&handle.hotshot.decided_upgrade_certificate);
 
-    let network = Arc::clone(&net);
+    let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let task_handle = async_spawn(async move {
         loop {
@@ -137,8 +140,9 @@ pub async fn add_network_message_task<
     });
     handle.network_registry.register(task_handle);
 }
+
 /// Add the network task to handle events and send messages.
-pub async fn add_network_event_task<
+pub fn add_network_event_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     NET: ConnectedNetwork<TYPES::SignatureKey>,
@@ -191,4 +195,115 @@ pub async fn add_consensus_tasks<
 
     #[cfg(feature = "rewind")]
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
+}
+
+/// adds tasks for sending/receiving messages to/from the network.
+pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    handle: &mut SystemContextHandle<TYPES, I>,
+) {
+    let quorum_network = Arc::clone(&handle.networks.quorum_network);
+    let da_network = Arc::clone(&handle.networks.da_network);
+    let quorum_membership = handle.memberships.quorum_membership.clone();
+    let da_membership = handle.memberships.da_membership.clone();
+    let vid_membership = handle.memberships.vid_membership.clone();
+    let view_sync_membership = handle.memberships.view_sync_membership.clone();
+
+    add_network_message_task(handle, &quorum_network);
+    add_network_message_task(handle, &da_network);
+
+    if let Some(request_receiver) = da_network.spawn_request_receiver_task().await {
+        add_request_network_task(handle).await;
+        add_response_task(handle, request_receiver);
+    }
+
+    add_network_event_task(
+        handle,
+        Arc::clone(&quorum_network),
+        quorum_membership.clone(),
+        network::quorum_filter,
+    );
+    add_network_event_task(
+        handle,
+        Arc::clone(&quorum_network),
+        quorum_membership,
+        network::upgrade_filter,
+    );
+    add_network_event_task(
+        handle,
+        Arc::clone(&da_network),
+        da_membership,
+        network::da_filter,
+    );
+    add_network_event_task(
+        handle,
+        Arc::clone(&quorum_network),
+        view_sync_membership,
+        network::view_sync_filter,
+    );
+    add_network_event_task(
+        handle,
+        Arc::clone(&quorum_network),
+        vid_membership,
+        network::vid_filter,
+    );
+}
+
+/// Add a byzantine network task to handle messages and publish events.
+pub async fn add_byzantine_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, F, G>(
+    handle: &mut SystemContextHandle<TYPES, I>,
+    mut modify_out: F,
+    mut modify_in: G,
+) where
+    F: FnMut(&HotShotEvent<TYPES>) -> HotShotEvent<TYPES> + std::marker::Send + 'static,
+    G: FnMut(&HotShotEvent<TYPES>) -> HotShotEvent<TYPES> + std::marker::Send + 'static,
+{
+    // channel between the task spawned in this function and the network tasks.
+    // with this, we can control exactly what events the network tasks see.
+    let (sender, mut receiver) = broadcast(EVENT_CHANNEL_SIZE);
+
+    // replace the internal event stream with the one we just created,
+    // so that the network tasks are spawned with our channel.
+    let mut internal_event_stream = (sender.clone(), receiver.clone().deactivate());
+    std::mem::swap(
+        &mut internal_event_stream,
+        &mut handle.internal_event_stream,
+    );
+
+    // spawn the network tasks with our newly-created channel
+    add_network_tasks::<TYPES, I>(handle).await;
+
+    // create a copy of the original receiver
+    let (original_sender, mut original_receiver) = (
+        internal_event_stream.0.clone(),
+        internal_event_stream.1.activate_cloned(),
+    );
+
+    // spawn a task to listen on the (original) internal event stream,
+    // and broadcast the transformed events to the replacement event stream we just created.
+    let out_handle = async_spawn(async move {
+        loop {
+            if let Ok(msg) = original_receiver.recv().await {
+                let _ = sender.broadcast(modify_out(&msg).into()).await;
+            }
+        }
+    });
+
+    // spawn a task to listen on the newly created event stream,
+    // and broadcast the transformed events to the original internal event stream
+    let in_handle = async_spawn(async move {
+        loop {
+            if let Ok(msg) = receiver.recv().await {
+                let _ = original_sender.broadcast(modify_in(&msg).into()).await;
+            }
+        }
+    });
+
+    handle.network_registry.register(out_handle);
+    handle.network_registry.register(in_handle);
+
+    // put the old channel back.
+    std::mem::swap(
+        &mut internal_event_stream,
+        &mut handle.internal_event_stream,
+    );
 }

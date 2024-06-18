@@ -19,7 +19,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
-use crate::{traits::NodeImplementation, types::Event, SystemContext};
+use crate::{traits::NodeImplementation, types::Event, Memberships, Networks, SystemContext};
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -48,6 +48,12 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Reference to the internal storage for consensus datum.
     pub(crate) storage: Arc<RwLock<I::Storage>>,
+
+    /// Networks used by the instance of hotshot
+    pub networks: Arc<Networks<TYPES, I>>,
+
+    /// Memberships used by consensus
+    pub memberships: Arc<Memberships<TYPES>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
