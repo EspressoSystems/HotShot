@@ -3,8 +3,11 @@ use std::{
     sync::Arc,
 };
 
+use crate::{events::ProposalMissing, request::REQUEST_TIMEOUT};
+use anyhow::bail;
 use anyhow::{ensure, Context, Result};
-use async_broadcast::Sender;
+use async_broadcast::{broadcast, Sender};
+use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -32,10 +35,6 @@ use {
         consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
         helpers::AnyhowTracing,
     },
-    crate::{events::ProposalMissing, request::REQUEST_TIMEOUT},
-    anyhow::bail,
-    async_broadcast::broadcast,
-    async_compatibility_layer::art::async_timeout,
     async_compatibility_layer::art::{async_sleep, async_spawn},
     chrono::Utc,
     core::time::Duration,
