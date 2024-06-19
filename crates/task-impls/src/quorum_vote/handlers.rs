@@ -10,6 +10,7 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use tracing::debug;
+use hotshot_types::consensus::OuterConsensus;
 
 use super::QuorumVoteTaskState;
 use crate::{
@@ -37,7 +38,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         ..
     } = decide_from_proposal(
         proposal,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new("", Arc::clone(&task_state.consensus.inner_consensus)),
         &None,
         &task_state.public_key,
     )

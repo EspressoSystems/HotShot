@@ -175,7 +175,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             justify_qc.view_number(),
             event_sender.clone(),
             Arc::clone(&task_state.quorum_membership),
-            Arc::clone(&task_state.consensus),
+            OuterConsensus::new("", Arc::clone(&task_state.consensus.inner_consensus)),
         )
         .await
         .ok(),

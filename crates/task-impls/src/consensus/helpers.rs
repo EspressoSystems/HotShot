@@ -544,7 +544,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
@@ -665,7 +665,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             justify_qc.view_number(),
             event_stream.clone(),
             Arc::clone(&task_state.quorum_membership),
-            Arc::clone(&task_state.consensus),
+            OuterConsensus::new("", Arc::clone(&task_state.consensus.inner_consensus)),
         )
         .await
         .ok(),
@@ -906,7 +906,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 /// the anchor view will be set to view 6, with the locked view as view 7.
 pub async fn decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal<TYPES>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     existing_upgrade_cert: &Option<UpgradeCertificate<TYPES>>,
     public_key: &TYPES::SignatureKey,
 ) -> LeafChainTraversalOutcome<TYPES> {
@@ -1037,7 +1037,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
     let res = decide_from_proposal(
         proposal,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new("", Arc::clone(&task_state.consensus.inner_consensus)),
         &task_state.decided_upgrade_cert,
         &task_state.public_key,
     )
@@ -1226,7 +1226,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
             justify_qc.view_number(),
             vote_info.3.clone(),
             Arc::clone(&quorum_membership),
-            Arc::clone(&consensus),
+            OuterConsensus::new("", Arc::clone(&consensus.inner_consensus)),
         )
         .await
         .ok(),
