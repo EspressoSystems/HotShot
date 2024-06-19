@@ -226,6 +226,20 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -252,7 +266,9 @@
 <span class="kw">use </span><span class="kw">super</span>::QuorumProposalRecvTaskState;
 <span class="kw">use crate</span>::{
     consensus::{
-        helpers::{validate_proposal_safety_and_liveness, validate_proposal_view_and_certs},
+        helpers::{
+            fetch_proposal, validate_proposal_safety_and_liveness, validate_proposal_view_and_certs,
+        },
         view_change::{update_view, SEND_VIEW_CHANGE_EVENT},
     },
     events::HotShotEvent,
@@ -382,39 +398,51 @@
         <span class="macro">debug!</span>(<span class="string">"Failed to update view; error = {e:#}"</span>);
     }
 
-    <span class="kw">let </span>parent = {
-        <span class="kw">let </span>consensus_read = task_state.consensus.read().<span class="kw">await</span>;
+    <span class="comment">// Get the parent leaf and state.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>parent_leaf = task_state
+        .consensus
+        .read()
+        .<span class="kw">await
+        </span>.saved_leaves()
+        .get(<span class="kw-2">&amp;</span>justify_qc.data.leaf_commit)
+        .cloned();
 
-        <span class="comment">// Get the parent leaf and state.
-        </span><span class="kw">let </span>parent = <span class="kw">match </span>consensus_read
-            .saved_leaves()
-            .get(<span class="kw-2">&amp;</span>justify_qc.data.leaf_commit)
-            .cloned()
-        {
-            <span class="prelude-val">Some</span>(leaf) =&gt; {
-                <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_read.state_and_delta(leaf.view_number()) {
-                    <span class="prelude-val">Some</span>((leaf, Arc::clone(<span class="kw-2">&amp;</span>state)))
-                } <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
-                }
-            }
-            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-        };
+    parent_leaf = <span class="kw">match </span>parent_leaf {
+        <span class="prelude-val">Some</span>(p) =&gt; <span class="prelude-val">Some</span>(p),
+        <span class="prelude-val">None </span>=&gt; fetch_proposal(
+            justify_qc.view_number(),
+            event_sender.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
+        )
+        .<span class="kw">await
+        </span>.ok(),
+    };
+    <span class="kw">let </span>consensus_read = task_state.consensus.read().<span class="kw">await</span>;
 
-        <span class="kw">if </span>justify_qc.view_number() &gt; consensus_read.high_qc().view_number {
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
-                .storage
-                .write()
-                .<span class="kw">await
-                </span>.update_high_qc(justify_qc.clone())
-                .<span class="kw">await
-            </span>{
-                <span class="macro">bail!</span>(<span class="string">"Failed to store High QC, not voting; error = {:?}"</span>, e);
+    <span class="kw">let </span>parent = <span class="kw">match </span>parent_leaf {
+        <span class="prelude-val">Some</span>(leaf) =&gt; {
+            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_read.state_and_delta(leaf.view_number()) {
+                <span class="prelude-val">Some</span>((leaf, Arc::clone(<span class="kw-2">&amp;</span>state)))
+            } <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
             }
         }
-
-        parent
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
     };
+
+    <span class="kw">if </span>justify_qc.view_number() &gt; consensus_read.high_qc().view_number {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
+            .storage
+            .write()
+            .<span class="kw">await
+            </span>.update_high_qc(justify_qc.clone())
+            .<span class="kw">await
+        </span>{
+            <span class="macro">bail!</span>(<span class="string">"Failed to store High QC, not voting; error = {:?}"</span>, e);
+        }
+    }
+    drop(consensus_read);
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_high_qc(justify_qc.clone()) {

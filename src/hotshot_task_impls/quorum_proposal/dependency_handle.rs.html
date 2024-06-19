@@ -272,6 +272,15 @@
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
@@ -279,7 +288,7 @@
 
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::{
@@ -298,7 +307,9 @@
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
-    consensus::helpers::parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
+    consensus::helpers::{fetch_proposal, parent_leaf_and_state},
+    events::HotShotEvent,
+    helpers::broadcast_event,
 };
 
 <span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -459,6 +470,13 @@
             </span>.validated_state_map()
             .contains_key(<span class="kw-2">&amp;</span>high_qc_view_number)
         {
+            <span class="comment">// The proposal for the high qc view is missing, try to get it asynchronously
+            </span><span class="kw">let </span>memberhsip = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
+            <span class="kw">let </span>sender = <span class="self">self</span>.sender.clone();
+            <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
+            async_spawn(<span class="kw">async move </span>{
+                fetch_proposal(high_qc_view_number, sender, memberhsip, consensus).<span class="kw">await
+            </span>});
             <span class="comment">// Block on receiving the event from the event stream.
             </span>EventDependency::new(
                 <span class="self">self</span>.receiver.clone(),

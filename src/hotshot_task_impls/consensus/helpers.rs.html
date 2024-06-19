@@ -1337,13 +1337,17 @@
 <a href="#1335" id="1335">1335</a>
 <a href="#1336" id="1336">1336</a>
 <a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 
+<span class="kw">use crate</span>::{events::ProposalMissing, request::REQUEST_TIMEOUT};
+<span class="kw">use </span>anyhow::bail;
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>async_broadcast::Sender;
+<span class="kw">use </span>async_broadcast::{broadcast, Sender};
+<span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
@@ -1371,10 +1375,6 @@
         consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
         helpers::AnyhowTracing,
     },
-    <span class="kw">crate</span>::{events::ProposalMissing, request::REQUEST_TIMEOUT},
-    anyhow::bail,
-    async_broadcast::broadcast,
-    async_compatibility_layer::art::async_timeout,
     async_compatibility_layer::art::{async_sleep, async_spawn},
     chrono::Utc,
     core::time::Duration,
@@ -1874,8 +1874,7 @@
 </span>}
 
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response
-</span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType&gt;(
     view: TYPES::Time,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1894,11 +1893,11 @@
     <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).<span class="kw">await else </span>{
         <span class="macro">bail!</span>(<span class="string">"Request for proposal failed"</span>);
     };
-    <span class="kw">let </span>view = proposal.data.view_number();
+    <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc.is_valid_cert(quorum_membership.as_ref()) {
-        <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view);
+        <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
     }
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = consensus.write().<span class="kw">await</span>;
     <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
@@ -1906,20 +1905,23 @@
         &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header),
     );
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(
-        view,
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: leaf.commit(),
-                state,
-                delta: <span class="prelude-val">None</span>,
-            },
+    <span class="kw">let </span>view = View {
+        view_inner: ViewInner::Leaf {
+            leaf: leaf.commit(),
+            state,
+            delta: <span class="prelude-val">None</span>,
         },
-    ) {
+    };
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
 
     consensus_write.update_saved_leaves(leaf.clone());
+    broadcast_event(
+        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
+        <span class="kw-2">&amp;</span>event_stream,
+    )
+    .<span class="kw">await</span>;
     <span class="prelude-val">Ok</span>(leaf)
 }
 
