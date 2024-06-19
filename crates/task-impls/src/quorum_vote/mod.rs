@@ -110,7 +110,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
                 justify_qc.view_number(),
                 self.sender.clone(),
                 Arc::clone(&self.quorum_membership),
-                OuterConsensus::new("", Arc::clone(&self.consensus.inner_consensus)),
+                OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             )
             .await
             .ok(),

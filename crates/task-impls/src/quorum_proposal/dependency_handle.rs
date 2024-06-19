@@ -193,7 +193,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             // The proposal for the high qc view is missing, try to get it asynchronously
             let memberhsip = Arc::clone(&self.quorum_membership);
             let sender = self.sender.clone();
-            let consensus = OuterConsensus::new("", Arc::clone(&self.consensus.inner_consensus));
+            let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
             async_spawn(async move {
                 fetch_proposal(high_qc_view_number, sender, memberhsip, consensus).await
             });
