@@ -65,11 +65,11 @@ jobs:
           - tokio
         test_suites:
           - test-ci-1
-          # - test-ci-2
-          # - test-ci-3
-          # - test-ci-4
-          # - test-ci-5
-          # - test-ci-rest
+          - test-ci-2
+          - test-ci-3
+          - test-ci-4
+          - test-ci-5
+          - test-ci-rest
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -299,7 +299,7 @@ jobs:
           flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Build and push validator-libp2p docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-libp2p.Dockerfile
@@ -313,7 +313,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-combined docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-combined.Dockerfile
@@ -341,7 +341,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push orchestrator docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/orchestrator.Dockerfile
@@ -355,7 +355,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-broker docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/cdn-broker.Dockerfile
@@ -369,7 +369,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-marshal docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/cdn-marshal.Dockerfile

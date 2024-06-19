@@ -1,44 +1,14 @@
-use crate::{events::HotShotEvent, helpers::broadcast_event};
-
-#[cfg(not(feature = "dependency-tasks"))]
-use crate::{events::ProposalMissing, request::REQUEST_TIMEOUT};
-
-#[cfg(not(feature = "dependency-tasks"))]
-use super::ConsensusTaskState;
-#[cfg(not(feature = "dependency-tasks"))]
-use crate::{
-    consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
-    helpers::AnyhowTracing,
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
-#[cfg(not(feature = "dependency-tasks"))]
-use anyhow::bail;
+
 use anyhow::{ensure, Context, Result};
-#[cfg(not(feature = "dependency-tasks"))]
-use async_broadcast::broadcast;
 use async_broadcast::Sender;
-#[cfg(not(feature = "dependency-tasks"))]
-use async_compatibility_layer::art::async_timeout;
-#[cfg(not(feature = "dependency-tasks"))]
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-#[cfg(not(feature = "dependency-tasks"))]
-use chrono::Utc;
 use committable::{Commitment, Committable};
-#[cfg(not(feature = "dependency-tasks"))]
-use core::time::Duration;
-#[cfg(not(feature = "dependency-tasks"))]
-use futures::FutureExt;
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{
-    consensus::CommitmentAndMetadata,
-    traits::{
-        node_implementation::{ConsensusTime, NodeImplementation},
-        storage::Storage,
-    },
-};
 use hotshot_types::{
     consensus::{Consensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -52,21 +22,38 @@ use hotshot_types::{
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData};
-#[cfg(not(feature = "dependency-tasks"))]
-use std::marker::PhantomData;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-#[cfg(not(feature = "dependency-tasks"))]
-use tracing::error;
 use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]
-use vbs::version::Version;
+use {
+    super::ConsensusTaskState,
+    crate::{
+        consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
+        helpers::AnyhowTracing,
+    },
+    crate::{events::ProposalMissing, request::REQUEST_TIMEOUT},
+    anyhow::bail,
+    async_broadcast::broadcast,
+    async_compatibility_layer::art::async_timeout,
+    async_compatibility_layer::art::{async_sleep, async_spawn},
+    chrono::Utc,
+    core::time::Duration,
+    futures::FutureExt,
+    hotshot_types::{
+        consensus::CommitmentAndMetadata,
+        traits::{
+            node_implementation::{ConsensusTime, NodeImplementation},
+            storage::Storage,
+        },
+    },
+    hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData},
+    std::marker::PhantomData,
+    tracing::error,
+    vbs::version::Version,
+};
+
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
@@ -112,6 +99,10 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     {
         tracing::trace!("{e:?}");
     }
+    consensus
+        .write()
+        .await
+        .update_saved_leaves(proposed_leaf.clone());
 
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     broadcast_event(
@@ -367,15 +358,14 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 
 /// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
-    cur_view: TYPES::Time,
-    view_number: TYPES::Time,
+    next_proposal_view_number: TYPES::Time,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     ensure!(
-        quorum_membership.leader(view_number) == public_key,
-        "Somehow we formed a QC but are not the leader for the next view {view_number:?}",
+        quorum_membership.leader(next_proposal_view_number) == public_key,
+        "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
 
     let consensus_reader = consensus.read().await;
@@ -410,7 +400,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 
     // Walk back until we find a decide
     if !reached_decided {
-        debug!("We have not reached decide from view {:?}", cur_view);
+        debug!("We have not reached decide");
         while let Some(next_parent_leaf) = consensus_reader.saved_leaves().get(&next_parent_hash) {
             if next_parent_leaf.view_number() <= consensus_reader.last_decided_view() {
                 break;
@@ -428,7 +418,6 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
-    cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -444,7 +433,6 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     version: Version,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = parent_leaf_and_state(
-        cur_view,
         view,
         quorum_membership,
         public_key.clone(),
@@ -514,7 +502,6 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
-    cur_view: TYPES::Time,
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -530,7 +517,6 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     version: Version,
 ) -> Result<JoinHandle<()>> {
     publish_proposal_from_commitment_and_metadata(
-        cur_view,
         view,
         sender,
         quorum_membership,
@@ -778,7 +764,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                         *new_view
                     );
                     let create_and_send_proposal_handle = publish_proposal_if_able(
-                        task_state.cur_view,
                         qc.view_number + 1,
                         event_stream,
                         Arc::clone(&task_state.quorum_membership),
