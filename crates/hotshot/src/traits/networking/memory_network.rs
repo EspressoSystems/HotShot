@@ -23,39 +23,37 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     boxed_sync,
-    constants::Version01,
-    message::Message,
     traits::{
-        network::{AsyncGenerator, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation},
+        network::{
+            AsyncGenerator, BroadcastDelay, ConnectedNetwork, TestableNetworkingImplementation,
+        },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
 };
 use rand::Rng;
-use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-use vbs::{version::StaticVersionType, BinarySerializer, Serializer};
 
-use super::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingMetricsValue};
+use super::{NetworkError, NetworkReliability};
 
 /// Shared state for in-memory mock networking.
 ///
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
 #[derive(custom_debug::Debug)]
-pub struct MasterMap<M: NetworkMsg, K: SignatureKey> {
+pub struct MasterMap<K: SignatureKey> {
     /// The list of `MemoryNetwork`s
     #[debug(skip)]
-    map: DashMap<K, MemoryNetwork<M, K>>,
+    map: DashMap<K, MemoryNetwork<K>>,
     /// The id of this `MemoryNetwork` cluster
     id: u64,
 }
 
-impl<M: NetworkMsg, K: SignatureKey> MasterMap<M, K> {
+impl<K: SignatureKey> MasterMap<K> {
     /// Create a new, empty, `MasterMap`
     #[must_use]
-    pub fn new() -> Arc<MasterMap<M, K>> {
+    pub fn new() -> Arc<MasterMap<K>> {
         Arc::new(MasterMap {
             map: DashMap::new(),
             id: rand::thread_rng().gen(),
@@ -65,19 +63,16 @@ impl<M: NetworkMsg, K: SignatureKey> MasterMap<M, K> {
 
 /// Internal state for a `MemoryNetwork` instance
 #[derive(Debug)]
-struct MemoryNetworkInner<M: NetworkMsg, K: SignatureKey> {
+struct MemoryNetworkInner<K: SignatureKey> {
     /// Input for messages
     input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Output for messages
-    output: Mutex<Receiver<M>>,
+    output: Mutex<Receiver<Vec<u8>>>,
     /// The master map
-    master_map: Arc<MasterMap<M, K>>,
+    master_map: Arc<MasterMap<K>>,
 
     /// Count of messages that are in-flight (send but not processed yet)
     in_flight_message_count: AtomicUsize,
-
-    /// The networking metrics we're keeping track of
-    metrics: NetworkingMetricsValue,
 
     /// config to introduce unreliability to the network
     reliability_config: Option<Box<dyn NetworkReliability>>,
@@ -91,12 +86,12 @@ struct MemoryNetworkInner<M: NetworkMsg, K: SignatureKey> {
 /// Under the hood, this simply maintains mpmc channels to every other `MemoryNetwork` insane of the
 /// same group.
 #[derive(Clone)]
-pub struct MemoryNetwork<M: NetworkMsg, K: SignatureKey> {
+pub struct MemoryNetwork<K: SignatureKey> {
     /// The actual internal state
-    inner: Arc<MemoryNetworkInner<M, K>>,
+    inner: Arc<MemoryNetworkInner<K>>,
 }
 
-impl<M: NetworkMsg, K: SignatureKey> Debug for MemoryNetwork<M, K> {
+impl<K: SignatureKey> Debug for MemoryNetwork<K> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoryNetwork")
             .field("inner", &"inner")
@@ -104,15 +99,13 @@ impl<M: NetworkMsg, K: SignatureKey> Debug for MemoryNetwork<M, K> {
     }
 }
 
-impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
+impl<K: SignatureKey> MemoryNetwork<K> {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
-    #[instrument(skip(metrics))]
     pub fn new(
         pub_key: K,
-        metrics: NetworkingMetricsValue,
-        master_map: Arc<MasterMap<M, K>>,
+        master_map: &Arc<MasterMap<K>>,
         reliability_config: Option<Box<dyn NetworkReliability>>,
-    ) -> MemoryNetwork<M, K> {
+    ) -> MemoryNetwork<K> {
         info!("Attaching new MemoryNetwork");
         let (input, task_recv) = bounded(128);
         let (task_send, output) = bounded(128);
@@ -127,20 +120,12 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
                 while let Some(vec) = task_stream.next().await {
                     trace!(?vec, "Incoming message");
                     // Attempt to decode message
-                    let x = Serializer::<Version01>::deserialize(&vec);
-                    match x {
-                        Ok(x) => {
-                            let ts = task_send.clone();
-                            let res = ts.send(x).await;
-                            if res.is_ok() {
-                                trace!("Passed message to output queue");
-                            } else {
-                                error!("Output queue receivers are shutdown");
-                            }
-                        }
-                        Err(e) => {
-                            warn!(?e, "Failed to decode incoming message, skipping");
-                        }
+                    let ts = task_send.clone();
+                    let res = ts.send(vec).await;
+                    if res.is_ok() {
+                        trace!("Passed message to output queue");
+                    } else {
+                        error!("Output queue receivers are shutdown");
                     }
                     warn!("Stream shutdown");
                 }
@@ -153,9 +138,8 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
             inner: Arc::new(MemoryNetworkInner {
                 input: RwLock::new(Some(input)),
                 output: Mutex::new(output),
-                master_map: Arc::clone(&master_map),
+                master_map: Arc::clone(master_map),
                 in_flight_message_count,
-                metrics,
                 reliability_config,
             }),
         };
@@ -172,7 +156,6 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
             .fetch_add(1, Ordering::Relaxed);
         let input = self.inner.input.read().await;
         if let Some(input) = &*input {
-            self.inner.metrics.outgoing_direct_message_count.add(1);
             input.send(message).await
         } else {
             Err(SendError(message))
@@ -181,7 +164,7 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
 }
 
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
-    for MemoryNetwork<Message<TYPES>, TYPES::SignatureKey>
+    for MemoryNetwork<TYPES::SignatureKey>
 {
     fn generator(
         _expected_node_count: usize,
@@ -197,12 +180,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         Box::pin(move |node_id| {
             let privkey = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            let net = MemoryNetwork::new(
-                pubkey,
-                NetworkingMetricsValue::default(),
-                Arc::clone(&master),
-                reliability_config.clone(),
-            );
+            let net = MemoryNetwork::new(pubkey, &master, reliability_config.clone());
             Box::pin(async move { (net.clone().into(), net.into()) })
         })
     }
@@ -214,7 +192,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
 // TODO instrument these functions
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
+impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 
@@ -239,16 +217,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::broadcast_message")]
-    async fn broadcast_message<VER: 'static + StaticVersionType>(
+    async fn broadcast_message(
         &self,
-        message: M,
+        message: Vec<u8>,
         recipients: BTreeSet<K>,
-        _: VER,
+        _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
         trace!(?message, "Broadcasting message");
-        // Bincode the message
-        let vec = Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
-        trace!("Message bincoded, sending");
         for node in &self.inner.master_map.map {
             // TODO delay/drop etc here
             let (key, node) = node.pair();
@@ -260,7 +235,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 {
                     let node2 = node.clone();
                     let fut = config.chaos_send_msg(
-                        vec.clone(),
+                        message.clone(),
                         Arc::new(move |msg: Vec<u8>| {
                             let node3 = (node2).clone();
                             boxed_sync(async move {
@@ -273,14 +248,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                     async_spawn(fut);
                 }
             } else {
-                let res = node.input(vec.clone()).await;
+                let res = node.input(message.clone()).await;
                 match res {
                     Ok(()) => {
-                        self.inner.metrics.outgoing_broadcast_message_count.add(1);
                         trace!(?key, "Delivered message to remote");
                     }
                     Err(e) => {
-                        self.inner.metrics.message_failed_to_send.add(1);
                         warn!(?e, ?key, "Error sending broadcast message to node");
                     }
                 }
@@ -290,33 +263,27 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::da_broadcast_message")]
-    async fn da_broadcast_message<VER: 'static + StaticVersionType>(
+    async fn da_broadcast_message(
         &self,
-        message: M,
+        message: Vec<u8>,
         recipients: BTreeSet<K>,
-        bind_version: VER,
+        broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, recipients, bind_version)
+        self.broadcast_message(message, recipients, broadcast_delay)
             .await
     }
 
     #[instrument(name = "MemoryNetwork::direct_message")]
-    async fn direct_message<VER: 'static + StaticVersionType>(
-        &self,
-        message: M,
-        recipient: K,
-        _: VER,
-    ) -> Result<(), NetworkError> {
+    async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
         // debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
-        let vec = Serializer::<VER>::serialize(&message).context(FailedToSerializeSnafu)?;
         trace!("Message bincoded, finding recipient");
         if let Some(node) = self.inner.master_map.map.get(&recipient) {
             let node = node.value().clone();
             if let Some(ref config) = &self.inner.reliability_config {
                 {
                     let fut = config.chaos_send_msg(
-                        vec.clone(),
+                        message.clone(),
                         Arc::new(move |msg: Vec<u8>| {
                             let node2 = node.clone();
                             boxed_sync(async move {
@@ -330,22 +297,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 }
                 Ok(())
             } else {
-                let res = node.input(vec).await;
+                let res = node.input(message).await;
                 match res {
                     Ok(()) => {
-                        self.inner.metrics.outgoing_direct_message_count.add(1);
                         trace!(?recipient, "Delivered message to remote");
                         Ok(())
                     }
                     Err(e) => {
-                        self.inner.metrics.message_failed_to_send.add(1);
                         warn!(?e, ?recipient, "Error delivering direct message");
                         Err(NetworkError::CouldNotDeliver)
                     }
                 }
             }
         } else {
-            self.inner.metrics.message_failed_to_send.add(1);
             warn!(
                 "{:#?} {:#?} {:#?}",
                 recipient, self.inner.master_map.map, "Node does not exist in map"
@@ -359,7 +323,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     /// # Errors
     /// If the other side of the channel is closed
     #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
-    async fn recv_msgs(&self) -> Result<Vec<M>, NetworkError> {
+    async fn recv_msgs(&self) -> Result<Vec<Vec<u8>>, NetworkError> {
         let ret = self
             .inner
             .output
@@ -371,7 +335,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         self.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(ret.len());
         Ok(ret)
     }
 }

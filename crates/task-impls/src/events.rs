@@ -1,5 +1,6 @@
 use std::{fmt::Display, sync::Arc};
 
+use async_broadcast::Sender;
 use either::Either;
 use hotshot_task::task::TaskEvent;
 use hotshot_types::{
@@ -27,6 +28,24 @@ impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
         HotShotEvent::Shutdown
     }
 }
+
+/// Wrapper type for the event to notify tasks that a proposal for a view is missing
+/// and the channel to send the event back to
+#[derive(Debug, Clone)]
+pub struct ProposalMissing<TYPES: NodeType> {
+    /// View of missing proposal
+    pub view: TYPES::Time,
+    /// Channel to send the response back to
+    pub response_chan: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
+}
+
+impl<TYPES: NodeType> PartialEq for ProposalMissing<TYPES> {
+    fn eq(&self, other: &Self) -> bool {
+        self.view == other.view
+    }
+}
+
+impl<TYPES: NodeType> Eq for ProposalMissing<TYPES> {}
 
 /// Marker that the task completed
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -65,7 +84,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A quorum proposal with the given parent leaf is validated.
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
     /// A quorum proposal is missing for a view that we meed
-    QuorumProposalMissing(TYPES::Time),
+    QuorumProposalRequest(ProposalMissing<TYPES>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -160,12 +179,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// HotShot was upgraded, with a new network version.
     VersionUpgrade(Version),
 
-    /// Initiate a proposal for a proposal without a parent, but passing the liveness check.
-    /// This is distinct from `QuorumProposalValidated` due to the fact that it is in a
-    /// different state than what we'd typically see with a fully validated proposal and,
-    /// as a result, it need to be its own event.
-    QuorumProposalLivenessValidated(QuorumProposal<TYPES>),
-
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 
@@ -181,9 +194,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// A new high_qc has been reached by this node.
     UpdateHighQc(QuorumCertificate<TYPES>),
-
-    /// A new undecided view has been proposed.
-    NewUndecidedView(Leaf<TYPES>),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
@@ -398,18 +408,11 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 cert.view_number()
             ),
             HotShotEvent::VersionUpgrade(_) => write!(f, "VersionUpgrade"),
-            HotShotEvent::QuorumProposalLivenessValidated(proposal) => {
-                write!(
-                    f,
-                    "QuorumProposalLivenessValidated(view_number={:?})",
-                    proposal.view_number()
-                )
-            }
             HotShotEvent::UpgradeDecided(cert) => {
                 write!(f, "UpgradeDecided(view_number{:?})", cert.view_number())
             }
-            HotShotEvent::QuorumProposalMissing(view_number) => {
-                write!(f, "QuorumProposalMissing(view_number={view_number:?})")
+            HotShotEvent::QuorumProposalRequest(view_number) => {
+                write!(f, "QuorumProposalRequest(view_number={view_number:?})")
             }
             HotShotEvent::VoteNow(view_number, _) => {
                 write!(f, "VoteNow(view_number={view_number:?})")
@@ -425,9 +428,6 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             }
             HotShotEvent::UpdateHighQc(cert) => {
                 write!(f, "UpdateHighQc(view_number={:?})", cert.view_number())
-            }
-            HotShotEvent::NewUndecidedView(leaf) => {
-                write!(f, "NewUndecidedView(view_number={:?})", leaf.view_number())
             }
         }
     }

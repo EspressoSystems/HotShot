@@ -57,48 +57,48 @@ jobs:
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
-  # test-dependency-tasks:
-  #   strategy:
-  #     matrix:
-  #       just_variants:
-  #         - async-std
-  #         - tokio
-  #       test_suites:
-  #         # - test-ci-1
-  #         # - test-ci-2
-  #         # - test-ci-3
-  #         # - test-ci-4
-  #         # - test-ci-5
-  #         # - test-ci-rest
-  #     fail-fast: false
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       name: Checkout Repository
+  test-dependency-tasks:
+    strategy:
+      matrix:
+        just_variants:
+          - async-std
+          - tokio
+        test_suites:
+          - test-ci-1
+          - test-ci-2
+          - test-ci-3
+          - test-ci-4
+          - test-ci-5
+          - test-ci-rest
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
 
-  #     - name: Install Rust
-  #       uses: mkroening/rust-toolchain-toml@main
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
 
-  #     - uses: Swatinem/rust-cache@v2
-  #       name: Enable Rust Caching
-  #       with:
-  #         shared-key: "build-and-test"
-  #         prefix-key: ${{ matrix.just_variants }}
-  #         cache-on-failure: "true"
-  #         save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: "build-and-test"
+          prefix-key: ${{ matrix.just_variants }}
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-  #     - name: Install Just
-  #       run: |
-  #         wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-  #         tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-  #         sudo cp just /usr/bin/just
+      - name: Install Just
+        run: |
+          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
+          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
+          sudo cp just /usr/bin/just
 
-  #     - name: Unit and integration tests for all crates in workspace
-  #       run: |
-  #         just ${{ matrix.just_variants }} ${{ matrix.test_suites }} --features dependency-tasks
-  #       timeout-minutes: 60
-  #       env:
-  #         RUST_BACKTRACE: full
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          just ${{ matrix.just_variants }} ${{ matrix.test_suites }} --features dependency-tasks
+        timeout-minutes: 60
+        env:
+          RUST_BACKTRACE: full
 
   test-examples:
     strategy:
@@ -290,7 +290,7 @@ jobs:
           flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Build and push validator-libp2p docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-libp2p.Dockerfile
@@ -304,7 +304,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-combined docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-combined.Dockerfile
@@ -318,7 +318,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push orchestrator docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/orchestrator.Dockerfile
@@ -332,7 +332,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-broker docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/cdn-broker.Dockerfile
@@ -346,7 +346,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-marshal docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/cdn-marshal.Dockerfile

@@ -2,20 +2,12 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-#[cfg(not(feature = "dependency-tasks"))]
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::TaskState;
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::data::VidDisperseShare;
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::message::Proposal;
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::vid::vid_scheme;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{QuorumProposal, ViewChangeEvidence},
@@ -29,22 +21,25 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_types::{traits::storage::Storage, vote::Certificate};
-#[cfg(not(feature = "dependency-tasks"))]
-use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-#[cfg(not(feature = "dependency-tasks"))]
-use tracing::info;
 use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
-
 #[cfg(not(feature = "dependency-tasks"))]
-use crate::consensus::helpers::{
-    handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
-    update_state_and_vote_if_able,
+use {
+    crate::consensus::helpers::{
+        handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
+        update_state_and_vote_if_able,
+    },
+    async_compatibility_layer::art::async_spawn,
+    hotshot_types::data::VidDisperseShare,
+    hotshot_types::message::Proposal,
+    hotshot_types::vid::vid_scheme,
+    hotshot_types::{traits::storage::Storage, vote::Certificate},
+    jf_vid::VidScheme,
+    tracing::info,
 };
+
 use crate::{
     consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -147,6 +142,9 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// an upgrade certificate that has been decided on, if any
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
@@ -216,7 +214,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
         let create_and_send_proposal_handle = publish_proposal_if_able(
-            self.cur_view,
             view,
             event_stream,
             Arc::clone(&self.quorum_membership),
@@ -294,6 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
+        #[cfg(not(feature = "dependency-tasks"))]
         let version = *self.version.read().await;
         match event.as_ref() {
             #[cfg(not(feature = "dependency-tasks"))]

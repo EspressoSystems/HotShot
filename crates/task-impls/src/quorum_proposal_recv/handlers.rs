@@ -20,27 +20,36 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
     consensus::{
-        helpers::{validate_proposal_safety_and_liveness, validate_proposal_view_and_certs},
+        helpers::{
+            fetch_proposal, validate_proposal_safety_and_liveness, validate_proposal_view_and_certs,
+        },
         view_change::{update_view, SEND_VIEW_CHANGE_EVENT},
     },
     events::HotShotEvent,
     helpers::broadcast_event,
 };
 
-/// Broadcast the proposal in the event that the parent state is not found for
-/// a given `proposal`, but it still passes the liveness check. Optionally return
-/// the inner [`QuorumProposal`] if the liveness check passes.
+/// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
+/// is checked.
+pub(crate) enum QuorumProposalValidity {
+    /// Fully validated.
+    Fully,
+    /// Not fully validated due to the parent information missing in the internal state, but the
+    /// liveness is validated.
+    Liveness,
+}
+
+/// Update states in the event that the parent state is not found for a given `proposal`.
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    justify_qc: &QuorumCertificate<TYPES>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> Option<QuorumProposal<TYPES>> {
+) -> Result<QuorumProposalValidity> {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
 
@@ -53,11 +62,13 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         view_inner: ViewInner::Leaf {
             leaf: leaf.commit(),
             state,
-            delta: None,
+            delta: None, // May be updated to `Some` in the vote task.
         },
     };
 
-    consensus_write.update_validated_state_map(view_number, view.clone());
+    if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
+        tracing::trace!("{e:?}");
+    }
     consensus_write.update_saved_leaves(leaf.clone());
 
     if let Err(e) = task_state
@@ -73,9 +84,9 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
-    let liveness_check = justify_qc.view_number() > consensus_write.locked_view();
+    let liveness_check =
+        proposal.data.justify_qc.clone().view_number() > consensus_write.locked_view();
 
-    let high_qc = consensus_write.high_qc().clone();
     drop(consensus_write);
 
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
@@ -84,40 +95,16 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         event_sender,
     )
     .await;
-    broadcast_event(
-        HotShotEvent::NewUndecidedView(leaf.clone()).into(),
-        event_sender,
-    )
-    .await;
 
-    if liveness_check {
-        let new_view = proposal.data.view_number + 1;
-
-        // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-        let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
-            && high_qc.view_number() == proposal.data.view_number();
-
-        if should_propose {
-            debug!(
-                "Attempting to publish proposal after voting for liveness; now in view: {}",
-                *new_view
-            );
-            broadcast_event(
-                HotShotEvent::QuorumProposalLivenessValidated(proposal.data.clone()).into(),
-                event_sender,
-            )
-            .await;
-        }
-
-        return Some(proposal.data.clone());
+    if !liveness_check {
+        bail!("Liveness invalid.");
     }
 
-    None
+    Ok(QuorumProposalValidity::Liveness)
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
-/// evaluating if a liveness check is needed for the proposal, which runs when the proposal cannot be
-/// found in the internal state map.
+/// updating the states, which runs when the proposal cannot be found in the internal state map.
 ///
 /// This code can fail when:
 /// - The justify qc is invalid.
@@ -129,7 +116,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> Result<Option<QuorumProposal<TYPES>>> {
+) -> Result<QuorumProposalValidity> {
     let sender = sender.clone();
     let cur_view = task_state.cur_view;
 
@@ -140,7 +127,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         &task_state.quorum_membership,
         &task_state.timeout_membership,
     )
-    .context("Failed to validate proposal view and attached certs")?;
+    .context("Failed to validate proposal view or attached certs")?;
 
     let view_number = proposal.data.view_number();
     let view_leader_key = task_state.quorum_membership.leader(view_number);
@@ -173,39 +160,51 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         debug!("Failed to update view; error = {e:#}");
     }
 
-    let parent = {
-        let consensus_read = task_state.consensus.read().await;
+    // Get the parent leaf and state.
+    let mut parent_leaf = task_state
+        .consensus
+        .read()
+        .await
+        .saved_leaves()
+        .get(&justify_qc.data.leaf_commit)
+        .cloned();
 
-        // Get the parent leaf and state.
-        let parent = match consensus_read
-            .saved_leaves()
-            .get(&justify_qc.data.leaf_commit)
-            .cloned()
-        {
-            Some(leaf) => {
-                if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
-                    Some((leaf, Arc::clone(&state)))
-                } else {
-                    bail!("Parent state not found! Consensus internally inconsistent");
-                }
-            }
-            None => None,
-        };
+    parent_leaf = match parent_leaf {
+        Some(p) => Some(p),
+        None => fetch_proposal(
+            justify_qc.view_number(),
+            event_sender.clone(),
+            Arc::clone(&task_state.quorum_membership),
+            Arc::clone(&task_state.consensus),
+        )
+        .await
+        .ok(),
+    };
+    let consensus_read = task_state.consensus.read().await;
 
-        if justify_qc.view_number() > consensus_read.high_qc().view_number {
-            if let Err(e) = task_state
-                .storage
-                .write()
-                .await
-                .update_high_qc(justify_qc.clone())
-                .await
-            {
-                bail!("Failed to store High QC, not voting; error = {:?}", e);
+    let parent = match parent_leaf {
+        Some(leaf) => {
+            if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
+                Some((leaf, Arc::clone(&state)))
+            } else {
+                bail!("Parent state not found! Consensus internally inconsistent");
             }
         }
-
-        parent
+        None => None,
     };
+
+    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+        if let Err(e) = task_state
+            .storage
+            .write()
+            .await
+            .update_high_qc(justify_qc.clone())
+            .await
+        {
+            bail!("Failed to store High QC, not voting; error = {:?}", e);
+        }
+    }
+    drop(consensus_read);
 
     let mut consensus_write = task_state.consensus.write().await;
     if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
@@ -224,9 +223,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
-        return Ok(
-            validate_proposal_liveness(proposal, event_sender, &justify_qc, task_state).await,
-        );
+        return validate_proposal_liveness(proposal, event_sender, task_state).await;
     };
 
     // Validate the proposal
@@ -246,5 +243,5 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     )
     .await?;
 
-    Ok(None)
+    Ok(QuorumProposalValidity::Fully)
 }

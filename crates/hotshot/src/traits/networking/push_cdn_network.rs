@@ -1,8 +1,8 @@
 #[cfg(feature = "hotshot-testing")]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{collections::BTreeSet, marker::PhantomData};
+use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
 #[cfg(feature = "hotshot-testing")]
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{path::Path, time::Duration};
 
 use async_compatibility_layer::channel::UnboundedSendError;
 #[cfg(feature = "hotshot-testing")]
@@ -10,7 +10,7 @@ use async_compatibility_layer::{art::async_sleep, art::async_spawn};
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
-    connection::{protocols::Tcp, NoMiddleware, TrustedMiddleware, UntrustedMiddleware},
+    connection::protocols::Tcp,
     def::{ConnectionDef, RunDef, Topic as TopicTrait},
     discovery::{Embedded, Redis},
 };
@@ -33,11 +33,10 @@ use hotshot_types::traits::network::{
 };
 use hotshot_types::{
     boxed_sync,
-    constants::{Version01, VERSION_0_1},
     data::ViewNumber,
-    message::Message,
     traits::{
-        network::{ConnectedNetwork, PushCdnNetworkError},
+        metrics::{Counter, Metrics, NoMetrics},
+        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -47,13 +46,36 @@ use hotshot_types::{
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
-use tracing::{error, warn};
-use vbs::{
-    version::{StaticVersionType, Version},
-    BinarySerializer, Serializer,
-};
+use tracing::error;
 
 use super::NetworkError;
+
+/// CDN-specific metrics
+#[derive(Clone)]
+pub struct CdnMetricsValue {
+    /// The number of failed messages
+    pub num_failed_messages: Box<dyn Counter>,
+}
+
+impl CdnMetricsValue {
+    /// Populate the metrics with the CDN-specific ones
+    pub fn new(metrics: &dyn Metrics) -> Self {
+        // Create a subgroup for the CDN
+        let subgroup = metrics.subgroup("cdn".into());
+
+        // Create the CDN-specific metrics
+        Self {
+            num_failed_messages: subgroup.create_counter("num_failed_messages".into(), None),
+        }
+    }
+}
+
+impl Default for CdnMetricsValue {
+    // The default is empty metrics
+    fn default() -> Self {
+        Self::new(&*NoMetrics::boxed())
+    }
+}
 
 /// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
 /// trait in order to sign and verify messages to/from the CDN.
@@ -111,7 +133,6 @@ pub struct UserDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for UserDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Quic;
-    type Middleware = UntrustedMiddleware;
 }
 
 /// The broker definition for the Push CDN.
@@ -120,7 +141,6 @@ pub struct BrokerDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for BrokerDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Tcp;
-    type Middleware = TrustedMiddleware;
 }
 
 /// The client definition for the Push CDN. Uses the Quic
@@ -131,7 +151,6 @@ pub struct ClientDef<TYPES: NodeType>(PhantomData<TYPES>);
 impl<TYPES: NodeType> ConnectionDef for ClientDef<TYPES> {
     type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
     type Protocol = Quic;
-    type Middleware = NoMiddleware;
 }
 
 /// The testing run definition for the Push CDN.
@@ -151,6 +170,8 @@ impl<TYPES: NodeType> RunDef for TestingDef<TYPES> {
 pub struct PushCdnNetwork<TYPES: NodeType> {
     /// The underlying client
     client: Client<ClientDef<TYPES>>,
+    /// The CDN-specific metrics
+    metrics: Arc<CdnMetricsValue>,
     /// Whether or not the underlying network is supposed to be paused
     #[cfg(feature = "hotshot-testing")]
     is_paused: Arc<AtomicBool>,
@@ -181,6 +202,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
         marshal_endpoint: String,
         topics: Vec<Topic>,
         keypair: KeyPair<WrappedSignatureKey<TYPES::SignatureKey>>,
+        metrics: CdnMetricsValue,
     ) -> anyhow::Result<Self> {
         // Build config
         let config = ClientConfig {
@@ -195,6 +217,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
 
         Ok(Self {
             client,
+            metrics: Arc::from(metrics),
             // Start unpaused
             #[cfg(feature = "hotshot-testing")]
             is_paused: Arc::from(AtomicBool::new(false)),
@@ -206,32 +229,18 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn broadcast_message<Ver: StaticVersionType>(
-        &self,
-        message: Message<TYPES>,
-        topic: Topic,
-        _: Ver,
-    ) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Vec<u8>, topic: Topic) -> Result<(), NetworkError> {
         // If we're paused, don't send the message
         #[cfg(feature = "hotshot-testing")]
         if self.is_paused.load(Ordering::Relaxed) {
             return Ok(());
         }
 
-        // Bincode the message
-        let serialized_message = match Serializer::<Ver>::serialize(&message) {
-            Ok(serialized) => serialized,
-            Err(e) => {
-                warn!("Failed to serialize message: {}", e);
-                return Err(NetworkError::FailedToSerialize { source: e });
-            }
-        };
-
         // Send the message
         // TODO: check if we need to print this error
         if self
             .client
-            .send_broadcast_message(vec![topic as u8], serialized_message)
+            .send_broadcast_message(vec![topic as u8], message)
             .await
             .is_err()
         {
@@ -246,6 +255,7 @@ impl<TYPES: NodeType> PushCdnNetwork<TYPES> {
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork<TYPES> {
     /// Generate n Push CDN clients, a marshal, and two brokers (that run locally).
     /// Uses a `SQLite` database instead of Redis.
+    #[allow(clippy::too_many_lines)]
     fn generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
@@ -314,6 +324,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                 discovery_endpoint: discovery_endpoint.clone(),
                 ca_cert_path: None,
                 ca_key_path: None,
+                // 1GB
+                global_memory_pool_size: Some(1024 * 1024 * 1024),
             };
 
             // Create and spawn the broker
@@ -345,6 +357,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
             metrics_bind_endpoint: None,
             ca_cert_path: None,
             ca_key_path: None,
+            // 1GB
+            global_memory_pool_size: Some(1024 * 1024 * 1024),
         };
 
         // Spawn the marshal
@@ -392,6 +406,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                     // Create our client
                     let client = Arc::new(PushCdnNetwork {
                         client: Client::new(client_config),
+                        metrics: Arc::new(CdnMetricsValue::default()),
                         #[cfg(feature = "hotshot-testing")]
                         is_paused: Arc::from(AtomicBool::new(false)),
                     });
@@ -409,9 +424,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 }
 
 #[async_trait]
-impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
-    for PushCdnNetwork<TYPES>
-{
+impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<TYPES> {
     /// Pause sending and receiving on the PushCDN network.
     fn pause(&self) {
         #[cfg(feature = "hotshot-testing")]
@@ -443,14 +456,18 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn broadcast_message<Ver: StaticVersionType>(
+    async fn broadcast_message(
         &self,
-        message: Message<TYPES>,
+        message: Vec<u8>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: Ver,
+        _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Global, bind_version)
+        self.broadcast_message(message, Topic::Global)
             .await
+            .map_err(|e| {
+                self.metrics.num_failed_messages.add(1);
+                e
+            })
     }
 
     /// Broadcast a message to all members of the DA committee.
@@ -458,25 +475,28 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     /// # Errors
     /// - If we fail to serialize the message
     /// - If we fail to send the broadcast message.
-    async fn da_broadcast_message<Ver: StaticVersionType>(
+    async fn da_broadcast_message(
         &self,
-        message: Message<TYPES>,
+        message: Vec<u8>,
         _recipients: BTreeSet<TYPES::SignatureKey>,
-        bind_version: Ver,
+        _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Da, bind_version)
+        self.broadcast_message(message, Topic::Da)
             .await
+            .map_err(|e| {
+                self.metrics.num_failed_messages.add(1);
+                e
+            })
     }
 
     /// Send a direct message to a node with a particular key. Does not retry.
     ///
     /// - If we fail to serialize the message
     /// - If we fail to send the direct message
-    async fn direct_message<Ver: StaticVersionType>(
+    async fn direct_message(
         &self,
-        message: Message<TYPES>,
+        message: Vec<u8>,
         recipient: TYPES::SignatureKey,
-        _: Ver,
     ) -> Result<(), NetworkError> {
         // If we're paused, don't send the message
         #[cfg(feature = "hotshot-testing")]
@@ -484,23 +504,15 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             return Ok(());
         }
 
-        // Bincode the message
-        let serialized_message = match Serializer::<Ver>::serialize(&message) {
-            Ok(serialized) => serialized,
-            Err(e) => {
-                warn!("Failed to serialize message: {}", e);
-                return Err(NetworkError::FailedToSerialize { source: e });
-            }
-        };
-
         // Send the message
         // TODO: check if we need to print this error
         if self
             .client
-            .send_direct_message(&WrappedSignatureKey(recipient), serialized_message)
+            .send_direct_message(&WrappedSignatureKey(recipient), message)
             .await
             .is_err()
         {
+            self.metrics.num_failed_messages.add(1);
             return Err(NetworkError::CouldNotDeliver);
         };
 
@@ -512,7 +524,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
     ///
     /// # Errors
     /// - If we fail to receive messages. Will trigger a retry automatically.
-    async fn recv_msgs(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn recv_msgs(&self) -> Result<Vec<Vec<u8>>, NetworkError> {
         // Receive a message
         let message = self.client.receive_message().await;
 
@@ -543,24 +555,7 @@ impl<TYPES: NodeType> ConnectedNetwork<Message<TYPES>, TYPES::SignatureKey>
             return Ok(vec![]);
         };
 
-        let message_version = Version::deserialize(&message)
-            .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
-        if message_version.0 == VERSION_0_1 {
-            let result: Message<TYPES> = Serializer::<Version01>::deserialize(&message)
-                .map_err(|e| NetworkError::FailedToDeserialize { source: e })?;
-
-            // Deserialize it
-            // Return it
-            Ok(vec![result])
-        } else {
-            Err(NetworkError::FailedToDeserialize {
-                source: anyhow::format_err!(
-                    "version mismatch, expected {}, got {}",
-                    VERSION_0_1,
-                    message_version.0
-                ),
-            })
-        }
+        Ok(vec![message])
     }
 
     /// Do nothing here, as we don't need to look up nodes.

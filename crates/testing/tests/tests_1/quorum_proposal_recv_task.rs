@@ -3,19 +3,22 @@
 
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::{
+    node_types::{MemoryImpl, TestTypes},
+    state_types::TestValidatedState,
+};
 use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{
     events::HotShotEvent::*, quorum_proposal_recv::QuorumProposalRecvTaskState,
 };
 use hotshot_testing::{
-    helpers::build_system_handle,
-    predicates::event::{all_predicates, exact, vote_now},
+    helpers::{build_fake_view_with_leaf_and_state, build_system_handle},
+    predicates::event::{all_predicates, quorum_proposal_missing, exact, vote_now},
     script::InputOrder,
     serial,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::{data::ViewNumber, traits::{node_implementation::ConsensusTime,ValidatedState}};
 
 #[cfg(test)]
 #[cfg(feature = "dependency-tasks")]
@@ -61,7 +64,7 @@ async fn test_quorum_proposal_recv_task() {
         consensus_writer.update_validated_state_map(
             view.quorum_proposal.data.view_number,
             build_fake_view_with_leaf(view.leaf.clone()),
-        );
+        ).unwrap();
     }
     drop(consensus_writer);
 
@@ -73,6 +76,15 @@ async fn test_quorum_proposal_recv_task() {
     let expectations = vec![Expectations::from_outputs(vec![
         exact(ViewChange(ViewNumber::new(2))),
         exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
+        exact(ValidatedStateUpdated(
+            ViewNumber::new(2),
+            build_fake_view_with_leaf_and_state(
+                leaves[1].clone(),
+                <TestValidatedState as ValidatedState<TestTypes>>::from_header(
+                    &proposals[1].data.block_header,
+                ),
+            ),
+        )),
         exact(QuorumProposalValidated(
             proposals[1].data.clone(),
             leaves[0].clone(),
@@ -142,7 +154,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         consensus_writer.update_validated_state_map(
             inserted_view_number,
             build_fake_view_with_leaf(view.leaf.clone()),
-        );
+        ).unwrap();
 
         // The index here is important. Since we're proposing for view 4, we need the
         // value from entry 2 to align the public key from the shares map.
@@ -179,9 +191,8 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
                 ),
             ),
         )),
+        quorum_proposal_missing(),
         exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-        exact(NewUndecidedView(leaves[2].clone())),
-        exact(QuorumProposalLivenessValidated(proposals[2].data.clone())),
         vote_now(),
     ])];
 

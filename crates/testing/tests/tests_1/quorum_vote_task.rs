@@ -14,6 +14,7 @@ use hotshot_testing::{
 use hotshot_types::{
     data::ViewNumber, traits::node_implementation::ConsensusTime, vote::HasViewNumber,
 };
+
 use std::time::Duration;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
@@ -52,7 +53,7 @@ async fn test_quorum_vote_task_success() {
         consensus_writer.update_validated_state_map(
             view.quorum_proposal.data.view_number(),
             build_fake_view_with_leaf(view.leaf.clone()),
-        );
+        ).unwrap();
         consensus_writer.update_saved_leaves(view.leaf.clone());
     }
     drop(consensus_writer);
@@ -63,10 +64,6 @@ async fn test_quorum_vote_task_success() {
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         DaCertificateRecv(dacs[1].clone()),
         VidShareRecv(vids[1].0[0].clone()),
-        ValidatedStateUpdated(
-            proposals[1].data.view_number(),
-            build_fake_view_with_leaf(leaves[1].clone()),
-        ),
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
@@ -163,6 +160,8 @@ async fn test_quorum_vote_task_miss_dependency() {
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
     let mut leaves = Vec::new();
+    let consensus = handle.hotshot.consensus().clone();
+    let mut consensus_writer = consensus.write().await;
     for view in (&mut generator).take(5).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
@@ -170,52 +169,42 @@ async fn test_quorum_vote_task_miss_dependency() {
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         leaves.push(view.leaf.clone());
-    }
 
-    // Send three of quorum proposal, DAC, VID share data, and validated state, in which case
-    // there's no vote.
+        consensus_writer.update_validated_state_map(
+            view.quorum_proposal.data.view_number(),
+            build_fake_view_with_leaf(view.leaf.clone()),
+        ).unwrap();
+        consensus_writer.update_saved_leaves(view.leaf.clone());
+    }
+    drop(consensus_writer);
+
+    // Send two of quorum proposal, DAC, VID share data, in which case there's no vote.
     let inputs = vec![
         random![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
             VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
-            ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
-            ),
         ],
         random![
             QuorumProposalValidated(proposals[2].data.clone(), leaves[1].clone()),
             DaCertificateRecv(dacs[2].clone()),
-            ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
-            ),
         ],
         random![
             DaCertificateRecv(dacs[3].clone()),
             VidShareRecv(vid_share(&vids[3].0, handle.public_key())),
-            ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
-            ),
-        ],
-        random![
-            QuorumProposalValidated(proposals[4].data.clone(), leaves[3].clone()),
-            DaCertificateRecv(dacs[4].clone()),
-            VidShareRecv(vid_share(&vids[4].0, handle.public_key())),
         ],
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(vec![exact(VidShareValidated(vids[1].0[0].clone()))]),
-        Expectations::from_outputs(vec![exact(DaCertificateValidated(dacs[2].clone()))]),
+        Expectations::from_outputs(all_predicates![
+            exact(VidShareValidated(vids[1].0[0].clone()))
+        ]),
+        Expectations::from_outputs(all_predicates![
+            exact(LockedViewUpdated(ViewNumber::new(1))),
+            exact(DaCertificateValidated(dacs[2].clone()))
+        ]),
         Expectations::from_outputs(all_predicates![
             exact(DaCertificateValidated(dacs[3].clone())),
             exact(VidShareValidated(vids[3].0[0].clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(DaCertificateValidated(dacs[4].clone())),
-            exact(VidShareValidated(vids[4].0[0].clone())),
         ]),
     ];
 
@@ -259,20 +248,16 @@ async fn test_quorum_vote_task_incorrect_dependency() {
         vids.push(view.vid_proposal.clone());
     }
 
-    // Send the correct quorum proposal, DAC, and VID share data, and incorrect validated state.
+    // Send the correct quorum proposal and DAC, and incorrect VID share data.
     let inputs = vec![random![
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         DaCertificateRecv(dacs[1].clone()),
-        VidShareRecv(vids[1].0[0].clone()),
-        ValidatedStateUpdated(
-            proposals[0].data.view_number(),
-            build_fake_view_with_leaf(leaves[0].clone()),
-        ),
+        VidShareRecv(vids[0].0[0].clone()),
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(DaCertificateValidated(dacs[1].clone())),
-        exact(VidShareValidated(vids[1].0[0].clone())),
+        exact(VidShareValidated(vids[0].0[0].clone())),
     ])];
 
     let quorum_vote_state =
