@@ -554,11 +554,11 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
-    let view = proposal.data.view_number();
+    let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
 
     if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
-        bail!("Invalid justify_qc in proposal for view {}", *view);
+        bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
     let mut consensus_write = consensus.write().await;
     let leaf = Leaf::from_quorum_proposal(&proposal.data);
@@ -566,20 +566,23 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
 
-    if let Err(e) = consensus_write.update_validated_state_map(
-        view,
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: leaf.commit(),
-                state,
-                delta: None,
-            },
+    let view = View {
+        view_inner: ViewInner::Leaf {
+            leaf: leaf.commit(),
+            state,
+            delta: None,
         },
-    ) {
+    };
+    if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
         tracing::trace!("{e:?}");
     }
 
     consensus_write.update_saved_leaves(leaf.clone());
+    broadcast_event(
+        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
+        &event_stream,
+    )
+    .await;
     Ok(leaf)
 }
 
