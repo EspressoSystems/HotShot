@@ -21,9 +21,9 @@ use hotshot_types::{
     },
 };
 use sha2::{Digest, Sha256};
-use tracing::instrument;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use tracing::instrument;
 
 use crate::events::HotShotEvent;
 
@@ -153,9 +153,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .is_some_and(|m| m.contains_key(key));
         if !contained {
             if Consensus::calculate_and_update_vid(
-                OuterConsensus::new(
-                    Arc::clone(&self.consensus),
-                ),
+                OuterConsensus::new(Arc::clone(&self.consensus)),
                 view,
                 Arc::clone(&self.quorum),
                 &self.private_key,
@@ -166,9 +164,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 // Sleep in hope we receive txns in the meantime
                 async_sleep(TXNS_TIMEOUT).await;
                 Consensus::calculate_and_update_vid(
-                    OuterConsensus::new(
-                        Arc::clone(&self.consensus),
-                    ),
+                    OuterConsensus::new(Arc::clone(&self.consensus)),
                     view,
                     Arc::clone(&self.quorum),
                     &self.private_key,

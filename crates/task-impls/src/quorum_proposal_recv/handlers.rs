@@ -146,9 +146,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         view_number,
         event_sender,
         task_state.timeout,
-        OuterConsensus::new(
-            Arc::clone(&task_state.consensus.inner_consensus),
-        ),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         &mut task_state.cur_view,
         &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
@@ -231,9 +229,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     validate_proposal_safety_and_liveness(
         proposal.clone(),
         parent_leaf,
-        OuterConsensus::new(
-            Arc::clone(&task_state.consensus.inner_consensus),
-        ),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         None,
         Arc::clone(&task_state.quorum_membership),
         view_leader_key,

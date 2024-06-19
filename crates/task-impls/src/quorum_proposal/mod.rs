@@ -308,9 +308,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 private_key: self.private_key.clone(),
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
-                consensus: OuterConsensus::new(
-                    Arc::clone(&self.consensus.inner_consensus),
-                ),
+                consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 version: self.version,
                 id: self.id,
             },

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_broadcast::Sender;
 use chrono::Utc;
+use hotshot_types::consensus::OuterConsensus;
 use hotshot_types::{
     data::QuorumProposal,
     event::{Event, EventType},
@@ -10,7 +11,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use tracing::{debug, instrument};
-use hotshot_types::consensus::OuterConsensus;
 
 use super::QuorumVoteTaskState;
 use crate::{

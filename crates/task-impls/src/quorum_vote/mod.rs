@@ -504,9 +504,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             VoteDependencyHandle::<TYPES, I> {
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
-                consensus: OuterConsensus::new(
-                    Arc::clone(&self.consensus.inner_consensus),
-                ),
+                consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 instance_state: Arc::clone(&self.instance_state),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 storage: Arc::clone(&self.storage),

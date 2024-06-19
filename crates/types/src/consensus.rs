@@ -123,9 +123,7 @@ impl<'a, TYPES: NodeType> ConsensusReadLockGuard<'a, TYPES> {
     /// Creates a new instance of `ConsensusReadLockGuard` with the same name as parent `OuterConsensus`
     #[must_use]
     pub fn new(lock_guard: RwLockReadGuard<'a, Consensus<TYPES>>) -> Self {
-        Self {
-            lock_guard,
-        }
+        Self { lock_guard }
     }
 }
 
@@ -153,9 +151,7 @@ impl<'a, TYPES: NodeType> ConsensusWriteLockGuard<'a, TYPES> {
     /// Creates a new instance of `ConsensusWriteLockGuard` with the same name as parent `OuterConsensus`
     #[must_use]
     pub fn new(lock_guard: RwLockWriteGuard<'a, Consensus<TYPES>>) -> Self {
-        Self {
-            lock_guard,
-        }
+        Self { lock_guard }
     }
 }
 

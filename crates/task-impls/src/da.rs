@@ -216,9 +216,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
-                    let consensus = OuterConsensus::new(
-                        Arc::clone(&self.consensus.inner_consensus),
-                    );
+                    let consensus =
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
                     async_spawn(async move {
