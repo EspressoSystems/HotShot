@@ -535,8 +535,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 }
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
-#[cfg(not(feature = "dependency-tasks"))]
-async fn fetch_proposal<TYPES: NodeType>(
+pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
