@@ -208,6 +208,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
     #[cfg(not(feature = "dependency-tasks"))]
     /// Publishes a proposal
+    #[instrument(skip_all, target = "ConsensusTaskState", fields(id = self.id, view = *self.cur_view))]
     async fn publish_proposal(
         &mut self,
         view: TYPES::Time,
@@ -220,7 +221,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             self.public_key.clone(),
             self.private_key.clone(),
             OuterConsensus::new(
-                "ConsensusTaskState->publish_proposal_if_able",
                 Arc::clone(&self.consensus.inner_consensus),
             ),
             self.round_start_delay,
@@ -259,7 +259,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
         let consensus = OuterConsensus::new(
-            "ConsensusTaskState->update_state_and_vote_if_able",
             Arc::clone(&self.consensus.inner_consensus),
         );
         let storage = Arc::clone(&self.storage);
@@ -285,7 +284,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -550,7 +549,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     &event_stream,
                     self.timeout,
                     OuterConsensus::new(
-                        "ConsensusTaskState->update_view",
                         Arc::clone(&self.consensus.inner_consensus),
                     ),
                     &mut self.cur_view,

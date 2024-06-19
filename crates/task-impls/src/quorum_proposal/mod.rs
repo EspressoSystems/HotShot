@@ -309,10 +309,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(
-                    "ProposalDependencyHandle",
                     Arc::clone(&self.consensus.inner_consensus),
                 ),
                 version: self.version,
+                id: self.id,
             },
         );
         self.proposal_dependencies
@@ -344,7 +344,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error", target = "QuorumProposalTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

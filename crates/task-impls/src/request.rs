@@ -155,6 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     }
 
     /// Creates the srequest structures for all types that are needed.
+    #[instrument(skip_all, target = "NetworkRequestState", fields(id = self.id, view = *view))]
     async fn build_requests(&self, view: TYPES::Time) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares().contains_key(&view) {
@@ -199,11 +200,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
-            state: OuterConsensus::new("DelayedRequester", Arc::clone(&self.state.inner_consensus)),
+            state: OuterConsensus::new(Arc::clone(&self.state.inner_consensus)),
             sender,
             delay: self.delay,
             recipients,
             shutdown_flag: Arc::clone(&self.shutdown_flag),
+            id: self.id,
         };
         let Some(signature) = self.serialize_and_sign(&request) else {
             return;
@@ -259,6 +261,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     recipients: Vec<TYPES::SignatureKey>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     shutdown_flag: Arc<AtomicBool>,
+    /// The node's id
+    id: u64,
 }
 
 /// A task the requests some data immediately from one peer
@@ -386,6 +390,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         }
     }
     /// Returns true if we got the data we wanted, or the view has moved on.
+    #[instrument(skip_all, target = "DelayedRequester", fields(id = self.id, view = *req.0))]
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;

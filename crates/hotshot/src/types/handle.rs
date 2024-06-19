@@ -8,6 +8,7 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::Stream;
+use tracing::instrument;
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
@@ -197,6 +198,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Wrapper to get the view number this node is on.
+    #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
     pub async fn cur_view(&self) -> TYPES::Time {
         self.hotshot.consensus.read().await.cur_view()
     }

@@ -9,7 +9,7 @@ use hotshot_types::{
     traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     vote::HasViewNumber,
 };
-use tracing::debug;
+use tracing::{debug, instrument};
 use hotshot_types::consensus::OuterConsensus;
 
 use super::QuorumVoteTaskState;
@@ -20,6 +20,7 @@ use crate::{
 };
 
 /// Handles the `QuorumProposalValidated` event.
+#[instrument(skip_all)]
 pub(crate) async fn handle_quorum_proposal_validated<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -38,7 +39,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         ..
     } = decide_from_proposal(
         proposal,
-        OuterConsensus::new("", Arc::clone(&task_state.consensus.inner_consensus)),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         &None,
         &task_state.public_key,
     )

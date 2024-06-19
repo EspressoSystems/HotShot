@@ -88,6 +88,7 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHandle<TYPES, I> {
     /// Updates the shared consensus state with the new voting data.
+    #[instrument(skip_all, target = "VoteDependencyHandle", fields(id = self.id, view = *self.view_number))]
     async fn update_shared_state(
         &self,
         proposed_leaf: &Leaf<TYPES>,
@@ -504,7 +505,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 consensus: OuterConsensus::new(
-                    "VoteDependencyHandle",
                     Arc::clone(&self.consensus.inner_consensus),
                 ),
                 instance_state: Arc::clone(&self.instance_state),
@@ -546,7 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     }
 
     /// Handle a vote dependent event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote handle", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote handle", level = "error", target = "QuorumVoteTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

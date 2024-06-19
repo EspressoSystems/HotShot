@@ -20,7 +20,7 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, instrument, warn};
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
@@ -45,6 +45,7 @@ pub(crate) enum QuorumProposalValidity {
 }
 
 /// Update states in the event that the parent state is not found for a given `proposal`.
+#[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -111,6 +112,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all)]
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
@@ -145,7 +147,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         event_sender,
         task_state.timeout,
         OuterConsensus::new(
-            "handle_quorum_proposal_recv->update_view",
             Arc::clone(&task_state.consensus.inner_consensus),
         ),
         &mut task_state.cur_view,
@@ -231,7 +232,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(
-            "handle_quorum_proposal_recv->validate_proposal_safety_and_liveness",
             Arc::clone(&task_state.consensus.inner_consensus),
         ),
         None,

@@ -82,7 +82,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -217,7 +217,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.da_network.is_primary_down() {
                     let consensus = OuterConsensus::new(
-                        "DaTaskState->calculate_and_update_vid",
                         Arc::clone(&self.consensus.inner_consensus),
                     );
                     let membership = Arc::clone(&self.quorum_membership);

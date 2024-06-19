@@ -14,7 +14,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 
 use crate::{
     events::HotShotEvent,
@@ -34,6 +34,7 @@ pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
 /// TODO: Remove args when we merge dependency tasks.
 #[allow(clippy::too_many_arguments)]
+#[instrument(skip_all)]
 pub(crate) async fn update_view<TYPES: NodeType>(
     new_view: TYPES::Time,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,

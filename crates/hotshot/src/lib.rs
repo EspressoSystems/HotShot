@@ -286,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
-            consensus: OuterConsensus::new("SystemContext", consensus),
+            consensus: OuterConsensus::new(consensus),
             instance_state: Arc::new(instance_state),
             public_key,
             private_key,
@@ -311,6 +311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// # Panics
     /// Panics if sending genesis fails
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn start_consensus(&self) {
         #[cfg(feature = "dependncy-tasks")]
         error!("HotShot is running with the dependency tasks feature enabled!!");
@@ -411,7 +412,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Errors
     ///
     /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
-    #[instrument(skip(self), err)]
+    #[instrument(skip(self), err, target = "SystemContext", fields(id = self.id))]
     pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
@@ -480,6 +481,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn decided_leaf(&self) -> Leaf<TYPES> {
         self.consensus.read().await.decided_leaf()
     }
@@ -490,6 +492,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     #[must_use]
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub fn try_decided_leaf(&self) -> Option<Leaf<TYPES>> {
         self.consensus.try_read().map(|guard| guard.decided_leaf())
     }
@@ -498,6 +501,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn decided_state(&self) -> Arc<TYPES::ValidatedState> {
         Arc::clone(&self.consensus.read().await.decided_state())
     }
@@ -509,6 +513,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
         self.consensus.read().await.state(view).cloned()
     }

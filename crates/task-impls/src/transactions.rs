@@ -106,7 +106,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
     TransactionTaskState<TYPES, I, Ver>
 {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -239,6 +239,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
     }
 
     /// Get last known builder commitment from consensus.
+    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, view = *self.cur_view))]
     async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
         let consensus = self.consensus.read().await;
         let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));

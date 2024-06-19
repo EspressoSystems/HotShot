@@ -141,7 +141,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
                         OuterConsensus::new(
-                            "QuorumProposalRecvTaskState->parent_leaf_and_state",
                             Arc::clone(&self.consensus.inner_consensus),
                         ),
                     )

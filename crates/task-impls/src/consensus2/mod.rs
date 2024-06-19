@@ -95,7 +95,7 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Consensus2TaskState<TYPES, I> {
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, last_decided_view = *self.last_decided_view), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, last_decided_view = *self.last_decided_view), name = "Consensus replica task", level = "error", target = "Consensus2TaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

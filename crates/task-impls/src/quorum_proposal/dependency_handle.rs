@@ -19,7 +19,7 @@ use hotshot_types::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 use vbs::version::Version;
 
 use crate::{
@@ -84,12 +84,16 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
 
     /// The current version of consensus
     pub version: Version,
+
+    /// The node's id
+    pub id: u64,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
+    #[instrument(skip_all, target = "ProposalDependencyHandle", fields(id = self.id, view_number = *self.view_number, latest_proposed_view = *self.latest_proposed_view))]
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
@@ -101,7 +105,6 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
             OuterConsensus::new(
-                "ProposalDependencyHandle->parent_leaf_and_state",
                 Arc::clone(&self.consensus.inner_consensus),
             ),
         )
