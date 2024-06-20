@@ -236,6 +236,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         event_sender.clone(),
         sender,
         task_state.output_event_stream.clone(),
+        task_state.id,
     )
     .await?;
 

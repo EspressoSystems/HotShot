@@ -61,7 +61,7 @@ use crate::{events::HotShotEvent, helpers::broadcast_event};
 /// we merge the dependency tasks.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(id = _id, view = *proposal.data.view_number()))]
 pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
@@ -72,6 +72,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
+    _id: u64,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
 
@@ -195,7 +196,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(id = _id, view = *view))]
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -210,6 +211,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     round_start_delay: u64,
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
+    _id: u64,
 ) {
     let consensus_read = consensus.read().await;
     let Some(Some(vid_share)) = consensus_read
@@ -434,6 +436,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
+    id: u64,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = parent_leaf_and_state(
         view,
@@ -493,6 +496,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             delay,
             instance_state,
             version,
+            id,
         )
         .await;
     });
@@ -519,6 +523,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
+    id: u64,
 ) -> Result<JoinHandle<()>> {
     publish_proposal_from_commitment_and_metadata(
         view,
@@ -534,6 +539,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         proposal_cert,
         instance_state,
         version,
+        id,
     )
     .await
 }
@@ -785,6 +791,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                         task_state.proposal_cert.clone(),
                         Arc::clone(&task_state.instance_state),
                         version,
+                        task_state.id,
                     )
                     .await?;
 
@@ -820,6 +827,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                 event_stream.clone(),
                 sender,
                 task_state.output_event_stream.clone(),
+                task_state.id,
             )
             .map(AnyhowTracing::err_as_debug),
         ));
@@ -1156,7 +1164,7 @@ type VoteInfo<TYPES> = (
 #[cfg(not(feature = "dependency-tasks"))]
 /// Check if we are able to vote, like whether the proposal is valid,
 /// whether we have DAC and VID share, and if so, vote.
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(id = _id, view = *cur_view))]
 pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     cur_view: TYPES::Time,
     proposal: QuorumProposal<TYPES>,
@@ -1167,6 +1175,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     instance_state: Arc<TYPES::InstanceState>,
     vote_info: VoteInfo<TYPES>,
     version: Version,
+    _id: u64,
 ) -> bool {
     use hotshot_types::simple_vote::QuorumVote;
 

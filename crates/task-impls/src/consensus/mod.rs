@@ -228,6 +228,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
             *self.version.read().await,
+            self.id,
         )
         .await?;
 
@@ -242,6 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
     /// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
     #[cfg(not(feature = "dependency-tasks"))]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), target = "ConsensusTaskState")]
     async fn spawn_vote_task(
         &mut self,
         view: TYPES::Time,
@@ -262,6 +264,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let da_mem = Arc::clone(&self.da_membership);
         let instance_state = Arc::clone(&self.instance_state);
         let version = *self.version.read().await;
+        let id = self.id;
         let handle = async_spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
                 view,
@@ -273,6 +276,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 instance_state,
                 (priv_key, upgrade, da_mem, event_stream),
                 version,
+                id,
             )
             .await;
         });
