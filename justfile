@@ -49,35 +49,35 @@ example_gpuvid_leader *ARGS:
 
 test *ARGS:
   echo Testing {{ARGS}}
-  cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
 
 test-ci *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-rest *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5 --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5 --test-threads=1
 
 test-ci-1 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-2 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-3 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_3 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_3 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-4 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_4 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_4 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-5 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_5 --verbose --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_5 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
@@ -159,13 +159,13 @@ default_test := ""
 test_name := "sequencing_libp2p_test"
 
 run_test test=default_test:
-  cargo test --verbose --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches {{test}} --no-fail-fast -- --test-threads=1 --nocapture
 
 test_pkg_all pkg=test_pkg:
-  cargo test --verbose --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 list_tests_json package=test_pkg:
-  RUST_LOG=none cargo test --verbose --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
+  RUST_LOG=none cargo test --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
 
 list_examples package=test_pkg:
   cargo metadata | jq '.packages[] | select(.name == "{{package}}") | .targets[] | select(.kind  == ["example"] ) | .name'
@@ -204,7 +204,7 @@ fmt_lint_dependency_tasks:
 
 careful:
   echo Careful-ing with tokio executor
-  cargo careful test --verbose --profile careful --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  cargo careful test --profile careful --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
 semver *ARGS:
   #!/usr/bin/env bash
@@ -236,7 +236,7 @@ gen_key_pair:
 
 test_randomized_leader_election:
   echo Testing
-  cargo test --features "randomized-leader-election" --verbose --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
+  cargo test --features "randomized-leader-election" --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture --skip crypto_test
 
 code_coverage:
   echo "Running code coverage"
