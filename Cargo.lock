@@ -1361,8 +1361,8 @@ checksum = "d32a725bc159af97c3e629873bb9f88fb8cf8a4867175f76dc987815ea07c83b"
 
 [[package]]
 name = "cdn-broker"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.12#7bf490b34fb5b996d7e98d3d4be6d88028a076ac"
+version = "0.4.0"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.0#fdcf88863147173fb270e830abbbb24308268087"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1385,8 +1385,8 @@ dependencies = [
 
 [[package]]
 name = "cdn-client"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.12#7bf490b34fb5b996d7e98d3d4be6d88028a076ac"
+version = "0.4.0"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.0#fdcf88863147173fb270e830abbbb24308268087"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1400,8 +1400,8 @@ dependencies = [
 
 [[package]]
 name = "cdn-marshal"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.12#7bf490b34fb5b996d7e98d3d4be6d88028a076ac"
+version = "0.4.0"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.0#fdcf88863147173fb270e830abbbb24308268087"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1414,8 +1414,8 @@ dependencies = [
 
 [[package]]
 name = "cdn-proto"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.3.12#7bf490b34fb5b996d7e98d3d4be6d88028a076ac"
+version = "0.4.0"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.0#fdcf88863147173fb270e830abbbb24308268087"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -3669,7 +3669,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.5.6",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
