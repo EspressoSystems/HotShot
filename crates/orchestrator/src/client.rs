@@ -127,7 +127,7 @@ pub struct ValidatorArgs {
     /// The optional advertise address to use for Libp2p
     pub advertise_address: Option<SocketAddr>,
     /// Optional address to run builder on. Address must be accessible by other nodes
-    pub builder_address: Option<Url>,
+    pub builder_address: Option<SocketAddr>,
     /// An optional network config file to save to/load from
     /// Allows for rejoining the network on a complete state loss
     #[arg(short, long)]

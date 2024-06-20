@@ -2,15 +2,13 @@
 /// types used for this example
 pub mod types;
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-
 use async_compatibility_layer::{
     art::async_spawn,
     logging::{setup_backtrace, setup_logging},
 };
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
-use surf_disco::Url;
+use infra::{gen_local_address, BUILDER_BASE_PORT, VALIDATOR_BASE_PORT};
 use tracing::instrument;
 
 use crate::{
@@ -43,15 +41,8 @@ async fn main() {
     for i in 0..config.config.num_nodes_with_stake.into() {
         // Calculate our libp2p advertise address, which we will later derive the
         // bind address from for example purposes.
-        let advertise_address = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            8000 + (u16::try_from(i).expect("failed to create advertise address")),
-        );
-        let builder_address = Url::parse(&format!(
-            "http://localhost:{}",
-            9000 + (u16::try_from(i).expect("failed to create builder address"))
-        ))
-        .unwrap();
+        let advertise_address = gen_local_address::<VALIDATOR_BASE_PORT>(i);
+        let builder_address = gen_local_address::<BUILDER_BASE_PORT>(i);
         let orchestrator_url = orchestrator_url.clone();
         let node = async_spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
