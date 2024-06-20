@@ -12,7 +12,7 @@ use hotshot::{
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
-use surf_disco::Url;
+use infra::{gen_local_address, BUILDER_BASE_PORT};
 
 use crate::{
     infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
@@ -120,11 +120,7 @@ async fn main() {
     let mut nodes = Vec::new();
     for i in 0..(config.config.num_nodes_with_stake.get()) {
         let orchestrator_url = orchestrator_url.clone();
-        let builder_address = Url::parse(&format!(
-            "http://localhost:{}",
-            9000 + (u16::try_from(i).expect("failed to create builder address"))
-        ))
-        .unwrap();
+        let builder_address = gen_local_address::<BUILDER_BASE_PORT>(i);
         let node = async_spawn(async move {
             infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
                 ValidatorArgs {

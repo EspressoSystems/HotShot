@@ -1072,8 +1072,8 @@ where
             bind_address = Url::parse(&format!("http://0.0.0.0:{port}")).unwrap();
         }
         Some(ref addr) => {
-            advertise_urls = vec![addr.clone()];
-            bind_address = addr.clone();
+            bind_address = Url::parse(&format!("http://{addr}")).expect("Valid URL");
+            advertise_urls = vec![bind_address.clone()];
         }
     }
 
@@ -1112,4 +1112,20 @@ where
             Some(builder_task)
         }
     }
+}
+
+/// Base port for validator
+pub const VALIDATOR_BASE_PORT: u16 = 8000;
+/// Base port for builder
+pub const BUILDER_BASE_PORT: u16 = 9000;
+
+/// Generate a local address for node with index `node_index`, offsetting from port `BASE_PORT`.
+/// # Panics
+/// If `node_index` is too large to fit in a `u16`
+#[must_use]
+pub fn gen_local_address<const BASE_PORT: u16>(node_index: usize) -> SocketAddr {
+    SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::LOCALHOST),
+        BASE_PORT + (u16::try_from(node_index).expect("node index too large")),
+    )
 }
