@@ -67,7 +67,7 @@
     setup_logging();
     setup_backtrace();
     <span class="kw">let </span>args = MultiValidatorArgs::parse();
-    <span class="macro">tracing::error!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
+    <span class="macro">tracing::debug!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
     <span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
     <span class="kw">for </span>node_index <span class="kw">in </span><span class="number">0</span>..args.num_nodes {
         <span class="kw">let </span>args = args.clone();

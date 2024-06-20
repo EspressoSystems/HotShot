@@ -630,6 +630,111 @@
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -637,12 +742,18 @@
 <span class="doccomment">/// Configuration for the orchestrator
 </span><span class="kw">pub mod </span>config;
 
-<span class="kw">use </span>std::{collections::HashMap, fs::OpenOptions, io, io::ErrorKind};
+<span class="kw">use </span>std::{
+    collections::HashMap,
+    fs::OpenOptions,
+    io::{<span class="self">self</span>, ErrorKind},
+    time::Duration,
+};
 
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>client::{BenchResults, BenchResultsDownloadConfig};
+<span class="kw">use </span>config::BuilderType;
 <span class="kw">use </span>csv::Writer;
-<span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_types::{constants::Base, traits::signature_key::SignatureKey, PeerConfig};
 <span class="kw">use </span>libp2p::{
     identity::{
@@ -716,11 +827,18 @@
     </span>manual_start_allowed: bool,
     <span class="doccomment">/// Whether we are still accepting new keys for registration
     </span>accepting_new_keys: bool,
+    <span class="doccomment">/// Builder address pool
+    </span>builders: Vec&lt;Url&gt;,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">'static</span>&gt; OrchestratorState&lt;KEY&gt; {
     <span class="doccomment">/// create a new [`OrchestratorState`]
     </span><span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>builders = <span class="kw">if </span><span class="macro">matches!</span>(network_config.builder, BuilderType::External) {
+            network_config.config.builder_urls.clone().into()
+        } <span class="kw">else </span>{
+            <span class="macro">vec!</span>[]
+        };
         OrchestratorState {
             latest_index: <span class="number">0</span>,
             tmp_latest_index: <span class="number">0</span>,
@@ -733,6 +851,7 @@
             nodes_post_results: <span class="number">0</span>,
             manual_start_allowed: <span class="bool-val">true</span>,
             accepting_new_keys: <span class="bool-val">true</span>,
+            builders,
         }
     }
 
@@ -763,10 +882,12 @@
             commit_sha: <span class="self">self</span>.config.commit_sha.clone(),
             total_nodes: <span class="self">self</span>.config.config.num_nodes_with_stake.into(),
             da_committee_size: <span class="self">self</span>.config.config.da_staked_committee_size,
+            fixed_leader_for_gpuvid: <span class="self">self</span>.config.config.fixed_leader_for_gpuvid,
             transactions_per_round: <span class="self">self</span>.config.transactions_per_round,
             transaction_size: <span class="self">self</span>.bench_results.transaction_size_in_bytes,
             rounds: <span class="self">self</span>.config.rounds,
             leader_election_type: OrchestratorState::&lt;KEY&gt;::election_type(),
+            partial_results: <span class="self">self</span>.bench_results.partial_results.clone(),
             avg_latency_in_sec: <span class="self">self</span>.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: <span class="self">self</span>.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: <span class="self">self</span>.bench_results.maximum_latency_in_sec,
@@ -843,6 +964,14 @@
     /// # Errors
     /// if unable to serve
     </span><span class="kw">fn </span>post_manual_start(<span class="kw-2">&amp;mut </span><span class="self">self</span>, password_bytes: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
+    <span class="doccomment">/// post endpoint for registering a builder with the orchestrator
+    /// # Errors
+    /// if unable to serve
+    </span><span class="kw">fn </span>post_builder(<span class="kw-2">&amp;mut </span><span class="self">self</span>, builder: Url) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt;;
+    <span class="doccomment">/// get endpoints for builders
+    /// # Errors
+    /// if not all builders are registered yet
+    </span><span class="kw">fn </span>get_builders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Url&gt;, ServerError&gt;;
 }
 
 <span class="kw">impl</span>&lt;KEY&gt; OrchestratorApi&lt;KEY&gt; <span class="kw">for </span>OrchestratorState&lt;KEY&gt;
@@ -1120,15 +1249,55 @@
             }
         }
         <span class="self">self</span>.nodes_post_results += <span class="number">1</span>;
-        <span class="kw">if </span><span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64) {
+        <span class="kw">if </span><span class="self">self</span>.bench_results.partial_results == <span class="string">"Unset" </span>{
+            <span class="self">self</span>.bench_results.partial_results = <span class="string">"One"</span>.to_string();
+            <span class="self">self</span>.bench_results.printout();
+            <span class="self">self</span>.output_to_csv();
+        }
+        <span class="kw">if </span><span class="self">self</span>.bench_results.partial_results == <span class="string">"One"
+            </span>&amp;&amp; <span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.da_staked_committee_size <span class="kw">as </span>u64 / <span class="number">2</span>)
+        {
+            <span class="self">self</span>.bench_results.partial_results = <span class="string">"HalfDA"</span>.to_string();
+            <span class="self">self</span>.bench_results.printout();
+            <span class="self">self</span>.output_to_csv();
+        }
+        <span class="kw">if </span><span class="self">self</span>.bench_results.partial_results == <span class="string">"HalfDA"
+            </span>&amp;&amp; <span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64 / <span class="number">2</span>)
+        {
+            <span class="self">self</span>.bench_results.partial_results = <span class="string">"Half"</span>.to_string();
+            <span class="self">self</span>.bench_results.printout();
+            <span class="self">self</span>.output_to_csv();
+        }
+        <span class="kw">if </span><span class="self">self</span>.bench_results.partial_results != <span class="string">"Full"
+            </span>&amp;&amp; <span class="self">self</span>.nodes_post_results &gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64)
+        {
+            <span class="self">self</span>.bench_results.partial_results = <span class="string">"Full"</span>.to_string();
             <span class="self">self</span>.bench_results.printout();
             <span class="self">self</span>.output_to_csv();
         }
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="kw">fn </span>post_builder(<span class="kw-2">&amp;mut </span><span class="self">self</span>, builder: Url) -&gt; <span class="prelude-ty">Result</span>&lt;(), ServerError&gt; {
+        <span class="self">self</span>.builders.push(builder);
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>get_builders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Url&gt;, ServerError&gt; {
+        <span class="kw">if </span>!<span class="macro">matches!</span>(<span class="self">self</span>.config.builder, BuilderType::External)
+            &amp;&amp; <span class="self">self</span>.builders.len() != <span class="self">self</span>.config.config.da_staked_committee_size
+        {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
+                status: tide_disco::StatusCode::NOT_FOUND,
+                message: <span class="string">"Not all builders are registered yet"</span>.to_string(),
+            });
+        }
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.builders.clone())
+    }
 }
 
 <span class="doccomment">/// Sets up all API routes
+</span><span class="attr">#[allow(clippy::too_many_lines)]
 </span><span class="kw">fn </span>define_api&lt;KEY, State, VER&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, ServerError, VER&gt;, ApiError&gt;
 <span class="kw">where
     </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState + WriteState,
@@ -1223,6 +1392,47 @@
             state.post_run_results(metrics.unwrap())
         }
         .boxed()
+    })<span class="question-mark">?
+    </span>.post(<span class="string">"post_builder"</span>, |req, state| {
+        <span class="kw">async move </span>{
+            <span class="comment">// Read the bytes from the body
+            </span><span class="kw">let </span><span class="kw-2">mut </span>body_bytes = req.body_bytes();
+            body_bytes.drain(..<span class="number">12</span>);
+
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(urls) = vbs::Serializer::&lt;Base&gt;::deserialize::&lt;Vec&lt;Url&gt;&gt;(<span class="kw-2">&amp;</span>body_bytes) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
+                    status: tide_disco::StatusCode::BAD_REQUEST,
+                    message: <span class="string">"Malformed body"</span>.to_string(),
+                });
+            };
+
+            <span class="kw">let </span><span class="kw-2">mut </span>futures = urls
+                .into_iter()
+                .map(|url| <span class="kw">async </span>{
+                    <span class="kw">let </span>client: surf_disco::Client&lt;ServerError, Base&gt; =
+                        surf_disco::client::Client::builder(url.clone()).build();
+                    <span class="kw">if </span>client.connect(<span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">2</span>))).<span class="kw">await </span>{
+                        <span class="prelude-val">Some</span>(url)
+                    } <span class="kw">else </span>{
+                        <span class="prelude-val">None
+                    </span>}
+                })
+                .collect::&lt;FuturesUnordered&lt;<span class="kw">_</span>&gt;&gt;()
+                .filter_map(futures::future::ready);
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = futures.next().<span class="kw">await </span>{
+                state.post_builder(url)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(ServerError {
+                    status: tide_disco::StatusCode::BAD_REQUEST,
+                    message: <span class="string">"No reachable adddresses"</span>.to_string(),
+                })
+            }
+        }
+        .boxed()
+    })<span class="question-mark">?
+    </span>.get(<span class="string">"get_builders"</span>, |_req, state| {
+        <span class="kw">async move </span>{ state.get_builders() }.boxed()
     })<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(api)
 }

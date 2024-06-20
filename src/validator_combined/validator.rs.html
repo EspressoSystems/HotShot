@@ -48,7 +48,7 @@
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>local_ip_address::local_ip;
-<span class="kw">use </span>tracing::{info, instrument};
+<span class="kw">use </span>tracing::{debug, instrument};
 
 <span class="kw">use </span><span class="kw">crate</span>::types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun};
 
@@ -77,7 +77,7 @@
         ),
     );
 
-    <span class="macro">info!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
+    <span class="macro">debug!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
     infra::main_entry_point::&lt;TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

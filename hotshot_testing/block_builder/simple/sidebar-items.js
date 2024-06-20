@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SimpleBuilderConfig","SimpleBuilderImplementation","SimpleBuilderSource","SimpleBuilderTask","SubmittedTransaction"]};
+window.SIDEBAR_ITEMS = {"struct":["SimpleBuilderImplementation","SimpleBuilderSource","SimpleBuilderTask","SubmittedTransaction"]};

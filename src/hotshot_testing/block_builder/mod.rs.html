@@ -177,6 +177,7 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>async_broadcast::Receiver;
@@ -206,7 +207,7 @@
 <span class="kw">pub use </span>random::RandomBuilderImplementation;
 
 <span class="kw">pub mod </span>simple;
-<span class="kw">pub use </span>simple::{SimpleBuilderConfig, SimpleBuilderImplementation};
+<span class="kw">pub use </span>simple::SimpleBuilderImplementation;
 
 <span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>TestBuilderImplementation&lt;TYPES: NodeType&gt;
@@ -217,9 +218,10 @@
 
     <span class="kw">async fn </span>start(
         num_storage_nodes: usize,
+        url: Url,
         options: <span class="self">Self</span>::Config,
         changes: HashMap&lt;u64, BuilderChange&gt;,
-    ) -&gt; (Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;, Url);
+    ) -&gt; Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;;
 }
 
 <span class="kw">pub trait </span>BuilderTask&lt;TYPES: NodeType&gt;: Send + Sync {

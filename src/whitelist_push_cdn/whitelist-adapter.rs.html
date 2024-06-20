@@ -83,6 +83,7 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The whitelist is an adaptor that is able to update the allowed public keys for
 //! all brokers. Right now, we do this by asking the orchestrator for the list of
 //! allowed public keys. In the future, we will pull the stake table from the L1.
@@ -132,6 +133,7 @@
     </span><span class="kw">let </span>orchestrator_client = OrchestratorClient::new(ValidatorArgs {
         url: Url::from_str(<span class="kw-2">&amp;</span>args.orchestrator_url).with_context(|| <span class="string">"Invalid URL"</span>)<span class="question-mark">?</span>,
         advertise_address: <span class="prelude-val">None</span>,
+        builder_address: <span class="prelude-val">None</span>,
         network_config_file: <span class="prelude-val">None</span>,
     });
 

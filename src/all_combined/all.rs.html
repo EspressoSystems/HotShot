@@ -156,17 +156,11 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
 
-<span class="kw">use </span>std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::Path,
-};
+<span class="kw">use </span>std::path::Path;
 
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
@@ -181,6 +175,7 @@
 <span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>infra::{gen_local_address, BUILDER_BASE_PORT, VALIDATOR_BASE_PORT};
 <span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 <span class="kw">use </span>tracing::{error, instrument};
 
@@ -298,17 +293,16 @@
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..config.config.num_nodes_with_stake.into() {
         <span class="comment">// Calculate our libp2p advertise address, which we will later derive the
         // bind address from for example purposes.
-        </span><span class="kw">let </span>advertise_address = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            <span class="number">8000 </span>+ (u16::try_from(i).expect(<span class="string">"failed to create advertise address"</span>)),
-        );
-
+        </span><span class="kw">let </span>advertise_address = gen_local_address::&lt;VALIDATOR_BASE_PORT&gt;(i);
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
+        <span class="kw">let </span>builder_address = gen_local_address::&lt;BUILDER_BASE_PORT&gt;(i);
+
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
             infra::main_entry_point::&lt;TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(
                 ValidatorArgs {
                     url: orchestrator_url,
                     advertise_address: <span class="prelude-val">Some</span>(advertise_address),
+                    builder_address: <span class="prelude-val">Some</span>(builder_address),
                     network_config_file: <span class="prelude-val">None</span>,
                 },
             )

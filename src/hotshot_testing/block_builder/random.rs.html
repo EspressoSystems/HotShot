@@ -323,7 +323,6 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -403,16 +402,15 @@
 
     <span class="kw">async fn </span>start(
         num_storage_nodes: usize,
+        url: Url,
         config: RandomBuilderConfig,
         changes: HashMap&lt;u64, BuilderChange&gt;,
-    ) -&gt; (Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;, Url) {
-        <span class="kw">let </span>port = portpicker::pick_unused_port().expect(<span class="string">"No free ports"</span>);
-        <span class="kw">let </span>url = Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://0.0.0.0:{port}"</span>)).expect(<span class="string">"Valid URL"</span>);
+    ) -&gt; Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(change_sender, change_receiver) = broadcast(<span class="number">128</span>);
 
         <span class="kw">let </span>(task, source) = <span class="self">Self</span>::create(num_storage_nodes, config, changes, change_sender).<span class="kw">await</span>;
-        run_builder_source(url.clone(), change_receiver, source);
-        (Box::new(task), url)
+        run_builder_source(url, change_receiver, source);
+        Box::new(task)
     }
 }
 

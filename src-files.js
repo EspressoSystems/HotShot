@@ -17,6 +17,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["libp2p_networking",["",[["network",[["behaviours",[["dht",[],["bootstrap.rs","mod.rs"]]],["direct_message.rs","exponential_backoff.rs","mod.rs","request_response.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs"]]],\
 ["multi_validator_combined",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["multi_validator_libp2p",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
+["multi_validator_push_cdn",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["orchestrator",["",[["infra",[],["mod.rs"]]],["orchestrator.rs"]]],\
 ["orchestrator_combined",["",[["infra",[],["mod.rs"]]],["orchestrator.rs","types.rs"]]],\
 ["validator_combined",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\
