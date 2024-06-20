@@ -2,11 +2,12 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_lock::RwLock;
+use async_trait::async_trait;
 use hotshot_task::task::Task;
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_task_impls::consensus::ConsensusTaskState;
@@ -248,62 +249,108 @@ pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     );
 }
 
-/// Add a byzantine network task to handle messages and publish events.
-pub async fn add_byzantine_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, F, G>(
-    handle: &mut SystemContextHandle<TYPES, I>,
-    mut modify_out: F,
-    mut modify_in: G,
-) where
-    F: FnMut(&HotShotEvent<TYPES>) -> HotShotEvent<TYPES> + std::marker::Send + 'static,
-    G: FnMut(&HotShotEvent<TYPES>) -> HotShotEvent<TYPES> + std::marker::Send + 'static,
+#[async_trait]
+/// Trait for intercepting and modifying messages between the network and consensus layers.
+///
+/// Consensus <-> [Byzantine logic layer] <-> Network
+pub trait EventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>>
+where
+    Self: Sized + Send + Sync + 'static,
 {
-    // channel between the task spawned in this function and the network tasks.
-    // with this, we can control exactly what events the network tasks see.
-    let (sender, mut receiver) = broadcast(EVENT_CHANNEL_SIZE);
+    /// Initialize the state
+    fn new() -> Self;
 
-    // replace the internal event stream with the one we just created,
-    // so that the network tasks are spawned with our channel.
-    let mut internal_event_stream = (sender.clone(), receiver.clone().deactivate());
-    std::mem::swap(
-        &mut internal_event_stream,
-        &mut handle.internal_event_stream,
-    );
+    /// modify incoming messages from the network
+    fn transform_in(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
 
-    // spawn the network tasks with our newly-created channel
-    add_network_tasks::<TYPES, I>(handle).await;
+    /// modify outgoing messages from the network
+    fn transform_out(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
 
-    // create a copy of the original receiver
-    let (original_sender, mut original_receiver) = (
-        internal_event_stream.0.clone(),
-        internal_event_stream.1.activate_cloned(),
-    );
+    /// `transform_in`, but wrapping the state in an `Arc` lock
+    async fn transform_in_arc(
+        lock: Arc<RwLock<Self>>,
+        event: &HotShotEvent<TYPES>,
+    ) -> HotShotEvent<TYPES> {
+        let mut state = lock.write().await;
 
-    // spawn a task to listen on the (original) internal event stream,
-    // and broadcast the transformed events to the replacement event stream we just created.
-    let out_handle = async_spawn(async move {
-        loop {
-            if let Ok(msg) = original_receiver.recv().await {
-                let _ = sender.broadcast(modify_out(&msg).into()).await;
+        state.transform_in(&event)
+    }
+
+    /// `transform_out`, but wrapping the state in an `Arc` lock
+    async fn transform_out_arc(
+        lock: Arc<RwLock<Self>>,
+        event: &HotShotEvent<TYPES>,
+    ) -> HotShotEvent<TYPES> {
+        let mut state = lock.write().await;
+
+        state.transform_out(&event)
+    }
+
+    /// Add byzantine network tasks with the trait
+    async fn add_network_tasks(handle: &mut SystemContextHandle<TYPES, I>) {
+        let state_in = Arc::new(RwLock::new(Self::new()));
+        let state_out = Arc::clone(&state_in);
+
+        // channel between the task spawned in this function and the network tasks.
+        // with this, we can control exactly what events the network tasks see.
+        let (sender, mut receiver) = broadcast(EVENT_CHANNEL_SIZE);
+
+        // replace the internal event stream with the one we just created,
+        // so that the network tasks are spawned with our channel.
+        let mut internal_event_stream = (sender.clone(), receiver.clone().deactivate());
+        std::mem::swap(
+            &mut internal_event_stream,
+            &mut handle.internal_event_stream,
+        );
+
+        // spawn the network tasks with our newly-created channel
+        add_network_tasks::<TYPES, I>(handle).await;
+
+        // create a copy of the original receiver
+        let (original_sender, mut original_receiver) = (
+            internal_event_stream.0.clone(),
+            internal_event_stream.1.activate_cloned(),
+        );
+
+        // spawn a task to listen on the (original) internal event stream,
+        // and broadcast the transformed events to the replacement event stream we just created.
+        let out_handle = async_spawn(async move {
+            loop {
+                if let Ok(msg) = original_receiver.recv().await {
+                    let _ = sender
+                        .broadcast(
+                            Self::transform_out_arc(Arc::clone(&state_out), &msg)
+                                .await
+                                .into(),
+                        )
+                        .await;
+                }
             }
-        }
-    });
+        });
 
-    // spawn a task to listen on the newly created event stream,
-    // and broadcast the transformed events to the original internal event stream
-    let in_handle = async_spawn(async move {
-        loop {
-            if let Ok(msg) = receiver.recv().await {
-                let _ = original_sender.broadcast(modify_in(&msg).into()).await;
+        // spawn a task to listen on the newly created event stream,
+        // and broadcast the transformed events to the original internal event stream
+        let in_handle = async_spawn(async move {
+            loop {
+                if let Ok(msg) = receiver.recv().await {
+                    let _ = original_sender
+                        .broadcast(
+                            Self::transform_in_arc(Arc::clone(&state_in), &msg)
+                                .await
+                                .into(),
+                        )
+                        .await;
+                }
             }
-        }
-    });
+        });
 
-    handle.network_registry.register(out_handle);
-    handle.network_registry.register(in_handle);
+        handle.network_registry.register(out_handle);
+        handle.network_registry.register(in_handle);
 
-    // put the old channel back.
-    std::mem::swap(
-        &mut internal_event_stream,
-        &mut handle.internal_event_stream,
-    );
+        // put the old channel back.
+        std::mem::swap(
+            &mut internal_event_stream,
+            &mut handle.internal_event_stream,
+        );
+    }
 }
