@@ -1,3 +1,5 @@
+#![cfg(feature = "dependency-tasks")]
+
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;

@@ -1,4 +1,5 @@
 // TODO: Remove after integration of dependency-tasks
+#![cfg(not(feature = "dependency-tasks"))]
 #![allow(unused_imports)]
 
 use std::time::Duration;
@@ -28,7 +29,6 @@ use hotshot_types::{
 };
 use vbs::version::Version;
 
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 /// Tests that we correctly update our internal consensus state when reaching a decided upgrade certificate.
@@ -181,7 +181,6 @@ async fn test_consensus_task_upgrade() {
     test_scripts![inputs, consensus_script].await;
 }
 
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(
     async_executor_impl = "tokio",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -336,7 +335,6 @@ async fn test_upgrade_and_consensus_task() {
     test_scripts![inputs, consensus_script, upgrade_script].await;
 }
 
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg_attr(
     async_executor_impl = "tokio",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
