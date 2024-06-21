@@ -8,7 +8,7 @@ use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::{
-    dependency::{AndDependency, EventDependency, OrDependency},
+    dependency::{AndDependency, Dependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::TaskState,
 };
@@ -37,6 +37,7 @@ use tracing::{debug, error, instrument, trace, warn};
 use vbs::version::Version;
 
 use crate::{
+    consensus::helpers::fetch_proposal,
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
     quorum_vote::handlers::handle_quorum_proposal_validated,
@@ -77,6 +78,8 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     view_number: TYPES::Time,
     /// Event sender.
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    /// Event receiver.
+    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     /// The current version of HotShot
     version: Version,
     /// The node's id
@@ -90,19 +93,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         proposed_leaf: &Leaf<TYPES>,
         vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
     ) -> Result<()> {
-        let consensus_reader = self.consensus.read().await;
         let justify_qc = &proposed_leaf.justify_qc();
 
         // Justify qc's leaf commitment should be the same as the parent's leaf commitment.
-        let parent = consensus_reader
+        let mut maybe_parent = self
+            .consensus
+            .read()
+            .await
             .saved_leaves()
             .get(&justify_qc.date().leaf_commit)
-            .cloned()
-            .context(format!(
-                "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-                justify_qc.date().leaf_commit,
-                proposed_leaf.view_number(),
-            ))?;
+            .cloned();
+        maybe_parent = match maybe_parent {
+            Some(p) => Some(p),
+            None => fetch_proposal(
+                justify_qc.view_number(),
+                self.sender.clone(),
+                Arc::clone(&self.quorum_membership),
+                Arc::clone(&self.consensus),
+            )
+            .await
+            .ok(),
+        };
+        let parent = maybe_parent.context(format!(
+            "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
+            justify_qc.date().leaf_commit,
+            proposed_leaf.view_number(),
+        ))?;
+        let consensus_reader = self.consensus.read().await;
 
         let (Some(parent_state), _) = consensus_reader.state_and_delta(parent.view_number()) else {
             bail!("Parent state not found! Consensus internally inconsistent")
@@ -213,8 +230,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        #[allow(unused_variables)]
-        let mut cur_proposal = None;
+        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
+        if !self
+            .consensus
+            .read()
+            .await
+            .validated_state_map()
+            .contains_key(&high_qc_view_number)
+        {
+            // Block on receiving the event from the event stream.
+            EventDependency::new(
+                self.receiver.clone(),
+                Box::new(move |event| {
+                    let event = event.as_ref();
+                    if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
+                        *view_number == high_qc_view_number
+                    } else {
+                        false
+                    }
+                }),
+            )
+            .completed()
+            .await;
+        }
+
         let mut payload_commitment = None;
         let mut leaf = None;
         let mut vid_share = None;
@@ -222,7 +261,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
             match event.as_ref() {
                 #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
-                    cur_proposal = Some(proposal.clone());
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
@@ -471,6 +509,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 storage: Arc::clone(&self.storage),
                 view_number,
                 sender: event_sender.clone(),
+                receiver: event_receiver.clone(),
                 version: self.version,
                 id: self.id,
             },
@@ -489,7 +528,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             );
 
             // Cancel the old dependency tasks.
-            for view in (*self.latest_voted_view + 1)..(*new_view) {
+            for view in *self.latest_voted_view..(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
                     debug!("Vote dependency removed for view {:?}", view);

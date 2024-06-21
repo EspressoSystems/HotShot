@@ -65,11 +65,11 @@ jobs:
           - tokio
         test_suites:
           - test-ci-1
-          # - test-ci-2
-          # - test-ci-3
-          # - test-ci-4
-          # - test-ci-5
-          # - test-ci-rest
+          - test-ci-2
+          - test-ci-3
+          - test-ci-4
+          - test-ci-5
+          - test-ci-rest
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -175,6 +175,7 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-combined
+            target/${{ matrix.just_variants }}/release/examples/validator-push-cdn
             target/${{ matrix.just_variants }}/release/examples/orchestrator
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
@@ -213,6 +214,7 @@ jobs:
             target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-libp2p
             target/${{ matrix.just_variants }}/release/examples/validator-combined
+            target/${{ matrix.just_variants }}/release/examples/validator-push-cdn
             target/${{ matrix.just_variants }}/release/examples/orchestrator
             target/${{ matrix.just_variants }}/release/examples/cdn-broker
             target/${{ matrix.just_variants }}/release/examples/cdn-marshal
@@ -268,6 +270,13 @@ jobs:
           images: ghcr.io/espressosystems/hotshot/validator-combined
           flavor: suffix=-${{ matrix.just_variants }}
 
+      - name: Generate validator-push-cdn docker metadata
+        uses: docker/metadata-action@v5
+        id: validator-push-cdn
+        with:
+          images: ghcr.io/espressosystems/hotshot/validator-push-cdn
+          flavor: suffix=-${{ matrix.just_variants }}
+
       - name: Generate orchestrator docker metadata
         uses: docker/metadata-action@v5
         id: orchestrator
@@ -290,7 +299,7 @@ jobs:
           flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Build and push validator-libp2p docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-libp2p.Dockerfile
@@ -304,7 +313,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-combined docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-combined.Dockerfile
@@ -317,8 +326,22 @@ jobs:
           build-args: |
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
+      - name: Build and push validator-push-cdn docker
+        uses: docker/build-push-action@v6
+        with:
+          context: ./
+          file: ./docker/validator-cdn.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.validator-push-cdn.outputs.tags }}
+          labels: ${{ steps.validator-push-cdn.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ASYNC_EXECUTOR=${{ matrix.just_variants }}
+
       - name: Build and push orchestrator docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/orchestrator.Dockerfile
@@ -332,7 +355,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-broker docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/cdn-broker.Dockerfile
@@ -346,7 +369,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-marshal docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/cdn-marshal.Dockerfile
