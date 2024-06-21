@@ -30,7 +30,7 @@ async fn test_combined_network() {
             ..Default::default()
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
-            num_failed_views: 33,
+            num_failed_views: 0,
             num_successful_views: 25,
             ..Default::default()
         },
@@ -59,7 +59,7 @@ async fn test_combined_network_cdn_crash() {
     let mut metadata: TestDescription = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
-            next_view_timeout: 30_000,
+            next_view_timeout: 10_000,
             ..Default::default()
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
@@ -112,7 +112,7 @@ async fn test_combined_network_reup() {
             ..Default::default()
         },
         overall_safety_properties: OverallSafetyPropertiesDescription {
-            num_failed_views: 33,
+            num_failed_views: 0,
             num_successful_views: 35,
             ..Default::default()
         },
@@ -159,7 +159,7 @@ async fn test_combined_network_half_dc() {
     let mut metadata: TestDescription = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
-            next_view_timeout: 30_000,
+            next_view_timeout: 10_000,
             start_delay: 120_000,
 
             ..Default::default()
