@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 use async_broadcast::{broadcast, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
+use either::Left;
 use hotshot_types::{
     data::{Leaf, QuorumProposal},
     message::Proposal,
@@ -209,7 +210,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     drop(consensus_write);
 
     broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        HotShotEvent::QcFormed(Left(justify_qc.clone())).into(),
         event_sender,
     )
     .await;

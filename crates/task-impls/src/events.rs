@@ -193,7 +193,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     LastDecidedViewUpdated(TYPES::Time),
 
     /// A new high_qc has been reached by this node.
-    UpdateHighQc(QuorumCertificate<TYPES>),
+    HighQcUpdated(QuorumCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {

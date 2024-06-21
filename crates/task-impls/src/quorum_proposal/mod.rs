@@ -372,9 +372,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         );
                     }
 
+                    // First, update the high QC.
+                    if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
+                        tracing::trace!("Failed to update high qc; error = {e}");
+                    }
+
+                    if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
+                        warn!("Failed to store High QC of QC we formed; error = {:?}", e);
+                    }
+
                     // We need to gate on this data actually existing in the consensus shared state.
                     // So we broadcast here and handle *before* we make the task.
-                    broadcast_event(HotShotEvent::UpdateHighQc(qc).into(), &event_sender).await;
+                    broadcast_event(HotShotEvent::HighQcUpdated(qc).into(), &event_sender).await;
                 }
             },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -445,15 +454,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::UpdateHighQc(qc) => {
-                // First, update the high QC.
-                if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
-                    tracing::trace!("Failed to update high qc; error = {e}");
-                }
-
-                if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
-                    warn!("Failed to store High QC of QC we formed; error = {:?}", e);
-                }
-
                 let view_number = qc.view_number() + 1;
                 self.create_dependency_task_if_new(
                     view_number,
