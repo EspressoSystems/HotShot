@@ -454,7 +454,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                 }
 
-                broadcast_event(HotShotEvent::HighQcUpdated(qc.clone()).into(), &event_sender).await;
+                broadcast_event(
+                    HotShotEvent::HighQcUpdated(qc.clone()).into(),
+                    &event_sender,
+                )
+                .await;
             }
             HotShotEvent::HighQcUpdated(qc) => {
                 let view_number = qc.view_number() + 1;
