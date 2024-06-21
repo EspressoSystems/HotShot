@@ -66,6 +66,10 @@ name = "validator-push-cdn"
 path = "push-cdn/validator.rs"
 
 [[example]]
+name = "multi-validator-push-cdn"
+path = "push-cdn/multi-validator.rs"
+
+[[example]]
 name = "cdn-broker"
 path = "push-cdn/broker.rs"
 
@@ -86,7 +90,7 @@ bimap = "0.6"
 clap = { workspace = true, optional = true }
 committable = { workspace = true }
 custom_debug = { workspace = true }
-dashmap = "5"
+dashmap = "6"
 either = { workspace = true }
 futures = { workspace = true }
 hotshot-orchestrator = { version = "0.5.36", path = "../orchestrator", default-features = false }

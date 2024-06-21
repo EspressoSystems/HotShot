@@ -3,8 +3,11 @@ use std::{
     sync::Arc,
 };
 
+use crate::{events::ProposalMissing, request::REQUEST_TIMEOUT};
+use anyhow::bail;
 use anyhow::{ensure, Context, Result};
-use async_broadcast::Sender;
+use async_broadcast::{broadcast, Sender};
+use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
 #[cfg(not(feature = "dependency-tasks"))]
 #[cfg(async_executor_impl = "async-std")]
@@ -33,10 +36,6 @@ use {
         consensus::{update_view, view_change::SEND_VIEW_CHANGE_EVENT},
         helpers::AnyhowTracing,
     },
-    crate::{events::ProposalMissing, request::REQUEST_TIMEOUT},
-    anyhow::bail,
-    async_broadcast::broadcast,
-    async_compatibility_layer::art::async_timeout,
     async_compatibility_layer::art::{async_sleep, async_spawn},
     chrono::Utc,
     core::time::Duration,
@@ -536,8 +535,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 }
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
-#[cfg(not(feature = "dependency-tasks"))]
-async fn fetch_proposal<TYPES: NodeType>(
+pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -556,11 +554,11 @@ async fn fetch_proposal<TYPES: NodeType>(
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
-    let view = proposal.data.view_number();
+    let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
 
     if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
-        bail!("Invalid justify_qc in proposal for view {}", *view);
+        bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
     let mut consensus_write = consensus.write().await;
     let leaf = Leaf::from_quorum_proposal(&proposal.data);
@@ -568,20 +566,23 @@ async fn fetch_proposal<TYPES: NodeType>(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
 
-    if let Err(e) = consensus_write.update_validated_state_map(
-        view,
-        View {
-            view_inner: ViewInner::Leaf {
-                leaf: leaf.commit(),
-                state,
-                delta: None,
-            },
+    let view = View {
+        view_inner: ViewInner::Leaf {
+            leaf: leaf.commit(),
+            state,
+            delta: None,
         },
-    ) {
+    };
+    if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
         tracing::trace!("{e:?}");
     }
 
     consensus_write.update_saved_leaves(leaf.clone());
+    broadcast_event(
+        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
+        &event_stream,
+    )
+    .await;
     Ok(leaf)
 }
 
