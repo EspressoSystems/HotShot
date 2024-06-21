@@ -236,7 +236,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(_) => {
-                        // Handled by the UpdateHighQc event.
+                        // Handled by the HighQcUpdated event.
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {

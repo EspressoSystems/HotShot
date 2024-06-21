@@ -426,8 +426,8 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::LastDecidedViewUpdated(view_number) => {
                 write!(f, "LastDecidedViewUpdated(view_number={view_number:?})")
             }
-            HotShotEvent::UpdateHighQc(cert) => {
-                write!(f, "UpdateHighQc(view_number={:?})", cert.view_number())
+            HotShotEvent::HighQcUpdated(cert) => {
+                write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
             }
         }
     }
