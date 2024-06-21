@@ -1338,6 +1338,7 @@
 <a href="#1336" id="1336">1336</a>
 <a href="#1337" id="1337">1337</a>
 <a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -1349,7 +1350,8 @@
 <span class="kw">use </span>async_broadcast::{broadcast, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_types::{

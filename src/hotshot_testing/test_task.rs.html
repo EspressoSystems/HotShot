@@ -177,7 +177,7 @@
     <span class="doccomment">/// the test task passed
     </span>Pass,
     <span class="doccomment">/// the test task failed with an error
-    </span>Fail(Box&lt;<span class="kw">dyn </span>snafu::Error + Send + Sync&gt;),
+    </span>Fail(Box&lt;<span class="kw">dyn </span>std::fmt::Debug + Send + Sync&gt;),
 }
 
 <span class="attr">#[async_trait]
