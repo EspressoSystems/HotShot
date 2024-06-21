@@ -327,7 +327,7 @@ jobs:
             ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-push-cdn docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./docker/validator-cdn.Dockerfile
