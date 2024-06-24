@@ -79,19 +79,8 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// The most recent upgrade certificate this node formed.
-    /// Note: this is ONLY for certificates that have been formed internally,
-    /// so that we can propose with them.
-    ///
-    /// Certificates received from other nodes will get reattached regardless of this fields,
-    /// since they will be present in the leaf we propose off of.
-    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-
     /// last View Sync Certificate or Timeout Certificate this node formed.
     pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-
-    /// most recent decided upgrade certificate
-    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
@@ -105,6 +94,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
     /// Current version of consensus
     pub version: Version,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {

@@ -17,6 +17,7 @@ use hotshot_types::{
     data::{Leaf, VidDisperseShare},
     event::Event,
     message::Proposal,
+    simple_certificate::UpgradeCertificate,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
@@ -389,6 +390,9 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// The curent version of HotShot
     pub version: Version,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {

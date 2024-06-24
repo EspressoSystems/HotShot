@@ -15,6 +15,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     event::Event,
+    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -88,6 +89,17 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Current version of consensus
     pub version: Version,
+
+    /// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -310,6 +322,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: Arc::clone(&self.consensus),
                 version: self.version,
+                formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
+                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
             },
         );
         self.proposal_dependencies
@@ -351,6 +365,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         match event.as_ref() {
             HotShotEvent::VersionUpgrade(version) => {
                 self.version = *version;
+            }
+            HotShotEvent::UpgradeCertificateFormed(cert) => {
+                debug!(
+                    "Upgrade certificate received for view {}!",
+                    *cert.view_number
+                );
+
+                // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
+                if cert.data.decide_by >= self.latest_proposed_view + 3 {
+                    debug!("Updating current formed_upgrade_certificate");
+
+                    self.formed_upgrade_certificate = Some(cert.clone());
+                }
             }
             HotShotEvent::QcFormed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
