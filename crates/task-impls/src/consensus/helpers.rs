@@ -7,7 +7,7 @@ use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
+#[cfg(all(async_executor_impl = "tokio", not(feature = "dependency-tasks")))]
 use async_std::task::JoinHandle;
 use committable::{Commitment, Committable};
 use hotshot_types::{
@@ -23,7 +23,7 @@ use hotshot_types::{
     utils::{Terminator, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(async_executor_impl = "tokio")]
+#[cfg(all(async_executor_impl = "tokio", not(feature = "dependency-tasks")))]
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
 #[cfg(not(feature = "dependency-tasks"))]

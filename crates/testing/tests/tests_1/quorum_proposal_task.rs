@@ -1,29 +1,20 @@
 #![cfg(feature = "dependency-tasks")]
 
 use std::time::Duration;
+
 use futures::StreamExt;
-use hotshot::tasks::task_state::CreateTaskState;
-use hotshot::traits::ValidatedState;
-use hotshot_example_types::state_types::TestValidatedState;
+use hotshot::{tasks::task_state::CreateTaskState, traits::ValidatedState};
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
-
+    state_types::TestValidatedState,
 };
 use hotshot_macros::{run_test, test_scripts};
-use hotshot_task_impls::{
-    events::HotShotEvent::*,
-    quorum_proposal::QuorumProposalTaskState,
-};
+use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
     all_predicates,
-    helpers::{
-        build_fake_view_with_leaf, build_system_handle,
-        vid_scheme_from_view_number,
-    },
-    predicates::{
-        event::{all_predicates, exact, quorum_proposal_send},
-    },
+    helpers::{build_fake_view_with_leaf, build_system_handle, vid_scheme_from_view_number},
+    predicates::event::{all_predicates, exact, quorum_proposal_send},
     random,
     script::{Expectations, InputOrder, TaskScript},
     serial,
@@ -32,10 +23,7 @@ use hotshot_testing::{
 use hotshot_types::{
     data::{null_block, Leaf, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, ViewSyncFinalizeData},
-    traits::{
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
-    },
+    traits::node_implementation::{ConsensusTime, NodeType},
     utils::BuilderCommitment,
     vid::VidSchemeType,
     vote::HasViewNumber,
@@ -100,7 +88,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     drop(consensus_writer);
 
     let inputs = vec![
-        serial![VidDisperseSend(vid_dispersals[0].clone(), handle.public_key())],
+        serial![VidDisperseSend(
+            vid_dispersals[0].clone(),
+            handle.public_key()
+        )],
         random![
             QcFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
@@ -108,7 +99,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
@@ -173,7 +164,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
                 build_fake_view_with_leaf(view.leaf.clone()),
-            ).unwrap();
+            )
+            .unwrap();
     }
 
     // We need to handle the views where we aren't the leader to ensure that the states are
@@ -197,7 +189,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -213,7 +205,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -229,7 +221,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -245,7 +237,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -261,7 +253,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -283,9 +275,9 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         Expectations::from_outputs(all_predicates![exact(UpdateHighQc(
             proposals[3].data.justify_qc.clone(),
         ))]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
-        ]),
+        Expectations::from_outputs(all_predicates![exact(UpdateHighQc(
+            proposals[4].data.justify_qc.clone()
+        )),]),
     ];
 
     let quorum_proposal_task_state =
@@ -354,7 +346,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(3),
-            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            null_block::builder_fee().unwrap(),
         ),
         VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
         ValidatedStateUpdated(
@@ -435,7 +427,7 @@ async fn test_quorum_proposal_task_view_sync() {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(2),
-            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            null_block::builder_fee().unwrap(),
         ),
         VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
         ValidatedStateUpdated(
@@ -493,7 +485,8 @@ async fn test_quorum_proposal_task_liveness_check() {
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
                 build_fake_view_with_leaf(view.leaf.clone()),
-            ).unwrap();
+            )
+            .unwrap();
     }
     drop(consensus_writer);
 
@@ -516,7 +509,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -532,7 +525,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -548,7 +541,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -556,7 +549,6 @@ async fn test_quorum_proposal_task_liveness_check() {
                 build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
-
         random![
             QuorumProposalRecv(proposals[2].clone(), leaders[2]),
             QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
@@ -565,7 +557,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -581,7 +573,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -603,9 +595,9 @@ async fn test_quorum_proposal_task_liveness_check() {
         Expectations::from_outputs(vec![exact(UpdateHighQc(
             proposals[3].data.justify_qc.clone(),
         ))]),
-        Expectations::from_outputs(vec![
-            exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
-        ]),
+        Expectations::from_outputs(vec![exact(UpdateHighQc(
+            proposals[4].data.justify_qc.clone(),
+        ))]),
     ];
 
     let quorum_proposal_task_state =
@@ -644,7 +636,10 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // We run the task here at view 2, but this time we ignore the crucial piece of evidence: the
     // payload commitment and metadata. Instead we send only one of the three "OR" required fields.
     // This should result in the proposal failing to be sent.
-    let inputs = vec![serial![QuorumProposalRecv(proposals[1].clone(), leaders[1])]];
+    let inputs = vec![serial![QuorumProposalRecv(
+        proposals[1].clone(),
+        leaders[1]
+    )]];
 
     let expectations = vec![Expectations::from_outputs(vec![])];
 
@@ -658,4 +653,3 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     };
     run_test![inputs, script].await;
 }
-
