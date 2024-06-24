@@ -166,21 +166,6 @@ where
             }
             .boxed()
         })?
-        .get("claim_header_input", |req, state| {
-            async move {
-                let block_hash: BuilderCommitment = req.blob_param("block_hash")?;
-                let view_number = req.integer_param("view_number")?;
-                let signature = try_extract_param(&req, "signature")?;
-                let sender = try_extract_param(&req, "sender")?;
-                state
-                    .claim_block_header_input(&block_hash, view_number, sender, &signature)
-                    .await
-                    .context(BlockClaimSnafu {
-                        resource: block_hash.to_string(),
-                    })
-            }
-            .boxed()
-        })?
         .get("builder_address", |_req, state| {
             async move { state.builder_address().await.context(BuilderAddressSnafu) }.boxed()
         })?;

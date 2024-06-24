@@ -7,12 +7,10 @@ use std::{
 use ark_serialize::SerializationError;
 use bitvec::prelude::*;
 use ethereum_types::U256;
-use jf_vid::VidScheme;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tagged_base64::TaggedBase64;
 
-use super::EncodeBytes;
-use crate::{utils::BuilderCommitment, vid::VidSchemeType};
+use crate::utils::BuilderCommitment;
 
 /// Type representing stake table entries in a `StakeTable`
 pub trait StakeTableEntryType {
@@ -191,16 +189,15 @@ pub trait BuilderSignatureKey:
     fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool;
 
     /// validate signature over fee information with the builder's public key
-    fn validate_fee_signature<Metadata: EncodeBytes>(
+    fn validate_block_data_signature(
         &self,
         signature: &Self::BuilderSignature,
+        payload_commitment: &BuilderCommitment,
         fee_amount: u64,
-        metadata: &Metadata,
-        vid_commitment: &<VidSchemeType as VidScheme>::Commit,
     ) -> bool {
         self.validate_builder_signature(
             signature,
-            &aggregate_fee_data(fee_amount, metadata, vid_commitment),
+            &aggregate_block_data(payload_commitment, fee_amount),
         )
     }
 
@@ -226,18 +223,17 @@ pub trait BuilderSignatureKey:
         data: &[u8],
     ) -> Result<Self::BuilderSignature, Self::SignError>;
 
-    /// sign fee offer for proposed payload
+    /// sign block payload
     /// # Errors
     /// If unable to sign the data with the key
-    fn sign_fee<Metadata: EncodeBytes>(
+    fn sign_block_data(
         private_key: &Self::BuilderPrivateKey,
+        payload_commitment: &BuilderCommitment,
         fee_amount: u64,
-        metadata: &Metadata,
-        vid_commitment: &<VidSchemeType as VidScheme>::Commit,
     ) -> Result<Self::BuilderSignature, Self::SignError> {
         Self::sign_builder_message(
             private_key,
-            &aggregate_fee_data(fee_amount, metadata, vid_commitment),
+            &aggregate_block_data(payload_commitment, fee_amount),
         )
     }
 
@@ -261,15 +257,10 @@ pub trait BuilderSignatureKey:
 }
 
 /// Aggregate all inputs used for signature over fee data
-fn aggregate_fee_data<Metadata: EncodeBytes>(
-    fee_amount: u64,
-    metadata: &Metadata,
-    vid_commitment: &<VidSchemeType as VidScheme>::Commit,
-) -> Vec<u8> {
+fn aggregate_block_data(payload_commitment: &BuilderCommitment, fee_amount: u64) -> Vec<u8> {
     let mut fee_info = Vec::new();
+    fee_info.extend_from_slice(payload_commitment.as_ref());
     fee_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
-    fee_info.extend_from_slice(metadata.encode().as_ref());
-    fee_info.extend_from_slice(vid_commitment.as_ref());
     fee_info
 }
 

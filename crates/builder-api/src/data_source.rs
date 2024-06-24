@@ -7,7 +7,7 @@ use hotshot_types::{
 };
 
 use crate::{
-    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    block_info::{AvailableBlockData, AvailableBlockInfo},
     builder::BuildError,
 };
 
@@ -30,15 +30,6 @@ pub trait BuilderDataSource<TYPES: NodeType> {
         sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<AvailableBlockData<TYPES>, BuildError>;
-
-    /// To claim a block header input
-    async fn claim_block_header_input(
-        &self,
-        block_hash: &BuilderCommitment,
-        view_number: u64,
-        sender: TYPES::SignatureKey,
-        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> Result<AvailableBlockHeaderInput<TYPES>, BuildError>;
 
     /// To get the builder address
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError>;

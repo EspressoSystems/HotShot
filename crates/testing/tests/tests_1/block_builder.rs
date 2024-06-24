@@ -33,7 +33,6 @@ async fn test_random_block_builder() {
     let port = portpicker::pick_unused_port().expect("No free ports");
     let api_url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
     let task: Box<dyn BuilderTask<TestTypes>> = RandomBuilderImplementation::start(
-        1,
         api_url.clone(),
         RandomBuilderConfig {
             blocks_per_second: u32::MAX,

@@ -542,8 +542,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> Option<()> {
         let consensus = consensus.upgradable_read().await;
         let txns = consensus.saved_payloads().get(&view)?;
-        let vid =
-            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
+        let vid = VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         for share in shares {

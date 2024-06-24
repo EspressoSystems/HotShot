@@ -18,7 +18,7 @@ use async_std::task::spawn_blocking;
 use bincode::Options;
 use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
-use jf_vid::{precomputable::Precomputable, VidDisperse as JfVidDisperse, VidScheme};
+use jf_vid::{VidDisperse as JfVidDisperse, VidScheme};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -43,7 +43,7 @@ use crate::{
         BlockPayload,
     },
     utils::bincode_opts,
-    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -180,8 +180,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         }
     }
 
-    /// Calculate the vid disperse information from the payload given a view and membership,
-    /// optionally using precompute data from builder
+    /// Calculate the vid disperse information from the payload given a view and membership.
     ///
     /// # Panics
     /// Panics if the VID calculation fails, this should not happen.
@@ -190,17 +189,11 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         txns: Arc<[u8]>,
         membership: &Arc<TYPES::Membership>,
         view: TYPES::Time,
-        precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
         let num_nodes = membership.total_nodes();
 
         let vid_disperse = spawn_blocking(move || {
-            precompute_data
-                .map_or_else(
-                    || vid_scheme(num_nodes).disperse(Arc::clone(&txns)),
-                    |data| vid_scheme(num_nodes).disperse_precompute(Arc::clone(&txns), &data)
-                )
-                .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
+            vid_scheme(num_nodes).disperse(Arc::clone(&txns)).unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
         }).await;
         #[cfg(async_executor_impl = "tokio")]
         // Tokio's JoinHandle's `Output` is `Result<T, JoinError>`, while in async-std it's just `T`
@@ -774,7 +767,7 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
+    pub fn builder_fee<TYPES: NodeType>() -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
 
@@ -783,14 +776,13 @@ pub mod null_block {
                 [0_u8; 32], 0,
             );
 
-        let (_null_block, null_block_metadata) =
+        let (null_block, null_block_metadata) =
             <TYPES::BlockPayload as BlockPayload<TYPES>>::empty();
 
-        match TYPES::BuilderSignatureKey::sign_fee(
+        match TYPES::BuilderSignatureKey::sign_block_data(
             &priv_key,
+            &null_block.builder_commitment(&null_block_metadata),
             FEE_AMOUNT,
-            &null_block_metadata,
-            &commitment(num_storage_nodes)?,
         ) {
             Ok(sig) => Some(BuilderFee {
                 fee_amount: FEE_AMOUNT,

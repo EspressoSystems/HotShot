@@ -52,13 +52,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::BlockRecv(
-                encoded_transactions,
-                metadata,
-                view_number,
-                fee,
-                precompute_data,
-            ) => {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view_number, fee) => {
                 let payload =
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
@@ -66,7 +60,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
-                    Some(precompute_data.clone()),
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;

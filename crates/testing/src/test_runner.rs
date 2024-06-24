@@ -296,7 +296,6 @@ where
             let builder_url =
                 Url::parse(&format!("http://localhost:{builder_port}")).expect("Valid URL");
             let builder_task = B::start(
-                config.num_nodes_with_stake.into(),
                 builder_url.clone(),
                 B::Config::default(),
                 metadata.changes.clone(),

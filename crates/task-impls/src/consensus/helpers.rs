@@ -3,9 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{events::ProposalMissing, request::REQUEST_TIMEOUT};
-use anyhow::bail;
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
@@ -52,7 +50,11 @@ use {
     vbs::version::Version,
 };
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
+use crate::{
+    events::{HotShotEvent, ProposalMissing},
+    helpers::broadcast_event,
+    request::REQUEST_TIMEOUT,
+};
 
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
