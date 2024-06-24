@@ -434,6 +434,12 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Display, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Sender;
@@ -630,6 +636,9 @@
 
     <span class="doccomment">/// A new high_qc has been reached by this node.
     </span>UpdateHighQc(QuorumCertificate&lt;TYPES&gt;),
+
+    <span class="doccomment">/// A new high_qc has been updated in `Consensus`.
+    </span>HighQcUpdated(QuorumCertificate&lt;TYPES&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>HotShotEvent&lt;TYPES&gt; {
@@ -864,6 +873,9 @@
             }
             HotShotEvent::UpdateHighQc(cert) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"UpdateHighQc(view_number={:?})"</span>, cert.view_number())
+            }
+            HotShotEvent::HighQcUpdated(cert) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"HighQcUpdated(view_number={:?})"</span>, cert.view_number())
             }
         }
     }

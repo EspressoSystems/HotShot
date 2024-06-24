@@ -499,6 +499,13 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -606,7 +613,7 @@
                 <span class="kw">let </span>event = event.as_ref();
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
                     ProposalDependency::Qc =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::UpdateHighQc(qc) = event {
+                        <span class="kw">if let </span>HotShotEvent::HighQcUpdated(qc) = event {
                             qc.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -730,7 +737,7 @@
             HotShotEvent::VidDisperseSend(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 vid_share_dependency.mark_as_completed(event);
             }
-            HotShotEvent::UpdateHighQc(<span class="kw">_</span>) =&gt; {
+            HotShotEvent::HighQcUpdated(<span class="kw">_</span>) =&gt; {
                 qc_dependency.mark_as_completed(event);
             }
             <span class="kw">_ </span>=&gt; {}
@@ -955,6 +962,13 @@
                     <span class="macro">warn!</span>(<span class="string">"Failed to store High QC of QC we formed; error = {:?}"</span>, e);
                 }
 
+                broadcast_event(
+                    HotShotEvent::HighQcUpdated(qc.clone()).into(),
+                    <span class="kw-2">&amp;</span>event_sender,
+                )
+                .<span class="kw">await</span>;
+            }
+            HotShotEvent::HighQcUpdated(qc) =&gt; {
                 <span class="kw">let </span>view_number = qc.view_number() + <span class="number">1</span>;
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
