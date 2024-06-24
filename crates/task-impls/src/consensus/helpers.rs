@@ -7,7 +7,7 @@ use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
-#[cfg(all(async_executor_impl = "tokio", not(feature = "dependency-tasks")))]
+#[cfg(all(async_executor_impl = "async-std", not(feature = "dependency-tasks")))]
 use async_std::task::JoinHandle;
 use committable::{Commitment, Committable};
 use hotshot_types::{
