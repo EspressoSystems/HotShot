@@ -87,8 +87,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// The node's id
     pub id: u64,
 
-    /// Current version of consensus
-    pub version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
 
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
@@ -321,7 +321,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: Arc::clone(&self.consensus),
-                version: self.version,
+                version: Arc::clone(&self.version),
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
             },
@@ -363,9 +363,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::VersionUpgrade(version) => {
-                self.version = *version;
-            }
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",

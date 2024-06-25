@@ -84,8 +84,8 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
     /// Shared consensus task state
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
 
-    /// The current version of consensus
-    pub version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
 
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
@@ -166,7 +166,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             commitment_and_metadata.metadata,
             commitment_and_metadata.fee,
             vid_share.data.common.clone(),
-            self.version,
+            *self.version.read().await,
         )
         .await
         .context("Failed to construct block header")?;
