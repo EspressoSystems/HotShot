@@ -713,7 +713,7 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
     }
 }
 /// default number of rounds to run
-pub const ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = 10;
+pub const ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = 100;
 /// default number of transactions per round
 pub const ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND: usize = 10;
 /// default size of transactions
