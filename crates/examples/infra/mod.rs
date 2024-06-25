@@ -40,7 +40,6 @@ use hotshot_orchestrator::{
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{
         BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
-        WebServerConfig,
     },
 };
 use hotshot_testing::block_builder::{
