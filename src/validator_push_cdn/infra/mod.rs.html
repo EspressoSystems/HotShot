@@ -1100,37 +1100,6 @@
 <a href="#1098" id="1098">1098</a>
 <a href="#1099" id="1099">1099</a>
 <a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::HashMap,
@@ -1173,7 +1142,6 @@
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{
         BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
-        WebServerConfig,
     },
 };
 <span class="kw">use </span>hotshot_testing::block_builder::{
@@ -1301,22 +1269,6 @@
                 .required(<span class="bool-val">false</span>),
         )
         .arg(
-            Arg::new(<span class="string">"webserver_url"</span>)
-                .short(<span class="string">'w'</span>)
-                .long(<span class="string">"webserver_url"</span>)
-                .value_name(<span class="string">"URL"</span>)
-                .help(<span class="string">"Sets the url of the webserver"</span>)
-                .required(<span class="bool-val">false</span>),
-        )
-        .arg(
-            Arg::new(<span class="string">"da_webserver_url"</span>)
-                .short(<span class="string">'a'</span>)
-                .long(<span class="string">"da_webserver_url"</span>)
-                .value_name(<span class="string">"URL"</span>)
-                .help(<span class="string">"Sets the url of the da webserver"</span>)
-                .required(<span class="bool-val">false</span>),
-        )
-        .arg(
             Arg::new(<span class="string">"fixed_leader_for_gpuvid"</span>)
                 .short(<span class="string">'f'</span>)
                 .long(<span class="string">"fixed_leader_for_gpuvid"</span>)
@@ -1386,20 +1338,6 @@
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(orchestrator_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"orchestrator_url"</span>) {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
-    }
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(webserver_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"webserver_url"</span>) {
-        <span class="kw">let </span>updated_web_server_config = WebServerConfig {
-            url: Url::parse(webserver_url_string).unwrap(),
-            wait_between_polls: config.web_server_config.unwrap().wait_between_polls,
-        };
-        config.web_server_config = <span class="prelude-val">Some</span>(updated_web_server_config);
-    }
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(da_webserver_url_string) = matches.get_one::&lt;String&gt;(<span class="string">"da_webserver_url"</span>) {
-        <span class="kw">let </span>updated_da_web_server_config = WebServerConfig {
-            url: Url::parse(da_webserver_url_string).unwrap(),
-            wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
-        };
-        config.da_web_server_config = <span class="prelude-val">Some</span>(updated_da_web_server_config);
     }
     <span class="kw">if let </span><span class="prelude-val">Some</span>(builder_type) = matches.get_one::&lt;BuilderType&gt;(<span class="string">"builder"</span>) {
         config.builder = <span class="kw-2">*</span>builder_type;
