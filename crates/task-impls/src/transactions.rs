@@ -194,18 +194,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                     };
 
                     broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::<TYPES> {
-                            encoded_transactions: block_data.block_payload.encode(),
-                            metadata: block_data.metadata,
-                            view_number: block_view,
-                            bid_fees: vec1::vec1![BuilderFee {
+                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
+                            block_data.block_payload.encode(),
+                            block_data.metadata,
+                            block_view,
+                            vec1::vec1![BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
                                 fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
                             },],
-                            sequencing_fees: vec1::vec1![sequencing_fee],
-                            vid_precompute: block_header.vid_precompute_data,
-                        })),
+                            vec1::vec1![sequencing_fee],
+                            block_header.vid_precompute_data,
+                        ))),
                         &event_stream,
                     )
                     .await;
@@ -247,14 +247,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
                     // Broadcast the empty block
                     broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::<TYPES> {
-                            encoded_transactions: vec![].into(),
+                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
+                            vec![].into(),
                             metadata,
-                            view_number: block_view,
-                            bid_fees: vec1::vec1![bid_fee],
-                            sequencing_fees: vec1::vec1![sequencing_fee],
-                            vid_precompute: precompute_data,
-                        })),
+                            block_view,
+                            vec1::vec1![bid_fee],
+                            vec1::vec1![sequencing_fee],
+                            precompute_data,
+                        ))),
                         &event_stream,
                     )
                     .await;
