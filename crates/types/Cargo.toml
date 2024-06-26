@@ -60,8 +60,10 @@ vec1 = { workspace = true }
 serde_json = { workspace = true }
 
 [features]
+default = ["novid"]
 gpu-vid = ["jf-vid/gpu-vid"]
 test-srs = ["jf-vid/test-srs"]
+novid = []
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
