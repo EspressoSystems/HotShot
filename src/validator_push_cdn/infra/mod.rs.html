@@ -1202,7 +1202,7 @@
     <span class="comment">// assign default setting
     </span><span class="kw">let </span><span class="kw-2">mut </span>orchestrator_url = Url::parse(<span class="string">"http://localhost:4444"</span>).unwrap();
     <span class="kw">let </span><span class="kw-2">mut </span>args = ConfigArgs::default();
-    <span class="comment">// start reading from command line
+    <span class="comment">// start reading from the command line
     </span><span class="kw">let </span>matches = Command::new(<span class="string">"orchestrator"</span>)
         .arg(
             Arg::new(<span class="string">"config_file"</span>)
