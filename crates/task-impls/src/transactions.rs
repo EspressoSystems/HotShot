@@ -3,6 +3,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::{
+    builder::BuilderClient,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
@@ -15,7 +20,7 @@ use hotshot_builder_api::block_info::{
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
-    data::{null_block, Leaf},
+    data::{null_block, Leaf, PackedBundle},
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -30,12 +35,6 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument, warn};
 use vbs::version::StaticVersionType;
-
-use crate::{
-    builder::BuilderClient,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 
 // Parameters for builder querying algorithm
 
@@ -62,6 +61,22 @@ pub struct BuilderResponses<TYPES: NodeType> {
     /// Third API response
     /// It contains the final block information
     pub block_header: AvailableBlockHeaderInput<TYPES>,
+}
+
+/// The Bundle for a portion of a block, provided by a downstream builder that exists in a bundle
+/// auction.
+pub struct Bundle<TYPES: NodeType> {
+    /// The bundle transactions sent by the builder.
+    pub transactions: Vec<<TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction>,
+
+    /// The signature over the bundle.
+    pub signature: TYPES::SignatureKey,
+
+    /// The fee for submitting a bid.
+    pub bid_fee: BuilderFee<TYPES>,
+
+    /// The fee for sequencing
+    pub sequencing_fee: BuilderFee<TYPES>,
 }
 
 /// Tracks state of a Transaction task
@@ -171,18 +186,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                     block_header,
                 }) = block
                 {
+                    let Some(sequencing_fee) =
+                        null_block::builder_fee(self.membership.total_nodes())
+                    else {
+                        error!("Failed to get sequencing fee");
+                        return None;
+                    };
+
                     broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(
-                            block_data.block_payload.encode(),
-                            block_data.metadata,
-                            block_view,
-                            BuilderFee {
+                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::<TYPES> {
+                            encoded_transactions: block_data.block_payload.encode(),
+                            metadata: block_data.metadata,
+                            view_number: block_view,
+                            bid_fees: vec1::vec1![BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
                                 fee_account: block_data.sender,
                                 fee_signature: block_header.fee_signature,
-                            },
-                            block_header.vid_precompute_data,
-                        )),
+                            },],
+                            sequencing_fees: vec1::vec1![sequencing_fee],
+                            vid_precompute: block_header.vid_precompute_data,
+                        })),
                         &event_stream,
                     )
                     .await;
@@ -204,8 +227,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                     let membership_total_nodes = self.membership.total_nodes();
 
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) = null_block::builder_fee(membership_total_nodes) else {
-                        error!("Failed to get builder fee");
+                    let Some(bid_fee) = null_block::builder_fee(membership_total_nodes) else {
+                        error!("Failed to get bid fee");
+                        return None;
+                    };
+
+                    let Some(sequencing_fee) =
+                        null_block::builder_fee(self.membership.total_nodes())
+                    else {
+                        error!("Failed to get sequencing fee");
                         return None;
                     };
 
@@ -217,13 +247,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
                     // Broadcast the empty block
                     broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(
-                            vec![].into(),
+                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::<TYPES> {
+                            encoded_transactions: vec![].into(),
                             metadata,
-                            block_view,
-                            builder_fee,
-                            precompute_data,
-                        )),
+                            view_number: block_view,
+                            bid_fees: vec1::vec1![bid_fee],
+                            sequencing_fees: vec1::vec1![sequencing_fee],
+                            vid_precompute: precompute_data,
+                        })),
                         &event_stream,
                     )
                     .await;

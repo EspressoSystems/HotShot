@@ -25,6 +25,7 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
+use vec1::Vec1;
 
 use crate::{
     message::Proposal,
@@ -34,7 +35,8 @@ use crate::{
     simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
         block_contents::{
-            vid_commitment, BlockHeader, EncodeBytes, TestableBlock, GENESIS_VID_NUM_STORAGE_NODES,
+            vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
+            GENESIS_VID_NUM_STORAGE_NODES,
         },
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -800,4 +802,26 @@ pub mod null_block {
             Err(_) => None,
         }
     }
+}
+
+/// A packed bundle constructed from a sequence of bundles.
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct PackedBundle<TYPES: NodeType> {
+    /// The combined transactions as bytes.
+    pub encoded_transactions: Arc<[u8]>,
+
+    /// The metadata of the block.
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+
+    /// The view number that this block is associated with.
+    pub view_number: TYPES::Time,
+
+    /// The bid fees for submitting the block.
+    pub bid_fees: Vec1<BuilderFee<TYPES>>,
+
+    /// The sequencing fee for submitting bundles.
+    pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
+
+    /// The Vid precompute for the block.
+    pub vid_precompute: VidPrecomputeData,
 }
