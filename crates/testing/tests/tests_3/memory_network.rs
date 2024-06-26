@@ -14,6 +14,7 @@ use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
+    auction_results_types::TestAuctionResults,
 };
 use hotshot_types::traits::network::BroadcastDelay;
 use hotshot_types::{
@@ -66,6 +67,7 @@ impl NodeImplementation<Test> for TestImpl {
     type QuorumNetwork = QuorumNetwork;
     type DaNetwork = DaNetwork;
     type Storage = TestStorage<Test>;
+    type AuctionResults = TestAuctionResults;
 }
 
 /// fake Eq

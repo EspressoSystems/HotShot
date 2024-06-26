@@ -11,6 +11,7 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    auction_results_types::TestAuctionResults,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
@@ -71,22 +72,26 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for PushCdnImpl {
     type QuorumNetwork = PushCdnNetwork<TYPES>;
     type DaNetwork = PushCdnNetwork<TYPES>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResults = TestAuctionResults;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for MemoryImpl {
     type QuorumNetwork = MemoryNetwork<TYPES::SignatureKey>;
     type DaNetwork = MemoryNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResults = TestAuctionResults;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for CombinedImpl {
     type QuorumNetwork = CombinedNetworks<TYPES>;
     type DaNetwork = CombinedNetworks<TYPES>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResults = TestAuctionResults;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type QuorumNetwork = Libp2pNetwork<TYPES::SignatureKey>;
     type DaNetwork = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResults = TestAuctionResults;
 }

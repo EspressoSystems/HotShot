@@ -1,5 +1,7 @@
 use hotshot::traits::{implementations::PushCdnNetwork, NodeImplementation};
-use hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
+use hotshot_example_types::{
+    auction_results_types::TestAuctionResults, state_types::TestTypes, storage_types::TestStorage,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::infra::PushCdnDaRun;
@@ -21,6 +23,7 @@ impl NodeImplementation<TestTypes> for NodeImpl {
     type DaNetwork = DaNetwork;
     type QuorumNetwork = QuorumNetwork;
     type Storage = TestStorage<TestTypes>;
+    type AuctionResults = TestAuctionResults;
 }
 
 /// Convenience type alias
