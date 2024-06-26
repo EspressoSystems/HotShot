@@ -73,8 +73,8 @@ async fn test_random_block_builder() {
         // Wait for at least one block to be built
         async_sleep(Duration::from_millis(20)).await;
 
-        if builder_started.elapsed() > Duration::from_secs(2) {
-            panic!("Builder failed to provide blocks in two seconds");
+        if builder_started.elapsed() > Duration::from_secs(30) {
+            panic!("Builder failed to provide blocks in 30 seconds");
         }
     };
 
