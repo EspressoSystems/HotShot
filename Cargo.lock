@@ -2113,9 +2113,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "6.0.0"
+version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23fadfd577acfd4485fb258011b0fd080882ea83359b6fd41304900b94ccf487"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
 dependencies = [
  "cfg-if",
  "crossbeam-utils",
@@ -3170,7 +3170,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3188,7 +3188,7 @@ dependencies = [
  "clap",
  "committable",
  "custom_debug",
- "dashmap 6.0.0",
+ "dashmap 6.0.1",
  "derive_more",
  "either",
  "ethereum-types",
@@ -3235,7 +3235,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3265,7 +3265,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3282,7 +3282,7 @@ dependencies = [
  "clap",
  "committable",
  "custom_debug",
- "dashmap 6.0.0",
+ "dashmap 6.0.1",
  "derive_more",
  "either",
  "futures",
@@ -3314,7 +3314,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3324,7 +3324,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3353,7 +3353,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3374,7 +3374,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3388,7 +3388,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3422,7 +3422,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4624,7 +4624,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.58"
+version = "0.5.59"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
