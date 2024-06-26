@@ -1,23 +1,25 @@
 use anyhow::{bail, Result};
 use async_trait::async_trait;
 use hotshot_types::traits::{
-    auction_results::{AuctionResults, HasBuilderUrl},
+    auction_results::{AuctionResults, HasUrl},
     node_implementation::NodeType,
 };
 use url::Url;
 
+/// A mock result for the auction solver. This type is just a pointer to a URL.
 #[derive(Debug)]
 pub struct TestAuctionSolverResult {
     /// The URL of the builder to reach out to.
     pub url: Url,
 }
 
-impl HasBuilderUrl for TestAuctionSolverResult {
-    fn builder_url(&self) -> Url {
+impl HasUrl for TestAuctionSolverResult {
+    fn url(&self) -> Url {
         self.url.clone()
     }
 }
 
+/// The test auction results type is used to mimic the results from the Solver.
 #[derive(Debug, Default)]
 pub struct TestAuctionResults {
     /// We intentionally allow for the results to be pre-cooked for the unit test to gurantee a
@@ -34,6 +36,8 @@ pub struct TestAuctionResults {
 impl<TYPES: NodeType> AuctionResults<TYPES> for TestAuctionResults {
     type AuctionSolverResult = TestAuctionSolverResult;
 
+    /// Mock fetching the auction results, with optional error injection to simulate failure cases
+    /// in the solver.
     async fn fetch_auction_result(
         self,
         _view_number: TYPES::Time,

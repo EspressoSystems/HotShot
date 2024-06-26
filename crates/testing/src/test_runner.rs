@@ -383,7 +383,7 @@ where
                     node_id,
                     LateStartNode {
                         networks,
-                        context: LateNodeContext::LateContext(LateNodeContextParameters {
+                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
                             storage,
                             memberships,
                             config,
@@ -510,6 +510,8 @@ pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
+/// This type combines all of the paramters needed to build the context for a node that started
+/// late during a unit test or integration test.
 pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The storage trait for Sequencer persistence.
     pub storage: I::Storage,
@@ -533,7 +535,7 @@ pub enum LateNodeContext<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
 
     /// The system context that we're passing to the node when it is not yet initialized, so we're
     /// initializing it based on the received leaf and init parameters.
-    LateContext(LateNodeContextParameters<TYPES, I>),
+    UninitializedContext(LateNodeContextParameters<TYPES, I>),
 }
 
 /// A yet-to-be-started node that participates in tests

@@ -6,12 +6,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 use url::Url;
 
-/// This trait guarantees that a particular type has a builder url associated with it. It is meant
-/// to be used with the AuctionSolverResult within [`AuctionResults`] to ensure that the returned
-/// data indeed points to a valid builder.
-pub trait HasBuilderUrl {
+/// This trait guarantees that a particular type has a url associated with it. This trait
+/// essentially ensures that the results returned by the [`AuctionResults`] trait includes a URL
+/// for the builder that HotShot must request from.
+pub trait HasUrl {
     /// Returns the builer url associated with the datatype
-    fn builder_url(&self) -> Url;
+    fn url(&self) -> Url;
 }
 
 /// The AuctionResults trait is the sole source of Solver-originated allocations, and returns
@@ -20,7 +20,7 @@ pub trait HasBuilderUrl {
 pub trait AuctionResults<TYPES: NodeType>: Send + Sync {
     /// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
-    type AuctionSolverResult: HasBuilderUrl;
+    type AuctionSolverResult: HasUrl;
 
     /// Fetches the auction result for a view. Does not cache the result,
     /// subsequent calls will invoke additional wasted calls.

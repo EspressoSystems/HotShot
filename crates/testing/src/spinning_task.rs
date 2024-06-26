@@ -109,7 +109,7 @@ where
                                     LateNodeContext::InitializedContext(context) => context,
                                     // Node not initialized. Initialize it
                                     // based on the received leaf.
-                                    LateNodeContext::LateContext(late_context_params) => {
+                                    LateNodeContext::UninitializedContext(late_context_params) => {
                                         // We'll deconstruct the individual terms here.
                                         let LateNodeContextParameters {
                                             storage,
