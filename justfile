@@ -113,7 +113,7 @@ test_with_failures:
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
 test_with_failures_dependency_tasks:
-  echo Testing nodes leaving the network
+  echo Testing nodes leaving the network with dependency tasks
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_with_failures -- --test-threads=1 --nocapture
 
 test_network_task:
@@ -149,8 +149,12 @@ test_view_sync_task:
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_view_sync_task -- --test-threads=1 --nocapture
 
 test_quorum_proposal_recv_task:
-  echo Testing the view sync task
+  echo Testing the quorum proposal recv task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
+
+test_upgrade_task:
+  echo Testing the upgrade task without dependency tasks
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_upgrade_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 
