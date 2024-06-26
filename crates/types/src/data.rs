@@ -825,3 +825,24 @@ pub struct PackedBundle<TYPES: NodeType> {
     /// The Vid precompute for the block.
     pub vid_precompute: VidPrecomputeData,
 }
+
+impl<TYPES: NodeType> PackedBundle<TYPES> {
+    /// Create a new [`PackedBundle`].
+    pub fn new(
+        encoded_transactions: Arc<[u8]>,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        view_number: TYPES::Time,
+        bid_fees: Vec1<BuilderFee<TYPES>>,
+        sequencing_fees: Vec1<BuilderFee<TYPES>>,
+        vid_precompute: VidPrecomputeData,
+    ) -> Self {
+        Self {
+            encoded_transactions,
+            metadata,
+            view_number,
+            bid_fees,
+            sequencing_fees,
+            vid_precompute,
+        }
+    }
+}
