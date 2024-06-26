@@ -6,9 +6,9 @@ use std::{
 use anyhow::Result;
 use async_lock::RwLock;
 use async_trait::async_trait;
-use futures::future::Either::{Left, Right};
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
 use hotshot_example_types::{
+    auction_results_types::TestAuctionResults,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -26,7 +26,7 @@ use hotshot_types::{
 use snafu::Snafu;
 
 use crate::{
-    test_runner::{LateStartNode, Node, TestRunner},
+    test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
     test_task::{TestResult, TestTaskState},
 };
 
@@ -61,7 +61,13 @@ impl<
     > TestTaskState for SpinningTask<TYPES, I>
 where
     I: TestableNodeImplementation<TYPES>,
-    I: NodeImplementation<TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage<TYPES>>,
+    I: NodeImplementation<
+        TYPES,
+        QuorumNetwork = N,
+        DaNetwork = N,
+        Storage = TestStorage<TYPES>,
+        AuctionResults = TestAuctionResults,
+    >,
 {
     type Event = Event<TYPES>;
 
@@ -100,10 +106,18 @@ where
                                 tracing::error!("Node {} spinning up late", idx);
                                 let node_id = idx.try_into().unwrap();
                                 let context = match node.context {
-                                    Left(context) => context,
+                                    LateNodeContext::InitializedContext(context) => context,
                                     // Node not initialized. Initialize it
                                     // based on the received leaf.
-                                    Right((storage, memberships, config)) => {
+                                    LateNodeContext::LateContext(late_context_params) => {
+                                        // We'll deconstruct the individual terms here.
+                                        let LateNodeContextParameters {
+                                            storage,
+                                            memberships,
+                                            config,
+                                            auction_results,
+                                        } = late_context_params;
+
                                         let initializer = HotShotInitializer::<TYPES>::from_reload(
                                             self.last_decided_leaf.clone(),
                                             TestInstanceState {},
@@ -131,6 +145,7 @@ where
                                             config,
                                             validator_config,
                                             storage,
+                                            auction_results,
                                         )
                                         .await
                                     }

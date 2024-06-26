@@ -30,6 +30,7 @@ use hotshot::{
     Memberships, Networks, SystemContext,
 };
 use hotshot_example_types::{
+    auction_results_types::TestAuctionResults,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
@@ -342,6 +343,7 @@ pub trait RunDa<
         QuorumNetwork = QUORUMNET,
         DaNetwork = DANET,
         Storage = TestStorage<TYPES>,
+        AuctionResults = TestAuctionResults,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -413,6 +415,7 @@ pub trait RunDa<
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::<TYPES>::default(),
+            TestAuctionResults::default(),
         )
         .await
         .expect("Could not init hotshot")
@@ -616,6 +619,7 @@ impl<
             QuorumNetwork = PushCdnNetwork<TYPES>,
             DaNetwork = PushCdnNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
+            AuctionResults = TestAuctionResults,
         >,
     > RunDa<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -703,6 +707,7 @@ impl<
             QuorumNetwork = Libp2pNetwork<TYPES::SignatureKey>,
             DaNetwork = Libp2pNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
+            AuctionResults = TestAuctionResults,
         >,
     > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, Libp2pNetwork<TYPES::SignatureKey>, NODE>
     for Libp2pDaRun<TYPES>
@@ -797,6 +802,7 @@ impl<
             QuorumNetwork = CombinedNetworks<TYPES>,
             DaNetwork = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
+            AuctionResults = TestAuctionResults,
         >,
     > RunDa<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
 where
@@ -884,6 +890,7 @@ pub async fn main_entry_point<
         QuorumNetwork = QUORUMCHANNEL,
         DaNetwork = DACHANNEL,
         Storage = TestStorage<TYPES>,
+        AuctionResults = TestAuctionResults,
     >,
     RUNDA: RunDa<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
 >(

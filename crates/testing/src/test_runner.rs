@@ -7,15 +7,13 @@ use std::{
 
 use async_broadcast::broadcast;
 use async_lock::RwLock;
-use futures::future::{
-    join_all, Either,
-    Either::{Left, Right},
-};
+use futures::future::join_all;
 use hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
 };
 use hotshot_example_types::{
+    auction_results_types::TestAuctionResults,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -61,7 +59,13 @@ impl<
     > TestRunner<TYPES, I, N>
 where
     I: TestableNodeImplementation<TYPES>,
-    I: NodeImplementation<TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage<TYPES>>,
+    I: NodeImplementation<
+        TYPES,
+        QuorumNetwork = N,
+        DaNetwork = N,
+        Storage = TestStorage<TYPES>,
+        AuctionResults = TestAuctionResults,
+    >,
 {
     /// execute test
     ///
@@ -363,6 +367,7 @@ where
 
             let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
+            let auction_results = (self.launcher.resource_generator.auction_results)(node_id);
 
             let network0 = networks.0.clone();
             let network1 = networks.1.clone();
@@ -378,7 +383,12 @@ where
                     node_id,
                     LateStartNode {
                         networks,
-                        context: Right((storage, memberships, config)),
+                        context: LateNodeContext::LateContext(LateNodeContextParameters {
+                            storage,
+                            memberships,
+                            config,
+                            auction_results,
+                        }),
                     },
                 );
             } else {
@@ -400,6 +410,7 @@ where
                     config,
                     validator_config,
                     storage,
+                    auction_results,
                 )
                 .await;
                 if late_start.contains(&node_id) {
@@ -407,7 +418,7 @@ where
                         node_id,
                         LateStartNode {
                             networks,
-                            context: Left(hotshot),
+                            context: LateNodeContext::InitializedContext(hotshot),
                         },
                     );
                 } else {
@@ -453,6 +464,7 @@ where
     /// add a specific node with a config
     /// # Panics
     /// if unable to initialize the node's `SystemContext` based on the config
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_node_with_config(
         node_id: u64,
         networks: Networks<TYPES, I>,
@@ -461,6 +473,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
         storage: I::Storage,
+        auction_results: I::AuctionResults,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
@@ -482,6 +495,7 @@ where
             initializer,
             ConsensusMetricsValue::default(),
             storage,
+            auction_results,
         )
     }
 }
@@ -496,15 +510,31 @@ pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
-/// Either the node context or the parameters to construct the context for nodes that start late.
-pub type LateNodeContext<TYPES, I> = Either<
-    Arc<SystemContext<TYPES, I>>,
-    (
-        <I as NodeImplementation<TYPES>>::Storage,
-        Memberships<TYPES>,
-        HotShotConfig<<TYPES as NodeType>::SignatureKey>,
-    ),
->;
+pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The storage trait for Sequencer persistence.
+    pub storage: I::Storage,
+
+    /// The memberships of this particular node.
+    pub memberships: Memberships<TYPES>,
+
+    /// The config associted with this node.
+    pub config: HotShotConfig<TYPES::SignatureKey>,
+
+    /// The Auction Results handle for this node.
+    pub auction_results: I::AuctionResults,
+}
+
+/// The late node context dictates how we're building a node that started late during the test.
+#[allow(clippy::large_enum_variant)]
+pub enum LateNodeContext<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The system context that we're passing directly to the node, this means the node is already
+    /// initialized successfully.
+    InitializedContext(Arc<SystemContext<TYPES, I>>),
+
+    /// The system context that we're passing to the node when it is not yet initialized, so we're
+    /// initializing it based on the received leaf and init parameters.
+    LateContext(LateNodeContextParameters<TYPES, I>),
+}
 
 /// A yet-to-be-started node that participates in tests
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {

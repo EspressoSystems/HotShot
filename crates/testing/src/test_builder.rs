@@ -1,7 +1,10 @@
 use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use hotshot::traits::{NetworkReliability, TestableNodeImplementation};
-use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+use hotshot_example_types::{
+    auction_results_types::TestAuctionResults, state_types::TestInstanceState,
+    storage_types::TestStorage,
+};
 use hotshot_types::{
     traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
@@ -365,6 +368,7 @@ impl TestDescription {
                 ),
                 storage: Box::new(|_| TestStorage::<TYPES>::default()),
                 config,
+                auction_results: Box::new(|_| TestAuctionResults::default()),
             },
             metadata: self,
         }

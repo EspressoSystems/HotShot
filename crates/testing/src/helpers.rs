@@ -52,6 +52,7 @@ pub async fn build_system_handle(
 
     let networks = (launcher.resource_generator.channel_generator)(node_id).await;
     let storage = (launcher.resource_generator.storage)(node_id);
+    let auction_results = (launcher.resource_generator.auction_results)(node_id);
     let config = launcher.resource_generator.config.clone();
 
     let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {})
@@ -103,6 +104,7 @@ pub async fn build_system_handle(
         initializer,
         ConsensusMetricsValue::default(),
         storage,
+        auction_results,
     )
     .await
     .expect("Could not init hotshot")

@@ -6,6 +6,7 @@ use hotshot_types::traits::{
 };
 use url::Url;
 
+#[derive(Debug)]
 pub struct TestAuctionSolverResult {
     /// The URL of the builder to reach out to.
     pub url: Url,
@@ -17,6 +18,7 @@ impl HasBuilderUrl for TestAuctionSolverResult {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct TestAuctionResults {
     /// We intentionally allow for the results to be pre-cooked for the unit test to gurantee a
     /// particular outcome is met.
@@ -25,7 +27,7 @@ pub struct TestAuctionResults {
     /// A canned type to ensure that an error is thrown in absence of a true fault-injectible
     /// system for logical tests. This will guarantee that `fetch_auction_result` always throws an
     /// error.
-    pub should_throw_error: bool,
+    pub should_return_err: bool,
 }
 
 #[async_trait]
@@ -36,7 +38,7 @@ impl<TYPES: NodeType> AuctionResults<TYPES> for TestAuctionResults {
         self,
         _view_number: TYPES::Time,
     ) -> Result<Vec<Self::AuctionSolverResult>> {
-        if self.should_throw_error {
+        if self.should_return_err {
             bail!("Something went wrong")
         }
 
