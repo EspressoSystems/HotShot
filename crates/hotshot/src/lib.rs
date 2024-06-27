@@ -167,8 +167,8 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// a potential upgrade certificate that has been decided on by the consensus tasks.
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 
-    /// Reference to the AuctionResults type for acquiring solver results.
-    pub auction_results: Arc<RwLock<I::AuctionResults>>,
+    /// Reference to the AuctionResultsProvider type for acquiring solver results.
+    pub auction_results_provider: Arc<I::AuctionResultsProvider>,
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPES, I> {
     #![allow(deprecated)]
@@ -191,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             id: self.id,
             storage: Arc::clone(&self.storage),
             decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
-            auction_results: Arc::clone(&self.auction_results),
+            auction_results_provider: Arc::clone(&self.auction_results_provider),
         }
     }
 }
@@ -216,7 +216,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results: I::AuctionResults,
+        auction_results_provider: I::AuctionResultsProvider,
     ) -> Arc<Self> {
         debug!("Creating a new hotshot");
 
@@ -309,7 +309,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
             decided_upgrade_certificate,
-            auction_results: Arc::new(RwLock::new(auction_results)),
+            auction_results_provider: Arc::new(auction_results_provider),
         });
 
         inner
@@ -545,7 +545,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results: I::AuctionResults,
+        auction_results_provider: I::AuctionResultsProvider,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
@@ -564,7 +564,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             initializer,
             metrics,
             storage,
-            auction_results,
+            auction_results_provider,
         );
         let handle = Arc::clone(&hotshot).run_tasks().await;
         let (tx, rx) = hotshot.internal_event_stream.clone();

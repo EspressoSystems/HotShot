@@ -2,7 +2,8 @@ use std::fmt::Debug;
 
 use hotshot::traits::implementations::Libp2pNetwork;
 use hotshot_example_types::{
-    auction_results_types::TestAuctionResults, state_types::TestTypes, storage_types::TestStorage,
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestTypes,
+    storage_types::TestStorage,
 };
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ impl NodeImplementation<TestTypes> for NodeImpl {
     type QuorumNetwork = QuorumNetwork;
     type DaNetwork = DaNetwork;
     type Storage = TestStorage<TestTypes>;
-    type AuctionResults = TestAuctionResults;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 /// convenience type alias
 pub type ThisRun = Libp2pDaRun<TestTypes>;

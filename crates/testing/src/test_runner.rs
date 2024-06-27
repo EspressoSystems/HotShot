@@ -13,7 +13,7 @@ use hotshot::{
     Memberships, SystemContext,
 };
 use hotshot_example_types::{
-    auction_results_types::TestAuctionResults,
+    auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -64,7 +64,7 @@ where
         QuorumNetwork = N,
         DaNetwork = N,
         Storage = TestStorage<TYPES>,
-        AuctionResults = TestAuctionResults,
+        AuctionResultsProvider = TestAuctionResultsProvider,
     >,
 {
     /// execute test
@@ -367,7 +367,8 @@ where
 
             let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
-            let auction_results = (self.launcher.resource_generator.auction_results)(node_id);
+            let auction_results_provider =
+                (self.launcher.resource_generator.auction_results_provider)(node_id);
 
             let network0 = networks.0.clone();
             let network1 = networks.1.clone();
@@ -387,7 +388,7 @@ where
                             storage,
                             memberships,
                             config,
-                            auction_results,
+                            auction_results_provider,
                         }),
                     },
                 );
@@ -410,7 +411,7 @@ where
                     config,
                     validator_config,
                     storage,
-                    auction_results,
+                    auction_results_provider,
                 )
                 .await;
                 if late_start.contains(&node_id) {
@@ -473,7 +474,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
         storage: I::Storage,
-        auction_results: I::AuctionResults,
+        auction_results_provider: I::AuctionResultsProvider,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
@@ -495,7 +496,7 @@ where
             initializer,
             ConsensusMetricsValue::default(),
             storage,
-            auction_results,
+            auction_results_provider,
         )
     }
 }
@@ -523,7 +524,7 @@ pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementat
     pub config: HotShotConfig<TYPES::SignatureKey>,
 
     /// The Auction Results handle for this node.
-    pub auction_results: I::AuctionResults,
+    pub auction_results_provider: I::AuctionResultsProvider,
 }
 
 /// The late node context dictates how we're building a node that started late during the test.

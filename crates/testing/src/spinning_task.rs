@@ -8,7 +8,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
 use hotshot_example_types::{
-    auction_results_types::TestAuctionResults,
+    auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -66,7 +66,7 @@ where
         QuorumNetwork = N,
         DaNetwork = N,
         Storage = TestStorage<TYPES>,
-        AuctionResults = TestAuctionResults,
+        AuctionResultsProvider = TestAuctionResultsProvider,
     >,
 {
     type Event = Event<TYPES>;
@@ -115,7 +115,7 @@ where
                                             storage,
                                             memberships,
                                             config,
-                                            auction_results,
+                                            auction_results_provider,
                                         } = late_context_params;
 
                                         let initializer = HotShotInitializer::<TYPES>::from_reload(
@@ -145,7 +145,7 @@ where
                                             config,
                                             validator_config,
                                             storage,
-                                            auction_results,
+                                            auction_results_provider,
                                         )
                                         .await
                                     }

@@ -11,4 +11,4 @@ pub mod node_types;
 pub mod storage_types;
 
 /// auction types for solver-to-hotshot interactions
-pub mod auction_results_types;
+pub mod auction_results_provider_types;

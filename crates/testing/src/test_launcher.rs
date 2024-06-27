@@ -2,7 +2,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_example_types::{
-    auction_results_types::TestAuctionResults, storage_types::TestStorage,
+    auction_results_provider_types::TestAuctionResultsProvider, storage_types::TestStorage,
 };
 use hotshot_types::{
     traits::{
@@ -32,7 +32,7 @@ pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYP
     /// configuration used to generate each hotshot node
     pub config: HotShotConfig<TYPES::SignatureKey>,
     /// generate a new auction results connector for each node
-    pub auction_results: Generator<TestAuctionResults>,
+    pub auction_results_provider: Generator<TestAuctionResultsProvider>,
 }
 
 /// test launcher

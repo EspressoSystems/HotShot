@@ -14,18 +14,20 @@ pub trait HasUrl {
     fn url(&self) -> Url;
 }
 
-/// The AuctionResults trait is the sole source of Solver-originated allocations, and returns
-/// the results via its own custom type.
+/// The AuctionResultsProvider trait is the sole source of Solver-originated state and interaction,
+/// and returns the results of the Solver's allocation via the associated type. The associated type,
+/// `AuctionResult`, also implements the [`HasUrl`] trait, which requires that the output
+/// type has the requisite fields available.
 #[async_trait]
-pub trait AuctionResults<TYPES: NodeType>: Send + Sync {
+pub trait AuctionResultsProvider<TYPES: NodeType>: Send + Sync {
     /// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
-    type AuctionSolverResult: HasUrl;
+    type AuctionResult: HasUrl;
 
     /// Fetches the auction result for a view. Does not cache the result,
     /// subsequent calls will invoke additional wasted calls.
     async fn fetch_auction_result(
-        self,
+        &self,
         view_number: TYPES::Time,
-    ) -> Result<Vec<Self::AuctionSolverResult>>;
+    ) -> Result<Vec<Self::AuctionResult>>;
 }

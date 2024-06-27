@@ -1,5 +1,5 @@
 //! Common traits for the `HotShot` protocol
-pub mod auction_results;
+pub mod auction_results_provider;
 pub mod block_contents;
 pub mod consensus_api;
 pub mod election;

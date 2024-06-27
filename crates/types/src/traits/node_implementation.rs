@@ -16,7 +16,7 @@ use committable::Committable;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    auction_results::AuctionResults,
+    auction_results_provider::AuctionResultsProvider,
     block_contents::{BlockHeader, TestableBlock, Transaction},
     network::{
         AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
@@ -54,7 +54,7 @@ pub trait NodeImplementation<TYPES: NodeType>:
     type Storage: Storage<TYPES>;
 
     /// The auction results type for Solver interactions
-    type AuctionResults: AuctionResults<TYPES>;
+    type AuctionResultsProvider: AuctionResultsProvider<TYPES>;
 }
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
