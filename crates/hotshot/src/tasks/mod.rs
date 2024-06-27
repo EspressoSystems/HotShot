@@ -34,6 +34,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use vbs::version::StaticVersionType;
 
 use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
@@ -171,7 +172,12 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(TransactionTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+
+    // only spawn the upgrade task if we are actually configured to perform an upgrade.
+    if TYPES::Base::VERSION < TYPES::Upgrade::VERSION {
+        handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+    }
+
     {
         #![cfg(not(feature = "dependency-tasks"))]
         handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
