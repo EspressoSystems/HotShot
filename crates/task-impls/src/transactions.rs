@@ -29,7 +29,7 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 
-use tracing::{debug, error, instrument, warn};
+use tracing::{error, instrument, warn};
 
 use crate::{
     builder::BuilderClient,
