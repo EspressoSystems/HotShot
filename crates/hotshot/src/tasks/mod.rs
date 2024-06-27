@@ -41,7 +41,10 @@ use hotshot_types::{
 };
 use vbs::version::StaticVersionType;
 
-use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusTaskRegistry, NetworkTaskRegistry,
+};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -243,37 +246,49 @@ where
     }
 
     /// Spawns two copies of consensus, running in a single handle
-    async fn add_twinned_consensus(handle: &mut SystemContextHandle<TYPES, I>) {
+    async fn add_twinned_consensus(left_handle: &mut SystemContextHandle<TYPES, I>) {
         let state_in = Arc::new(RwLock::new(Self::new()));
         let state_out = Arc::clone(&state_in);
 
         // Take a copy of the original event stream for the `Left` consensus tasks.
         let (left_sender, mut left_receiver) = (
-            handle.internal_event_stream.0.clone(),
-            handle.internal_event_stream.1.activate_cloned(),
+            left_handle.internal_event_stream.0.clone(),
+            left_handle.internal_event_stream.1.activate_cloned(),
         );
-        // Create a new event stream for the `Right` consensus tasks.
-        let (right_sender, mut right_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         // Create a new event stream for the network tasks.
         let (network_sender, mut network_receiver) = broadcast(EVENT_CHANNEL_SIZE);
 
-        // Add the `Left` consensus tasks.
-        add_consensus_tasks::<TYPES, I, Base>(handle).await;
+        let right_hotshot = left_handle.hotshot.clone_independent().await;
 
-        // Replace the internal event stream in the handle.
-        handle.internal_event_stream = (right_sender.clone(), right_receiver.clone().deactivate());
+        let mut right_handle = SystemContextHandle {
+            output_event_stream: (
+                left_handle.output_event_stream.0.clone(),
+                left_handle.output_event_stream.1.clone(),
+            ),
+            internal_event_stream: right_hotshot.internal_event_stream.clone(),
+            consensus_registry: ConsensusTaskRegistry::new(),
+            network_registry: NetworkTaskRegistry::new(),
+            hotshot: Arc::new(right_hotshot),
+            storage: Arc::new(RwLock::new(left_handle.storage.read().await.clone())),
+            networks: Arc::clone(&left_handle.networks),
+            memberships: Arc::clone(&left_handle.memberships),
+        };
+
+        // Create a new event stream for the `Right` consensus tasks.
+        let (right_sender, right_receiver_deactivated) = right_handle.internal_event_stream.clone();
+        let mut right_receiver = right_receiver_deactivated.activate_cloned();
 
         // Add the `Right` consensus tasks.
-        add_consensus_tasks::<TYPES, I, Base>(handle).await;
+        add_consensus_tasks::<TYPES, I, Base>(&mut right_handle).await;
 
         // Replace the internal event stream in the handle.
-        handle.internal_event_stream = (
+        left_handle.internal_event_stream = (
             network_sender.clone(),
             network_receiver.clone().deactivate(),
         );
 
         // spawn the network tasks with our newly-created channel
-        add_network_tasks::<TYPES, I>(handle).await;
+        add_network_tasks::<TYPES, I>(left_handle).await;
 
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
@@ -314,8 +329,8 @@ where
             }
         });
 
-        handle.network_registry.register(out_handle);
-        handle.network_registry.register(in_handle);
+        left_handle.network_registry.register(out_handle);
+        left_handle.network_registry.register(in_handle);
 
         // We leave the network task's event stream in the handle,
         // rather than picking either one of the consensus tasks we spawned.

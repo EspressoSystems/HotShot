@@ -43,7 +43,7 @@ pub type LockedConsensusState<TYPES> = Arc<RwLock<Consensus<TYPES>>>;
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
-#[derive(custom_debug::Debug)]
+#[derive(custom_debug::Debug, Clone)]
 pub struct Consensus<TYPES: NodeType> {
     /// The validated states that are currently loaded in memory.
     validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,

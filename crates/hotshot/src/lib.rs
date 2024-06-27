@@ -193,6 +193,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     #![allow(deprecated)]
+    /// Creates a new `SystemContext` which is identical to but independent from the one provided.
+    pub async fn clone_independent(&self) -> Self {
+        // Create a new event stream for the `Right` consensus tasks.
+        let (sender, receiver) = broadcast(EVENT_CHANNEL_SIZE);
+
+        Self {
+            public_key: self.public_key.clone(),
+            private_key: self.private_key.clone(),
+            config: self.config.clone(),
+            networks: Arc::clone(&self.networks),
+            memberships: Arc::clone(&self.memberships),
+            metrics: Arc::clone(&self.metrics),
+            consensus: Arc::new(RwLock::new(self.consensus.read().await.clone())),
+            instance_state: Arc::clone(&self.instance_state),
+            version: Arc::new(RwLock::new(self.version.read().await.clone())),
+            start_view: self.start_view,
+            output_event_stream: self.output_event_stream.clone(),
+            external_event_stream: self.external_event_stream.clone(),
+            anchored_leaf: self.anchored_leaf.clone(),
+            internal_event_stream: (sender, receiver.deactivate()),
+            id: self.id,
+            storage: Arc::new(RwLock::new(self.storage.read().await.clone())),
+            decided_upgrade_certificate: Arc::new(RwLock::new(
+                self.decided_upgrade_certificate.read().await.clone(),
+            )),
+        }
+    }
+
     /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
