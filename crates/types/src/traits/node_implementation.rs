@@ -44,11 +44,8 @@ use crate::{
 pub trait NodeImplementation<TYPES: NodeType>:
     Send + Sync + Clone + Eq + Hash + 'static + Serialize + for<'de> Deserialize<'de>
 {
-    /// Network for all nodes
-    type QuorumNetwork: ConnectedNetwork<TYPES::SignatureKey>;
-
-    /// Network for those in the DA committee
-    type DaNetwork: ConnectedNetwork<TYPES::SignatureKey>;
+    /// The underlying network type
+    type Network: ConnectedNetwork<TYPES::SignatureKey>;
 
     /// Storage for DA layer interactions
     type Storage: Storage<TYPES>;
@@ -92,7 +89,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
-    ) -> AsyncGenerator<(Arc<Self::QuorumNetwork>, Arc<Self::QuorumNetwork>)>;
+    ) -> AsyncGenerator<Arc<Self::Network>>;
 }
 
 #[async_trait]
@@ -100,8 +97,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<T
 where
     TYPES::ValidatedState: TestableState<TYPES>,
     TYPES::BlockPayload: TestableBlock<TYPES>,
-    I::QuorumNetwork: TestableNetworkingImplementation<TYPES>,
-    I::DaNetwork: TestableNetworkingImplementation<TYPES>,
+    I::Network: TestableNetworkingImplementation<TYPES>,
 {
     fn state_create_random_transaction(
         state: Option<&TYPES::ValidatedState>,
@@ -135,8 +131,8 @@ where
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
-    ) -> AsyncGenerator<(Arc<Self::QuorumNetwork>, Arc<Self::QuorumNetwork>)> {
-        <I::QuorumNetwork as TestableNetworkingImplementation<TYPES>>::generator(
+    ) -> AsyncGenerator<Arc<Self::Network>> {
+        <I::Network as TestableNetworkingImplementation<TYPES>>::generator(
             expected_node_count,
             num_bootstrap,
             0,
