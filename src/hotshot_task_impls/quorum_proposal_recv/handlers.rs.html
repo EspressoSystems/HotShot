@@ -469,7 +469,7 @@
         proposal.clone(),
         parent_leaf,
         Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
-        <span class="prelude-val">None</span>,
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
         Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
         view_leader_key,
         event_sender.clone(),

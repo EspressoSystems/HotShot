@@ -111,6 +111,15 @@
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
@@ -160,6 +169,15 @@
         <span class="self">Self </span>{
             output_asserts,
             task_state_asserts: <span class="macro">vec!</span>[],
+        }
+    }
+    <span class="kw">pub fn </span>from_outputs_and_task_states(
+        output_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;,
+        task_state_asserts: Vec&lt;Box&lt;<span class="kw">dyn </span>Predicate&lt;S&gt;&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            output_asserts,
+            task_state_asserts,
         }
     }
 }

@@ -368,6 +368,10 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -622,7 +626,8 @@
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
-            version: <span class="kw-2">*</span>handle.hotshot.version.read().<span class="kw">await</span>,
+            version: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.version),
+            decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -653,7 +658,9 @@
             timeout_task,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
-            version: <span class="kw-2">*</span>handle.hotshot.version.read().<span class="kw">await</span>,
+            version: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.version),
+            formed_upgrade_certificate: <span class="prelude-val">None</span>,
+            decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -682,13 +689,12 @@
             round_start_delay: handle.hotshot.config.round_start_delay,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
-            formed_upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_cert: <span class="prelude-val">None</span>,
-            decided_upgrade_cert: <span class="prelude-val">None</span>,
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            version: <span class="kw-2">*</span>handle.hotshot.version.read().<span class="kw">await</span>,
+            version: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.version),
+            decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -720,6 +726,8 @@
             consensus,
             last_decided_view: handle.cur_view().<span class="kw">await</span>,
             id: handle.hotshot.id,
+            version: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.version),
+            decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate),
         }
     }
 }

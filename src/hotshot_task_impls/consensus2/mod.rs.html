@@ -163,6 +163,13 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Result;
@@ -175,7 +182,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     event::Event,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
     traits::{
         node_implementation::{NodeImplementation, NodeType},
@@ -185,6 +192,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use </span><span class="self">self</span>::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
@@ -254,6 +262,12 @@
 
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// Globally shared reference to the current network version.
+    </span><span class="kw">pub </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
+
+    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
+    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Consensus2TaskState&lt;TYPES, I&gt; {
     <span class="doccomment">/// Handles a consensus event received on the event stream

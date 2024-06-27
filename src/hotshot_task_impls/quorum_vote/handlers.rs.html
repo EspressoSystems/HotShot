@@ -119,6 +119,15 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Result;
@@ -148,6 +157,7 @@
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>decided_upgrade_certificate_read = task_state.decided_upgrade_certificate.read().<span class="kw">await</span>;
     <span class="kw">let </span>LeafChainTraversalOutcome {
         new_locked_view_number,
         new_decided_view_number,
@@ -155,14 +165,24 @@
         leaf_views,
         leaves_decided,
         included_txns,
-        ..
+        decided_upgrade_certificate,
     } = decide_from_proposal(
         proposal,
         Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus),
-        <span class="kw-2">&amp;</span><span class="prelude-val">None</span>,
+        <span class="kw-2">&amp;</span>decided_upgrade_certificate_read,
         <span class="kw-2">&amp;</span>task_state.public_key,
     )
     .<span class="kw">await</span>;
+    drop(decided_upgrade_certificate_read);
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = decided_upgrade_certificate.clone() {
+        <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state.decided_upgrade_certificate.write().<span class="kw">await</span>;
+        <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
+        drop(decided_certificate_lock);
+        <span class="kw">let _ </span>= sender
+            .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
+            .<span class="kw">await</span>;
+    }
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(locked_view_number) = new_locked_view_number {
@@ -176,9 +196,7 @@
         consensus_writer.update_locked_view(locked_view_number)<span class="question-mark">?</span>;
     }
 
-    <span class="comment">// TODO - update decided upgrade cert
-
-    </span><span class="attr">#[allow(clippy::cast_precision_loss)]
+    <span class="attr">#[allow(clippy::cast_precision_loss)]
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(decided_view_number) = new_decided_view_number {
         <span class="comment">// Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
 

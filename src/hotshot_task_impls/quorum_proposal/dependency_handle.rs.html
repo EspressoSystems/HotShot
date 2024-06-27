@@ -281,6 +281,50 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
@@ -299,6 +343,7 @@
     consensus::{CommitmentAndMetadata, Consensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
+    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
@@ -366,8 +411,19 @@
     <span class="doccomment">/// Shared consensus task state
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 
-    <span class="doccomment">/// The current version of consensus
-    </span><span class="kw">pub </span>version: Version,
+    <span class="doccomment">/// Globally shared reference to the current network version.
+    </span><span class="kw">pub </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
+
+    <span class="doccomment">/// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    </span><span class="kw">pub </span>formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
+    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProposalDependencyHandle&lt;TYPES&gt; {
@@ -379,6 +435,8 @@
         commitment_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
         vid_share: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
         view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
+        formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+        decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
             <span class="self">self</span>.view_number,
@@ -387,6 +445,34 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="comment">// In order of priority, we should try to attach:
+        //   - the parent certificate if it exists, or
+        //   - our own certificate that we formed.
+        // In either case, we need to ensure that the certificate is still relevant.
+        //
+        // Note: once we reach a point of potentially propose with our formed upgrade certificate,
+        // we will ALWAYS drop it. If we cannot immediately use it for whatever reason, we choose
+        // to discard it.
+        //
+        // It is possible that multiple nodes form separate upgrade certificates for the some
+        // upgrade if we are not careful about voting. But this shouldn't bother us: the first
+        // leader to propose is the one whose certificate will be used. And if that fails to reach
+        // a decide for whatever reason, we may lose our own certificate, but something will likely
+        // have gone wrong there anyway.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>upgrade_certificate = parent_leaf
+            .upgrade_certificate()
+            .or(formed_upgrade_certificate);
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = upgrade_certificate.clone() {
+            <span class="kw">if </span>cert
+                .is_relevant(<span class="self">self</span>.view_number, Arc::clone(<span class="kw-2">&amp;</span>decided_upgrade_certificate))
+                .<span class="kw">await
+                </span>.is_err()
+            {
+                upgrade_certificate = <span class="prelude-val">None</span>;
+            }
+        }
 
         <span class="kw">let </span>proposal_certificate = view_change_evidence
             .as_ref()
@@ -407,7 +493,7 @@
             commitment_and_metadata.metadata,
             commitment_and_metadata.fee,
             vid_share.data.common.clone(),
-            <span class="self">self</span>.version,
+            <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>,
         )
         .<span class="kw">await
         </span>.context(<span class="string">"Failed to construct block header"</span>)<span class="question-mark">?</span>;
@@ -417,7 +503,7 @@
             view_number: <span class="self">self</span>.view_number,
             justify_qc: <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone(),
             proposal_certificate,
-            upgrade_certificate: <span class="prelude-val">None</span>,
+            upgrade_certificate,
         };
 
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
@@ -555,6 +641,8 @@
                 commit_and_metadata.unwrap(),
                 vid_share.unwrap(),
                 proposal_cert,
+                <span class="self">self</span>.formed_upgrade_certificate.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
             )
             .<span class="kw">await
         </span>{
