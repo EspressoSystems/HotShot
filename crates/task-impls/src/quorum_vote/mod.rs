@@ -555,7 +555,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     ) {
         match event.as_ref() {
             HotShotEvent::VoteNow(view, ..) => {
-                warn!("Vote NOW for view {:?}", *view);
+                info!("Vote NOW for view {:?}", *view);
                 self.create_dependency_task_if_new(
                     *view,
                     event_receiver,
@@ -564,7 +564,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
-                info!("Received Proposal for view {}", *proposal.view_number());
+                trace!("Received Proposal for view {}", *proposal.view_number());
 
                 // Handle the event before creating the dependency task.
                 if let Err(e) =
@@ -582,7 +582,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
-                info!("Received DAC for view {}", *view);
+                trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -607,7 +607,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
-                warn!("Received VID share for view {}", *view);
+                trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
