@@ -33,13 +33,15 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module defines the interaction layer with the Solver via the [`AuctionResultsProvider`] trait,
 //! which handles connecting to, and fetching the allocation results from, the Solver.
 
-</span><span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
-<span class="kw">use </span>anyhow::Result;
+</span><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>url::Url;
+
+<span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 
 <span class="doccomment">/// This trait guarantees that a particular type has a url associated with it. This trait
 /// essentially ensures that the results returned by the [`AuctionResultsProvider`] trait includes a URL
