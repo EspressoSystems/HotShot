@@ -34,7 +34,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use vbs::version::StaticVersionType;
 
 use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
@@ -165,17 +164,13 @@ pub async fn add_network_event_task<
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
-pub async fn add_consensus_tasks<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    VERSION: StaticVersionType + 'static,
->(
+pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &mut SystemContextHandle<TYPES, I>,
 ) {
     handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(TransactionTaskState::<TYPES, I, VERSION>::create_from(handle).await);
+    handle.add_task(TransactionTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
     {
         #![cfg(not(feature = "dependency-tasks"))]
