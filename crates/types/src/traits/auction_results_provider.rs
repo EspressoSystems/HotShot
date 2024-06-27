@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use url::Url;
 
 /// This trait guarantees that a particular type has a url associated with it. This trait
-/// essentially ensures that the results returned by the [`AuctionResults`] trait includes a URL
+/// essentially ensures that the results returned by the [`AuctionResultsProvider`] trait includes a URL
 /// for the builder that HotShot must request from.
 pub trait HasUrl {
     /// Returns the builer url associated with the datatype
