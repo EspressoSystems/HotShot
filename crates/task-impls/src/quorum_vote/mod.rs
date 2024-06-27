@@ -549,7 +549,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     ) {
         match event.as_ref() {
             HotShotEvent::VoteNow(view, ..) => {
-                warn!("Votn NOW for view {}}" *view);
+                warn!("Vote NOW for view {:?}", *view);
                 self.create_dependency_task_if_new(
                     *view,
                     event_receiver,
