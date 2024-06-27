@@ -9,8 +9,10 @@ use hotshot_types::{
     traits::node_implementation::NodeType,
 };
 use serde::{Deserialize, Serialize};
+use vbs::version::StaticVersion;
 
 use crate::{
+    auction_results_provider_types::TestAuctionResultsProvider,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
@@ -33,6 +35,12 @@ use crate::{
 /// to select our traits
 pub struct TestTypes;
 impl NodeType for TestTypes {
+    type Base = StaticVersion<0, 1>;
+    type Upgrade = StaticVersion<0, 2>;
+    const UPGRADE_HASH: [u8; 32] = [
+        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0,
+    ];
     type Time = ViewNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
@@ -70,19 +78,23 @@ pub type StaticMembership = StaticCommittee<TestTypes>;
 impl<TYPES: NodeType> NodeImplementation<TYPES> for PushCdnImpl {
     type Network = PushCdnNetwork<TYPES>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for MemoryImpl {
     type Network = MemoryNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for CombinedImpl {
     type Network = CombinedNetworks<TYPES>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type Network = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
