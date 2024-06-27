@@ -6,9 +6,9 @@ use clap::Parser;
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use local_ip_address::local_ip;
-use tracing::{info, instrument};
+use tracing::{debug, instrument};
 
-use crate::types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun};
+use crate::types::{Network, NodeImpl, ThisRun};
 
 /// types used for this example
 pub mod types;
@@ -34,6 +34,6 @@ async fn main() {
         ),
     );
 
-    info!("connecting to orchestrator at {:?}", args.url);
-    infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(args).await;
+    debug!("connecting to orchestrator at {:?}", args.url);
+    infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(args).await;
 }

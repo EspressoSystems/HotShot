@@ -4,6 +4,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -12,36 +13,31 @@ use futures::future::join_all;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{QuorumProposal, ViewChangeEvidence},
+    data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
+        storage::Storage,
     },
-    vote::HasViewNumber,
+    vid::vid_scheme,
+    vote::{Certificate, HasViewNumber},
 };
+use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
-use {
-    crate::consensus::helpers::{
+
+use crate::{
+    consensus::handlers::{
         handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
         update_state_and_vote_if_able,
     },
-    async_compatibility_layer::art::async_spawn,
-    hotshot_types::data::VidDisperseShare,
-    hotshot_types::message::Proposal,
-    hotshot_types::vid::vid_scheme,
-    hotshot_types::{traits::storage::Storage, vote::Certificate},
-    jf_vid::VidScheme,
-    tracing::info,
-};
-
-use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     vote_collection::{
@@ -50,7 +46,7 @@ use crate::{
 };
 
 /// Helper functions to handle proposal-related functionality.
-pub(crate) mod helpers;
+pub(crate) mod handlers;
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -79,11 +75,8 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The commitment to the current block payload and its metadata submitted to DA.
     pub payload_commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
 
-    /// Network for all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
-
-    /// Network for DA committee
-    pub da_network: Arc<I::DaNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Membership for Timeout votes/certs
     pub timeout_membership: Arc<TYPES::Membership>,
@@ -425,6 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     };
                 }
             },
+            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",

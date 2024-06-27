@@ -17,6 +17,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::Consensus,
     event::Event,
+    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -36,7 +37,7 @@ use crate::{
     helpers::{broadcast_event, cancel_task},
 };
 
-mod dependency_handle;
+mod handlers;
 
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -46,11 +47,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Table for the in-progress proposal depdencey tasks.
     pub proposal_dependencies: HashMap<TYPES::Time, JoinHandle<()>>,
 
-    /// Network for all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
-
-    /// Network for DA committee
-    pub da_network: Arc<I::DaNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -88,8 +86,19 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// The node's id
     pub id: u64,
 
-    /// Current version of consensus
-    pub version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
+
+    /// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -107,7 +116,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::Qc => {
-                        if let HotShotEvent::UpdateHighQc(qc) = event {
+                        if let HotShotEvent::HighQcUpdated(qc) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
@@ -231,7 +240,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::VidDisperseSend(_, _) => {
                 vid_share_dependency.mark_as_completed(event);
             }
-            HotShotEvent::UpdateHighQc(_) => {
+            HotShotEvent::HighQcUpdated(_) => {
                 qc_dependency.mark_as_completed(event);
             }
             _ => {}
@@ -311,7 +320,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: Arc::clone(&self.consensus),
-                version: self.version,
+                version: Arc::clone(&self.version),
+                formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
+                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
             },
         );
         self.proposal_dependencies
@@ -351,8 +362,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::VersionUpgrade(version) => {
-                self.version = *version;
+            HotShotEvent::UpgradeCertificateFormed(cert) => {
+                debug!(
+                    "Upgrade certificate received for view {}!",
+                    *cert.view_number
+                );
+
+                // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
+                if cert.data.decide_by >= self.latest_proposed_view + 3 {
+                    debug!("Updating current formed_upgrade_certificate");
+
+                    self.formed_upgrade_certificate = Some(cert.clone());
+                }
             }
             HotShotEvent::QcFormed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
@@ -456,6 +477,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                 }
 
+                broadcast_event(
+                    HotShotEvent::HighQcUpdated(qc.clone()).into(),
+                    &event_sender,
+                )
+                .await;
+            }
+            HotShotEvent::HighQcUpdated(qc) => {
                 let view_number = qc.view_number() + 1;
                 self.create_dependency_task_if_new(
                     view_number,

@@ -1,55 +1,49 @@
 #![cfg(not(feature = "dependency-tasks"))]
 
-use std::sync::Arc;
+use core::time::Duration;
+use std::{marker::PhantomData, sync::Arc};
 
-use anyhow::bail;
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use chrono::Utc;
 use committable::Committable;
 use futures::FutureExt;
 use hotshot_types::{
-    consensus::{Consensus, View},
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    consensus::{CommitmentAndMetadata, Consensus, View},
+    data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
-    message::Proposal,
+    message::{GeneralConsensusMessage, Proposal},
     simple_certificate::UpgradeCertificate,
+    simple_vote::QuorumData,
     traits::{
-        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
-        signature_key::SignatureKey, states::ValidatedState,
+        block_contents::BlockHeader,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        signature_key::SignatureKey,
+        states::ValidatedState,
+        storage::Storage,
     },
     utils::ViewInner,
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, info, warn};
-use {
-    super::ConsensusTaskState,
-    crate::helpers::{
-        decide_from_proposal, fetch_proposal, parent_leaf_and_state, update_view,
-        validate_proposal_safety_and_liveness, validate_proposal_view_and_certs, AnyhowTracing,
-        SEND_VIEW_CHANGE_EVENT,
-    },
-    async_compatibility_layer::art::{async_sleep, async_spawn},
-    chrono::Utc,
-    core::time::Duration,
-    hotshot_types::{
-        consensus::CommitmentAndMetadata,
-        traits::{
-            node_implementation::{ConsensusTime, NodeImplementation},
-            storage::Storage,
-        },
-    },
-    hotshot_types::{data::null_block, message::GeneralConsensusMessage, simple_vote::QuorumData},
-    std::marker::PhantomData,
-    tracing::error,
-    vbs::version::Version,
-};
+use tracing::{debug, error, info, warn};
+use vbs::version::Version;
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
+use super::ConsensusTaskState;
+use crate::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, decide_from_proposal, fetch_proposal, parent_leaf_and_state, update_view,
+        validate_proposal_safety_and_liveness, validate_proposal_view_and_certs, AnyhowTracing,
+        SEND_VIEW_CHANGE_EVENT
+    },
+};
 
 /// Create the header for a proposal, build the proposal, and broadcast
 /// the proposal send evnet.
@@ -477,7 +471,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .entry(proposal.data.view_number())
         .or_default()
         .push(async_spawn(
-            validate_proposal_safety_and_liveness(
+            temp_validate_proposal_safety_and_liveness(
                 proposal.clone(),
                 parent_leaf,
                 Arc::clone(&task_state.consensus),
@@ -511,7 +505,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     )
     .await;
 
-    if let Some(cert) = res.decided_upgrade_cert {
+    if let Some(cert) = res.decided_upgrade_certificate {
         task_state.decided_upgrade_cert = Some(cert.clone());
 
         let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;

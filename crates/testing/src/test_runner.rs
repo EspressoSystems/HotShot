@@ -7,15 +7,13 @@ use std::{
 
 use async_broadcast::broadcast;
 use async_lock::RwLock;
-use futures::future::{
-    join_all, Either,
-    Either::{Left, Right},
-};
+use futures::future::join_all;
 use hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
     Memberships, SystemContext,
 };
 use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -31,11 +29,13 @@ use hotshot_types::{
     },
     HotShotConfig, ValidatorConfig,
 };
+use tide_disco::Url;
 #[allow(deprecated)]
 use tracing::info;
 
 use super::{
     completion_task::CompletionTask,
+    consistency_task::ConsistencyTask,
     overall_safety_task::{OverallSafetyTask, RoundCtx},
     txn_task::TxnTask,
 };
@@ -43,7 +43,7 @@ use crate::{
     block_builder::TestBuilderImplementation,
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
-    test_launcher::{Networks, TestLauncher},
+    test_launcher::{Network, TestLauncher},
     test_task::{TestResult, TestTask},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
@@ -59,7 +59,12 @@ impl<
     > TestRunner<TYPES, I, N>
 where
     I: TestableNodeImplementation<TYPES>,
-    I: NodeImplementation<TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage<TYPES>>,
+    I: NodeImplementation<
+        TYPES,
+        Network = N,
+        Storage = TestStorage<TYPES>,
+        AuctionResultsProvider = TestAuctionResultsProvider,
+    >,
 {
     /// execute test
     ///
@@ -169,12 +174,23 @@ where
         let overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(&handles),
             ctx: RoundCtx::default(),
-            properties: self.launcher.metadata.overall_safety_properties,
+            properties: self.launcher.metadata.overall_safety_properties.clone(),
             error: None,
             test_sender,
         };
 
-        let safety_task = TestTask::<OverallSafetyTask<TYPES, I>>::new(
+        let consistency_task_state = ConsistencyTask {
+            consensus_leaves: BTreeMap::new(),
+            safety_properties: self.launcher.metadata.overall_safety_properties,
+        };
+
+        let consistency_task = TestTask::<ConsistencyTask<TYPES>>::new(
+            consistency_task_state,
+            event_rxs.clone(),
+            test_receiver.clone(),
+        );
+
+        let overall_safety_task = TestTask::<OverallSafetyTask<TYPES, I>>::new(
             overall_safety_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
@@ -197,8 +213,7 @@ where
 
         // wait for networks to be ready
         for node in &*nodes {
-            node.networks.0.wait_for_ready().await;
-            node.networks.1.wait_for_ready().await;
+            node.network.wait_for_ready().await;
         }
 
         // Start hotshot
@@ -210,7 +225,8 @@ where
 
         drop(nodes);
 
-        task_futs.push(safety_task.run());
+        task_futs.push(overall_safety_task.run());
+        task_futs.push(consistency_task.run());
         task_futs.push(view_sync_task.run());
         task_futs.push(spinning_task.run());
 
@@ -271,7 +287,12 @@ where
 
         assert!(
             error_list.is_empty(),
-            "TEST FAILED! Results: {error_list:?}"
+            "{}",
+            error_list
+                .iter()
+                .fold("TEST FAILED! Results:".to_string(), |acc, error| {
+                    format!("{acc}\n\n{error:?}")
+                })
         );
     }
 
@@ -291,8 +312,12 @@ where
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
-            let (builder_task, builder_url) = B::start(
+            let builder_port = portpicker::pick_unused_port().expect("No free ports");
+            let builder_url =
+                Url::parse(&format!("http://localhost:{builder_port}")).expect("Valid URL");
+            let builder_task = B::start(
                 config.num_nodes_with_stake.into(),
+                builder_url.clone(),
                 B::Config::default(),
                 metadata.changes.clone(),
             )
@@ -338,14 +363,14 @@ where
                 .try_into()
                 .expect("Non-empty by construction");
 
-            let networks = (self.launcher.resource_generator.channel_generator)(node_id).await;
+            let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
+            let auction_results_provider =
+                (self.launcher.resource_generator.auction_results_provider)(node_id);
 
-            let network0 = networks.0.clone();
-            let network1 = networks.1.clone();
+            let network_clone = network.clone();
             let networks_ready_future = async move {
-                network0.wait_for_ready().await;
-                network1.wait_for_ready().await;
+                network_clone.wait_for_ready().await;
             };
 
             networks_ready.push(networks_ready_future);
@@ -354,8 +379,13 @@ where
                 self.late_start.insert(
                     node_id,
                     LateStartNode {
-                        networks,
-                        context: Right((storage, memberships, config)),
+                        network,
+                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
+                            storage,
+                            memberships,
+                            config,
+                            auction_results_provider,
+                        }),
                     },
                 );
             } else {
@@ -371,24 +401,25 @@ where
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
                 let hotshot = Self::add_node_with_config(
                     node_id,
-                    networks.clone(),
+                    network.clone(),
                     memberships,
                     initializer,
                     config,
                     validator_config,
                     storage,
+                    auction_results_provider,
                 )
                 .await;
                 if late_start.contains(&node_id) {
                     self.late_start.insert(
                         node_id,
                         LateStartNode {
-                            networks,
-                            context: Left(hotshot),
+                            network,
+                            context: LateNodeContext::InitializedContext(hotshot),
                         },
                     );
                 } else {
-                    uninitialized_nodes.push((node_id, networks, hotshot));
+                    uninitialized_nodes.push((node_id, network, hotshot));
                 }
             }
 
@@ -399,7 +430,7 @@ where
         join_all(networks_ready).await;
 
         // Then start the necessary tasks
-        for (node_id, networks, hotshot) in uninitialized_nodes {
+        for (node_id, network, hotshot) in uninitialized_nodes {
             let handle = hotshot.run_tasks().await;
 
             match node_id.cmp(&(config.da_staked_committee_size as u64 - 1)) {
@@ -419,7 +450,7 @@ where
 
             self.nodes.push(Node {
                 node_id,
-                networks,
+                network,
                 handle,
             });
         }
@@ -430,24 +461,20 @@ where
     /// add a specific node with a config
     /// # Panics
     /// if unable to initialize the node's `SystemContext` based on the config
+    #[allow(clippy::too_many_arguments)]
     pub async fn add_node_with_config(
         node_id: u64,
-        networks: Networks<TYPES, I>,
+        network: Network<TYPES, I>,
         memberships: Memberships<TYPES>,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
         storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
         let public_key = validator_config.public_key.clone();
-
-        let network_bundle = hotshot::Networks {
-            quorum_network: networks.0.clone(),
-            da_network: networks.1.clone(),
-            _pd: PhantomData,
-        };
 
         SystemContext::new(
             public_key,
@@ -455,13 +482,12 @@ where
             node_id,
             config,
             memberships,
-            network_bundle,
+            network,
             initializer,
             ConsensusMetricsValue::default(),
             storage,
+            auction_results_provider,
         )
-        .await
-        .expect("Could not init hotshot")
     }
 }
 
@@ -469,26 +495,44 @@ where
 pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The node's unique identifier
     pub node_id: u64,
-    /// The underlying networks belonging to the node
-    pub networks: Networks<TYPES, I>,
+    /// The underlying network belonging to the node
+    pub network: Network<TYPES, I>,
     /// The handle to the node's internals
     pub handle: SystemContextHandle<TYPES, I>,
 }
 
-/// Either the node context or the parameters to construct the context for nodes that start late.
-pub type LateNodeContext<TYPES, I> = Either<
-    Arc<SystemContext<TYPES, I>>,
-    (
-        <I as NodeImplementation<TYPES>>::Storage,
-        Memberships<TYPES>,
-        HotShotConfig<<TYPES as NodeType>::SignatureKey>,
-    ),
->;
+/// This type combines all of the paramters needed to build the context for a node that started
+/// late during a unit test or integration test.
+pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The storage trait for Sequencer persistence.
+    pub storage: I::Storage,
+
+    /// The memberships of this particular node.
+    pub memberships: Memberships<TYPES>,
+
+    /// The config associted with this node.
+    pub config: HotShotConfig<TYPES::SignatureKey>,
+
+    /// The Auction Results handle for this node.
+    pub auction_results_provider: I::AuctionResultsProvider,
+}
+
+/// The late node context dictates how we're building a node that started late during the test.
+#[allow(clippy::large_enum_variant)]
+pub enum LateNodeContext<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// The system context that we're passing directly to the node, this means the node is already
+    /// initialized successfully.
+    InitializedContext(Arc<SystemContext<TYPES, I>>),
+
+    /// The system context that we're passing to the node when it is not yet initialized, so we're
+    /// initializing it based on the received leaf and init parameters.
+    UninitializedContext(LateNodeContextParameters<TYPES, I>),
+}
 
 /// A yet-to-be-started node that participates in tests
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// The underlying networks belonging to the node
-    pub networks: Networks<TYPES, I>,
+    /// The underlying network belonging to the node
+    pub network: Network<TYPES, I>,
     /// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
     pub context: LateNodeContext<TYPES, I>,

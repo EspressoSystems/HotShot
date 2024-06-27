@@ -16,9 +16,10 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::Consensus,
-    data::{Leaf, VidDisperseShare},
+    data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
     message::Proposal,
+    simple_certificate::UpgradeCertificate,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
@@ -81,8 +82,8 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
     receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    /// The current version of HotShot
-    version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
     /// The node's id
     id: u64,
 }
@@ -134,7 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
                 &parent,
                 &proposed_leaf.block_header().clone(),
                 vid_share.data.common.clone(),
-                self.version,
+                *self.version.read().await,
             )
             .await
             .context("Block header doesn't extend the proposal!")?;
@@ -232,12 +233,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
-        if !self
-            .consensus
-            .read()
-            .await
-            .validated_state_map()
-            .contains_key(&high_qc_view_number)
+        // The validated state of a non-genesis high QC should exist in the state map.
+        if *high_qc_view_number != *ViewNumber::genesis()
+            && !self
+                .consensus
+                .read()
+                .await
+                .validated_state_map()
+                .contains_key(&high_qc_view_number)
         {
             // Block on receiving the event from the event stream.
             EventDependency::new(
@@ -367,11 +370,8 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Table for the in-progress dependency tasks.
     pub vote_dependencies: HashMap<TYPES::Time, JoinHandle<()>>,
 
-    /// Network for all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
-
-    /// Network for DA committee
-    pub da_network: Arc<I::DaNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Membership for Quorum certs/votes.
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -388,8 +388,11 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// The curent version of HotShot
-    pub version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
@@ -511,7 +514,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                version: self.version,
+                version: Arc::clone(&self.version),
                 id: self.id,
             },
         );

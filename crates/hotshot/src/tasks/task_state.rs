@@ -23,7 +23,6 @@ use hotshot_types::traits::{
     consensus_api::ConsensusApi,
     node_implementation::{ConsensusTime, NodeImplementation, NodeType},
 };
-use vbs::version::StaticVersionType;
 
 use crate::types::SystemContextHandle;
 
@@ -44,7 +43,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> NetworkRequestState<TYPES, I> {
         NetworkRequestState {
-            network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             state: handle.hotshot.consensus(),
             view: handle.cur_view().await,
             delay: handle.hotshot.config.data_request_delay,
@@ -69,7 +68,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -85,7 +84,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -107,7 +106,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: handle.hotshot.consensus(),
             cur_view: handle.cur_view().await,
             vote_collector: None,
-            network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             membership: handle.hotshot.memberships.vid_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -125,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: handle.hotshot.consensus(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
-            da_network: Arc::clone(&handle.hotshot.networks.da_network),
+            network: Arc::clone(&handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: handle.cur_view().await,
             vote_collector: None.into(),
@@ -146,7 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         ViewSyncTaskState {
             current_view: cur_view,
             next_view: cur_view,
-            network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             membership: handle
                 .hotshot
                 .memberships
@@ -168,18 +167,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
-    CreateTaskState<TYPES, I> for TransactionTaskState<TYPES, I, Ver>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+    for TransactionTaskState<TYPES, I>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
-    ) -> TransactionTaskState<TYPES, I, Ver> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> TransactionTaskState<TYPES, I> {
         TransactionTaskState {
             builder_timeout: handle.builder_timeout(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             consensus: handle.hotshot.consensus(),
             cur_view: handle.cur_view().await,
-            network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -228,8 +225,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             id: handle.hotshot.id,
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
-            da_network: Arc::clone(&handle.hotshot.networks.da_network),
+            network: Arc::clone(&handle.hotshot.network),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
@@ -254,14 +250,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             instance_state: handle.hotshot.instance_state(),
             latest_voted_view: handle.cur_view().await,
             vote_dependencies: HashMap::new(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
-            da_network: Arc::clone(&handle.hotshot.networks.da_network),
+            network: Arc::clone(&handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
-            version: *handle.hotshot.version.read().await,
+            version: Arc::clone(&handle.hotshot.version),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -280,8 +276,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
         QuorumProposalTaskState {
             latest_proposed_view: handle.cur_view().await,
             proposal_dependencies: HashMap::new(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
-            da_network: Arc::clone(&handle.hotshot.networks.da_network),
+            network: Arc::clone(&handle.hotshot.network),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             consensus,
             instance_state: handle.hotshot.instance_state(),
@@ -294,7 +289,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_task,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
-            version: *handle.hotshot.version.read().await,
+            version: Arc::clone(&handle.hotshot.version),
+            formed_upgrade_certificate: None,
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -316,7 +313,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus,
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
+            network: Arc::clone(&handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_task,
@@ -324,13 +321,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             round_start_delay: handle.hotshot.config.round_start_delay,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
-            formed_upgrade_certificate: None,
             proposal_cert: None,
-            decided_upgrade_cert: None,
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            version: *handle.hotshot.version.read().await,
+            version: Arc::clone(&handle.hotshot.version),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
@@ -348,8 +344,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             instance_state: handle.hotshot.instance_state(),
-            quorum_network: Arc::clone(&handle.hotshot.networks.quorum_network),
-            da_network: Arc::clone(&handle.hotshot.networks.da_network),
+            network: Arc::clone(&handle.hotshot.network),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
@@ -364,6 +359,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus,
             last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
+            version: Arc::clone(&handle.hotshot.version),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
 }
