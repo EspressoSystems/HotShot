@@ -390,9 +390,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        self.shutdown_flag.load(Ordering::Relaxed)
+        let cancel = self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
-            || state.cur_view() > view
+            || state.cur_view() > view;
+        if cancel {
+            tracing::debug!("Cancleing vid request for view {:?}, cur view is {:?}", view, state.cur_view);
+        }
+        cancel
     }
 
     /// Transform a response into a `HotShotEvent`
