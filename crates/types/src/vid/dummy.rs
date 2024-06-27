@@ -47,6 +47,10 @@ pub type VidPrecomputeData = <VidSchemeType as Precomputable>::PrecomputeData;
 /// Dummy type for test and benchmark only.
 pub struct DummyType;
 
+#[derive(CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq, Clone, Hash, Debug)]
+#[tagged("Dummy")]
+pub struct DummyShare(Vec<u8>);
+
 impl AsRef<[u8; 32]> for DummyType {
     fn as_ref(&self) -> &[u8; 32] {
         &[0u8; 32]
@@ -61,7 +65,7 @@ pub struct VidSchemeType {
 
 impl VidScheme for VidSchemeType {
     type Commit = DummyType;
-    type Share = DummyType;
+    type Share = DummyShare;
     type Common = DummyType;
 
     fn commit_only<B>(&mut self, _payload: B) -> VidResult<Self::Commit>
@@ -71,12 +75,13 @@ impl VidScheme for VidSchemeType {
         Ok(DummyType)
     }
 
-    fn disperse<B>(&mut self, _payload: B) -> VidResult<VidDisperse<Self>>
+    fn disperse<B>(&mut self, payload: B) -> VidResult<VidDisperse<Self>>
     where
         B: AsRef<[u8]>,
     {
+        let share_len = payload.as_ref().len() * 2 / self.num_storage_nodes;
         Ok(VidDisperse {
-            shares: vec![DummyType; self.num_storage_nodes],
+            shares: vec![DummyShare(vec![0u8; share_len]); self.num_storage_nodes],
             common: DummyType,
             commit: DummyType,
         })
@@ -131,14 +136,15 @@ impl Precomputable for VidSchemeType {
 
     fn disperse_precompute<B>(
         &self,
-        _payload: B,
+        payload: B,
         _data: &Self::PrecomputeData,
     ) -> VidResult<VidDisperse<Self>>
     where
         B: AsRef<[u8]>,
     {
+        let share_len = payload.as_ref().len() * 2 / self.num_storage_nodes;
         Ok(VidDisperse {
-            shares: vec![DummyType; self.num_storage_nodes],
+            shares: vec![DummyShare(vec![0u8; share_len]); self.num_storage_nodes],
             common: DummyType,
             commit: DummyType,
         })
