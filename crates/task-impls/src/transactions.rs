@@ -133,7 +133,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                debug!("view change in transactions to view {:?}", view);
+                // debug!("view change in transactions to view {:?}", view);
                 if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
                 }
@@ -147,7 +147,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
                 // return if we aren't the next leader or we skipped last view and aren't the current leader.
                 if !make_block && self.membership.leader(self.cur_view + 1) != self.public_key {
-                    debug!("Not next leader for view {:?}", self.cur_view);
+                    // debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
                 let block_view = if make_block { view } else { view + 1 };
