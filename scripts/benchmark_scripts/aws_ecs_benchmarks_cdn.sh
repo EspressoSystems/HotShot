@@ -26,11 +26,11 @@ ulimit -n 65536
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
-docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
-docker push ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
+docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-webserver:main-async-std
+ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
 ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
 
 # runstart keydb
