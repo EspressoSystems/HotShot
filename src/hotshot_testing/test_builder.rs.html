@@ -373,10 +373,17 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
-<span class="kw">use </span>hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+<span class="kw">use </span>hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
+    storage_types::TestStorage,
+};
 <span class="kw">use </span>hotshot_types::{
     traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
@@ -740,6 +747,7 @@
                 ),
                 storage: Box::new(|<span class="kw">_</span>| TestStorage::&lt;TYPES&gt;::default()),
                 config,
+                auction_results_provider: Box::new(|<span class="kw">_</span>| TestAuctionResultsProvider::default()),
             },
             metadata: <span class="self">self</span>,
         }

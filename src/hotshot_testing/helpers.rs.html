@@ -369,6 +369,8 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -423,6 +425,7 @@
 
     <span class="kw">let </span>network = (launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
+    <span class="kw">let </span>auction_results_provider = (launcher.resource_generator.auction_results_provider)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(TestInstanceState {})
@@ -468,6 +471,7 @@
         initializer,
         ConsensusMetricsValue::default(),
         storage,
+        auction_results_provider,
     )
     .<span class="kw">await
     </span>.expect(<span class="string">"Could not init hotshot"</span>)

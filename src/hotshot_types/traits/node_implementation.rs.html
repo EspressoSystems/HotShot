@@ -223,6 +223,10 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -241,6 +245,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use super</span>::{
+    auction_results_provider::AuctionResultsProvider,
     block_contents::{BlockHeader, TestableBlock, Transaction},
     network::{
         AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
@@ -273,6 +278,9 @@
 
     <span class="doccomment">/// Storage for DA layer interactions
     </span><span class="kw">type </span>Storage: Storage&lt;TYPES&gt;;
+
+    <span class="doccomment">/// The auction results type for Solver interactions
+    </span><span class="kw">type </span>AuctionResultsProvider: AuctionResultsProvider&lt;TYPES&gt;;
 }
 
 <span class="doccomment">/// extra functions required on a node implementation to be usable by hotshot-testing

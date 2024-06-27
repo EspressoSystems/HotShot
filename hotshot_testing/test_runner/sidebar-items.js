@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["LateStartNode","Node","TestRunner"],"trait":["TaskErr"],"type":["LateNodeContext"]};
+window.SIDEBAR_ITEMS = {"enum":["LateNodeContext"],"struct":["LateNodeContextParameters","LateStartNode","Node","TestRunner"],"trait":["TaskErr"]};

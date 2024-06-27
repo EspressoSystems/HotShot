@@ -88,6 +88,11 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::{
     election::static_committee::{GeneralStaticCommittee, StaticCommittee},
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
@@ -101,6 +106,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
+    auction_results_provider_types::TestAuctionResultsProvider,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
@@ -160,20 +166,24 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NodeImplementation&lt;TYPES&gt; <span class="kw">for </span>PushCdnImpl {
     <span class="kw">type </span>Network = PushCdnNetwork&lt;TYPES&gt;;
     <span class="kw">type </span>Storage = TestStorage&lt;TYPES&gt;;
+    <span class="kw">type </span>AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NodeImplementation&lt;TYPES&gt; <span class="kw">for </span>MemoryImpl {
     <span class="kw">type </span>Network = MemoryNetwork&lt;TYPES::SignatureKey&gt;;
     <span class="kw">type </span>Storage = TestStorage&lt;TYPES&gt;;
+    <span class="kw">type </span>AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NodeImplementation&lt;TYPES&gt; <span class="kw">for </span>CombinedImpl {
     <span class="kw">type </span>Network = CombinedNetworks&lt;TYPES&gt;;
     <span class="kw">type </span>Storage = TestStorage&lt;TYPES&gt;;
+    <span class="kw">type </span>AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NodeImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pImpl {
     <span class="kw">type </span>Network = Libp2pNetwork&lt;TYPES::SignatureKey&gt;;
     <span class="kw">type </span>Storage = TestStorage&lt;TYPES&gt;;
+    <span class="kw">type </span>AuctionResultsProvider = TestAuctionResultsProvider;
 }
 </code></pre></div></section></main></body></html>
