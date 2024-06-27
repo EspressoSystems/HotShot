@@ -176,8 +176,6 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>async_broadcast::Receiver;
@@ -190,13 +188,10 @@
     builder::{Error, Options},
     data_source::BuilderDataSource,
 };
-<span class="kw">use </span>hotshot_types::{
-    constants::Base,
-    traits::{
-        block_contents::{precompute_vid_commitment, EncodeBytes},
-        node_implementation::NodeType,
-        signature_key::BuilderSignatureKey,
-    },
+<span class="kw">use </span>hotshot_types::traits::{
+    block_contents::{precompute_vid_commitment, EncodeBytes},
+    node_implementation::NodeType,
+    signature_key::BuilderSignatureKey,
 };
 <span class="kw">use </span>tide_disco::{method::ReadState, App, Url};
 <span class="kw">use </span>vbs::version::StaticVersionType;
@@ -255,14 +250,15 @@
 {
     async_spawn(<span class="kw">async move </span>{
         <span class="kw">let </span>start_builder = |url: Url, source: Source| -&gt; <span class="kw">_ </span>{
-            <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;Source, TYPES, Base&gt;(
-                <span class="kw-2">&amp;</span>Options::default(),
-            )
-            .expect(<span class="string">"Failed to construct the builder API"</span>);
+            <span class="kw">let </span>builder_api =
+                hotshot_builder_api::builder::define_api::&lt;Source, TYPES, TYPES::Base&gt;(
+                    <span class="kw-2">&amp;</span>Options::default(),
+                )
+                .expect(<span class="string">"Failed to construct the builder API"</span>);
             <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;Source, Error&gt; = App::with_state(source);
             app.register_module(<span class="string">"block_info"</span>, builder_api)
                 .expect(<span class="string">"Failed to register the builder API"</span>);
-            async_spawn(app.serve(url, Base::instance()))
+            async_spawn(app.serve(url, TYPES::Base::instance()))
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="prelude-val">Some</span>(start_builder(url.clone(), source.clone()));

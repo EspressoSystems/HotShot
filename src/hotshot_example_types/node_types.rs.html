@@ -93,6 +93,13 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>hotshot::traits::{
     election::static_committee::{GeneralStaticCommittee, StaticCommittee},
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
@@ -104,6 +111,7 @@
     traits::node_implementation::NodeType,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>vbs::version::StaticVersion;
 
 <span class="kw">use crate</span>::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -129,6 +137,12 @@
 /// to select our traits
 </span><span class="kw">pub struct </span>TestTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypes {
+    <span class="kw">type </span>Base = StaticVersion&lt;<span class="number">0</span>, <span class="number">1</span>&gt;;
+    <span class="kw">type </span>Upgrade = StaticVersion&lt;<span class="number">0</span>, <span class="number">2</span>&gt;;
+    <span class="kw">const </span>UPGRADE_HASH: [u8; <span class="number">32</span>] = [
+        <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+        <span class="number">0</span>, <span class="number">0</span>,
+    ];
     <span class="kw">type </span>Time = ViewNumber;
     <span class="kw">type </span>BlockHeader = TestBlockHeader;
     <span class="kw">type </span>BlockPayload = TestBlockPayload;

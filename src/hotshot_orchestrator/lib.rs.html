@@ -735,6 +735,8 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Orchestrator for manipulating nodes and recording results during a run of `HotShot` tests
 
 /// The orchestrator's clients
@@ -754,7 +756,7 @@
 <span class="kw">use </span>config::BuilderType;
 <span class="kw">use </span>csv::Writer;
 <span class="kw">use </span>futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-<span class="kw">use </span>hotshot_types::{constants::Base, traits::signature_key::SignatureKey, PeerConfig};
+<span class="kw">use </span>hotshot_types::{traits::signature_key::SignatureKey, PeerConfig};
 <span class="kw">use </span>libp2p::{
     identity::{
         ed25519::{Keypair <span class="kw">as </span>EdKeypair, SecretKey},
@@ -1319,7 +1321,7 @@
 
             <span class="comment">// Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             </span><span class="kw">let </span><span class="prelude-val">Ok</span>((libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::&lt;Base&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
+                vbs::Serializer::&lt;OrchestratorVersion&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
             <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
@@ -1351,7 +1353,7 @@
 
             <span class="comment">// Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             </span><span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw-2">mut </span>pubkey, libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::&lt;Base&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
+                vbs::Serializer::&lt;OrchestratorVersion&gt;::deserialize(<span class="kw-2">&amp;</span>body_bytes)
             <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
@@ -1399,7 +1401,9 @@
             </span><span class="kw">let </span><span class="kw-2">mut </span>body_bytes = req.body_bytes();
             body_bytes.drain(..<span class="number">12</span>);
 
-            <span class="kw">let </span><span class="prelude-val">Ok</span>(urls) = vbs::Serializer::&lt;Base&gt;::deserialize::&lt;Vec&lt;Url&gt;&gt;(<span class="kw-2">&amp;</span>body_bytes) <span class="kw">else </span>{
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(urls) =
+                vbs::Serializer::&lt;OrchestratorVersion&gt;::deserialize::&lt;Vec&lt;Url&gt;&gt;(<span class="kw-2">&amp;</span>body_bytes)
+            <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
                     message: <span class="string">"Malformed body"</span>.to_string(),
@@ -1409,7 +1413,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>futures = urls
                 .into_iter()
                 .map(|url| <span class="kw">async </span>{
-                    <span class="kw">let </span>client: surf_disco::Client&lt;ServerError, Base&gt; =
+                    <span class="kw">let </span>client: surf_disco::Client&lt;ServerError, OrchestratorVersion&gt; =
                         surf_disco::client::Client::builder(url.clone()).build();
                     <span class="kw">if </span>client.connect(<span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">2</span>))).<span class="kw">await </span>{
                         <span class="prelude-val">Some</span>(url)

@@ -495,14 +495,15 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
-<span class="kw">use </span>hotshot_types::{
-    constants::Base, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
-};
+<span class="kw">use </span>hotshot_types::{traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig};
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
@@ -720,8 +721,10 @@
         });
 
         <span class="comment">// Serialize our (possible) libp2p-specific data
-        </span><span class="kw">let </span>request_body =
-            vbs::Serializer::&lt;Base&gt;::serialize(<span class="kw-2">&amp;</span>(libp2p_address, libp2p_public_key))<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>request_body = vbs::Serializer::&lt;OrchestratorVersion&gt;::serialize(<span class="kw-2">&amp;</span>(
+            libp2p_address,
+            libp2p_public_key,
+        ))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>identity = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
             <span class="comment">// We need to clone here to move it into the closure
@@ -813,7 +816,7 @@
     /// if unable to serialize `address`
     </span><span class="kw">pub async fn </span>post_builder_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>, addresses: Vec&lt;Url&gt;) {
         <span class="kw">let </span>send_builder_f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
-            <span class="kw">let </span>request_body = vbs::Serializer::&lt;Base&gt;::serialize(<span class="kw-2">&amp;</span>addresses)
+            <span class="kw">let </span>request_body = vbs::Serializer::&lt;OrchestratorVersion&gt;::serialize(<span class="kw-2">&amp;</span>addresses)
                 .expect(<span class="string">"Failed to serialize request"</span>);
 
             <span class="kw">async move </span>{
@@ -879,9 +882,12 @@
         <span class="kw">let </span>da_requested: bool = validator_config.is_da;
 
         <span class="comment">// Serialize our (possible) libp2p-specific data
-        </span><span class="kw">let </span>request_body =
-            vbs::Serializer::&lt;Base&gt;::serialize(<span class="kw-2">&amp;</span>(pubkey, libp2p_address, libp2p_public_key))
-                .expect(<span class="string">"failed to serialize request"</span>);
+        </span><span class="kw">let </span>request_body = vbs::Serializer::&lt;OrchestratorVersion&gt;::serialize(<span class="kw-2">&amp;</span>(
+            pubkey,
+            libp2p_address,
+            libp2p_public_key,
+        ))
+        .expect(<span class="string">"failed to serialize request"</span>);
 
         <span class="comment">// register our public key with the orchestrator
         </span><span class="kw">let </span>(node_index, is_da): (u64, bool) = <span class="kw">loop </span>{

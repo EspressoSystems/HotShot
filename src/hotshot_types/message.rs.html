@@ -458,7 +458,6 @@
 };
 
 <span class="kw">use crate</span>::{
-    constants::{Base, Upgrade},
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
         DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
@@ -508,23 +507,24 @@
         <span class="kw">let </span>version = <span class="kw">match </span>upgrade_certificate {
             <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) =&gt; {
                 <span class="kw">if </span>view &gt;= cert.data.new_version_first_view
-                    &amp;&amp; cert.data.new_version == Upgrade::VERSION
+                    &amp;&amp; cert.data.new_version == TYPES::Upgrade::VERSION
                 {
-                    Upgrade::VERSION
+                    TYPES::Upgrade::VERSION
                 } <span class="kw">else if </span>view &gt;= cert.data.new_version_first_view
-                    &amp;&amp; cert.data.new_version != Upgrade::VERSION
+                    &amp;&amp; cert.data.new_version != TYPES::Upgrade::VERSION
                 {
                     <span class="macro">bail!</span>(<span class="string">"The network has upgraded to a new version that we do not support!"</span>);
                 } <span class="kw">else </span>{
-                    Base::VERSION
+                    TYPES::Base::VERSION
                 }
             }
-            <span class="prelude-val">None </span>=&gt; Base::VERSION,
+            <span class="prelude-val">None </span>=&gt; TYPES::Base::VERSION,
         };
 
         <span class="kw">let </span>serialized_message = <span class="kw">match </span>version {
-            Base::VERSION =&gt; Serializer::&lt;Base&gt;::serialize(<span class="kw-2">&amp;</span><span class="self">self</span>),
-            Upgrade::VERSION =&gt; Serializer::&lt;Upgrade&gt;::serialize(<span class="kw-2">&amp;</span><span class="self">self</span>),
+            <span class="comment">// Associated constants cannot be used in pattern matches, so we do this trick instead.
+            </span>v <span class="kw">if </span>v == TYPES::Base::VERSION =&gt; Serializer::&lt;TYPES::Base&gt;::serialize(<span class="kw-2">&amp;</span><span class="self">self</span>),
+            v <span class="kw">if </span>v == TYPES::Upgrade::VERSION =&gt; Serializer::&lt;TYPES::Upgrade&gt;::serialize(<span class="kw-2">&amp;</span><span class="self">self</span>),
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">bail!</span>(<span class="string">"Attempted to serialize with an incompatible version. This should be impossible."</span>);
             }
@@ -547,8 +547,8 @@
             </span>.<span class="number">0</span>;
 
         <span class="kw">let </span>deserialized_message: <span class="self">Self </span>= <span class="kw">match </span>version {
-            Base::VERSION =&gt; Serializer::&lt;Base&gt;::deserialize(message),
-            Upgrade::VERSION =&gt; Serializer::&lt;Upgrade&gt;::deserialize(message),
+            v <span class="kw">if </span>v == TYPES::Base::VERSION =&gt; Serializer::&lt;TYPES::Base&gt;::deserialize(message),
+            v <span class="kw">if </span>v == TYPES::Upgrade::VERSION =&gt; Serializer::&lt;TYPES::Upgrade&gt;::deserialize(message),
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">bail!</span>(<span class="string">"Cannot deserialize message!"</span>);
             }
@@ -560,18 +560,18 @@
         <span class="kw">let </span>expected_version = <span class="kw">match </span>upgrade_certificate {
             <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) =&gt; {
                 <span class="kw">if </span>view &gt;= cert.data.new_version_first_view
-                    &amp;&amp; cert.data.new_version == Upgrade::VERSION
+                    &amp;&amp; cert.data.new_version == TYPES::Upgrade::VERSION
                 {
-                    Upgrade::VERSION
+                    TYPES::Upgrade::VERSION
                 } <span class="kw">else if </span>view &gt;= cert.data.new_version_first_view
-                    &amp;&amp; cert.data.new_version != Upgrade::VERSION
+                    &amp;&amp; cert.data.new_version != TYPES::Upgrade::VERSION
                 {
                     <span class="macro">bail!</span>(<span class="string">"The network has upgraded to a new version that we do not support!"</span>);
                 } <span class="kw">else </span>{
-                    Base::VERSION
+                    TYPES::Base::VERSION
                 }
             }
-            <span class="prelude-val">None </span>=&gt; Base::VERSION,
+            <span class="prelude-val">None </span>=&gt; TYPES::Base::VERSION,
         };
 
         <span class="macro">ensure!</span>(

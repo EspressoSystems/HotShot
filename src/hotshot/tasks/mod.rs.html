@@ -194,6 +194,7 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -361,18 +362,19 @@
 }
 
 <span class="doccomment">/// Adds consensus-related tasks to a `SystemContextHandle`.
-</span><span class="kw">pub async fn </span>add_consensus_tasks&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    VERSION: StaticVersionType + <span class="lifetime">'static</span>,
-&gt;(
+</span><span class="kw">pub async fn </span>add_consensus_tasks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;,
 ) {
     handle.add_task(ViewSyncTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
     handle.add_task(VidTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
     handle.add_task(DaTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
-    handle.add_task(TransactionTaskState::&lt;TYPES, I, VERSION&gt;::create_from(handle).<span class="kw">await</span>);
-    handle.add_task(UpgradeTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+    handle.add_task(TransactionTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+
+    <span class="comment">// only spawn the upgrade task if we are actually configured to perform an upgrade.
+    </span><span class="kw">if </span>TYPES::Base::VERSION &lt; TYPES::Upgrade::VERSION {
+        handle.add_task(UpgradeTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+    }
+
     {
         <span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
         </span>handle.add_task(ConsensusTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);

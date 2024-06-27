@@ -535,15 +535,6 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -575,7 +566,6 @@
     vid::VidCommitment,
 };
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
-<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
     builder::BuilderClient,
@@ -611,11 +601,7 @@
 }
 
 <span class="doccomment">/// Tracks state of a Transaction task
-</span><span class="kw">pub struct </span>TransactionTaskState&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    Ver: StaticVersionType,
-&gt; {
+</span><span class="kw">pub struct </span>TransactionTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The state's api
     </span><span class="kw">pub </span>builder_timeout: Duration,
 
@@ -635,7 +621,7 @@
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// Builder API client
-    </span><span class="kw">pub </span>builder_clients: Vec&lt;BuilderClient&lt;TYPES, Ver&gt;&gt;,
+    </span><span class="kw">pub </span>builder_clients: Vec&lt;BuilderClient&lt;TYPES, TYPES::Base&gt;&gt;,
 
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -649,9 +635,7 @@
     </span><span class="kw">pub </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType&gt;
-    TransactionTaskState&lt;TYPES, I, Ver&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TransactionTaskState&lt;TYPES, I&gt; {
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
@@ -1070,9 +1054,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="doccomment">/// task state implementation for Transactions Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, Ver: StaticVersionType + <span class="lifetime">'static</span>&gt; TaskState
-    <span class="kw">for </span>TransactionTaskState&lt;TYPES, I, Ver&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>TransactionTaskState&lt;TYPES, I&gt; {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(

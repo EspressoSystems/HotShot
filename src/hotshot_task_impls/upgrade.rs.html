@@ -296,7 +296,6 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -306,7 +305,6 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    constants::{Base, Upgrade, UPGRADE_HASH},
     data::UpgradeProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -391,9 +389,9 @@
                 }
 
                 <span class="comment">// If the proposal does not match our upgrade target, we immediately exit.
-                </span><span class="kw">if </span>proposal.data.upgrade_proposal.new_version_hash != UPGRADE_HASH
-                    || proposal.data.upgrade_proposal.old_version != Base::VERSION
-                    || proposal.data.upgrade_proposal.new_version != Upgrade::VERSION
+                </span><span class="kw">if </span>proposal.data.upgrade_proposal.new_version_hash != TYPES::UPGRADE_HASH
+                    || proposal.data.upgrade_proposal.old_version != TYPES::Base::VERSION
+                    || proposal.data.upgrade_proposal.new_version != TYPES::Upgrade::VERSION
                 {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -527,9 +525,9 @@
                     &amp;&amp; <span class="self">self</span>.quorum_membership.leader(view + <span class="number">5</span>) == <span class="self">self</span>.public_key
                 {
                     <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
-                        old_version: Base::VERSION,
-                        new_version: Upgrade::VERSION,
-                        new_version_hash: UPGRADE_HASH.to_vec(),
+                        old_version: TYPES::Base::VERSION,
+                        new_version: TYPES::Upgrade::VERSION,
+                        new_version_hash: TYPES::UPGRADE_HASH.to_vec(),
                         <span class="comment">// We schedule the upgrade to begin 15 views in the future
                         </span>old_version_last_view: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">15</span>),
                         <span class="comment">// and end 20 views in the future
