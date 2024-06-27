@@ -202,6 +202,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let requester = DelayedRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
             state: Arc::clone(&self.state),
+            public_key: self.public_key.clone(),
             sender,
             delay: self.delay,
             recipients,
@@ -253,6 +254,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub network: Arc<I::Network>,
     /// Shared state to check if the data go populated
     state: Arc<RwLock<Consensus<TYPES>>>,
+    /// our public key
+    public_key: TYPES::SignatureKey,
     /// Channel to send the event when we receive a response
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Duration to delay sending the first request
@@ -395,6 +398,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             || state.vid_shares().contains_key(&view)
             || state.cur_view() > view;
         if cancel {
+            if let Some(Some(vid_share)) = state
+                .vid_shares()
+                .get(&view)
+                .map(|shares| shares.get(&self.public_key).cloned())
+            {
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                    &self.sender,
+                )
+                .await;
+            }
             tracing::debug!(
                 "Cancleing vid request for view {:?}, cur view is {:?}",
                 view,
