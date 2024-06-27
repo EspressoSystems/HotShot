@@ -12,15 +12,16 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
-use hotshot_macros::test_scripts;
+use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{
     consensus::ConsensusTaskState, consensus2::Consensus2TaskState, events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState, upgrade::UpgradeTaskState
 };
 use hotshot_testing::{
     helpers::{build_fake_view_with_leaf, vid_share},
     predicates::{event::*, upgrade_with_vote::*},
-    script::{Expectations, TaskScript},
+    script::{Expectations, TaskScript, InputOrder},
     view_generator::TestViewGenerator,
+    random, all_predicates
 };
 use hotshot_types::{
     data::{null_block, ViewNumber},
@@ -29,6 +30,8 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use vbs::version::Version;
+
+const TIMEOUT: Duration = Duration::from_millis(65);
 
 #[cfg(feature = "dependency-tasks")]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
@@ -94,44 +97,41 @@ async fn test_upgrade_task_with_vote() {
     }
 
     let inputs = vec![
-        vec![
+        random![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
             DaCertificateRecv(dacs[1].clone()),
             VidShareRecv(vids[1].0[0].clone()),
         ],
-        vec![
+        random![
             QuorumProposalValidated(proposals[2].data.clone(), leaves[1].clone()),
             DaCertificateRecv(dacs[2].clone()),
             VidShareRecv(vids[2].0[0].clone()),
         ],
-        vec![
+        random![
             QuorumProposalValidated(proposals[3].data.clone(), leaves[2].clone()),
             DaCertificateRecv(dacs[3].clone()),
             VidShareRecv(vids[3].0[0].clone()),
         ],
-        vec![
+        random![
             QuorumProposalValidated(proposals[4].data.clone(), leaves[3].clone()),
             DaCertificateRecv(dacs[4].clone()),
             VidShareRecv(vids[4].0[0].clone()),
         ],
-        vec![
+        random![
             QuorumProposalValidated(proposals[5].data.clone(), leaves[5].clone()),
         ],
     ];
 
     let expectations = vec![
-        Expectations {
-            output_asserts: vec![
-                exact(DaCertificateValidated(dacs[1].clone())),
-                exact(VidShareValidated(vids[1].0[0].clone())),
-                exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
-                validated_state_updated(),
-                quorum_vote_send(),
-            ],
-            task_state_asserts: vec![],
-        },
-        Expectations {
-            output_asserts: vec![
+        Expectations::from_outputs(all_predicates![
+            exact(DaCertificateValidated(dacs[1].clone())),
+            exact(VidShareValidated(vids[1].0[0].clone())),
+            exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
+            validated_state_updated(),
+            quorum_vote_send(),
+        ]),
+        Expectations::from_outputs_and_task_states(
+            all_predicates![
                 exact(LockedViewUpdated(ViewNumber::new(1))),
                 exact(DaCertificateValidated(dacs[2].clone())),
                 exact(VidShareValidated(vids[2].0[0].clone())),
@@ -139,10 +139,10 @@ async fn test_upgrade_task_with_vote() {
                 validated_state_updated(),
                 quorum_vote_send(),
             ],
-            task_state_asserts: vec![no_decided_upgrade_cert()],
-        },
-        Expectations {
-            output_asserts: vec![
+            vec![no_decided_upgrade_cert()],
+        ),
+        Expectations::from_outputs_and_task_states(
+            all_predicates![
                 exact(LockedViewUpdated(ViewNumber::new(2))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(1))),
                 leaf_decided(),
@@ -152,10 +152,10 @@ async fn test_upgrade_task_with_vote() {
                 validated_state_updated(),
                 quorum_vote_send(),
             ],
-            task_state_asserts: vec![no_decided_upgrade_cert()],
-        },
-        Expectations {
-            output_asserts: vec![
+            vec![no_decided_upgrade_cert()],
+        ),
+        Expectations::from_outputs_and_task_states(
+            all_predicates![
                 exact(LockedViewUpdated(ViewNumber::new(3))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(2))),
                 leaf_decided(),
@@ -165,26 +165,26 @@ async fn test_upgrade_task_with_vote() {
                 validated_state_updated(),
                 quorum_vote_send(),
             ],
-            task_state_asserts: vec![no_decided_upgrade_cert()],
-        },
-        Expectations {
-            output_asserts: vec![
+            vec![no_decided_upgrade_cert()],
+        ),
+        Expectations::from_outputs_and_task_states(
+            all_predicates![
                 upgrade_decided(),
                 exact(LockedViewUpdated(ViewNumber::new(4))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(3))),
                 leaf_decided(),
             ],
-            task_state_asserts: vec![decided_upgrade_cert()],
-        },
+            vec![decided_upgrade_cert()],
+        ),
     ];
 
     let vote_state = QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let mut vote_script = TaskScript {
-        timeout: Duration::from_millis(65),
+        timeout: TIMEOUT,
         state: vote_state,
         expectations,
     };
 
 
-    test_scripts![inputs, vote_script].await;
+    run_test![inputs, vote_script].await;
 }

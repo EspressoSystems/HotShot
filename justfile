@@ -156,6 +156,10 @@ test_upgrade_task:
   echo Testing the upgrade task without dependency tasks
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_upgrade_task -- --test-threads=1 --nocapture
 
+test_upgrade_task_dependency_tasks:
+  echo Testing the upgrade task without dependency tasks
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_upgrade_task -- --test-threads=1 --nocapture
+
 test_pkg := "hotshot"
 
 default_test := ""

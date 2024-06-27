@@ -13,7 +13,7 @@ use hotshot_example_types::{
     state_types::TestInstanceState,
 };
 use sha2::Digest;
-use hotshot_macros::test_scripts;
+use hotshot_macros::{test_scripts, run_test};
 use hotshot_task_impls::{
     quorum_proposal::QuorumProposalTaskState,
     consensus::ConsensusTaskState, consensus2::Consensus2TaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState
@@ -21,8 +21,9 @@ use hotshot_task_impls::{
 use hotshot_testing::{
     helpers::{build_fake_view_with_leaf, vid_share,build_payload_commitment},
     predicates::{event::*, upgrade_with_proposal::*},
-    script::{Expectations, TaskScript},
+    script::{Expectations, InputOrder,TaskScript},
     view_generator::TestViewGenerator,
+    all_predicates, random, serial
 };
 use hotshot_types::{
     data::{null_block,Leaf, ViewNumber},
@@ -33,6 +34,8 @@ use hotshot_types::{
 };
 use hotshot_example_types::state_types::TestValidatedState;
 use vbs::version::Version;
+
+const TIMEOUT: Duration = Duration::from_millis(35);
 
 #[cfg_attr(
     async_executor_impl = "tokio",
@@ -128,7 +131,7 @@ async fn test_upgrade_task_with_proposal() {
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
     let inputs = vec![
-        vec![
+        random![
             QcFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(1)),
@@ -143,7 +146,7 @@ async fn test_upgrade_task_with_proposal() {
                 build_fake_view_with_leaf(genesis_leaf.clone()),
             ),
         ],
-        vec![
+        random![
             QuorumProposalRecv(proposals[0].clone(), leaders[0]),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
@@ -159,8 +162,8 @@ async fn test_upgrade_task_with_proposal() {
                 build_fake_view_with_leaf(leaves[0].clone()),
             ),
         ],
-        upgrade_vote_recvs,
-        vec![
+        InputOrder::Random(upgrade_vote_recvs),
+        random![
             QuorumProposalRecv(proposals[1].clone(), leaders[1]),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
@@ -179,60 +182,39 @@ async fn test_upgrade_task_with_proposal() {
     ];
 
     let mut proposal_script = TaskScript {
-        timeout: Duration::from_millis(35),
+        timeout: TIMEOUT,
         state: proposal_state,
         expectations: vec![
-            Expectations {
-                output_asserts: vec![
-                    exact(UpdateHighQc(genesis_cert.clone())),
-                    exact(HighQcUpdated(genesis_cert.clone())),        
-                ],
-                task_state_asserts: vec![],
-            },
-            Expectations {
-                output_asserts: vec![
-                    exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-                    exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),   
-                ],
-                task_state_asserts: vec![],
-            },
-            Expectations {
-                output_asserts: vec![],
-                task_state_asserts: vec![],
-            },
-            Expectations {
-                output_asserts: vec![
+            Expectations::from_outputs(all_predicates![
+                exact(UpdateHighQc(genesis_cert.clone())),
+                exact(HighQcUpdated(genesis_cert.clone())),        
+            ]),
+            Expectations::from_outputs(all_predicates![
+                exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
+                exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),   
+            ]),
+            Expectations::from_outputs(vec![]),
+            Expectations::from_outputs(all_predicates![
                     exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
                     exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
                     quorum_proposal_send_with_upgrade_certificate::<TestTypes>()
-                ],
-                task_state_asserts: vec![],
-            },
+            ]),
         ],
     };
 
     let mut upgrade_script = TaskScript {
-        timeout: Duration::from_millis(35),
+        timeout: TIMEOUT,
         state: upgrade_state,
         expectations: vec![
-            Expectations {
-                output_asserts: vec![],
-                task_state_asserts: vec![],
-            },
-            Expectations {
-                output_asserts: vec![],
-                task_state_asserts: vec![],
-            },
+            Expectations::from_outputs(vec![]),
+            Expectations::from_outputs(vec![]),
             Expectations {
                 output_asserts: vec![upgrade_certificate_formed::<TestTypes>()],
                 task_state_asserts: vec![],
             },
-            Expectations {
-                output_asserts: vec![],
-                task_state_asserts: vec![],
-            },
+            Expectations::from_outputs(vec![]),
         ],
     };
 
-    test_scripts![inputs, proposal_script, upgrade_script].await;
+    run_test![inputs, proposal_script, upgrade_script].await;
 }
