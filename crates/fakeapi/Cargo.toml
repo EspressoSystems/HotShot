@@ -1,0 +1,20 @@
+[package]
+name = "fakeapi"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
+
+[dependencies]
+toml = { workspace = true }
+tide-disco = { workspace = true }
+anyhow = { workspace = true }
+hotshot-types = { path = "../types" }
+vbs = { worksapce = true }
+serde = { worksapce = true }
+
+[lints]
+workspace = true

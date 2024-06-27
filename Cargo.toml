@@ -22,7 +22,7 @@ members = [
   "crates/examples",
   "crates/example-types",
   "crates/types",
-  "crates/builder-api",
+  "crates/builder-api", "crates/fakeapi",
 ]
 resolver = "2"
 

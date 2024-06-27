@@ -1,0 +1,14 @@
+[meta]
+NAME = "fake-solver"
+DESCRIPTION = "Fake Solver for testing within hotshot"
+FORMAT_VERSION = "0.1.0"
+
+# GET the allocation result
+[route.get_allocation_result]
+PATH = ["allocation_result"]
+METHOD = "GET"
+DOC = """
+GET a fake allocation result from the fake Solver. Returns a json object containing a list of
+builder URLs corresponding to other running instances of fake-builder, or an empty list if no
+values are present.
+""
