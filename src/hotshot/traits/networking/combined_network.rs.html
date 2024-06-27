@@ -529,7 +529,6 @@
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span>std::{
@@ -731,7 +730,6 @@
                 <span class="comment">// The task hasn't been cancelled, the primary probably failed.
                 // Increment the primary fail counter and send the message.
                 </span><span class="macro">debug!</span>(<span class="string">"Sending on secondary after delay, message possibly has not reached recipient on primary"</span>);
-                primary_fail_counter.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
                 secondary_future.<span class="kw">await
             </span>});
             <span class="prelude-val">Ok</span>(())
