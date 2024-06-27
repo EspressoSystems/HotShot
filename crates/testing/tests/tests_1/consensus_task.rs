@@ -1,5 +1,4 @@
 #![cfg(not(feature = "dependency-tasks"))]
-
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
@@ -17,12 +16,12 @@ use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*}
 use hotshot_testing::{
     all_predicates,
     helpers::{
-        build_system_handle, key_pair_for_id, permute_input_with_index_order,
-        vid_scheme_from_view_number, vid_share, build_fake_view_with_leaf
+        build_fake_view_with_leaf, build_system_handle, key_pair_for_id,
+        permute_input_with_index_order, vid_scheme_from_view_number, vid_share,
     },
     predicates::event::{
         all_predicates, exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send,
-        timeout_vote_send, validated_state_updated
+        timeout_vote_send, validated_state_updated,
     },
     random,
     script::{Expectations, InputOrder, TaskScript},
@@ -95,7 +94,7 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
         ],
     ];
@@ -281,7 +280,7 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4).unwrap(),
+                null_block::builder_fee().unwrap(),
             ),
         ],
     ];

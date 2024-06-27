@@ -1005,7 +1005,6 @@ where
         BuilderType::Random => {
             let builder_task =
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                    run_config.config.num_nodes_with_stake.into(),
                     bind_address,
                     run_config.random_builder.clone().unwrap_or_default(),
                     HashMap::new(),
@@ -1021,7 +1020,6 @@ where
         BuilderType::Simple => {
             let builder_task =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                    run_config.config.num_nodes_with_stake.into(),
                     bind_address,
                     (),
                     HashMap::new(),

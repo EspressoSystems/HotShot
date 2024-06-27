@@ -287,7 +287,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
 
                 return None;
             }
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee, _vid_precomp) => {
+            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee) => {
                 let view = *view;
 
                 // quick hash the encoded txns with sha256

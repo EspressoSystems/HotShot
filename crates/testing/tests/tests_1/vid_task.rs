@@ -18,12 +18,11 @@ use hotshot_types::{
     data::{null_block, DaProposal, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
-        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
     },
 };
-use jf_vid::{precomputable::Precomputable, VidScheme};
+use jf_vid::VidScheme;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -54,7 +53,6 @@ async fn test_vid_task() {
         <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata);
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let (_, vid_precompute) = vid.commit_only_precompute(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
@@ -89,8 +87,7 @@ async fn test_vid_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
-                vid_precompute,
+                null_block::builder_fee().unwrap(),
             ),
         ],
     ];
@@ -103,7 +100,7 @@ async fn test_vid_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee().unwrap(),
             )),
             exact(BlockReady(vid_disperse, ViewNumber::new(2))),
             exact(VidDisperseSend(vid_proposal.clone(), pub_key)),

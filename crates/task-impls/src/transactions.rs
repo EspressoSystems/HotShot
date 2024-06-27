@@ -9,9 +9,7 @@ use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
-use hotshot_builder_api::block_info::{
-    AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
-};
+use hotshot_builder_api::block_info::{AvailableBlockData, AvailableBlockInfo};
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::Consensus,
@@ -19,7 +17,7 @@ use hotshot_types::{
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
     traits::{
-        block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
+        block_contents::{BuilderFee, EncodeBytes},
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
@@ -59,9 +57,6 @@ pub struct BuilderResponses<TYPES: NodeType> {
     /// Second API response
     /// It contains information about the chosen blocks
     pub block_data: AvailableBlockData<TYPES>,
-    /// Third API response
-    /// It contains the final block information
-    pub block_header: AvailableBlockHeaderInput<TYPES>,
 }
 
 /// Tracks state of a Transaction task
@@ -168,7 +163,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                 if let Some(BuilderResponses {
                     block_data,
                     blocks_initial_info,
-                    block_header,
                 }) = block
                 {
                     broadcast_event(
@@ -179,9 +173,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                             BuilderFee {
                                 fee_amount: blocks_initial_info.offered_fee,
                                 fee_account: block_data.sender,
-                                fee_signature: block_header.fee_signature,
+                                fee_signature: block_data.signature,
                             },
-                            block_header.vid_precompute_data,
                         )),
                         &event_stream,
                     )
@@ -201,19 +194,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                         .number_of_empty_blocks_proposed
                         .add(1);
 
-                    let membership_total_nodes = self.membership.total_nodes();
-
                     // Calculate the builder fee for the empty block
-                    let Some(builder_fee) = null_block::builder_fee(membership_total_nodes) else {
+                    let Some(builder_fee) = null_block::builder_fee() else {
                         error!("Failed to get builder fee");
                         return None;
                     };
 
                     // Create an empty block payload and metadata
                     let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
-
-                    let (_, precompute_data) =
-                        precompute_vid_commitment(&[], membership_total_nodes);
 
                     // Broadcast the empty block
                     broadcast_event(
@@ -222,7 +210,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                             metadata,
                             block_view,
                             builder_fee,
-                            precompute_data,
                         )),
                         &event_stream,
                     )
@@ -456,23 +443,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                 }
             };
 
-            let (block, header_input) = futures::join! {
-                client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
-                client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
-            };
+            let block = client
+                .claim_block(
+                    block_info.block_hash.clone(),
+                    view_number.u64(),
+                    self.public_key.clone(),
+                    &request_signature,
+                )
+                .await;
 
             let block_data = match block {
                 Ok(block_data) => block_data,
                 Err(err) => {
                     tracing::warn!(%err, "Error claiming block data");
-                    continue;
-                }
-            };
-
-            let header_input = match header_input {
-                Ok(block_data) => block_data,
-                Err(err) => {
-                    tracing::warn!(%err, "Error claiming header input");
                     continue;
                 }
             };
@@ -489,32 +472,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                 continue;
             }
 
-            // first verify the message signature and later verify the fee_signature
-            if !header_input.sender.validate_builder_signature(
-                &header_input.message_signature,
-                header_input.vid_commitment.as_ref(),
-            ) {
-                tracing::warn!(
-                    "Failed to verify available block header input data response message signature"
-                );
-                continue;
-            }
-
-            // verify the signature over the message
-            if !header_input.sender.validate_fee_signature(
-                &header_input.fee_signature,
-                block_info.offered_fee,
-                &block_data.metadata,
-                &header_input.vid_commitment,
-            ) {
-                tracing::warn!("Failed to verify fee signature");
-                continue;
-            }
-
             return Ok(BuilderResponses {
                 blocks_initial_info: block_info,
                 block_data,
-                block_header: header_input,
             });
         }
 

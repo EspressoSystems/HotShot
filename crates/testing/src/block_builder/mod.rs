@@ -6,15 +6,14 @@ use async_trait::async_trait;
 use futures::Stream;
 use hotshot::{traits::BlockPayload, types::Event};
 use hotshot_builder_api::{
-    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    block_info::{AvailableBlockData, AvailableBlockInfo},
     builder::{Error, Options},
     data_source::BuilderDataSource,
 };
 use hotshot_types::{
     constants::Base,
     traits::{
-        block_contents::{precompute_vid_commitment, EncodeBytes},
-        node_implementation::NodeType,
+        block_contents::EncodeBytes, node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
 };
@@ -37,7 +36,6 @@ where
     type Config: Default;
 
     async fn start(
-        num_storage_nodes: usize,
         url: Url,
         options: Self::Config,
         changes: HashMap<u64, BuilderChange>,
@@ -55,8 +53,7 @@ pub trait BuilderTask<TYPES: NodeType>: Send + Sync {
 #[derive(Debug, Clone)]
 struct BlockEntry<TYPES: NodeType> {
     metadata: AvailableBlockInfo<TYPES>,
-    payload: Option<AvailableBlockData<TYPES>>,
-    header_input: Option<AvailableBlockHeaderInput<TYPES>>,
+    payload: AvailableBlockData<TYPES>,
 }
 
 /// Construct a tide disco app that mocks the builder API.
@@ -109,13 +106,14 @@ pub fn run_builder_source<TYPES, Source>(
 /// Helper function to construct all builder data structures from a list of transactions
 async fn build_block<TYPES: NodeType>(
     transactions: Vec<TYPES::Transaction>,
-    num_storage_nodes: usize,
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
 ) -> BlockEntry<TYPES>
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
+    let example_fee = 123;
+
     let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(
         transactions,
         &Default::default(),
@@ -125,9 +123,6 @@ where
     .expect("failed to build block payload from transactions");
 
     let commitment = block_payload.builder_commitment(&metadata);
-
-    let (vid_commitment, precompute_data) =
-        precompute_vid_commitment(&block_payload.encode(), num_storage_nodes);
 
     // Get block size from the encoded payload
     let block_size = block_payload.encode().len() as u64;
@@ -140,17 +135,10 @@ where
         TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, commitment.as_ref())
             .expect("Failed to sign commitment");
 
-    let signature_over_vid_commitment =
-        TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, vid_commitment.as_ref())
-            .expect("Failed to sign block vid commitment");
-
-    let signature_over_fee_info =
-        TYPES::BuilderSignatureKey::sign_fee(&priv_key, 123_u64, &metadata, &vid_commitment)
-            .expect("Failed to sign fee info");
-
     let block = AvailableBlockData {
         block_payload,
         metadata,
+        fee: example_fee,
         sender: pub_key.clone(),
         signature: signature_over_builder_commitment,
     };
@@ -159,20 +147,11 @@ where
         signature: signature_over_block_info,
         block_hash: commitment,
         block_size,
-        offered_fee: 123,
-        _phantom: std::marker::PhantomData,
-    };
-    let header_input = AvailableBlockHeaderInput {
-        vid_commitment,
-        vid_precompute_data: precompute_data,
-        message_signature: signature_over_vid_commitment.clone(),
-        fee_signature: signature_over_fee_info,
-        sender: pub_key,
+        offered_fee: example_fee,
     };
 
     BlockEntry {
         metadata,
-        payload: Some(block),
-        header_input: Some(header_input),
+        payload: block,
     }
 }
