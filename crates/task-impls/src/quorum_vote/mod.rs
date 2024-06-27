@@ -598,7 +598,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             }
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
-                trace!("Received VID share for view {}", *view);
+                warn!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
