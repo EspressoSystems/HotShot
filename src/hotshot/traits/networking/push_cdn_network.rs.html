@@ -567,8 +567,6 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
@@ -835,7 +833,7 @@
         _is_da: bool,
         _reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         _secondary_network_delay: Duration,
-    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;)&gt; {
+    ) -&gt; AsyncGenerator&lt;Arc&lt;<span class="self">Self</span>&gt;&gt; {
         <span class="comment">// The configuration we are using for testing is 2 brokers &amp; 1 marshal
 
         // A keypair shared between brokers
@@ -975,14 +973,12 @@
                     };
 
                     <span class="comment">// Create our client
-                    </span><span class="kw">let </span>client = Arc::new(PushCdnNetwork {
+                    </span>Arc::new(PushCdnNetwork {
                         client: Client::new(client_config),
                         metrics: Arc::new(CdnMetricsValue::default()),
                         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                         </span>is_paused: Arc::from(AtomicBool::new(<span class="bool-val">false</span>)),
-                    });
-
-                    (Arc::clone(<span class="kw-2">&amp;</span>client), client)
+                    })
                 })
             }
         })

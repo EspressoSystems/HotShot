@@ -1056,7 +1056,7 @@
         is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         secondary_network_delay: Duration,
-    ) -&gt; AsyncGenerator&lt;(Arc&lt;<span class="self">Self</span>&gt;, Arc&lt;<span class="self">Self</span>&gt;)&gt;;
+    ) -&gt; AsyncGenerator&lt;Arc&lt;<span class="self">Self</span>&gt;&gt;;
 
     <span class="doccomment">/// Get the number of messages in-flight.
     ///

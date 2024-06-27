@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["NodeImpl"],"type":["DaNetwork","QuorumNetwork","ThisRun","VidNetwork","ViewSyncNetwork"]};
+window.SIDEBAR_ITEMS = {"struct":["NodeImpl"],"type":["Network","ThisRun"]};

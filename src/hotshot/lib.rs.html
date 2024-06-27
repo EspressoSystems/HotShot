@@ -726,42 +726,6 @@
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -781,7 +745,6 @@
 
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
-    marker::PhantomData,
     num::NonZeroUsize,
     sync::Arc,
     time::Duration,
@@ -835,32 +798,6 @@
 <span class="doccomment">/// Length, in bytes, of a 256 bit hash
 </span><span class="kw">pub const </span>H_256: usize = <span class="number">32</span>;
 
-<span class="doccomment">/// Bundle of the networks used in consensus
-</span><span class="kw">pub struct </span>Networks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Network for reaching all nodes
-    </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
-
-    <span class="doccomment">/// Network for reaching the DA committee
-    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
-
-    <span class="doccomment">/// Phantom for TYPES and I
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;(TYPES, I)&gt;,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Networks&lt;TYPES, I&gt; {
-    <span class="doccomment">/// wait for all networks to be ready
-    </span><span class="kw">pub async fn </span>wait_for_networks_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.quorum_network.wait_for_ready().<span class="kw">await</span>;
-        <span class="self">self</span>.da_network.wait_for_ready().<span class="kw">await</span>;
-    }
-
-    <span class="doccomment">/// shut down all networks
-    </span><span class="kw">pub async fn </span>shut_down_networks(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.quorum_network.shut_down().<span class="kw">await</span>;
-        <span class="self">self</span>.da_network.shut_down().<span class="kw">await</span>;
-    }
-}
-
 <span class="doccomment">/// Bundle of all the memberships a consensus instance uses
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Memberships&lt;TYPES: NodeType&gt; {
@@ -885,8 +822,8 @@
     <span class="doccomment">/// Configuration items for this hotshot instance
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
 
-    <span class="doccomment">/// Networks used by the instance of hotshot
-    </span><span class="kw">pub </span>networks: Arc&lt;Networks&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// The underlying network
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Memberships used by consensus
     </span><span class="kw">pub </span>memberships: Arc&lt;Memberships&lt;TYPES&gt;&gt;,
@@ -938,7 +875,7 @@
             public_key: <span class="self">self</span>.public_key.clone(),
             private_key: <span class="self">self</span>.private_key.clone(),
             config: <span class="self">self</span>.config.clone(),
-            networks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks),
+            network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
             memberships: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.memberships),
             metrics: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.metrics),
             consensus: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
@@ -972,7 +909,7 @@
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         memberships: Memberships&lt;TYPES&gt;,
-        networks: Networks&lt;TYPES, I&gt;,
+        network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
@@ -1059,7 +996,7 @@
             config,
             version,
             start_view: initializer.start_view,
-            networks: Arc::new(networks),
+            network,
             memberships: Arc::new(memberships),
             metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
@@ -1213,9 +1150,7 @@
                 // and will be updated to be part of SystemContext. I wanted to use associated
                 // constants in NodeType, but that seems to be unavailable in the current Rust.
                 </span>api
-                    .networks
-                    .da_network
-                    .broadcast_message(
+                    .network.broadcast_message(
                         serialized_message,
                         da_membership.whole_committee(view_number),
                         BroadcastDelay::None,
@@ -1299,7 +1234,7 @@
         node_id: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         memberships: Memberships&lt;TYPES&gt;,
-        networks: Networks&lt;TYPES, I&gt;,
+        network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
@@ -1317,7 +1252,7 @@
             node_id,
             config,
             memberships,
-            networks,
+            network,
             initializer,
             metrics,
             storage,
@@ -1346,8 +1281,7 @@
         <span class="kw">let </span>output_event_stream = <span class="self">self</span>.external_event_stream.clone();
         <span class="kw">let </span>internal_event_stream = <span class="self">self</span>.internal_event_stream.clone();
 
-        <span class="kw">let </span>quorum_network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks.quorum_network);
-        <span class="kw">let </span>da_network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.networks.da_network);
+        <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>quorum_membership = <span class="self">self</span>.memberships.quorum_membership.clone();
         <span class="kw">let </span>da_membership = <span class="self">self</span>.memberships.da_membership.clone();
         <span class="kw">let </span>vid_membership = <span class="self">self</span>.memberships.vid_membership.clone();
@@ -1362,49 +1296,43 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
         };
 
-        add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>quorum_network)).<span class="kw">await</span>;
-        add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>da_network)).<span class="kw">await</span>;
+        add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>network)).<span class="kw">await</span>;
+        add_network_message_task(<span class="kw-2">&amp;mut </span>handle, Arc::clone(<span class="kw-2">&amp;</span>network)).<span class="kw">await</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(request_receiver) = da_network.spawn_request_receiver_task().<span class="kw">await </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(request_receiver) = network.spawn_request_receiver_task().<span class="kw">await </span>{
             add_request_network_task(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
             add_response_task(<span class="kw-2">&amp;mut </span>handle, request_receiver).<span class="kw">await</span>;
         }
 
         add_network_event_task(
             <span class="kw-2">&amp;mut </span>handle,
-            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
+            Arc::clone(<span class="kw-2">&amp;</span>network),
             quorum_membership.clone(),
             network::quorum_filter,
         )
         .<span class="kw">await</span>;
         add_network_event_task(
             <span class="kw-2">&amp;mut </span>handle,
-            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
+            Arc::clone(<span class="kw-2">&amp;</span>network),
             quorum_membership,
             network::upgrade_filter,
         )
         .<span class="kw">await</span>;
         add_network_event_task(
             <span class="kw-2">&amp;mut </span>handle,
-            Arc::clone(<span class="kw-2">&amp;</span>da_network),
+            Arc::clone(<span class="kw-2">&amp;</span>network),
             da_membership,
             network::da_filter,
         )
         .<span class="kw">await</span>;
         add_network_event_task(
             <span class="kw-2">&amp;mut </span>handle,
-            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
+            Arc::clone(<span class="kw-2">&amp;</span>network),
             view_sync_membership,
             network::view_sync_filter,
         )
         .<span class="kw">await</span>;
-        add_network_event_task(
-            <span class="kw-2">&amp;mut </span>handle,
-            Arc::clone(<span class="kw-2">&amp;</span>quorum_network),
-            vid_membership,
-            network::vid_filter,
-        )
-        .<span class="kw">await</span>;
+        add_network_event_task(<span class="kw-2">&amp;mut </span>handle, network, vid_membership, network::vid_filter).<span class="kw">await</span>;
         add_consensus_tasks::&lt;TYPES, I, Base&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
         handle
     }

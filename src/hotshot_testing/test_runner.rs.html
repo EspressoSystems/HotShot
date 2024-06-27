@@ -526,15 +526,6 @@
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
 <a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -582,7 +573,7 @@
     block_builder::TestBuilderImplementation,
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
-    test_launcher::{Networks, TestLauncher},
+    test_launcher::{Network, TestLauncher},
     test_task::{TestResult, TestTask},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
@@ -598,7 +589,7 @@
     &gt; TestRunner&lt;TYPES, I, N&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES&gt;,
-    I: NodeImplementation&lt;TYPES, QuorumNetwork = N, DaNetwork = N, Storage = TestStorage&lt;TYPES&gt;&gt;,
+    I: NodeImplementation&lt;TYPES, Network = N, Storage = TestStorage&lt;TYPES&gt;&gt;,
 {
     <span class="doccomment">/// execute test
     ///
@@ -747,8 +738,7 @@
 
         <span class="comment">// wait for networks to be ready
         </span><span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;*</span>nodes {
-            node.networks.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
-            node.networks.<span class="number">1</span>.wait_for_ready().<span class="kw">await</span>;
+            node.network.wait_for_ready().<span class="kw">await</span>;
         }
 
         <span class="comment">// Start hotshot
@@ -898,14 +888,12 @@
                 .try_into()
                 .expect(<span class="string">"Non-empty by construction"</span>);
 
-            <span class="kw">let </span>networks = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
+            <span class="kw">let </span>network = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
 
-            <span class="kw">let </span>network0 = networks.<span class="number">0</span>.clone();
-            <span class="kw">let </span>network1 = networks.<span class="number">1</span>.clone();
+            <span class="kw">let </span>network_clone = network.clone();
             <span class="kw">let </span>networks_ready_future = <span class="kw">async move </span>{
-                network0.wait_for_ready().<span class="kw">await</span>;
-                network1.wait_for_ready().<span class="kw">await</span>;
+                network_clone.wait_for_ready().<span class="kw">await</span>;
             };
 
             networks_ready.push(networks_ready_future);
@@ -914,7 +902,7 @@
                 <span class="self">self</span>.late_start.insert(
                     node_id,
                     LateStartNode {
-                        networks,
+                        network,
                         context: Right((storage, memberships, config)),
                     },
                 );
@@ -931,7 +919,7 @@
                     ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
                 <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
                     node_id,
-                    networks.clone(),
+                    network.clone(),
                     memberships,
                     initializer,
                     config,
@@ -943,12 +931,12 @@
                     <span class="self">self</span>.late_start.insert(
                         node_id,
                         LateStartNode {
-                            networks,
+                            network,
                             context: Left(hotshot),
                         },
                     );
                 } <span class="kw">else </span>{
-                    uninitialized_nodes.push((node_id, networks, hotshot));
+                    uninitialized_nodes.push((node_id, network, hotshot));
                 }
             }
 
@@ -959,7 +947,7 @@
         </span>join_all(networks_ready).<span class="kw">await</span>;
 
         <span class="comment">// Then start the necessary tasks
-        </span><span class="kw">for </span>(node_id, networks, hotshot) <span class="kw">in </span>uninitialized_nodes {
+        </span><span class="kw">for </span>(node_id, network, hotshot) <span class="kw">in </span>uninitialized_nodes {
             <span class="kw">let </span>handle = hotshot.run_tasks().<span class="kw">await</span>;
 
             <span class="kw">match </span>node_id.cmp(<span class="kw-2">&amp;</span>(config.da_staked_committee_size <span class="kw">as </span>u64 - <span class="number">1</span>)) {
@@ -979,7 +967,7 @@
 
             <span class="self">self</span>.nodes.push(Node {
                 node_id,
-                networks,
+                network,
                 handle,
             });
         }
@@ -992,7 +980,7 @@
     /// if unable to initialize the node's `SystemContext` based on the config
     </span><span class="kw">pub async fn </span>add_node_with_config(
         node_id: u64,
-        networks: Networks&lt;TYPES, I&gt;,
+        network: Network&lt;TYPES, I&gt;,
         memberships: Memberships&lt;TYPES&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
@@ -1003,19 +991,13 @@
         </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
         <span class="kw">let </span>public_key = validator_config.public_key.clone();
 
-        <span class="kw">let </span>network_bundle = hotshot::Networks {
-            quorum_network: networks.<span class="number">0</span>.clone(),
-            da_network: networks.<span class="number">1</span>.clone(),
-            _pd: PhantomData,
-        };
-
         SystemContext::new(
             public_key,
             private_key,
             node_id,
             config,
             memberships,
-            network_bundle,
+            network,
             initializer,
             ConsensusMetricsValue::default(),
             storage,
@@ -1027,8 +1009,8 @@
 </span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The node's unique identifier
     </span><span class="kw">pub </span>node_id: u64,
-    <span class="doccomment">/// The underlying networks belonging to the node
-    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
+    <span class="doccomment">/// The underlying network belonging to the node
+    </span><span class="kw">pub </span>network: Network&lt;TYPES, I&gt;,
     <span class="doccomment">/// The handle to the node's internals
     </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
 }
@@ -1045,8 +1027,8 @@
 
 <span class="doccomment">/// A yet-to-be-started node that participates in tests
 </span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The underlying networks belonging to the node
-    </span><span class="kw">pub </span>networks: Networks&lt;TYPES, I&gt;,
+    <span class="doccomment">/// The underlying network belonging to the node
+    </span><span class="kw">pub </span>network: Network&lt;TYPES, I&gt;,
     <span class="doccomment">/// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
     </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I&gt;,

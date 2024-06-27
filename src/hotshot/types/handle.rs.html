@@ -227,11 +227,6 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
@@ -244,6 +239,7 @@
 <span class="kw">use </span>futures::Stream;
 <span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
+<span class="kw">use </span>hotshot_types::traits::network::ConnectedNetwork;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     data::Leaf,
@@ -380,12 +376,6 @@
         <span class="self">self</span>.hotshot.consensus()
     }
 
-    <span class="doccomment">/// Block the underlying quorum (and DA) networking interfaces until node is
-    /// successfully initialized into the networks.
-    </span><span class="kw">pub async fn </span>wait_for_networks_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.hotshot.networks.wait_for_networks_ready().<span class="kw">await</span>;
-    }
-
     <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
     </span><span class="kw">pub async fn </span>shut_down(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="comment">// this is required because `SystemContextHandle` holds an inactive receiver and
@@ -400,8 +390,8 @@
         <span class="macro">tracing::error!</span>(<span class="string">"Shutting down network tasks!"</span>);
         <span class="self">self</span>.network_registry.shutdown().<span class="kw">await</span>;
 
-        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down networks!"</span>);
-        <span class="self">self</span>.hotshot.networks.shut_down_networks().<span class="kw">await</span>;
+        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down the network!"</span>);
+        <span class="self">self</span>.hotshot.network.shut_down().<span class="kw">await</span>;
 
         <span class="macro">tracing::error!</span>(<span class="string">"Shutting down consensus!"</span>);
         <span class="self">self</span>.consensus_registry.shutdown().<span class="kw">await</span>;

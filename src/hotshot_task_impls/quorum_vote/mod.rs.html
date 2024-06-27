@@ -695,9 +695,6 @@
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
 <a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
@@ -1066,11 +1063,8 @@
     <span class="doccomment">/// Table for the in-progress dependency tasks.
     </span><span class="kw">pub </span>vote_dependencies: HashMap&lt;TYPES::Time, JoinHandle&lt;()&gt;&gt;,
 
-    <span class="doccomment">/// Network for all nodes
-    </span><span class="kw">pub </span>quorum_network: Arc&lt;I::QuorumNetwork&gt;,
-
-    <span class="doccomment">/// Network for DA committee
-    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
+    <span class="doccomment">/// The underlying network
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Membership for Quorum certs/votes.
     </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,

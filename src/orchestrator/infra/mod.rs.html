@@ -1031,83 +1031,14 @@
 <a href="#1029" id="1029">1029</a>
 <a href="#1030" id="1030">1030</a>
 <a href="#1031" id="1031">1031</a>
-<a href="#1032" id="1032">1032</a>
-<a href="#1033" id="1033">1033</a>
-<a href="#1034" id="1034">1034</a>
-<a href="#1035" id="1035">1035</a>
-<a href="#1036" id="1036">1036</a>
-<a href="#1037" id="1037">1037</a>
-<a href="#1038" id="1038">1038</a>
-<a href="#1039" id="1039">1039</a>
-<a href="#1040" id="1040">1040</a>
-<a href="#1041" id="1041">1041</a>
-<a href="#1042" id="1042">1042</a>
-<a href="#1043" id="1043">1043</a>
-<a href="#1044" id="1044">1044</a>
-<a href="#1045" id="1045">1045</a>
-<a href="#1046" id="1046">1046</a>
-<a href="#1047" id="1047">1047</a>
-<a href="#1048" id="1048">1048</a>
-<a href="#1049" id="1049">1049</a>
-<a href="#1050" id="1050">1050</a>
-<a href="#1051" id="1051">1051</a>
-<a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
-<a href="#1055" id="1055">1055</a>
-<a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
-<a href="#1070" id="1070">1070</a>
-<a href="#1071" id="1071">1071</a>
-<a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Debug,
     fs,
-    marker::PhantomData,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -1129,7 +1060,7 @@
         BlockPayload, NodeImplementation,
     },
     types::SystemContextHandle,
-    Memberships, Networks, SystemContext,
+    Memberships, SystemContext,
 };
 <span class="kw">use </span>hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
@@ -1437,14 +1368,8 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>RunDa&lt;
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
-    DANET: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
-    QUORUMNET: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
-    NODE: NodeImplementation&lt;
-        TYPES,
-        QuorumNetwork = QUORUMNET,
-        DaNetwork = DANET,
-        Storage = TestStorage&lt;TYPES&gt;,
-    &gt;,
+    NETWORK: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
+    NODE: NodeImplementation&lt;TYPES, Network = NETWORK, Storage = TestStorage&lt;TYPES&gt;&gt;,
 &gt; <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1474,14 +1399,7 @@
         <span class="kw">let </span>sk = config.config.my_own_validator_config.private_key.clone();
         <span class="kw">let </span>known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
 
-        <span class="kw">let </span>da_network = <span class="self">self</span>.da_channel();
-        <span class="kw">let </span>quorum_network = <span class="self">self</span>.quorum_channel();
-
-        <span class="kw">let </span>networks_bundle = Networks {
-            quorum_network: quorum_network.clone().into(),
-            da_network: da_network.clone().into(),
-            _pd: PhantomData,
-        };
+        <span class="kw">let </span>network = <span class="self">self</span>.network();
 
         <span class="comment">// Create the quorum membership from all nodes
         </span><span class="kw">let </span>quorum_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
@@ -1511,7 +1429,7 @@
             config.node_index,
             config.config,
             memberships,
-            networks_bundle,
+            Arc::from(network),
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::&lt;TYPES&gt;::default(),
@@ -1683,11 +1601,8 @@
         }
     }
 
-    <span class="doccomment">/// Returns the da network for this run
-    </span><span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DANET;
-
-    <span class="doccomment">/// Returns the quorum network for this run
-    </span><span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QUORUMNET;
+    <span class="doccomment">/// Returns the underlying network for this run
+    </span><span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NETWORK;
 
     <span class="doccomment">/// Returns the config for this run
     </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt;;
@@ -1699,10 +1614,8 @@
 </span><span class="kw">pub struct </span>PushCdnDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// The quorum channel
-    </span>quorum_channel: PushCdnNetwork&lt;TYPES&gt;,
-    <span class="doccomment">/// The DA channel
-    </span>da_channel: PushCdnNetwork&lt;TYPES&gt;,
+    <span class="doccomment">/// The underlying network
+    </span>network: PushCdnNetwork&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1713,13 +1626,8 @@
             BlockHeader = TestBlockHeader,
             InstanceState = TestInstanceState,
         &gt;,
-        NODE: NodeImplementation&lt;
-            TYPES,
-            QuorumNetwork = PushCdnNetwork&lt;TYPES&gt;,
-            DaNetwork = PushCdnNetwork&lt;TYPES&gt;,
-            Storage = TestStorage&lt;TYPES&gt;,
-        &gt;,
-    &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
+        NODE: NodeImplementation&lt;TYPES, Network = PushCdnNetwork&lt;TYPES&gt;, Storage = TestStorage&lt;TYPES&gt;&gt;,
+    &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1760,19 +1668,11 @@
         <span class="comment">// Wait for the network to be ready
         </span>network.wait_for_ready().<span class="kw">await</span>;
 
-        PushCdnDaRun {
-            config,
-            quorum_channel: network.clone(),
-            da_channel: network,
-        }
+        PushCdnDaRun { config, network }
     }
 
-    <span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
-        <span class="self">self</span>.da_channel.clone()
-    }
-
-    <span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
-        <span class="self">self</span>.quorum_channel.clone()
+    <span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES&gt; {
+        <span class="self">self</span>.network.clone()
     }
 
     <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
@@ -1784,12 +1684,10 @@
 
 </span><span class="doccomment">/// Represents a libp2p-based run
 </span><span class="kw">pub struct </span>Libp2pDaRun&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// the network configuration
+    <span class="doccomment">/// The underlying network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// quorum channel
-    </span>quorum_channel: Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// data availability channel
-    </span>da_channel: Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
+    <span class="doccomment">/// The underlying network
+    </span>network: Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1802,12 +1700,10 @@
         &gt;,
         NODE: NodeImplementation&lt;
             TYPES,
-            QuorumNetwork = Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
-            DaNetwork = Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
+            Network = Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDa&lt;TYPES, Libp2pNetwork&lt;TYPES::SignatureKey&gt;, Libp2pNetwork&lt;TYPES::SignatureKey&gt;, NODE&gt;
-    <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
+    &gt; RunDa&lt;TYPES, Libp2pNetwork&lt;TYPES::SignatureKey&gt;, NODE&gt; <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1856,17 +1752,12 @@
 
         Libp2pDaRun {
             config,
-            quorum_channel: libp2p_network.clone(),
-            da_channel: libp2p_network,
+            network: libp2p_network,
         }
     }
 
-    <span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;TYPES::SignatureKey&gt; {
-        <span class="self">self</span>.da_channel.clone()
-    }
-
-    <span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;TYPES::SignatureKey&gt; {
-        <span class="self">self</span>.quorum_channel.clone()
+    <span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Libp2pNetwork&lt;TYPES::SignatureKey&gt; {
+        <span class="self">self</span>.network.clone()
     }
 
     <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
@@ -1878,12 +1769,10 @@
 
 </span><span class="doccomment">/// Represents a combined-network-based run
 </span><span class="kw">pub struct </span>CombinedDaRun&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// the network configuration
+    <span class="doccomment">/// The underlying network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// quorum channel
-    </span>quorum_channel: CombinedNetworks&lt;TYPES&gt;,
-    <span class="doccomment">/// data availability channel
-    </span>da_channel: CombinedNetworks&lt;TYPES&gt;,
+    <span class="doccomment">/// The underlying network
+    </span>network: CombinedNetworks&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1894,13 +1783,8 @@
             BlockHeader = TestBlockHeader,
             InstanceState = TestInstanceState,
         &gt;,
-        NODE: NodeImplementation&lt;
-            TYPES,
-            QuorumNetwork = CombinedNetworks&lt;TYPES&gt;,
-            DaNetwork = CombinedNetworks&lt;TYPES&gt;,
-            Storage = TestStorage&lt;TYPES&gt;,
-        &gt;,
-    &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
+        NODE: NodeImplementation&lt;TYPES, Network = CombinedNetworks&lt;TYPES&gt;, Storage = TestStorage&lt;TYPES&gt;&gt;,
+    &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1912,24 +1796,24 @@
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; CombinedDaRun&lt;TYPES&gt; {
         <span class="comment">// Initialize our Libp2p network
-        </span><span class="kw">let </span>libp2p_da_run: Libp2pDaRun&lt;TYPES&gt; =
-            &lt;Libp2pDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
-                TYPES,
-                Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
-                Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
-                Libp2pImpl,
-            &gt;&gt;::initialize_networking(config.clone(), libp2p_advertise_address)
-            .<span class="kw">await</span>;
+        </span><span class="kw">let </span>libp2p_network: Libp2pDaRun&lt;TYPES&gt; = &lt;Libp2pDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
+            TYPES,
+            Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
+            Libp2pImpl,
+        &gt;&gt;::initialize_networking(
+            config.clone(), libp2p_advertise_address
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// Initialize our CDN network
-        </span><span class="kw">let </span>cdn_da_run: PushCdnDaRun&lt;TYPES&gt; =
-            &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
-                TYPES,
-                PushCdnNetwork&lt;TYPES&gt;,
-                PushCdnNetwork&lt;TYPES&gt;,
-                PushCdnImpl,
-            &gt;&gt;::initialize_networking(config.clone(), libp2p_advertise_address)
-            .<span class="kw">await</span>;
+        </span><span class="kw">let </span>cdn_network: PushCdnDaRun&lt;TYPES&gt; = &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
+            TYPES,
+            PushCdnNetwork&lt;TYPES&gt;,
+            PushCdnImpl,
+        &gt;&gt;::initialize_networking(
+            config.clone(), libp2p_advertise_address
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// Create our combined network config
         </span><span class="kw">let </span>CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig = config
@@ -1937,32 +1821,16 @@
             .combined_network_config
             .expect(<span class="string">"combined network config not specified"</span>);
 
-        <span class="comment">// Combine the two communication channels
-        </span><span class="kw">let </span>da_channel = CombinedNetworks::new(
-            cdn_da_run.da_channel,
-            libp2p_da_run.da_channel,
-            delay_duration,
-        );
-        <span class="kw">let </span>quorum_channel = CombinedNetworks::new(
-            cdn_da_run.quorum_channel,
-            libp2p_da_run.quorum_channel,
-            delay_duration,
-        );
+        <span class="comment">// Create our combined network
+        </span><span class="kw">let </span>network =
+            CombinedNetworks::new(cdn_network.network, libp2p_network.network, delay_duration);
 
         <span class="comment">// Return the run configuration
-        </span>CombinedDaRun {
-            config,
-            quorum_channel,
-            da_channel,
-        }
+        </span>CombinedDaRun { config, network }
     }
 
-    <span class="kw">fn </span>da_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
-        <span class="self">self</span>.da_channel.clone()
-    }
-
-    <span class="kw">fn </span>quorum_channel(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
-        <span class="self">self</span>.quorum_channel.clone()
+    <span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
+        <span class="self">self</span>.network.clone()
     }
 
     <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
@@ -1979,15 +1847,9 @@
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     &gt;,
-    DACHANNEL: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
-    QUORUMCHANNEL: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
-    NODE: NodeImplementation&lt;
-        TYPES,
-        QuorumNetwork = QUORUMCHANNEL,
-        DaNetwork = DACHANNEL,
-        Storage = TestStorage&lt;TYPES&gt;,
-    &gt;,
-    RUNDA: RunDa&lt;TYPES, DACHANNEL, QUORUMCHANNEL, NODE&gt;,
+    NETWORK: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
+    NODE: NodeImplementation&lt;TYPES, Network = NETWORK, Storage = TestStorage&lt;TYPES&gt;&gt;,
+    RUNDA: RunDa&lt;TYPES, NETWORK, NODE&gt;,
 &gt;(
     args: ValidatorArgs,
 ) <span class="kw">where

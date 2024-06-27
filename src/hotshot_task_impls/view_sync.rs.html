@@ -868,8 +868,8 @@
     </span><span class="kw">pub </span>current_view: TYPES::Time,
     <span class="doccomment">/// View HotShot wishes to be in
     </span><span class="kw">pub </span>next_view: TYPES::Time,
-    <span class="doccomment">/// Network for all nodes
-    </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
+    <span class="doccomment">/// The underlying network
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
     <span class="doccomment">/// This Nodes Public Key
@@ -939,8 +939,8 @@
     <span class="doccomment">/// Our node id; for logging
     </span><span class="kw">pub </span>id: u64,
 
-    <span class="doccomment">/// Network for all nodes
-    </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
+    <span class="doccomment">/// The underlying network
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
     <span class="doccomment">/// This Nodes Public Key

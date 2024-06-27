@@ -443,6 +443,7 @@
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::BTreeMap,
     sync::{
@@ -495,7 +496,8 @@
 /// shares.
 </span><span class="kw">pub struct </span>NetworkRequestState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Network to send requests over
-    </span><span class="kw">pub </span>network: Arc&lt;I::QuorumNetwork&gt;,
+    /// The underlying network
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
     </span><span class="kw">pub </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
@@ -693,8 +695,8 @@
 /// a request.  If at any point the requested info is seen in the data stores or
 /// the view has moved beyond the view we are requesting, the task will completed.
 </span><span class="kw">struct </span>DelayedRequester&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Network to send requests
-    </span>network: Arc&lt;I::QuorumNetwork&gt;,
+    <span class="doccomment">/// The underlying network to send requests on
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Shared state to check if the data go populated
     </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Channel to send the event when we receive a response
@@ -710,8 +712,8 @@
 <span class="doccomment">/// A task the requests some data immediately from one peer
 
 </span><span class="kw">struct </span>ProposalRequester&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// Network to send requests
-    </span>network: Arc&lt;I::QuorumNetwork&gt;,
+    <span class="doccomment">/// The underlying network to send requests on
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Channel to send the event when we receive a response
     </span>sender: Sender&lt;<span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Leader for the view of the request

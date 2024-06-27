@@ -417,8 +417,8 @@
     /// from the number of nodes in the quorum.
     </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
 
-    <span class="doccomment">/// Network for DA
-    </span><span class="kw">pub </span>da_network: Arc&lt;I::DaNetwork&gt;,
+    <span class="doccomment">/// The underlying network
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// The current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector: RwLock&lt;VoteCollectorOption&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;&gt;&gt;,
@@ -571,7 +571,7 @@
                     <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
                 }
                 <span class="comment">// Optimistically calculate and update VID if we know that the primary network is down.
-                </span><span class="kw">if </span><span class="self">self</span>.da_network.is_primary_down() {
+                </span><span class="kw">if </span><span class="self">self</span>.network.is_primary_down() {
                     <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
                     <span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
                     <span class="kw">let </span>pk = <span class="self">self</span>.private_key.clone();

@@ -154,8 +154,6 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! An example program using both the web server and libp2p
 /// types used for this example
 </span><span class="kw">pub mod </span>types;
@@ -181,7 +179,7 @@
 
 <span class="kw">use crate</span>::{
     infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
-    types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun},
+    types::{Network, NodeImpl, ThisRun},
 };
 
 <span class="doccomment">/// general infra used for this example
@@ -298,14 +296,12 @@
         <span class="kw">let </span>builder_address = gen_local_address::&lt;BUILDER_BASE_PORT&gt;(i);
 
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
-            infra::main_entry_point::&lt;TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun&gt;(
-                ValidatorArgs {
-                    url: orchestrator_url,
-                    advertise_address: <span class="prelude-val">Some</span>(advertise_address),
-                    builder_address: <span class="prelude-val">Some</span>(builder_address),
-                    network_config_file: <span class="prelude-val">None</span>,
-                },
-            )
+            infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, ThisRun&gt;(ValidatorArgs {
+                url: orchestrator_url,
+                advertise_address: <span class="prelude-val">Some</span>(advertise_address),
+                builder_address: <span class="prelude-val">Some</span>(builder_address),
+                network_config_file: <span class="prelude-val">None</span>,
+            })
             .<span class="kw">await</span>;
         });
         nodes.push(node);
