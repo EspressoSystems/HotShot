@@ -9,6 +9,8 @@ AWS_METADATA_IP=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 orchestrator_url=http://"$AWS_METADATA_IP":4444
 cdn_marshal_address="$AWS_METADATA_IP":9000
 keydb_address=redis://"$AWS_METADATA_IP":6379
+current_commit=$(git rev-parse HEAD)
+commit_append="_gpu"
 
 # Check if at least two arguments are provided
 if [ $# -lt 3 ]; then
@@ -100,7 +102,7 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha cdn_with_gpu &
+                                                                                --commit_sha ${current_commit}${commit_append} &
                                 sleep 30
 
                                 # start leaders need to run on GPU FIRST

@@ -14,6 +14,7 @@ use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
+    auction_results_provider_types::TestAuctionResultsProvider,
 };
 use hotshot_types::traits::network::BroadcastDelay;
 use hotshot_types::{
@@ -59,13 +60,10 @@ impl NodeType for Test {
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct TestImpl {}
 
-pub type DaNetwork = MemoryNetwork<<Test as NodeType>::SignatureKey>;
-pub type QuorumNetwork = MemoryNetwork<<Test as NodeType>::SignatureKey>;
-
 impl NodeImplementation<Test> for TestImpl {
-    type QuorumNetwork = QuorumNetwork;
-    type DaNetwork = DaNetwork;
+    type Network = MemoryNetwork<<Test as NodeType>::SignatureKey>;
     type Storage = TestStorage<Test>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 /// fake Eq
