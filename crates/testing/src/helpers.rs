@@ -52,6 +52,7 @@ pub async fn build_system_handle(
 
     let network = (launcher.resource_generator.channel_generator)(node_id).await;
     let storage = (launcher.resource_generator.storage)(node_id);
+    let auction_results_provider = (launcher.resource_generator.auction_results_provider)(node_id);
     let config = launcher.resource_generator.config.clone();
 
     let initializer = HotShotInitializer::<TestTypes>::from_genesis(TestInstanceState {})
@@ -97,6 +98,7 @@ pub async fn build_system_handle(
         initializer,
         ConsensusMetricsValue::default(),
         storage,
+        auction_results_provider,
     )
     .await
     .expect("Could not init hotshot")
@@ -232,6 +234,17 @@ pub fn da_payload_commitment(
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+}
+
+pub fn build_payload_commitment(
+    membership: &<TestTypes as NodeType>::Membership,
+    view: ViewNumber,
+) -> <VidSchemeType as VidScheme>::Commit {
+    // Make some empty encoded transactions, we just care about having a commitment handy for the
+    // later calls. We need the VID commitment to be able to propose later.
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(membership, view);
+    let encoded_transactions = Vec::new();
+    vid.commit_only(&encoded_transactions).unwrap()
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
