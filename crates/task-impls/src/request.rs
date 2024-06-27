@@ -395,7 +395,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
             || state.vid_shares().contains_key(&view)
             || state.cur_view() > view;
         if cancel {
-            tracing::debug!("Cancleing vid request for view {:?}, cur view is {:?}", view, state.cur_view);
+            tracing::debug!(
+                "Cancleing vid request for view {:?}, cur view is {:?}",
+                view,
+                state.cur_view()
+            );
         }
         cancel
     }
