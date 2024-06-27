@@ -35,6 +35,9 @@ use crate::{
 };
 
 /// Calculate the version applied in a view, based on the provided upgrade certificate.
+///
+/// # Errors
+/// Returns an error if we do not support the version required by the upgrade certificate.
 pub fn version<TYPES: NodeType>(
     view: TYPES::Time,
     upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
