@@ -39,9 +39,9 @@ use super::ConsensusTaskState;
 use crate::{
     events::HotShotEvent,
     helpers::{
-        broadcast_event, decide_from_proposal, fetch_proposal, parent_leaf_and_state, update_view,
-        validate_proposal_safety_and_liveness, validate_proposal_view_and_certs, AnyhowTracing,
-        SEND_VIEW_CHANGE_EVENT
+        broadcast_event, decide_from_proposal, fetch_proposal, parent_leaf_and_state,
+        temp_validate_proposal_safety_and_liveness, update_view, validate_proposal_view_and_certs,
+        AnyhowTracing, SEND_VIEW_CHANGE_EVENT,
     },
 };
 
@@ -180,7 +180,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 
     if !proposal_upgrade_certificate
         .clone()
-        .is_some_and(|cert| cert.is_relevant(view, decided_upgrade_cert).is_ok())
+        .is_some_and(|cert| cert.temp_is_relevant(view, decided_upgrade_cert).is_ok())
     {
         proposal_upgrade_certificate = None;
     }

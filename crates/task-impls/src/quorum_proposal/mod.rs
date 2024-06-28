@@ -31,7 +31,7 @@ use tokio::task::JoinHandle;
 use tracing::{debug, instrument, warn};
 use vbs::version::Version;
 
-use self::dependency_handle::{ProposalDependency, ProposalDependencyHandle};
+use self::handlers::{ProposalDependency, ProposalDependencyHandle};
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},

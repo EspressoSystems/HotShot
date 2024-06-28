@@ -111,7 +111,7 @@ pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     pub included_txns: Option<HashSet<Commitment<<TYPES as NodeType>::Transaction>>>,
 
     /// The most recent upgrade certificate from one of the leaves.
-    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
+    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 }
 
 /// We need Default to be implemented because the leaf ascension has very few failure branches,
@@ -127,7 +127,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
             leaf_views: Vec::new(),
             leaves_decided: Vec::new(),
             included_txns: None,
-            decided_upgrade_cert: None,
+            decided_upgrade_certificate: None,
         }
     }
 }
@@ -225,7 +225,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
                             info!("Reached decide on upgrade certificate: {:?}", cert);
-                            res.decided_upgrade_cert = Some(cert.clone());
+                            res.decided_upgrade_certificate = Some(cert.clone());
                         }
                     }
                 }
