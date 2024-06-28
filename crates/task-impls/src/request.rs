@@ -422,7 +422,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
             SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) => {
-                tracing::info!("vid req complete, gor vid {:?}", prop);
+                tracing::info!("vid req complete, got vid {:?}", prop);
                 HotShotEvent::VidShareRecv(prop)
             }
             _ => return,
