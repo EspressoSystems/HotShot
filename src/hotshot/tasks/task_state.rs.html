@@ -369,6 +369,14 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -443,6 +451,10 @@
             stop_proposing_view: handle.hotshot.config.stop_proposing_view,
             start_voting_view: handle.hotshot.config.start_voting_view,
             stop_voting_view: handle.hotshot.config.stop_voting_view,
+            start_proposing_time: handle.hotshot.config.start_proposing_time,
+            stop_proposing_time: handle.hotshot.config.stop_proposing_time,
+            start_voting_time: handle.hotshot.config.start_voting_time,
+            stop_voting_time: handle.hotshot.config.stop_voting_time,
         };
 
         <span class="attr">#[cfg(feature = <span class="string">"example-upgrade"</span>)]
@@ -459,6 +471,10 @@
             stop_proposing_view: <span class="number">10</span>,
             start_voting_view: <span class="number">0</span>,
             stop_voting_view: <span class="number">20</span>,
+            start_proposing_time: <span class="number">0</span>,
+            stop_proposing_time: u64::MAX,
+            start_voting_time: <span class="number">0</span>,
+            stop_voting_time: u64::MAX,
         };
     }
 }

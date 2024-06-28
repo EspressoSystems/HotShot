@@ -296,7 +296,39 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::SystemTime};
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -305,6 +337,10 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
+    constants::{
+        UPGRADE_BEGIN_OFFSET, UPGRADE_DECIDE_BY_OFFSET, UPGRADE_FINISH_OFFSET,
+        UPGRADE_PROPOSE_OFFSET,
+    },
     data::UpgradeProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -368,6 +404,18 @@
 
     <span class="doccomment">/// View to stop voting on an upgrade
     </span><span class="kw">pub </span>stop_voting_view: u64,
+
+    <span class="doccomment">/// Unix time in seconds at which we start proposing an upgrade
+    </span><span class="kw">pub </span>start_proposing_time: u64,
+
+    <span class="doccomment">/// Unix time in seconds at which we stop proposing an upgrade
+    </span><span class="kw">pub </span>stop_proposing_time: u64,
+
+    <span class="doccomment">/// Unix time in seconds at which we start voting on an upgrade
+    </span><span class="kw">pub </span>start_voting_time: u64,
+
+    <span class="doccomment">/// Unix time in seconds at which we stop voting on an upgrade
+    </span><span class="kw">pub </span>stop_voting_time: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; UpgradeTaskState&lt;TYPES, I&gt; {
@@ -382,9 +430,17 @@
             HotShotEvent::UpgradeProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">info!</span>(<span class="string">"Received upgrade proposal: {:?}"</span>, proposal);
 
-                <span class="kw">if </span><span class="kw-2">*</span>proposal.data.view_number() &lt; <span class="self">self</span>.start_voting_view
-                    || <span class="kw-2">*</span>proposal.data.view_number() &gt;= <span class="self">self</span>.stop_voting_view
-                {
+                <span class="kw">let </span>view = <span class="kw-2">*</span>proposal.data.view_number();
+                <span class="kw">let </span>time = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()<span class="question-mark">?
+                    </span>.as_secs();
+
+                <span class="kw">if </span>time &lt; <span class="self">self</span>.start_voting_time || time &gt;= <span class="self">self</span>.stop_voting_time {
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+
+                <span class="kw">if </span>view &lt; <span class="self">self</span>.start_voting_view || view &gt;= <span class="self">self</span>.stop_voting_view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -509,35 +565,43 @@
                     }
                 }
             }
-            HotShotEvent::ViewChange(view) =&gt; {
-                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
-                <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
+            HotShotEvent::ViewChange(new_view) =&gt; {
+                <span class="kw">if </span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>new_view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
-                <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
-                }
-                <span class="self">self</span>.cur_view = view;
+                <span class="self">self</span>.cur_view = <span class="kw-2">*</span>new_view;
+
+                <span class="kw">let </span>view: u64 = <span class="kw-2">*</span><span class="self">self</span>.cur_view;
+                <span class="kw">let </span>time = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()<span class="question-mark">?
+                    </span>.as_secs();
+
                 <span class="comment">// We try to form a certificate 5 views before we're leader.
-                </span><span class="kw">if </span><span class="kw-2">*</span>view &gt;= <span class="self">self</span>.start_proposing_view
-                    &amp;&amp; <span class="kw-2">*</span>view &lt; <span class="self">self</span>.stop_proposing_view
-                    &amp;&amp; <span class="self">self</span>.quorum_membership.leader(view + <span class="number">5</span>) == <span class="self">self</span>.public_key
+                </span><span class="kw">if </span>view &gt;= <span class="self">self</span>.start_proposing_view
+                    &amp;&amp; view &lt; <span class="self">self</span>.stop_proposing_view
+                    &amp;&amp; time &gt;= <span class="self">self</span>.start_proposing_time
+                    &amp;&amp; time &lt; <span class="self">self</span>.stop_proposing_time
+                    &amp;&amp; <span class="self">self
+                        </span>.quorum_membership
+                        .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
+                        == <span class="self">self</span>.public_key
                 {
                     <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
                         old_version: TYPES::Base::VERSION,
                         new_version: TYPES::Upgrade::VERSION,
                         new_version_hash: TYPES::UPGRADE_HASH.to_vec(),
                         <span class="comment">// We schedule the upgrade to begin 15 views in the future
-                        </span>old_version_last_view: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">15</span>),
+                        </span>old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
                         <span class="comment">// and end 20 views in the future
-                        </span>new_version_first_view: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">20</span>),
-                        decide_by: TYPES::Time::new(<span class="kw-2">*</span>view + <span class="number">10</span>),
+                        </span>new_version_first_view: TYPES::Time::new(view + UPGRADE_FINISH_OFFSET),
+                        decide_by: TYPES::Time::new(view + UPGRADE_DECIDE_BY_OFFSET),
                     };
 
                     <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
-                        view_number: view + <span class="number">5</span>,
+                        view_number: TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET),
                     };
 
                     <span class="kw">let </span>signature = TYPES::SignatureKey::sign(

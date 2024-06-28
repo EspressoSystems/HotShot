@@ -770,6 +770,22 @@
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
 <a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     env, fs,
     net::SocketAddr,
@@ -1371,6 +1387,14 @@
     </span><span class="kw">pub </span>start_voting_view: u64,
     <span class="doccomment">/// View to stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_view &lt;= start_voting_view.
     </span><span class="kw">pub </span>stop_voting_view: u64,
+    <span class="doccomment">/// Unix time in seconds at which we start proposing an upgrade
+    </span><span class="kw">pub </span>start_proposing_time: u64,
+    <span class="doccomment">/// Unix time in seconds at which we stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_time &lt;= start_proposing_time.
+    </span><span class="kw">pub </span>stop_proposing_time: u64,
+    <span class="doccomment">/// Unix time in seconds at which we start voting on an upgrade
+    </span><span class="kw">pub </span>start_voting_time: u64,
+    <span class="doccomment">/// Unix time in seconds at which we stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_time &lt;= start_voting_time.
+    </span><span class="kw">pub </span>stop_voting_time: u64,
 }
 
 <span class="comment">// Explicitly implementing `Default` for clarity.
@@ -1382,6 +1406,10 @@
             stop_proposing_view: <span class="number">0</span>,
             start_voting_view: u64::MAX,
             stop_voting_view: <span class="number">0</span>,
+            start_proposing_time: u64::MAX,
+            stop_proposing_time: <span class="number">0</span>,
+            start_voting_time: u64::MAX,
+            stop_voting_time: <span class="number">0</span>,
         }
     }
 }
@@ -1467,6 +1495,10 @@
             stop_proposing_view: val.upgrade.stop_proposing_view,
             start_voting_view: val.upgrade.start_voting_view,
             stop_voting_view: val.upgrade.stop_voting_view,
+            start_proposing_time: val.upgrade.start_proposing_time,
+            stop_proposing_time: val.upgrade.stop_proposing_time,
+            start_voting_time: val.upgrade.start_voting_time,
+            stop_voting_time: val.upgrade.stop_voting_time,
         }
     }
 }

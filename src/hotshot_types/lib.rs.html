@@ -213,6 +213,14 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
@@ -425,5 +433,13 @@
     </span><span class="kw">pub </span>start_voting_view: u64,
     <span class="doccomment">/// View to stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_view &lt;= start_voting_view.
     </span><span class="kw">pub </span>stop_voting_view: u64,
+    <span class="doccomment">/// Unix time in seconds at which we start proposing an upgrade
+    </span><span class="kw">pub </span>start_proposing_time: u64,
+    <span class="doccomment">/// Unix time in seconds at which we stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_time &lt;= start_proposing_time.
+    </span><span class="kw">pub </span>stop_proposing_time: u64,
+    <span class="doccomment">/// Unix time in seconds at which we start voting on an upgrade
+    </span><span class="kw">pub </span>start_voting_time: u64,
+    <span class="doccomment">/// Unix time in seconds at which we stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_time &lt;= start_voting_time.
+    </span><span class="kw">pub </span>stop_voting_time: u64,
 }
 </code></pre></div></section></main></body></html>

@@ -377,6 +377,10 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
@@ -709,10 +713,14 @@
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             <span class="comment">// Placeholder until we spin up the builder
             </span>builder_urls: <span class="macro">vec1::vec1!</span>[Url::parse(<span class="string">"http://localhost:9999"</span>).expect(<span class="string">"Valid URL"</span>)],
-            start_proposing_view: <span class="number">0</span>,
+            start_proposing_view: u64::MAX,
             stop_proposing_view: <span class="number">0</span>,
-            start_voting_view: <span class="number">0</span>,
+            start_voting_view: u64::MAX,
             stop_voting_view: <span class="number">0</span>,
+            start_proposing_time: u64::MAX,
+            stop_proposing_time: <span class="number">0</span>,
+            start_voting_time: u64::MAX,
+            stop_voting_time: <span class="number">0</span>,
         };
         <span class="kw">let </span>TimingData {
             next_view_timeout,
