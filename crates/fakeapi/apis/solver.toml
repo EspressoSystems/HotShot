@@ -3,12 +3,25 @@ NAME = "fake-solver"
 DESCRIPTION = "Fake Solver for testing within hotshot"
 FORMAT_VERSION = "0.1.0"
 
-# GET the allocation result
-[route.get_allocation_result]
-PATH = ["allocation_result"]
+# GET the auction result - non permissioned
+[route.get_auction_results_non_permissioned]
+PATH = ["auction_results/:view_number"]
+":view_numbr" = "Integer"
 METHOD = "GET"
 DOC = """
-GET a fake allocation result from the fake Solver. Returns a json object containing a list of
+GET a fake auction result from the fake Solver. Returns a json object containing a list of
 builder URLs corresponding to other running instances of fake-builder, or an empty list if no
-values are present.
-""
+values are present. This endpoint is open access.
+"""
+
+# GET the auction result - permissioned
+[route.get_auction_results_permissioned]
+PATH = ["auction_results/:view_number/:signature"]
+":view_numbr" = "Integer"
+":signature" = "TaggedBase64"
+METHOD = "GET"
+DOC = """
+GET a fake auction result from the fake Solver. Returns a json object containing a list of
+builder URLs corresponding to other running instances of fake-builder, or an empty list if no
+values are present. This endpoint checks the leader provided in the signature.
+"""

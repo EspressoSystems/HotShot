@@ -15,6 +15,10 @@ anyhow = { workspace = true }
 hotshot-types = { path = "../types" }
 vbs = { worksapce = true }
 serde = { worksapce = true }
+rand = { workspace = true }
+hotshot-example-types = { path = "../example-types" }
+async-trait = { workspace = true }
+futures = { workspace = true }
 
 [lints]
 workspace = true

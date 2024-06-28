@@ -326,6 +326,9 @@ where
             builder_urls.push(builder_url);
         }
 
+        // Initialize the solver API instances
+        //
+
         // Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
         let mut uninitialized_nodes = Vec::new();
         let mut networks_ready = Vec::new();

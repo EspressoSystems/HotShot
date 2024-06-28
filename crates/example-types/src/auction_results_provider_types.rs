@@ -7,7 +7,7 @@ use hotshot_types::traits::{
 use url::Url;
 
 /// A mock result for the auction solver. This type is just a pointer to a URL.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct TestAuctionResult {
     /// The URL of the builder to reach out to.
     pub url: Url,

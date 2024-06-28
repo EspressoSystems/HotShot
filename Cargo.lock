@@ -2561,7 +2561,11 @@ name = "fakeapi"
 version = "0.5.59"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "futures",
+ "hotshot-example-types",
  "hotshot-types",
+ "rand 0.8.5",
  "serde",
  "tide-disco",
  "toml",
