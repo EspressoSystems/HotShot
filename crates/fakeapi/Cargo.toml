@@ -1,5 +1,5 @@
 [package]
-name = "fakeapi"
+name = "hotshot-fakeapi"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -19,6 +19,8 @@ rand = { workspace = true }
 hotshot-example-types = { path = "../example-types" }
 async-trait = { workspace = true }
 futures = { workspace = true }
+async-lock = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

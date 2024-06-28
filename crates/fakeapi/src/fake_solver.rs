@@ -1,23 +1,33 @@
 use anyhow::Result;
+use async_lock::RwLock;
 use futures::FutureExt;
 use hotshot_example_types::auction_results_provider_types::TestAuctionResult;
 use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
-use std::{thread, time};
+use std::{
+    io::{self, ErrorKind},
+    thread, time,
+};
 use tide_disco::{
     api::ApiError,
     error::ServerError,
     method::{ReadState, WriteState},
-    Api, Url,
+    Api, App, Url,
 };
-use vbs::version::StaticVersionType;
+use vbs::version::{StaticVersion, StaticVersionType};
 
+/// The max time that HotShot will wait for the solver to complete
 const SOLVER_MAX_TIMEOUT_S: time::Duration = time::Duration::from_secs(1);
 
+/// The type of fake solver error
 pub enum FakeSolverFaultType {
+    /// A 500 error
     InternalServerFault,
+
+    /// An arbitrary timeout error
     TimeoutFault,
 }
 
+/// The state of the fake solver instance
 pub struct FakeSolverState {
     /// The rate at which an error of any kind occurs
     pub error_pct: f32,
@@ -81,12 +91,17 @@ impl FakeSolverState {
     }
 }
 
+/// The `FakeSolverApi` is a mock API which mimics the API contract of the solver and returns
+/// custom types that are relevant to HotShot.
 #[async_trait::async_trait]
 pub trait FakeSolverApi<TYPES: NodeType> {
+    /// Get the auction results without checking the signature.
     async fn get_auction_results_non_permissioned(
         &self,
         _view_number: u64,
     ) -> Result<Vec<TestAuctionResult>, ServerError>;
+
+    /// Get the auction results with a valid signature.
     async fn get_auction_results_permissioned(
         &self,
         _view_number: u64,
@@ -96,6 +111,7 @@ pub trait FakeSolverApi<TYPES: NodeType> {
 
 #[async_trait::async_trait]
 impl<TYPES: NodeType> FakeSolverApi<TYPES> for FakeSolverState {
+    /// Get the auction results without checking the signature.
     async fn get_auction_results_non_permissioned(
         &self,
         _view_number: u64,
@@ -103,6 +119,7 @@ impl<TYPES: NodeType> FakeSolverApi<TYPES> for FakeSolverState {
         self.dump_builders()
     }
 
+    /// Get the auction results with a valid signature.
     async fn get_auction_results_permissioned(
         &self,
         _view_number: u64,
@@ -161,4 +178,23 @@ where
         .boxed()
     })?;
     Ok(api)
+}
+
+/// Runs the fake solver
+/// # Errors
+/// This errors if tide disco runs into an issue during serving
+/// # Panics
+/// This panics if unable to register the api with tide disco
+pub async fn run_fake_solver_api<TYPES: NodeType>(
+    state: FakeSolverState,
+    url: Url,
+) -> io::Result<()> {
+    let solver_api = define_api::<TYPES, RwLock<FakeSolverState>, StaticVersion<0, 1>>()
+        .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
+    let state = RwLock::new(state);
+    let mut app = App::<RwLock<FakeSolverState>, ServerError>::with_state(state);
+    app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api.unwrap())
+        .expect("Error registering api");
+    tracing::info!("solver listening on {:?}", url);
+    app.serve(url, StaticVersion::<0, 1> {}).await
 }

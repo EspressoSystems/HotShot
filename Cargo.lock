@@ -2557,22 +2557,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fakeapi"
-version = "0.5.59"
-dependencies = [
- "anyhow",
- "async-trait",
- "futures",
- "hotshot-example-types",
- "hotshot-types",
- "rand 0.8.5",
- "serde",
- "tide-disco",
- "toml",
- "vbs",
-]
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3330,6 +3314,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-fakeapi"
+version = "0.5.59"
+dependencies = [
+ "anyhow",
+ "async-lock 2.8.0",
+ "async-trait",
+ "futures",
+ "hotshot-example-types",
+ "hotshot-types",
+ "rand 0.8.5",
+ "serde",
+ "tide-disco",
+ "toml",
+ "tracing",
+ "vbs",
+]
+
+[[package]]
 name = "hotshot-macros"
 version = "0.5.59"
 dependencies = [
@@ -3456,6 +3458,7 @@ dependencies = [
  "hotshot",
  "hotshot-builder-api",
  "hotshot-example-types",
+ "hotshot-fakeapi",
  "hotshot-macros",
  "hotshot-orchestrator",
  "hotshot-task",
