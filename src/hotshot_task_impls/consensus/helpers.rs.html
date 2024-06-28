@@ -1484,6 +1484,7 @@
 <a href="#1482" id="1482">1482</a>
 <a href="#1483" id="1483">1483</a>
 <a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -2172,6 +2173,7 @@
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+    <span class="macro">tracing::debug!</span>(<span class="string">"Fetching proposal for view {:?}"</span>, view);
     <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = broadcast(<span class="number">1</span>);
     <span class="kw">let </span>event = ProposalMissing {
         view,

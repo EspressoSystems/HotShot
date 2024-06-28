@@ -444,6 +444,29 @@
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::BTreeMap,
     sync::{
@@ -648,6 +671,7 @@
         <span class="kw">let </span>requester = DelayedRequester::&lt;TYPES, I&gt; {
             network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
             state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state),
+            public_key: <span class="self">self</span>.public_key.clone(),
             sender,
             delay: <span class="self">self</span>.delay,
             recipients,
@@ -699,6 +723,8 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Shared state to check if the data go populated
     </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// our public key
+    </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Channel to send the event when we receive a response
     </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Duration to delay sending the first request
@@ -837,15 +863,35 @@
     </span><span class="kw">async fn </span>cancel_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>VidRequest&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">let </span>view = req.<span class="number">0</span>;
         <span class="kw">let </span>state = <span class="self">self</span>.state.read().<span class="kw">await</span>;
-        <span class="self">self</span>.shutdown_flag.load(Ordering::Relaxed)
+        <span class="kw">let </span>cancel = <span class="self">self</span>.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(<span class="kw-2">&amp;</span>view)
-            || state.cur_view() &gt; view
+            || state.cur_view() &gt; view;
+        <span class="kw">if </span>cancel {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = state
+                .vid_shares()
+                .get(<span class="kw-2">&amp;</span>view)
+                .map(|shares| shares.get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).cloned())
+            {
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
+                )
+                .<span class="kw">await</span>;
+            }
+            <span class="macro">tracing::debug!</span>(
+                <span class="string">"Canceling vid request for view {:?}, cur view is {:?}"</span>,
+                view,
+                state.cur_view()
+            );
+        }
+        cancel
     }
 
     <span class="doccomment">/// Transform a response into a `HotShotEvent`
     </span><span class="kw">async fn </span>handle_response_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: SequencingMessage&lt;TYPES&gt;) {
         <span class="kw">let </span>event = <span class="kw">match </span>message {
             SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) =&gt; {
+                <span class="macro">tracing::info!</span>(<span class="string">"vid req complete, got vid {:?}"</span>, prop);
                 HotShotEvent::VidShareRecv(prop)
             }
             <span class="kw">_ </span>=&gt; <span class="kw">return</span>,

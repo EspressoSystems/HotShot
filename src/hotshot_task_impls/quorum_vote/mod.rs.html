@@ -701,6 +701,9 @@
 <a href="#699" id="699">699</a>
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
@@ -737,7 +740,7 @@
 <span class="kw">use </span>jf_vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, instrument, trace, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
@@ -1258,6 +1261,7 @@
     ) {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::VoteNow(view, ..) =&gt; {
+                <span class="macro">info!</span>(<span class="string">"Vote NOW for view {:?}"</span>, <span class="kw-2">*</span>view);
                 <span class="self">self</span>.create_dependency_task_if_new(
                     <span class="kw-2">*</span>view,
                     event_receiver,
@@ -1266,6 +1270,8 @@
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) =&gt; {
+                <span class="macro">trace!</span>(<span class="string">"Received Proposal for view {}"</span>, <span class="kw-2">*</span>proposal.view_number());
+
                 <span class="comment">// Handle the event before creating the dependency task.
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     handle_quorum_proposal_validated(proposal, <span class="kw-2">&amp;</span>event_sender, <span class="self">self</span>).<span class="kw">await
