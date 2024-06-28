@@ -746,29 +746,13 @@
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
+</pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+
+</span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
@@ -777,50 +761,40 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, Consensus},
-    data::{QuorumProposal, ViewChangeEvidence},
+    data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
+        storage::Storage,
     },
-    vote::HasViewNumber,
+    vid::vid_scheme,
+    vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>jf_vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>vbs::version::Version;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>{
-    <span class="kw">crate</span>::consensus::helpers::{
+
+<span class="kw">use crate</span>::{
+    consensus::handlers::{
         handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
         update_state_and_vote_if_able,
     },
-    async_compatibility_layer::art::async_spawn,
-    hotshot_types::data::VidDisperseShare,
-    hotshot_types::message::Proposal,
-    hotshot_types::vid::vid_scheme,
-    hotshot_types::{traits::storage::Storage, vote::Certificate},
-    jf_vid::VidScheme,
-    tracing::info,
-};
-
-<span class="kw">use crate</span>::{
-    consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
 
 <span class="doccomment">/// Helper functions to handle proposal-related functionality.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>helpers;
-
-<span class="doccomment">/// Handles view-change related functionality.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>view_change;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>handlers;
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
 </span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
@@ -925,7 +899,6 @@
     }
 
     <span class="doccomment">/// Validate the VID disperse is correctly signed and has the correct share.
-    </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">fn </span>validate_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, disperse: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; bool {
         <span class="kw">let </span>view = disperse.data.view_number();
         <span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
@@ -970,8 +943,7 @@
         <span class="bool-val">true
     </span>}
 
-    <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-    </span><span class="doccomment">/// Publishes a proposal
+    <span class="doccomment">/// Publishes a proposal
     </span><span class="kw">async fn </span>publish_proposal(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
@@ -1004,7 +976,6 @@
 
     <span class="doccomment">/// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
-    </span><span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
     </span><span class="kw">async fn </span>spawn_vote_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
@@ -1049,11 +1020,9 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-        </span><span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
+        <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
         <span class="kw">match </span>event.as_ref() {
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
+            HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.view_number());
                 <span class="kw">match </span>handle_quorum_proposal_recv(
                     proposal,
@@ -1073,8 +1042,7 @@
                     <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(<span class="string">"Failed to propose {e:#}"</span>),
                 }
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
+            HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"proposal validated view: {:?}"</span>, proposal.view_number());
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     handle_quorum_proposal_validated(proposal, event_stream.clone(), <span class="self">self</span>).<span class="kw">await
@@ -1161,8 +1129,7 @@
                     }
                 }
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {
+            HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {
                 either::Right(qc) =&gt; {
                     <span class="self">self</span>.proposal_cert = <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(qc.clone()));
 
@@ -1213,8 +1180,7 @@
                     <span class="self">self</span>.formed_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::DaCertificateRecv(cert) =&gt; {
+            HotShotEvent::DaCertificateRecv(cert) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"DAC Received for view {}!"</span>, <span class="kw-2">*</span>cert.view_number);
                 <span class="kw">let </span>view = cert.view_number;
 
@@ -1230,8 +1196,7 @@
                 }
                 <span class="self">self</span>.spawn_vote_task(view, event_stream).<span class="kw">await</span>;
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::VidShareRecv(disperse) =&gt; {
+            HotShotEvent::VidShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
 
                 <span class="macro">debug!</span>(
@@ -1374,8 +1339,7 @@
                     consensus.metrics.number_of_timeouts_as_leader.add(<span class="number">1</span>);
                 }
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::SendPayloadCommitmentAndMetadata(
+            HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
                 metadata,
@@ -1428,8 +1392,7 @@
                     }
                 }
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
                     <span class="macro">error!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
@@ -1453,8 +1416,7 @@
                     };
                 }
             }
-            <span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-            </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
+            HotShotEvent::QuorumVoteSend(vote) =&gt; {
                 <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
                     <span class="kw">return</span>;
                 };

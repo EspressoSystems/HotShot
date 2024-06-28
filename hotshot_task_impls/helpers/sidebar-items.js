@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["broadcast_event","cancel_task"],"trait":["AnyhowTracing"]};
+window.SIDEBAR_ITEMS = {"constant":["DONT_SEND_VIEW_CHANGE_EVENT","SEND_VIEW_CHANGE_EVENT"],"fn":["broadcast_event","cancel_task","decide_from_proposal","fetch_proposal","parent_leaf_and_state","temp_validate_proposal_safety_and_liveness","update_view","validate_proposal_safety_and_liveness","validate_proposal_view_and_certs"],"struct":["LeafChainTraversalOutcome"],"trait":["AnyhowTracing"]};

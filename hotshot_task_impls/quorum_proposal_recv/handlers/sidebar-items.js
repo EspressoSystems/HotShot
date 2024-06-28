@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["QuorumProposalValidity"],"fn":["handle_quorum_proposal_recv","validate_proposal_liveness"]};

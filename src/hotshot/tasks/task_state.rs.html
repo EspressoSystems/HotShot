@@ -377,6 +377,16 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -384,14 +394,19 @@
 
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>chrono::Utc;
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+</span><span class="kw">use </span>hotshot_task_impls::consensus::ConsensusTaskState;
 <span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
 </span><span class="kw">use </span>hotshot_task_impls::rewind::RewindTaskState;
 <span class="kw">use </span>hotshot_task_impls::{
-    builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
-    da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
+    builder::BuilderClient, da::DaTaskState, request::NetworkRequestState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
+    view_sync::ViewSyncTaskState,
+};
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+</span><span class="kw">use </span>hotshot_task_impls::{
+    consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
-    request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
-    vid::VidTaskState, view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::traits::{
     consensus_api::ConsensusApi,
@@ -577,7 +592,8 @@
     }
 }
 
-<span class="attr">#[async_trait]
+<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
+#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I&gt;
 {
@@ -616,7 +632,8 @@
     }
 }
 
-<span class="attr">#[async_trait]
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>QuorumVoteTaskState&lt;TYPES, I&gt;
 {
@@ -642,7 +659,8 @@
     }
 }
 
-<span class="attr">#[async_trait]
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>QuorumProposalTaskState&lt;TYPES, I&gt;
 {
@@ -675,7 +693,8 @@
     }
 }
 
-<span class="attr">#[async_trait]
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>QuorumProposalRecvTaskState&lt;TYPES, I&gt;
 {
@@ -709,7 +728,8 @@
     }
 }
 
-<span class="attr">#[async_trait]
+<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; CreateTaskState&lt;TYPES, I&gt;
     <span class="kw">for </span>Consensus2TaskState&lt;TYPES, I&gt;
 {
