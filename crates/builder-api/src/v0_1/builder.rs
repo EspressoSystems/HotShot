@@ -11,10 +11,8 @@ use tagged_base64::TaggedBase64;
 use tide_disco::{api::ApiError, method::ReadState, Api, RequestError, RequestParams, StatusCode};
 use vbs::version::StaticVersionType;
 
-use crate::{
-    api::load_api,
-    data_source::{AcceptsTxnSubmits, BuilderDataSource},
-};
+use super::data_source::{AcceptsTxnSubmits, BuilderDataSource};
+use crate::api::load_api;
 
 #[derive(Args, Default)]
 pub struct Options {
@@ -109,7 +107,7 @@ impl tide_disco::error::Error for Error {
     }
 }
 
-fn try_extract_param<T: for<'a> TryFrom<&'a TaggedBase64>>(
+pub(crate) fn try_extract_param<T: for<'a> TryFrom<&'a TaggedBase64>>(
     params: &RequestParams,
     param_name: &str,
 ) -> Result<T, Error> {
@@ -123,19 +121,21 @@ fn try_extract_param<T: for<'a> TryFrom<&'a TaggedBase64>>(
         })
 }
 
-pub fn define_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
+type Version = vbs::version::StaticVersion<0, 1>;
+
+pub fn define_api<State, Types: NodeType>(
     options: &Options,
-) -> Result<Api<State, Error, Ver>, ApiError>
+) -> Result<Api<State, Error, Version>, ApiError>
 where
     State: 'static + Send + Sync + ReadState,
     <State as ReadState>::State: Send + Sync + BuilderDataSource<Types>,
 {
-    let mut api = load_api::<State, Error, Ver>(
+    let mut api = load_api::<State, Error, Version>(
         options.api_path.as_ref(),
-        include_str!("../api/builder.toml"),
+        include_str!("../../api/v0_1/builder.toml"),
         options.extensions.clone(),
     )?;
-    api.with_version("0.0.1".parse().unwrap())
+    api.with_version("0.1.0".parse().unwrap())
         .get("available_blocks", |req, state| {
             async move {
                 let hash = req.blob_param("parent_hash")?;
@@ -195,7 +195,7 @@ where
 {
     let mut api = load_api::<State, Error, Ver>(
         options.api_path.as_ref(),
-        include_str!("../api/submit.toml"),
+        include_str!("../../api/v0_1/submit.toml"),
         options.extensions.clone(),
     )?;
     api.with_version("0.0.1".parse().unwrap())

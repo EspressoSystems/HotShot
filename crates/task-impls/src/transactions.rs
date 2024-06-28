@@ -9,7 +9,7 @@ use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
-use hotshot_builder_api::block_info::{
+use hotshot_builder_api::v0_1::block_info::{
     AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo,
 };
 use hotshot_task::task::TaskState;
