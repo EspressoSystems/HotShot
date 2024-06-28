@@ -7,6 +7,10 @@ use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    constants::{
+        UPGRADE_BEGIN_OFFSET, UPGRADE_DECIDE_BY_OFFSET, UPGRADE_FINISH_OFFSET,
+        UPGRADE_PROPOSE_OFFSET,
+    },
     data::UpgradeProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -249,22 +253,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                     && view < self.stop_proposing_view
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
-                    && self.quorum_membership.leader(TYPES::Time::new(view + 5)) == self.public_key
+                    && self
+                        .quorum_membership
+                        .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
+                        == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {
                         old_version: TYPES::Base::VERSION,
                         new_version: TYPES::Upgrade::VERSION,
                         new_version_hash: TYPES::UPGRADE_HASH.to_vec(),
                         // We schedule the upgrade to begin 15 views in the future
-                        old_version_last_view: TYPES::Time::new(view + 15),
+                        old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
                         // and end 20 views in the future
-                        new_version_first_view: TYPES::Time::new(view + 20),
-                        decide_by: TYPES::Time::new(view + 10),
+                        new_version_first_view: TYPES::Time::new(view + UPGRADE_FINISH_OFFSET),
+                        decide_by: TYPES::Time::new(view + UPGRADE_DECIDE_BY_OFFSET),
                     };
 
                     let upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
-                        view_number: TYPES::Time::new(view + 5),
+                        view_number: TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET),
                     };
 
                     let signature = TYPES::SignatureKey::sign(
