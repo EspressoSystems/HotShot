@@ -44,6 +44,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     quorum_membership: Arc<TYPES::Membership>,
     consensus: Arc<RwLock<Consensus<TYPES>>>,
 ) -> Result<Leaf<TYPES>> {
+    tracing::debug!("Fetching proposal for view {:?}", view);
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
         view,
@@ -691,8 +692,8 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 /// Constant which tells [`update_view`] to send a view change event when called.
 pub(crate) const SEND_VIEW_CHANGE_EVENT: bool = true;
 
-/// Constant which tells [`update_view`] to not send a view change event when called.
-pub(crate) const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
+/// Constant which tells `update_view` to not send a view change event when called.
+pub const DONT_SEND_VIEW_CHANGE_EVENT: bool = false;
 
 /// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
 /// `timeout_task` which are updated during the operation of the function.
