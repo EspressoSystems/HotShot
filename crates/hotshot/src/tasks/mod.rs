@@ -8,7 +8,6 @@ use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use futures::future::{select, Either};
 use hotshot_task::task::Task;
 #[cfg(not(feature = "dependency-tasks"))]
 use hotshot_task_impls::consensus::ConsensusTaskState;
@@ -43,7 +42,6 @@ use vbs::version::StaticVersionType;
 
 use crate::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusTaskRegistry, NetworkTaskRegistry,
 };
 
 /// event for global event stream
@@ -202,140 +200,6 @@ pub async fn add_consensus_tasks<
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }
 
-#[async_trait]
-/// Trait for intercepting and modifying messages between the network and consensus layers.
-///
-/// Consensus <-> [Byzantine logic layer] <-> Network
-pub trait TwinsEventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>>
-where
-    Self: Sized + Send + Sync + 'static,
-{
-    /// Initialize the state
-    fn new() -> Self;
-
-    /// modify incoming messages from the network
-    fn transform_in(
-        &mut self,
-        event: &HotShotEvent<TYPES>,
-    ) -> Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>;
-
-    /// modify outgoing messages to the network
-    fn transform_out(
-        &mut self,
-        event: Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>,
-    ) -> HotShotEvent<TYPES>;
-
-    /// `transform_in`, but wrapping the state in an `Arc` lock
-    async fn transform_in_arc(
-        lock: Arc<RwLock<Self>>,
-        event: &HotShotEvent<TYPES>,
-    ) -> Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>> {
-        let mut state = lock.write().await;
-
-        state.transform_in(event)
-    }
-
-    /// `transform_out`, but wrapping the state in an `Arc` lock
-    async fn transform_out_arc(
-        lock: Arc<RwLock<Self>>,
-        event: Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>,
-    ) -> HotShotEvent<TYPES> {
-        let mut state = lock.write().await;
-
-        state.transform_out(event)
-    }
-
-    /// Spawns two copies of consensus, running in a single handle
-    async fn add_twinned_consensus(left_handle: &mut SystemContextHandle<TYPES, I>) {
-        let state_in = Arc::new(RwLock::new(Self::new()));
-        let state_out = Arc::clone(&state_in);
-
-        // Take a copy of the original event stream for the `Left` consensus tasks.
-        let (left_sender, mut left_receiver) = (
-            left_handle.internal_event_stream.0.clone(),
-            left_handle.internal_event_stream.1.activate_cloned(),
-        );
-        // Create a new event stream for the network tasks.
-        let (network_sender, mut network_receiver) = broadcast(EVENT_CHANNEL_SIZE);
-
-        let right_hotshot = left_handle.hotshot.clone_independent().await;
-
-        let mut right_handle = SystemContextHandle {
-            output_event_stream: (
-                left_handle.output_event_stream.0.clone(),
-                left_handle.output_event_stream.1.clone(),
-            ),
-            internal_event_stream: right_hotshot.internal_event_stream.clone(),
-            consensus_registry: ConsensusTaskRegistry::new(),
-            network_registry: NetworkTaskRegistry::new(),
-            hotshot: Arc::new(right_hotshot),
-            storage: Arc::new(RwLock::new(left_handle.storage.read().await.clone())),
-            networks: Arc::clone(&left_handle.networks),
-            memberships: Arc::clone(&left_handle.memberships),
-        };
-
-        // Create a new event stream for the `Right` consensus tasks.
-        let (right_sender, right_receiver_deactivated) = right_handle.internal_event_stream.clone();
-        let mut right_receiver = right_receiver_deactivated.activate_cloned();
-
-        // Add the `Right` consensus tasks.
-        add_consensus_tasks::<TYPES, I, Base>(&mut right_handle).await;
-
-        // Replace the internal event stream in the handle.
-        left_handle.internal_event_stream = (
-            network_sender.clone(),
-            network_receiver.clone().deactivate(),
-        );
-
-        // spawn the network tasks with our newly-created channel
-        add_network_tasks::<TYPES, I>(left_handle).await;
-
-        // spawn a task to listen on the (original) internal event stream,
-        // and broadcast the transformed events to the replacement event stream we just created.
-        let out_handle = async_spawn(async move {
-            loop {
-                let msg = match select(left_receiver.recv(), right_receiver.recv()).await {
-                    Either::Left(msg) => Either::Left(msg.0.unwrap().as_ref().clone()),
-                    Either::Right(msg) => Either::Right(msg.0.unwrap().as_ref().clone()),
-                };
-
-                let _ = network_sender
-                    .broadcast(
-                        Self::transform_out_arc(Arc::clone(&state_out), msg)
-                            .await
-                            .into(),
-                    )
-                    .await;
-            }
-        });
-
-        // spawn a task to listen on the newly created event stream,
-        // and broadcast the transformed events to the original internal event stream
-        let in_handle = async_spawn(async move {
-            loop {
-                if let Ok(msg) = network_receiver.recv().await {
-                    match Self::transform_in_arc(Arc::clone(&state_in), &msg)
-                        .await
-                        .into()
-                    {
-                        Either::Left(msg) => {
-                            let _ = left_sender.broadcast(msg.into()).await;
-                        }
-                        Either::Right(msg) => {
-                            let _ = right_sender.broadcast(msg.into()).await;
-                        }
-                    }
-                }
-            }
-        });
-
-        left_handle.network_registry.register(out_handle);
-        left_handle.network_registry.register(in_handle);
-
-        // We leave the network task's event stream in the handle,
-        // rather than picking either one of the consensus tasks we spawned.
-    }
-}
 
 #[async_trait]
 /// Trait for intercepting and modifying messages between the network and consensus layers.
