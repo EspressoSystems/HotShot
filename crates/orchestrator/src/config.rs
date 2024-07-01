@@ -191,10 +191,6 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     pub libp2p_config: Option<Libp2pConfig>,
     /// the hotshot config
     pub config: HotShotConfig<KEY>,
-    /// the webserver config
-    pub web_server_config: Option<WebServerConfig>,
-    /// the data availability web server config
-    pub da_web_server_config: Option<WebServerConfig>,
     /// The address for the Push CDN's "marshal", A.K.A. load balancer
     pub cdn_marshal_address: Option<String>,
     /// combined network config
@@ -426,8 +422,6 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             config: HotShotConfigFile::default().into(),
             start_delay_seconds: 60,
             key_type_name: std::any::type_name::<K>().to_string(),
-            web_server_config: None,
-            da_web_server_config: None,
             cdn_marshal_address: None,
             combined_network_config: None,
             next_view_timeout: 10,
@@ -481,12 +475,6 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// The address of the Push CDN's "marshal", A.K.A. load balancer
     #[serde(default)]
     pub cdn_marshal_address: Option<String>,
-    /// the webserver config
-    #[serde(default)]
-    pub web_server_config: Option<WebServerConfig>,
-    /// the data availability web server config
-    #[serde(default)]
-    pub da_web_server_config: Option<WebServerConfig>,
     /// combined network config
     #[serde(default)]
     pub combined_network_config: Option<CombinedNetworkConfig>,
@@ -534,8 +522,6 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             key_type_name: std::any::type_name::<K>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
             cdn_marshal_address: val.cdn_marshal_address,
-            web_server_config: val.web_server_config,
-            da_web_server_config: val.da_web_server_config,
             combined_network_config: val.combined_network_config,
             commit_sha: String::new(),
             builder: val.builder,
@@ -613,6 +599,14 @@ pub struct UpgradeConfig {
     pub start_voting_view: u64,
     /// View to stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_view <= start_voting_view.
     pub stop_voting_view: u64,
+    /// Unix time in seconds at which we start proposing an upgrade
+    pub start_proposing_time: u64,
+    /// Unix time in seconds at which we stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_time <= start_proposing_time.
+    pub stop_proposing_time: u64,
+    /// Unix time in seconds at which we start voting on an upgrade
+    pub start_voting_time: u64,
+    /// Unix time in seconds at which we stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_time <= start_voting_time.
+    pub stop_voting_time: u64,
 }
 
 // Explicitly implementing `Default` for clarity.
@@ -624,6 +618,10 @@ impl Default for UpgradeConfig {
             stop_proposing_view: 0,
             start_voting_view: u64::MAX,
             stop_voting_view: 0,
+            start_proposing_time: u64::MAX,
+            stop_proposing_time: 0,
+            start_voting_time: u64::MAX,
+            stop_voting_time: 0,
         }
     }
 }
@@ -709,11 +707,15 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
             stop_proposing_view: val.upgrade.stop_proposing_view,
             start_voting_view: val.upgrade.start_voting_view,
             stop_voting_view: val.upgrade.stop_voting_view,
+            start_proposing_time: val.upgrade.start_proposing_time,
+            stop_proposing_time: val.upgrade.stop_proposing_time,
+            start_voting_time: val.upgrade.start_voting_time,
+            stop_voting_time: val.upgrade.stop_voting_time,
         }
     }
 }
 /// default number of rounds to run
-pub const ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = 10;
+pub const ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = 100;
 /// default number of transactions per round
 pub const ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND: usize = 10;
 /// default size of transactions

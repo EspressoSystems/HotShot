@@ -28,7 +28,6 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use tracing::{debug, error, instrument, warn};
-use vbs::version::StaticVersionType;
 
 use crate::{
     builder::BuilderClient,
@@ -64,11 +63,7 @@ pub struct BuilderResponses<TYPES: NodeType> {
 }
 
 /// Tracks state of a Transaction task
-pub struct TransactionTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    Ver: StaticVersionType,
-> {
+pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The state's api
     pub builder_timeout: Duration,
 
@@ -81,14 +76,14 @@ pub struct TransactionTaskState<
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
 
-    /// Network for all nodes
-    pub network: Arc<I::QuorumNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
 
     /// Builder API client
-    pub builder_clients: Vec<BuilderClient<TYPES, Ver>>,
+    pub builder_clients: Vec<BuilderClient<TYPES, TYPES::Base>>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -102,9 +97,7 @@ pub struct TransactionTaskState<
     pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
-    TransactionTaskState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
@@ -523,9 +516,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
 #[async_trait]
 /// task state implementation for Transactions Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
-    for TransactionTaskState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for TransactionTaskState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

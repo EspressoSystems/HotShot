@@ -61,8 +61,8 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// from the number of nodes in the quorum.
     pub quorum_membership: Arc<TYPES::Membership>,
 
-    /// Network for DA
-    pub da_network: Arc<I::DaNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// The current vote collection task, if there is one.
     pub vote_collector: RwLock<VoteCollectorOption<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>>,
@@ -215,19 +215,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     tracing::trace!("{e:?}");
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
-                if self.da_network.is_primary_down() {
+                if self.network.is_primary_down() {
                     let consensus =
                         OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
+                    let public_key = self.public_key.clone();
+                    let chan = event_stream.clone();
                     async_spawn(async move {
                         Consensus::calculate_and_update_vid(
-                            consensus,
+                            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
                         )
                         .await;
+                        if let Some(Some(vid_share)) = consensus
+                            .read()
+                            .await
+                            .vid_shares()
+                            .get(&view_number)
+                            .map(|shares| shares.get(&public_key).cloned())
+                        {
+                            broadcast_event(
+                                Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                                &chan,
+                            )
+                            .await;
+                        }
                     });
                 }
             }

@@ -1,7 +1,10 @@
 use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use hotshot::traits::{NetworkReliability, TestableNodeImplementation};
-use hotshot_example_types::{state_types::TestInstanceState, storage_types::TestStorage};
+use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
+    storage_types::TestStorage,
+};
 use hotshot_types::{
     traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
 };
@@ -327,10 +330,14 @@ impl TestDescription {
             data_request_delay: Duration::from_millis(200),
             // Placeholder until we spin up the builder
             builder_urls: vec1::vec1![Url::parse("http://localhost:9999").expect("Valid URL")],
-            start_proposing_view: 0,
+            start_proposing_view: u64::MAX,
             stop_proposing_view: 0,
-            start_voting_view: 0,
+            start_voting_view: u64::MAX,
             stop_voting_view: 0,
+            start_proposing_time: u64::MAX,
+            stop_proposing_time: 0,
+            start_voting_time: u64::MAX,
+            stop_voting_time: 0,
         };
         let TimingData {
             next_view_timeout,
@@ -365,6 +372,7 @@ impl TestDescription {
                 ),
                 storage: Box::new(|_| TestStorage::<TYPES>::default()),
                 config,
+                auction_results_provider: Box::new(|_| TestAuctionResultsProvider::default()),
             },
             metadata: self,
         }

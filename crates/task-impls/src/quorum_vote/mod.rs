@@ -1,3 +1,5 @@
+#![cfg(feature = "dependency-tasks")]
+
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{bail, ensure, Context, Result};
@@ -14,9 +16,10 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, VidDisperseShare},
+    data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
     message::Proposal,
+    simple_certificate::UpgradeCertificate,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
@@ -33,13 +36,12 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use vbs::version::Version;
 
 use crate::{
-    consensus::helpers::fetch_proposal,
     events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    helpers::{broadcast_event, cancel_task, fetch_proposal},
     quorum_vote::handlers::handle_quorum_proposal_validated,
 };
 
@@ -80,8 +82,8 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
     receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    /// The current version of HotShot
-    version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
     /// The node's id
     id: u64,
 }
@@ -134,7 +136,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
                 &parent,
                 &proposed_leaf.block_header().clone(),
                 vid_share.data.common.clone(),
-                self.version,
+                *self.version.read().await,
             )
             .await
             .context("Block header doesn't extend the proposal!")?;
@@ -232,12 +234,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
-        if !self
-            .consensus
-            .read()
-            .await
-            .validated_state_map()
-            .contains_key(&high_qc_view_number)
+        // The validated state of a non-genesis high QC should exist in the state map.
+        if *high_qc_view_number != *ViewNumber::genesis()
+            && !self
+                .consensus
+                .read()
+                .await
+                .validated_state_map()
+                .contains_key(&high_qc_view_number)
         {
             // Block on receiving the event from the event stream.
             EventDependency::new(
@@ -367,11 +371,8 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Table for the in-progress dependency tasks.
     pub vote_dependencies: HashMap<TYPES::Time, JoinHandle<()>>,
 
-    /// Network for all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
-
-    /// Network for DA committee
-    pub da_network: Arc<I::DaNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Membership for Quorum certs/votes.
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -388,8 +389,11 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// The curent version of HotShot
-    pub version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
@@ -511,7 +515,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                version: self.version,
+                version: Arc::clone(&self.version),
                 id: self.id,
             },
         );
@@ -529,7 +533,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             );
 
             // Cancel the old dependency tasks.
-            for view in (*self.latest_voted_view + 1)..(*new_view) {
+            for view in *self.latest_voted_view..(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
                     debug!("Vote dependency removed for view {:?}", view);
@@ -553,6 +557,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     ) {
         match event.as_ref() {
             HotShotEvent::VoteNow(view, ..) => {
+                info!("Vote NOW for view {:?}", *view);
                 self.create_dependency_task_if_new(
                     *view,
                     event_receiver,
@@ -561,6 +566,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
+                trace!("Received Proposal for view {}", *proposal.view_number());
+
                 // Handle the event before creating the dependency task.
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, &event_sender, self).await

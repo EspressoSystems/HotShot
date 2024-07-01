@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use hotshot::traits::implementations::Libp2pNetwork;
-use hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
+use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestTypes,
+    storage_types::TestStorage,
+};
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use serde::{Deserialize, Serialize};
 
@@ -11,15 +14,13 @@ use crate::infra::Libp2pDaRun;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct NodeImpl {}
 
-/// convenience type alias
-pub type DaNetwork = Libp2pNetwork<<TestTypes as NodeType>::SignatureKey>;
-/// convenience type alias
-pub type QuorumNetwork = Libp2pNetwork<<TestTypes as NodeType>::SignatureKey>;
+/// Convenience type alias
+pub type Network = Libp2pNetwork<<TestTypes as NodeType>::SignatureKey>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
-    type QuorumNetwork = QuorumNetwork;
-    type DaNetwork = DaNetwork;
+    type Network = Network;
     type Storage = TestStorage<TestTypes>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 /// convenience type alias
 pub type ThisRun = Libp2pDaRun<TestTypes>;

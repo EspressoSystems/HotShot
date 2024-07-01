@@ -16,7 +16,6 @@ use vbs::{
 };
 
 use crate::{
-    constants::{Base, Upgrade},
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
         DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
@@ -34,6 +33,34 @@ use crate::{
     },
     vote::HasViewNumber,
 };
+
+/// Calculate the version applied in a view, based on the provided upgrade certificate.
+///
+/// # Errors
+/// Returns an error if we do not support the version required by the upgrade certificate.
+pub fn version<TYPES: NodeType>(
+    view: TYPES::Time,
+    upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
+) -> Result<Version> {
+    let version = match upgrade_certificate {
+        Some(ref cert) => {
+            if view >= cert.data.new_version_first_view
+                && cert.data.new_version == TYPES::Upgrade::VERSION
+            {
+                TYPES::Upgrade::VERSION
+            } else if view >= cert.data.new_version_first_view
+                && cert.data.new_version != TYPES::Upgrade::VERSION
+            {
+                bail!("The network has upgraded to a new version that we do not support!");
+            } else {
+                TYPES::Base::VERSION
+            }
+        }
+        None => TYPES::Base::VERSION,
+    };
+
+    Ok(version)
+}
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Derivative, PartialEq, Eq, Hash)]
@@ -63,26 +90,12 @@ where
     ) -> Result<Vec<u8>> {
         let view = self.view_number();
 
-        let version = match upgrade_certificate {
-            Some(ref cert) => {
-                if view >= cert.data.new_version_first_view
-                    && cert.data.new_version == Upgrade::VERSION
-                {
-                    Upgrade::VERSION
-                } else if view >= cert.data.new_version_first_view
-                    && cert.data.new_version != Upgrade::VERSION
-                {
-                    bail!("The network has upgraded to a new version that we do not support!");
-                } else {
-                    Base::VERSION
-                }
-            }
-            None => Base::VERSION,
-        };
+        let version = version(view, upgrade_certificate)?;
 
         let serialized_message = match version {
-            Base::VERSION => Serializer::<Base>::serialize(&self),
-            Upgrade::VERSION => Serializer::<Upgrade>::serialize(&self),
+            // Associated constants cannot be used in pattern matches, so we do this trick instead.
+            v if v == TYPES::Base::VERSION => Serializer::<TYPES::Base>::serialize(&self),
+            v if v == TYPES::Upgrade::VERSION => Serializer::<TYPES::Upgrade>::serialize(&self),
             _ => {
                 bail!("Attempted to serialize with an incompatible version. This should be impossible.");
             }
@@ -100,13 +113,13 @@ where
         message: &'a [u8],
         upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
     ) -> Result<Self> {
-        let version = Version::deserialize(message)
+        let actual_version = Version::deserialize(message)
             .context("Failed to read message version!")?
             .0;
 
-        let deserialized_message: Self = match version {
-            Base::VERSION => Serializer::<Base>::deserialize(message),
-            Upgrade::VERSION => Serializer::<Upgrade>::deserialize(message),
+        let deserialized_message: Self = match actual_version {
+            v if v == TYPES::Base::VERSION => Serializer::<TYPES::Base>::deserialize(message),
+            v if v == TYPES::Upgrade::VERSION => Serializer::<TYPES::Upgrade>::deserialize(message),
             _ => {
                 bail!("Cannot deserialize message!");
             }
@@ -115,26 +128,11 @@ where
 
         let view = deserialized_message.view_number();
 
-        let expected_version = match upgrade_certificate {
-            Some(ref cert) => {
-                if view >= cert.data.new_version_first_view
-                    && cert.data.new_version == Upgrade::VERSION
-                {
-                    Upgrade::VERSION
-                } else if view >= cert.data.new_version_first_view
-                    && cert.data.new_version != Upgrade::VERSION
-                {
-                    bail!("The network has upgraded to a new version that we do not support!");
-                } else {
-                    Base::VERSION
-                }
-            }
-            None => Base::VERSION,
-        };
+        let expected_version = version(view, upgrade_certificate)?;
 
         ensure!(
-            version == expected_version,
-            "Message has invalid version number for its view. Expected: {expected_version}, Actual: {version}, View: {view:?}"
+            actual_version == expected_version,
+            "Message has invalid version number for its view. Expected: {expected_version}, Actual: {actual_version}, View: {view:?}"
         );
 
         Ok(deserialized_message)

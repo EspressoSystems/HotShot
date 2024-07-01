@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![cfg(feature = "dependency-tasks")]
 
 use std::sync::Arc;
 
@@ -24,14 +25,11 @@ use tracing::{debug, error, instrument, warn};
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
-    consensus::{
-        helpers::{
-            fetch_proposal, validate_proposal_safety_and_liveness, validate_proposal_view_and_certs,
-        },
-        view_change::{update_view, SEND_VIEW_CHANGE_EVENT},
-    },
     events::HotShotEvent,
-    helpers::broadcast_event,
+    helpers::{
+        broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
+        validate_proposal_view_and_certs, SEND_VIEW_CHANGE_EVENT,
+    },
 };
 
 /// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
@@ -230,7 +228,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        None,
+        Arc::clone(&task_state.decided_upgrade_certificate),
         Arc::clone(&task_state.quorum_membership),
         view_leader_key,
         event_sender.clone(),

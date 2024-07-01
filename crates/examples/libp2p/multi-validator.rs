@@ -8,7 +8,7 @@ use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::{MultiValidatorArgs, ValidatorArgs};
 use tracing::instrument;
 
-use crate::types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun};
+use crate::types::{Network, NodeImpl, ThisRun};
 
 /// types used for this example
 pub mod types;
@@ -24,13 +24,13 @@ async fn main() {
     setup_logging();
     setup_backtrace();
     let args = MultiValidatorArgs::parse();
-    tracing::error!("connecting to orchestrator at {:?}", args.url);
+    tracing::debug!("connecting to orchestrator at {:?}", args.url);
     let mut nodes = Vec::new();
     for node_index in 0..args.num_nodes {
         let args = args.clone();
 
         let node = async_spawn(async move {
-            infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
+            infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(
                 ValidatorArgs::from_multi_args(args, node_index),
             )
             .await;

@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.58"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.59"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
@@ -53,7 +53,7 @@ chrono = "0.4"
 committable = "0.2"
 custom_debug = "0.5"
 digest = "0.10"
-either = "1.12"
+either = "1.13"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 ethereum-types = { version = "0.14", features = ["impl-serde"] }
 futures = "0.3"
@@ -137,10 +137,10 @@ anyhow = "1"
 
 
 # Push CDN imports
-cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.12" }
-cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.12" }
-cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.12" }
-cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.3.12" }
+cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.4.0" }
+cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.4.0" }
+cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.4.0" }
+cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.4.0" }
 
 ### Profiles
 ###

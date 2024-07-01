@@ -49,7 +49,8 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
 /// shares.
 pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
-    pub network: Arc<I::QuorumNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
     pub state: OuterConsensus<TYPES>,
@@ -201,6 +202,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let requester = DelayedRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
             state: OuterConsensus::new(Arc::clone(&self.state.inner_consensus)),
+            public_key: self.public_key.clone(),
             sender,
             delay: self.delay,
             recipients,
@@ -249,10 +251,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 /// a request.  If at any point the requested info is seen in the data stores or
 /// the view has moved beyond the view we are requesting, the task will completed.
 struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Network to send requests
-    network: Arc<I::QuorumNetwork>,
+    /// The underlying network to send requests on
+    pub network: Arc<I::Network>,
     /// Shared state to check if the data go populated
     state: OuterConsensus<TYPES>,
+    /// our public key
+    public_key: TYPES::SignatureKey,
     /// Channel to send the event when we receive a response
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Duration to delay sending the first request
@@ -268,8 +272,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 /// A task the requests some data immediately from one peer
 
 struct ProposalRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Network to send requests
-    network: Arc<I::QuorumNetwork>,
+    /// The underlying network to send requests on
+    pub network: Arc<I::Network>,
     /// Channel to send the event when we receive a response
     sender: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
     /// Leader for the view of the request
@@ -394,15 +398,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        self.shutdown_flag.load(Ordering::Relaxed)
+        let cancel = self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
-            || state.cur_view() > view
+            || state.cur_view() > view;
+        if cancel {
+            if let Some(Some(vid_share)) = state
+                .vid_shares()
+                .get(&view)
+                .map(|shares| shares.get(&self.public_key).cloned())
+            {
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                    &self.sender,
+                )
+                .await;
+            }
+            tracing::debug!(
+                "Canceling vid request for view {:?}, cur view is {:?}",
+                view,
+                state.cur_view()
+            );
+        }
+        cancel
     }
 
     /// Transform a response into a `HotShotEvent`
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
             SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) => {
+                tracing::info!("vid req complete, got vid {:?}", prop);
                 HotShotEvent::VidShareRecv(prop)
             }
             _ => return,
