@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![cfg(feature = "dependency-tasks")]
 
 use std::sync::Arc;
 
@@ -7,6 +8,7 @@ use async_broadcast::{broadcast, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::{Leaf, QuorumProposal},
     message::Proposal,
     simple_certificate::QuorumCertificate,
@@ -19,16 +21,15 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, instrument, warn};
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
-    consensus::{
-        helpers::{validate_proposal_safety_and_liveness, validate_proposal_view_and_certs},
-        view_change::{update_view, SEND_VIEW_CHANGE_EVENT},
-    },
     events::HotShotEvent,
-    helpers::broadcast_event,
+    helpers::{
+        broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
+        validate_proposal_view_and_certs, SEND_VIEW_CHANGE_EVENT,
+    },
 };
 
 /// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
@@ -42,6 +43,7 @@ pub(crate) enum QuorumProposalValidity {
 }
 
 /// Update states in the event that the parent state is not found for a given `proposal`.
+#[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -108,6 +110,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The task is internally inconsistent.
 /// - The sequencer storage update fails.
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all)]
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
@@ -141,7 +144,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         view_number,
         event_sender,
         task_state.timeout,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         &mut task_state.cur_view,
         &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
@@ -154,39 +157,51 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         debug!("Failed to update view; error = {e:#}");
     }
 
-    let parent = {
-        let consensus_read = task_state.consensus.read().await;
+    // Get the parent leaf and state.
+    let mut parent_leaf = task_state
+        .consensus
+        .read()
+        .await
+        .saved_leaves()
+        .get(&justify_qc.data.leaf_commit)
+        .cloned();
 
-        // Get the parent leaf and state.
-        let parent = match consensus_read
-            .saved_leaves()
-            .get(&justify_qc.data.leaf_commit)
-            .cloned()
-        {
-            Some(leaf) => {
-                if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
-                    Some((leaf, Arc::clone(&state)))
-                } else {
-                    bail!("Parent state not found! Consensus internally inconsistent");
-                }
-            }
-            None => None,
-        };
+    parent_leaf = match parent_leaf {
+        Some(p) => Some(p),
+        None => fetch_proposal(
+            justify_qc.view_number(),
+            event_sender.clone(),
+            Arc::clone(&task_state.quorum_membership),
+            OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+        )
+        .await
+        .ok(),
+    };
+    let consensus_read = task_state.consensus.read().await;
 
-        if justify_qc.view_number() > consensus_read.high_qc().view_number {
-            if let Err(e) = task_state
-                .storage
-                .write()
-                .await
-                .update_high_qc(justify_qc.clone())
-                .await
-            {
-                bail!("Failed to store High QC, not voting; error = {:?}", e);
+    let parent = match parent_leaf {
+        Some(leaf) => {
+            if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
+                Some((leaf, Arc::clone(&state)))
+            } else {
+                bail!("Parent state not found! Consensus internally inconsistent");
             }
         }
-
-        parent
+        None => None,
     };
+
+    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+        if let Err(e) = task_state
+            .storage
+            .write()
+            .await
+            .update_high_qc(justify_qc.clone())
+            .await
+        {
+            bail!("Failed to store High QC, not voting; error = {:?}", e);
+        }
+    }
+    drop(consensus_read);
 
     let mut consensus_write = task_state.consensus.write().await;
     if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
@@ -212,13 +227,14 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     validate_proposal_safety_and_liveness(
         proposal.clone(),
         parent_leaf,
-        Arc::clone(&task_state.consensus),
-        None,
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+        Arc::clone(&task_state.decided_upgrade_certificate),
         Arc::clone(&task_state.quorum_membership),
         view_leader_key,
         event_sender.clone(),
         sender,
         task_state.output_event_stream.clone(),
+        task_state.id,
     )
     .await?;
 

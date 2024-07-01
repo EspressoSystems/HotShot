@@ -19,7 +19,6 @@ pub mod tasks;
 
 use std::{
     collections::{BTreeMap, HashMap},
-    marker::PhantomData,
     num::NonZeroUsize,
     sync::Arc,
     time::Duration,
@@ -37,8 +36,8 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
-    constants::{Base, EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
+    constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind, Proposal, VersionedMessage},
@@ -72,32 +71,6 @@ pub const H_512: usize = 64;
 /// Length, in bytes, of a 256 bit hash
 pub const H_256: usize = 32;
 
-/// Bundle of the networks used in consensus
-pub struct Networks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Network for reaching all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
-
-    /// Network for reaching the DA committee
-    pub da_network: Arc<I::DaNetwork>,
-
-    /// Phantom for TYPES and I
-    pub _pd: PhantomData<(TYPES, I)>,
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Networks<TYPES, I> {
-    /// wait for all networks to be ready
-    pub async fn wait_for_networks_ready(&self) {
-        self.quorum_network.wait_for_ready().await;
-        self.da_network.wait_for_ready().await;
-    }
-
-    /// shut down all networks
-    pub async fn shut_down_networks(&self) {
-        self.quorum_network.shut_down().await;
-        self.da_network.shut_down().await;
-    }
-}
-
 /// Bundle of all the memberships a consensus instance uses
 #[derive(Clone)]
 pub struct Memberships<TYPES: NodeType> {
@@ -122,8 +95,8 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Configuration items for this hotshot instance
     pub config: HotShotConfig<TYPES::SignatureKey>,
 
-    /// Networks used by the instance of hotshot
-    pub networks: Arc<Networks<TYPES, I>>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Memberships used by consensus
     pub memberships: Arc<Memberships<TYPES>>,
@@ -132,7 +105,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     metrics: Arc<ConsensusMetricsValue>,
 
     /// The hotstuff implementation
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 
     /// Immutable instance state
     instance_state: Arc<TYPES::InstanceState>,
@@ -167,6 +140,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// a potential upgrade certificate that has been decided on by the consensus tasks.
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+
+    /// Reference to the AuctionResultsProvider type for acquiring solver results.
+    pub auction_results_provider: Arc<I::AuctionResultsProvider>,
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPES, I> {
     #![allow(deprecated)]
@@ -175,10 +151,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             public_key: self.public_key.clone(),
             private_key: self.private_key.clone(),
             config: self.config.clone(),
-            networks: Arc::clone(&self.networks),
+            network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
             metrics: Arc::clone(&self.metrics),
-            consensus: Arc::clone(&self.consensus),
+            consensus: self.consensus.clone(),
             instance_state: Arc::clone(&self.instance_state),
             version: Arc::clone(&self.version),
             start_view: self.start_view,
@@ -189,57 +165,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             id: self.id,
             storage: Arc::clone(&self.storage),
             decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+            auction_results_provider: Arc::clone(&self.auction_results_provider),
         }
     }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     #![allow(deprecated)]
-    /// Creates a new `SystemContext` which is identical to but independent from the one provided.
-    pub async fn clone_independent(&self) -> Self {
-        // Create a new event stream for the `Right` consensus tasks.
-        let (sender, receiver) = broadcast(EVENT_CHANNEL_SIZE);
-
-        Self {
-            public_key: self.public_key.clone(),
-            private_key: self.private_key.clone(),
-            config: self.config.clone(),
-            networks: Arc::clone(&self.networks),
-            memberships: Arc::clone(&self.memberships),
-            metrics: Arc::clone(&self.metrics),
-            consensus: Arc::new(RwLock::new(self.consensus.read().await.clone())),
-            instance_state: Arc::clone(&self.instance_state),
-            version: Arc::new(RwLock::new(self.version.read().await.clone())),
-            start_view: self.start_view,
-            output_event_stream: self.output_event_stream.clone(),
-            external_event_stream: self.external_event_stream.clone(),
-            anchored_leaf: self.anchored_leaf.clone(),
-            internal_event_stream: (sender, receiver.deactivate()),
-            id: self.id,
-            storage: Arc::new(RwLock::new(self.storage.read().await.clone())),
-            decided_upgrade_certificate: Arc::new(RwLock::new(
-                self.decided_upgrade_certificate.read().await.clone(),
-            )),
-        }
-    }
-
     /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
     ///
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
+    ///
+    /// # Errors
+    /// -
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, memberships, networks, initializer, metrics, storage))]
-    pub async fn new(
+    pub fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Memberships<TYPES>,
-        networks: Networks<TYPES, I>,
+        network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-    ) -> Result<Arc<Self>, HotShotError<TYPES>> {
+        auction_results_provider: I::AuctionResultsProvider,
+    ) -> Arc<Self> {
         debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
@@ -307,7 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         );
 
         let consensus = Arc::new(RwLock::new(consensus));
-        let version = Arc::new(RwLock::new(Base::VERSION));
+        let version = Arc::new(RwLock::new(TYPES::Base::VERSION));
 
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
@@ -315,14 +267,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
 
         let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
             id: nonce,
-            consensus,
+            consensus: OuterConsensus::new(consensus),
             instance_state: Arc::new(instance_state),
             public_key,
             private_key,
             config,
             version,
             start_view: initializer.start_view,
-            networks: Arc::new(networks),
+            network,
             memberships: Arc::new(memberships),
             metrics: Arc::clone(&consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
@@ -331,15 +283,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
             decided_upgrade_certificate,
+            auction_results_provider: Arc::new(auction_results_provider),
         });
 
-        Ok(inner)
+        inner
     }
 
     /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn start_consensus(&self) {
         #[cfg(feature = "dependncy-tasks")]
         error!("HotShot is running with the dependency tasks feature enabled!!");
@@ -440,7 +394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Errors
     ///
     /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
-    #[instrument(skip(self), err)]
+    #[instrument(skip(self), err, target = "SystemContext", fields(id = self.id))]
     pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
@@ -476,9 +430,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
                 // and will be updated to be part of SystemContext. I wanted to use associated
                 // constants in NodeType, but that seems to be unavailable in the current Rust.
                 api
-                    .networks
-                    .da_network
-                    .broadcast_message(
+                    .network.broadcast_message(
                         serialized_message,
                         da_membership.whole_committee(view_number),
                         BroadcastDelay::None,
@@ -498,7 +450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the consensus struct
     #[must_use]
     pub fn consensus(&self) -> Arc<RwLock<Consensus<TYPES>>> {
-        Arc::clone(&self.consensus)
+        Arc::clone(&self.consensus.inner_consensus)
     }
 
     /// Returns a copy of the instance state
@@ -509,6 +461,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn decided_leaf(&self) -> Leaf<TYPES> {
         self.consensus.read().await.decided_leaf()
     }
@@ -519,6 +472,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     #[must_use]
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub fn try_decided_leaf(&self) -> Option<Leaf<TYPES>> {
         self.consensus.try_read().map(|guard| guard.decided_leaf())
     }
@@ -527,6 +481,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn decided_state(&self) -> Arc<TYPES::ValidatedState> {
         Arc::clone(&self.consensus.read().await.decided_state())
     }
@@ -538,6 +493,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
         self.consensus.read().await.state(view).cloned()
     }
@@ -562,10 +518,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         node_id: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Memberships<TYPES>,
-        networks: Networks<TYPES, I>,
+        network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
     ) -> Result<
         (
             SystemContextHandle<TYPES, I>,
@@ -580,12 +537,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             node_id,
             config,
             memberships,
-            networks,
+            network,
             initializer,
             metrics,
             storage,
-        )
-        .await?;
+            auction_results_provider,
+        );
         let handle = Arc::clone(&hotshot).run_tasks().await;
         let (tx, rx) = hotshot.internal_event_stream.clone();
 
@@ -616,12 +573,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: Arc::clone(&self.storage),
-            networks: Arc::clone(&self.networks),
+            network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
         };
 
         add_network_tasks::<TYPES, I>(&mut handle).await;
-        add_consensus_tasks::<TYPES, I, Base>(&mut handle).await;
+        add_consensus_tasks::<TYPES, I>(&mut handle).await;
 
         handle
     }
@@ -670,7 +627,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: left_internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: Arc::clone(&self.storage),
-            networks: Arc::clone(&self.networks),
+            network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
         };
 
@@ -681,13 +638,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             internal_event_stream: right_internal_event_stream.clone(),
             hotshot: self.clone().into(),
             storage: Arc::clone(&self.storage),
-            networks: Arc::clone(&self.networks),
+            network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
         };
 
         // add consensus tasks to each handle, using their individual internal event streams
-        add_consensus_tasks::<TYPES, I, Base>(&mut left_handle).await;
-        add_consensus_tasks::<TYPES, I, Base>(&mut right_handle).await;
+        add_consensus_tasks::<TYPES, I>(&mut left_handle).await;
+        add_consensus_tasks::<TYPES, I>(&mut right_handle).await;
 
         // fuse the event streams from both handles before initializing the network tasks
         let fused_internal_event_stream = fuse_channels::<HotShotEvent<TYPES>, RandomTwinsHandler>(
@@ -711,6 +668,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     }
 }
 
+/// An async broadcast channel
 type Channel<S> = (Sender<Arc<S>>, Receiver<Arc<S>>);
 
 #[async_trait]
@@ -750,7 +708,7 @@ where
     }
 }
 
-/// A `TwinsHandlerState` that randomly forwards a message to either twin, 
+/// A `TwinsHandlerState` that randomly forwards a message to either twin,
 /// and returns messages from both.
 pub struct RandomTwinsHandler;
 
@@ -762,6 +720,7 @@ impl<MESSAGE: Send + Sync + Clone> TwinsHandlerState<MESSAGE> for RandomTwinsHan
     async fn send_handler(&mut self, event: &MESSAGE) -> Either<MESSAGE, MESSAGE> {
         let random: bool = rand::thread_rng().gen();
 
+        #[allow(clippy::match_bool)]
         match random {
             true => Either::Left(event.clone()),
             false => Either::Right(event.clone()),
@@ -770,12 +729,14 @@ impl<MESSAGE: Send + Sync + Clone> TwinsHandlerState<MESSAGE> for RandomTwinsHan
 
     async fn recv_handler(&mut self, event: &Either<MESSAGE, MESSAGE>) -> MESSAGE {
         match event {
-            Either::Left(msg) => msg.clone(),
-            Either::Right(msg) => msg.clone(),
+            Either::Left(msg) | Either::Right(msg) => msg.clone(),
         }
     }
 }
 
+/// Fuse two channels into a single channel, using handlers provided by the `STATE` type.
+///
+/// Note: the channels are fused using two async loops, whose `JoinHandle`s are dropped.
 fn fuse_channels<MESSAGE, STATE>(
     left: Channel<MESSAGE>,
     right: Channel<MESSAGE>,
@@ -809,7 +770,7 @@ where
     let _send_loop_handle = async_spawn(async move {
         loop {
             if let Ok(msg) = result_receiver.recv().await {
-                match STATE::send_handler_arc(&send_state, &msg).await.into() {
+                match STATE::send_handler_arc(&send_state, &msg).await {
                     Either::Left(msg) => {
                         let _ = left_sender.broadcast(msg.into()).await;
                     }

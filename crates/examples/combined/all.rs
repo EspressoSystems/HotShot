@@ -1,11 +1,8 @@
-//! A example program using both the web server and libp2p
+//! An example program using both the web server and libp2p
 /// types used for this example
 pub mod types;
 
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::Path,
-};
+use std::path::Path;
 
 use async_compatibility_layer::{
     art::async_spawn,
@@ -20,12 +17,13 @@ use hotshot::{
 use hotshot_example_types::state_types::TestTypes;
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
+use infra::{gen_local_address, BUILDER_BASE_PORT, VALIDATOR_BASE_PORT};
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use tracing::{error, instrument};
 
 use crate::{
     infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
-    types::{DaNetwork, NodeImpl, QuorumNetwork, ThisRun},
+    types::{Network, NodeImpl, ThisRun},
 };
 
 /// general infra used for this example
@@ -137,20 +135,17 @@ async fn main() {
     for i in 0..config.config.num_nodes_with_stake.into() {
         // Calculate our libp2p advertise address, which we will later derive the
         // bind address from for example purposes.
-        let advertise_address = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            8000 + (u16::try_from(i).expect("failed to create advertise address")),
-        );
-
+        let advertise_address = gen_local_address::<VALIDATOR_BASE_PORT>(i);
         let orchestrator_url = orchestrator_url.clone();
+        let builder_address = gen_local_address::<BUILDER_BASE_PORT>(i);
+
         let node = async_spawn(async move {
-            infra::main_entry_point::<TestTypes, DaNetwork, QuorumNetwork, NodeImpl, ThisRun>(
-                ValidatorArgs {
-                    url: orchestrator_url,
-                    advertise_address: Some(advertise_address),
-                    network_config_file: None,
-                },
-            )
+            infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(ValidatorArgs {
+                url: orchestrator_url,
+                advertise_address: Some(advertise_address),
+                builder_address: Some(builder_address),
+                network_config_file: None,
+            })
             .await;
         });
         nodes.push(node);

@@ -1,11 +1,13 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
+#![cfg(feature = "dependency-tasks")]
+
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_sleep;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use committable::Committable;
 use hotshot_task::{
@@ -13,18 +15,20 @@ use hotshot_task::{
     dependency_task::HandleDepOutput,
 };
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
+    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 use vbs::version::Version;
 
 use crate::{
-    consensus::helpers::parent_leaf_and_state, events::HotShotEvent, helpers::broadcast_event,
+    events::HotShotEvent,
+    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -79,29 +83,74 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
     pub round_start_delay: u64,
 
     /// Shared consensus task state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
-    /// The current version of consensus
-    pub version: Version,
+    /// Globally shared reference to the current network version.
+    pub version: Arc<RwLock<Version>>,
+
+    /// The most recent upgrade certificate this node formed.
+    /// Note: this is ONLY for certificates that have been formed internally,
+    /// so that we can propose with them.
+    ///
+    /// Certificates received from other nodes will get reattached regardless of this fields,
+    /// since they will be present in the leaf we propose off of.
+    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+
+    /// The node's id
+    pub id: u64,
 }
 
 impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
+    #[instrument(skip_all, target = "ProposalDependencyHandle", fields(id = self.id, view_number = *self.view_number, latest_proposed_view = *self.latest_proposed_view))]
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
         vid_share: Proposal<TYPES, VidDisperse<TYPES>>,
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
+        formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+        decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
             self.view_number,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
-            Arc::clone(&self.consensus),
+            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
         )
         .await?;
+
+        // In order of priority, we should try to attach:
+        //   - the parent certificate if it exists, or
+        //   - our own certificate that we formed.
+        // In either case, we need to ensure that the certificate is still relevant.
+        //
+        // Note: once we reach a point of potentially propose with our formed upgrade certificate,
+        // we will ALWAYS drop it. If we cannot immediately use it for whatever reason, we choose
+        // to discard it.
+        //
+        // It is possible that multiple nodes form separate upgrade certificates for the some
+        // upgrade if we are not careful about voting. But this shouldn't bother us: the first
+        // leader to propose is the one whose certificate will be used. And if that fails to reach
+        // a decide for whatever reason, we may lose our own certificate, but something will likely
+        // have gone wrong there anyway.
+        let mut upgrade_certificate = parent_leaf
+            .upgrade_certificate()
+            .or(formed_upgrade_certificate);
+
+        if let Some(cert) = upgrade_certificate.clone() {
+            if cert
+                .is_relevant(self.view_number, Arc::clone(&decided_upgrade_certificate))
+                .await
+                .is_err()
+            {
+                upgrade_certificate = None;
+            }
+        }
 
         let proposal_certificate = view_change_evidence
             .as_ref()
@@ -122,7 +171,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             commitment_and_metadata.metadata,
             commitment_and_metadata.fee,
             vid_share.data.common.clone(),
-            self.version,
+            *self.version.read().await,
         )
         .await
         .context("Failed to construct block header")?;
@@ -132,7 +181,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             view_number: self.view_number,
             justify_qc: self.consensus.read().await.high_qc().clone(),
             proposal_certificate,
-            upgrade_certificate: None,
+            upgrade_certificate,
         };
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
@@ -185,6 +234,13 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             .validated_state_map()
             .contains_key(&high_qc_view_number)
         {
+            // The proposal for the high qc view is missing, try to get it asynchronously
+            let memberhsip = Arc::clone(&self.quorum_membership);
+            let sender = self.sender.clone();
+            let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
+            async_spawn(async move {
+                fetch_proposal(high_qc_view_number, sender, memberhsip, consensus).await
+            });
             // Block on receiving the event from the event stream.
             EventDependency::new(
                 self.receiver.clone(),
@@ -263,6 +319,8 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 commit_and_metadata.unwrap(),
                 vid_share.unwrap(),
                 proposal_cert,
+                self.formed_upgrade_certificate.clone(),
+                Arc::clone(&self.decided_upgrade_certificate),
             )
             .await
         {

@@ -31,7 +31,7 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    constants::{Base, EVENT_CHANNEL_SIZE},
+    constants::{EVENT_CHANNEL_SIZE},
     message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
@@ -78,6 +78,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
         handle.private_key().clone(),
+        handle.hotshot.id,
     );
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
@@ -172,18 +173,19 @@ pub fn add_network_event_task<
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
-pub async fn add_consensus_tasks<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    VERSION: StaticVersionType + 'static,
->(
+pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &mut SystemContextHandle<TYPES, I>,
 ) {
     handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(TransactionTaskState::<TYPES, I, VERSION>::create_from(handle).await);
-    handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(TransactionTaskState::<TYPES, I>::create_from(handle).await);
+
+    // only spawn the upgrade task if we are actually configured to perform an upgrade.
+    if TYPES::Base::VERSION < TYPES::Upgrade::VERSION {
+        handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+    }
+
     {
         #![cfg(not(feature = "dependency-tasks"))]
         handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
@@ -225,7 +227,7 @@ where
     ) -> HotShotEvent<TYPES> {
         let mut state = lock.write().await;
 
-        state.transform_in(&event)
+        state.transform_in(event)
     }
 
     /// `transform_out`, but wrapping the state in an `Arc` lock
@@ -235,7 +237,7 @@ where
     ) -> HotShotEvent<TYPES> {
         let mut state = lock.write().await;
 
-        state.transform_out(&event)
+        state.transform_out(event)
     }
 
     /// Add byzantine network tasks with the trait
@@ -311,48 +313,47 @@ where
 pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle: &mut SystemContextHandle<TYPES, I>,
 ) {
-    let quorum_network = Arc::clone(&handle.networks.quorum_network);
-    let da_network = Arc::clone(&handle.networks.da_network);
+    let network = Arc::clone(&handle.network);
     let quorum_membership = handle.memberships.quorum_membership.clone();
     let da_membership = handle.memberships.da_membership.clone();
     let vid_membership = handle.memberships.vid_membership.clone();
     let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
-    add_network_message_task(handle, &quorum_network);
-    add_network_message_task(handle, &da_network);
+    add_network_message_task(handle, &network);
+    add_network_message_task(handle, &network);
 
-    if let Some(request_receiver) = da_network.spawn_request_receiver_task().await {
+    if let Some(request_receiver) = network.spawn_request_receiver_task().await {
         add_request_network_task(handle).await;
         add_response_task(handle, request_receiver);
     }
 
     add_network_event_task(
         handle,
-        Arc::clone(&quorum_network),
+        Arc::clone(&network),
         quorum_membership.clone(),
         network::quorum_filter,
     );
     add_network_event_task(
         handle,
-        Arc::clone(&quorum_network),
+        Arc::clone(&network),
         quorum_membership,
         network::upgrade_filter,
     );
     add_network_event_task(
         handle,
-        Arc::clone(&da_network),
+        Arc::clone(&network),
         da_membership,
         network::da_filter,
     );
     add_network_event_task(
         handle,
-        Arc::clone(&quorum_network),
+        Arc::clone(&network),
         view_sync_membership,
         network::view_sync_filter,
     );
     add_network_event_task(
         handle,
-        Arc::clone(&quorum_network),
+        Arc::clone(&network),
         vid_membership,
         network::vid_filter,
     );

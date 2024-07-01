@@ -24,7 +24,7 @@ body:
       placeholder: | 
         Include other details here such as: open questions, directions to reproduce a bug, relevant error logs, etc. 
 
-        E.g. To reproduce this bug run `just async_std test_basic`. You should see logs similar to the below: 
+        E.g. To reproduce this bug run `just async_std test_basic`. You should see logs similar to the ones below: 
         `ERROR: This is an important error!`
     validations:
       required: false

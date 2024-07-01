@@ -9,7 +9,7 @@ use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{Consensus, LockedConsensusState, View},
+    consensus::{Consensus, OuterConsensus, View},
     data::DaProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -51,7 +51,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: LockedConsensusState<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
@@ -61,8 +61,8 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// from the number of nodes in the quorum.
     pub quorum_membership: Arc<TYPES::Membership>,
 
-    /// Network for DA
-    pub da_network: Arc<I::DaNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// The current vote collection task, if there is one.
     pub vote_collector: RwLock<VoteCollectorOption<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>>,
@@ -82,7 +82,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -215,18 +215,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     tracing::trace!("{e:?}");
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
-                if self.da_network.is_primary_down() {
-                    let consensus = Arc::clone(&self.consensus);
+                if self.network.is_primary_down() {
+                    let consensus =
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
+                    let public_key = self.public_key.clone();
+                    let chan = event_stream.clone();
                     async_spawn(async move {
                         Consensus::calculate_and_update_vid(
-                            consensus,
+                            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
                         )
                         .await;
+                        if let Some(Some(vid_share)) = consensus
+                            .read()
+                            .await
+                            .vid_shares()
+                            .get(&view_number)
+                            .map(|shares| shares.get(&public_key).cloned())
+                        {
+                            broadcast_event(
+                                Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                                &chan,
+                            )
+                            .await;
+                        }
                     });
                 }
             }
