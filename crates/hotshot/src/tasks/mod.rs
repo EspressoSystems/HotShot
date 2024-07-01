@@ -31,7 +31,7 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    constants::{EVENT_CHANNEL_SIZE},
+    constants::EVENT_CHANNEL_SIZE,
     message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
@@ -40,9 +40,7 @@ use hotshot_types::{
 };
 use vbs::version::StaticVersionType;
 
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-};
+use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -201,7 +199,6 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     #[cfg(feature = "rewind")]
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }
-
 
 #[async_trait]
 /// Trait for intercepting and modifying messages between the network and consensus layers.

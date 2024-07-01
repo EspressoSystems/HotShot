@@ -587,8 +587,47 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
     pub async fn run_twin_tasks(
-        &self,
-    ) -> (SystemContextHandle<TYPES, I>, SystemContextHandle<TYPES, I>) {
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        nonce: u64,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        memberships: Memberships<TYPES>,
+        network: Arc<I::Network>,
+        initializer: HotShotInitializer<TYPES>,
+        metrics: ConsensusMetricsValue,
+        storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
+    ) -> (SystemContextHandle<TYPES, I>, SystemContextHandle<TYPES, I>)
+    where
+        TYPES::InstanceState: Clone,
+        TYPES::ValidatedState: Clone,
+        I::AuctionResultsProvider: Clone,
+    {
+        let left_system_context = Self::new(
+            public_key.clone(),
+            private_key.clone(),
+            nonce.clone(),
+            config.clone(),
+            memberships.clone(),
+            network.clone(),
+            initializer.clone(),
+            metrics.clone(),
+            storage.clone(),
+            auction_results_provider.clone(),
+        );
+        let right_system_context = Self::new(
+            public_key,
+            private_key,
+            nonce,
+            config,
+            memberships,
+            network,
+            initializer,
+            metrics,
+            storage,
+            auction_results_provider,
+        );
+
         // create registries for both handles
         let left_consensus_registry = ConsensusTaskRegistry::new();
         let left_network_registry = NetworkTaskRegistry::new();
@@ -625,10 +664,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             network_registry: left_network_registry,
             output_event_stream: left_external_event_stream.clone(),
             internal_event_stream: left_internal_event_stream.clone(),
-            hotshot: self.clone().into(),
-            storage: Arc::clone(&self.storage),
-            network: Arc::clone(&self.network),
-            memberships: Arc::clone(&self.memberships),
+            hotshot: left_system_context.clone().into(),
+            storage: Arc::clone(&left_system_context.storage),
+            network: Arc::clone(&left_system_context.network),
+            memberships: Arc::clone(&left_system_context.memberships),
         };
 
         let mut right_handle = SystemContextHandle {
@@ -636,10 +675,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             network_registry: right_network_registry,
             output_event_stream: right_external_event_stream.clone(),
             internal_event_stream: right_internal_event_stream.clone(),
-            hotshot: self.clone().into(),
-            storage: Arc::new(RwLock::new(self.storage.read().await.clone())),
-            network: Arc::clone(&self.network),
-            memberships: Arc::clone(&self.memberships),
+            hotshot: right_system_context.clone().into(),
+            storage: Arc::clone(&right_system_context.storage),
+            network: Arc::clone(&right_system_context.network),
+            memberships: Arc::clone(&right_system_context.memberships),
         };
 
         // add consensus tasks to each handle, using their individual internal event streams
@@ -811,6 +850,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusApi<TYPES, I>
     }
 }
 
+#[derive(Clone)]
 /// initializer struct for creating starting block
 pub struct HotShotInitializer<TYPES: NodeType> {
     /// the leaf specified initialization
