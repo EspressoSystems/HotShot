@@ -637,7 +637,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             output_event_stream: right_external_event_stream.clone(),
             internal_event_stream: right_internal_event_stream.clone(),
             hotshot: self.clone().into(),
-            storage: Arc::clone(&self.storage),
+            storage: Arc::new(RwLock::new(self.storage.read().await.clone())),
             network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
         };
