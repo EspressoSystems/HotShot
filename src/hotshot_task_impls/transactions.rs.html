@@ -534,7 +534,6 @@
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -543,7 +542,6 @@
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::{stream::FuturesUnordered, StreamExt};
 <span class="kw">use </span>hotshot_builder_api::block_info::{
@@ -551,7 +549,7 @@
 };
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{null_block, Leaf},
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
@@ -612,7 +610,7 @@
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
 
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
-    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -637,7 +635,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TransactionTaskState&lt;TYPES, I&gt; {
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"TransactionTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -770,9 +768,9 @@
     </span>}
 
     <span class="doccomment">/// Get last known builder commitment from consensus.
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view))]
     </span><span class="kw">async fn </span>latest_known_vid_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (TYPES::Time, VidCommitment) {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-
         <span class="kw">let </span><span class="kw-2">mut </span>prev_view = TYPES::Time::new(<span class="self">self</span>.cur_view.saturating_sub(<span class="number">1</span>));
 
         <span class="comment">// Search through all previous views...

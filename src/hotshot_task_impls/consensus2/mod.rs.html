@@ -180,7 +180,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     event::Event,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
@@ -255,7 +255,7 @@
     </span><span class="kw">pub </span>timeout: u64,
 
     <span class="doccomment">/// A reference to the metrics trait.
-    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
 
     <span class="doccomment">/// The last decided view
     </span><span class="kw">pub </span>last_decided_view: TYPES::Time,
@@ -271,7 +271,7 @@
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Consensus2TaskState&lt;TYPES, I&gt; {
     <span class="doccomment">/// Handles a consensus event received on the event stream
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, last_decided_view = <span class="kw-2">*</span><span class="self">self</span>.last_decided_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, last_decided_view = <span class="kw-2">*</span><span class="self">self</span>.last_decided_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"Consensus2TaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,

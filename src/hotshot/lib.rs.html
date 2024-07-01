@@ -734,6 +734,11 @@
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -770,7 +775,7 @@
 </span><span class="doccomment">/// Reexport error type
 </span><span class="kw">pub use </span>hotshot_types::error::HotShotError;
 <span class="kw">use </span>hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, View, ViewInner},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
@@ -840,7 +845,7 @@
     </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
 
     <span class="doccomment">/// The hotstuff implementation
-    </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span>consensus: OuterConsensus&lt;TYPES&gt;,
 
     <span class="doccomment">/// Immutable instance state
     </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -889,7 +894,7 @@
             network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
             memberships: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.memberships),
             metrics: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.metrics),
-            consensus: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+            consensus: <span class="self">self</span>.consensus.clone(),
             instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
             version: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.version),
             start_view: <span class="self">self</span>.start_view,
@@ -1002,7 +1007,7 @@
 
         <span class="kw">let </span>inner: Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; = Arc::new(SystemContext {
             id: nonce,
-            consensus,
+            consensus: OuterConsensus::new(consensus),
             instance_state: Arc::new(instance_state),
             public_key,
             private_key,
@@ -1028,6 +1033,7 @@
     ///
     /// # Panics
     /// Panics if sending genesis fails
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="attr">#[cfg(feature = <span class="string">"dependncy-tasks"</span>)]
         </span><span class="macro">error!</span>(<span class="string">"HotShot is running with the dependency tasks feature enabled!!"</span>);
@@ -1128,7 +1134,7 @@
     /// # Errors
     ///
     /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
-    </span><span class="attr">#[instrument(skip(<span class="self">self</span>), err)]
+    </span><span class="attr">#[instrument(skip(<span class="self">self</span>), err, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>publish_transaction_async(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transaction: TYPES::Transaction,
@@ -1184,7 +1190,7 @@
     <span class="doccomment">/// Returns a copy of the consensus struct
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt; {
-        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)
     }
 
     <span class="doccomment">/// Returns a copy of the instance state
@@ -1195,6 +1201,7 @@
     <span class="doccomment">/// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_leaf()
     }
@@ -1205,6 +1212,7 @@
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     </span><span class="attr">#[must_use]
+    #[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.consensus.try_read().map(|guard| guard.decided_leaf())
     }
@@ -1213,6 +1221,7 @@
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>decided_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;TYPES::ValidatedState&gt; {
         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_state())
     }
@@ -1224,6 +1233,7 @@
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
         <span class="self">self</span>.consensus.read().<span class="kw">await</span>.state(view).cloned()
     }

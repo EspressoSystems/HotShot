@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"hotshot_types":[["impl&lt;'a, TYPES: <a class=\"trait\" href=\"hotshot_types/traits/node_implementation/trait.NodeType.html\" title=\"trait hotshot_types::traits::node_implementation::NodeType\">NodeType</a>&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.78.0/core/ops/deref/trait.DerefMut.html\" title=\"trait core::ops::deref::DerefMut\">DerefMut</a> for <a class=\"struct\" href=\"hotshot_types/consensus/struct.ConsensusWriteLockGuard.html\" title=\"struct hotshot_types::consensus::ConsensusWriteLockGuard\">ConsensusWriteLockGuard</a>&lt;'a, TYPES&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

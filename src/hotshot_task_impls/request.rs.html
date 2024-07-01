@@ -467,6 +467,10 @@
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::BTreeMap,
     sync::{
@@ -479,13 +483,12 @@
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
-<span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::QuorumProposal,
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
@@ -523,7 +526,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    </span><span class="kw">pub </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>state: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// Last seen view, we won't request for proposals before older than this view
     </span><span class="kw">pub </span>view: TYPES::Time,
     <span class="doccomment">/// Delay before requesting peers
@@ -626,6 +629,7 @@
     }
 
     <span class="doccomment">/// Creates the srequest structures for all types that are needed.
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"NetworkRequestState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>view))]
     </span><span class="kw">async fn </span>build_requests(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; Vec&lt;RequestKind&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>reqs = Vec::new();
         <span class="kw">if </span>!<span class="self">self</span>.state.read().<span class="kw">await</span>.vid_shares().contains_key(<span class="kw-2">&amp;</span>view) {
@@ -670,12 +674,13 @@
         </span>recipients.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
         <span class="kw">let </span>requester = DelayedRequester::&lt;TYPES, I&gt; {
             network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
-            state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state),
+            state: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state.inner_consensus)),
             public_key: <span class="self">self</span>.public_key.clone(),
             sender,
             delay: <span class="self">self</span>.delay,
             recipients,
             shutdown_flag: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag),
+            id: <span class="self">self</span>.id,
         };
         <span class="kw">let </span><span class="prelude-val">Some</span>(signature) = <span class="self">self</span>.serialize_and_sign(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
             <span class="kw">return</span>;
@@ -722,7 +727,7 @@
     <span class="doccomment">/// The underlying network to send requests on
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Shared state to check if the data go populated
-    </span>state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span>state: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// our public key
     </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Channel to send the event when we receive a response
@@ -733,6 +738,8 @@
     </span>recipients: Vec&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
+    <span class="doccomment">/// The node's id
+    </span>id: u64,
 }
 
 <span class="doccomment">/// A task the requests some data immediately from one peer
@@ -860,6 +867,7 @@
         }
     }
     <span class="doccomment">/// Returns true if we got the data we wanted, or the view has moved on.
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"DelayedRequester"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>req.<span class="number">0</span>))]
     </span><span class="kw">async fn </span>cancel_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>VidRequest&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">let </span>view = req.<span class="number">0</span>;
         <span class="kw">let </span>state = <span class="self">self</span>.state.read().<span class="kw">await</span>;

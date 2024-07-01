@@ -843,22 +843,27 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, ProposalMissing},
+    request::REQUEST_TIMEOUT,
+};
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{broadcast, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
-<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
@@ -875,19 +880,14 @@
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, warn};
-
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, ProposalMissing},
-    request::REQUEST_TIMEOUT,
-};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType&gt;(
     view: TYPES::Time,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
-    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    consensus: OuterConsensus&lt;TYPES&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
     <span class="macro">tracing::debug!</span>(<span class="string">"Fetching proposal for view {:?}"</span>, view);
     <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = broadcast(<span class="number">1</span>);
@@ -1007,7 +1007,7 @@
 /// the anchor view will be set to view 6, with the locked view as view 7.
 </span><span class="kw">pub async fn </span>decide_from_proposal&lt;TYPES: NodeType&gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;,
-    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    consensus: OuterConsensus&lt;TYPES&gt;,
     existing_upgrade_cert: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
 ) -&gt; LeafChainTraversalOutcome&lt;TYPES&gt; {
@@ -1127,7 +1127,7 @@
     next_proposal_view_number: TYPES::Time,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
-    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    consensus: OuterConsensus&lt;TYPES&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
     <span class="macro">ensure!</span>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
@@ -1196,7 +1196,7 @@
 </span><span class="kw">pub async fn </span>temp_validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
-    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    consensus: OuterConsensus&lt;TYPES&gt;,
     decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     view_leader_key: TYPES::SignatureKey,
@@ -1332,16 +1332,18 @@
 /// we merge the dependency tasks.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all, fields(id = id, view = <span class="kw-2">*</span>proposal.data.view_number()))]
 </span><span class="kw">pub async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
-    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    consensus: OuterConsensus&lt;TYPES&gt;,
     decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     view_leader_key: TYPES::SignatureKey,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     sender: TYPES::SignatureKey,
     event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
+    id: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
 
@@ -1551,7 +1553,7 @@
     new_view: TYPES::Time,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     timeout: u64,
-    consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    consensus: OuterConsensus&lt;TYPES&gt;,
     cur_view: <span class="kw-2">&amp;mut </span>TYPES::Time,
     cur_view_time: <span class="kw-2">&amp;mut </span>i64,
     timeout_task: <span class="kw-2">&amp;mut </span>JoinHandle&lt;()&gt;,
@@ -1639,7 +1641,7 @@
                 - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
         );
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_view(new_view) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }

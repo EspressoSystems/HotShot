@@ -746,6 +746,11 @@
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -760,7 +765,7 @@
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
+    consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
     message::Proposal,
@@ -807,7 +812,7 @@
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
-    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
     <span class="doccomment">/// View timeout from config.
@@ -944,6 +949,7 @@
     </span>}
 
     <span class="doccomment">/// Publishes a proposal
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"ConsensusTaskState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view))]
     </span><span class="kw">async fn </span>publish_proposal(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
@@ -955,7 +961,7 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+            OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="self">self</span>.round_start_delay,
             <span class="self">self</span>.formed_upgrade_certificate.clone(),
             <span class="self">self</span>.decided_upgrade_cert.clone(),
@@ -963,6 +969,7 @@
             <span class="self">self</span>.proposal_cert.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
             <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>,
+            <span class="self">self</span>.id,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -976,6 +983,7 @@
 
     <span class="doccomment">/// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), target = <span class="string">"ConsensusTaskState"</span>)]
     </span><span class="kw">async fn </span>spawn_vote_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
@@ -990,12 +998,13 @@
         <span class="kw">let </span>upgrade = <span class="self">self</span>.decided_upgrade_cert.clone();
         <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
         <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
-        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
+        <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>quorum_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
         <span class="kw">let </span>da_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.da_membership);
         <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
         <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
+        <span class="kw">let </span>id = <span class="self">self</span>.id;
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
             update_state_and_vote_if_able::&lt;TYPES, I&gt;(
                 view,
@@ -1007,6 +1016,7 @@
                 instance_state,
                 (priv_key, upgrade, da_mem, event_stream),
                 version,
+                id,
             )
             .<span class="kw">await</span>;
         });
@@ -1014,7 +1024,7 @@
     }
 
     <span class="doccomment">/// Handles a consensus event received on the event stream
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"ConsensusTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -1273,7 +1283,7 @@
                     new_view,
                     <span class="kw-2">&amp;</span>event_stream,
                     <span class="self">self</span>.timeout,
-                    Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus),
+                    OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view,
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view_time,
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.timeout_task,
