@@ -1,7 +1,10 @@
+#![cfg(not(feature = "dependency-tasks"))]
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -9,51 +12,41 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{CommitmentAndMetadata, Consensus},
-    data::{QuorumProposal, ViewChangeEvidence},
+    consensus::{CommitmentAndMetadata, OuterConsensus},
+    data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
+    message::Proposal,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
+        storage::Storage,
     },
-    vote::HasViewNumber,
+    vid::vid_scheme,
+    vote::{Certificate, HasViewNumber},
 };
+use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
-#[cfg(not(feature = "dependency-tasks"))]
-use {
-    crate::consensus::helpers::{
+
+use crate::{
+    consensus::handlers::{
         handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
         update_state_and_vote_if_able,
     },
-    async_compatibility_layer::art::async_spawn,
-    hotshot_types::data::VidDisperseShare,
-    hotshot_types::message::Proposal,
-    hotshot_types::vid::vid_scheme,
-    hotshot_types::{traits::storage::Storage, vote::Certificate},
-    jf_vid::VidScheme,
-    tracing::info,
-};
-
-use crate::{
-    consensus::view_change::{update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
 };
 
 /// Helper functions to handle proposal-related functionality.
-pub(crate) mod helpers;
-
-/// Handles view-change related functionality.
-pub(crate) mod view_change;
+pub(crate) mod handlers;
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -66,7 +59,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
     /// View timeout from config.
@@ -158,7 +151,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
     }
 
     /// Validate the VID disperse is correctly signed and has the correct share.
-    #[cfg(not(feature = "dependency-tasks"))]
     fn validate_disperse(&self, disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> bool {
         let view = disperse.data.view_number();
         let payload_commitment = disperse.data.payload_commitment;
@@ -203,8 +195,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         true
     }
 
-    #[cfg(not(feature = "dependency-tasks"))]
     /// Publishes a proposal
+    #[instrument(skip_all, target = "ConsensusTaskState", fields(id = self.id, view = *self.cur_view))]
     async fn publish_proposal(
         &mut self,
         view: TYPES::Time,
@@ -216,7 +208,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
             self.private_key.clone(),
-            Arc::clone(&self.consensus),
+            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
             self.decided_upgrade_cert.clone(),
@@ -224,6 +216,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
             *self.version.read().await,
+            self.id,
         )
         .await?;
 
@@ -237,7 +230,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
     /// Spawn a vote task for the given view.  Will try to vote
     /// and emit a `QuorumVoteSend` event we should vote on the current proposal
-    #[cfg(not(feature = "dependency-tasks"))]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), target = "ConsensusTaskState")]
     async fn spawn_vote_task(
         &mut self,
         view: TYPES::Time,
@@ -252,12 +245,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let upgrade = self.decided_upgrade_cert.clone();
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let storage = Arc::clone(&self.storage);
         let quorum_mem = Arc::clone(&self.quorum_membership);
         let da_mem = Arc::clone(&self.da_membership);
         let instance_state = Arc::clone(&self.instance_state);
         let version = *self.version.read().await;
+        let id = self.id;
         let handle = async_spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
                 view,
@@ -269,6 +263,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 instance_state,
                 (priv_key, upgrade, da_mem, event_stream),
                 version,
+                id,
             )
             .await;
         });
@@ -276,16 +271,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        #[cfg(not(feature = "dependency-tasks"))]
         let version = *self.version.read().await;
         match event.as_ref() {
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!("proposal recv view: {:?}", proposal.data.view_number());
                 match handle_quorum_proposal_recv(
@@ -306,7 +299,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     Err(e) => debug!("Failed to propose {e:#}"),
                 }
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 debug!("proposal validated view: {:?}", proposal.view_number());
                 if let Err(e) =
@@ -394,7 +386,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                 }
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QcFormed(cert) => match cert {
                 either::Right(qc) => {
                     self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
@@ -446,7 +437,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::DaCertificateRecv(cert) => {
                 debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
@@ -463,7 +453,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
                 self.spawn_vote_task(view, event_stream).await;
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
 
@@ -541,7 +530,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     new_view,
                     &event_stream,
                     self.timeout,
-                    Arc::clone(&self.consensus),
+                    OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                     &mut self.cur_view,
                     &mut self.cur_view_time,
                     &mut self.timeout_task,
@@ -607,7 +596,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     consensus.metrics.number_of_timeouts_as_leader.add(1);
                 }
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
@@ -661,7 +649,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                 }
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     error!(
@@ -686,7 +673,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     };
                 }
             }
-            #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::QuorumVoteSend(vote) => {
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;

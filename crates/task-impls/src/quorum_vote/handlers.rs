@@ -1,24 +1,27 @@
+#![cfg(feature = "dependency-tasks")]
+
 use std::sync::Arc;
 
 use anyhow::Result;
 use async_broadcast::Sender;
 use chrono::Utc;
+use hotshot_types::consensus::OuterConsensus;
 use hotshot_types::{
     data::QuorumProposal,
     event::{Event, EventType},
     traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     vote::HasViewNumber,
 };
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use super::QuorumVoteTaskState;
 use crate::{
-    consensus::helpers::{decide_from_proposal, LeafChainTraversalOutcome},
     events::HotShotEvent,
-    helpers::broadcast_event,
+    helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
 };
 
 /// Handles the `QuorumProposalValidated` event.
+#[instrument(skip_all)]
 pub(crate) async fn handle_quorum_proposal_validated<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -38,7 +41,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         decided_upgrade_certificate,
     } = decide_from_proposal(
         proposal,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         &decided_upgrade_certificate_read,
         &task_state.public_key,
     )

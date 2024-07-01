@@ -1,9 +1,10 @@
 #![allow(unused_imports)]
+#![cfg(feature = "dependency-tasks")]
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use anyhow::Result;
-use async_broadcast::{Receiver, Sender};
+use anyhow::{bail, Result};
+use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -11,8 +12,8 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::Consensus,
-    data::ViewChangeEvidence,
+    consensus::{Consensus, OuterConsensus},
+    data::{Leaf, ViewChangeEvidence},
     event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -23,14 +24,13 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
-    consensus::helpers::parent_leaf_and_state,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    events::{HotShotEvent, ProposalMissing},
+    helpers::{broadcast_event, cancel_task, parent_leaf_and_state},
     quorum_proposal_recv::handlers::QuorumProposalValidity,
 };
 
@@ -47,7 +47,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -132,7 +132,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
-                        Arc::clone(&self.consensus),
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                     )
                     .await
                     {
