@@ -16,9 +16,8 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::{Commitment, Committable};
-use hotshot_types::consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus};
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
@@ -35,7 +34,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
@@ -487,16 +486,18 @@ pub async fn temp_validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// we merge the dependency tasks.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all, fields(id = id, view = *proposal.data.view_number()))]
 pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     quorum_membership: Arc<TYPES::Membership>,
     view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
+    id: u64,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
 

@@ -8,6 +8,7 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_lock::RwLock;
 use committable::Committable;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
