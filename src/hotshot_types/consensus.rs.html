@@ -966,7 +966,7 @@
 <span class="doccomment">/// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
-</span><span class="attr">#[derive(custom_debug::Debug)]
+</span><span class="attr">#[derive(custom_debug::Debug, Clone)]
 </span><span class="kw">pub struct </span>Consensus&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The validated states that are currently loaded in memory.
     </span>validated_state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,

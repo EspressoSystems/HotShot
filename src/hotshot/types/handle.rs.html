@@ -228,6 +228,12 @@
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
@@ -250,7 +256,7 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
 
-<span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, SystemContext};
+<span class="kw">use crate</span>::{traits::NodeImplementation, types::Event, Memberships, SystemContext};
 
 <span class="doccomment">/// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -279,6 +285,12 @@
 
     <span class="doccomment">/// Reference to the internal storage for consensus datum.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
+
+    <span class="doccomment">/// Networks used by the instance of hotshot
+    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
+
+    <span class="doccomment">/// Memberships used by consensus
+    </span><span class="kw">pub </span>memberships: Arc&lt;Memberships&lt;TYPES&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; SystemContextHandle&lt;TYPES, I&gt; {

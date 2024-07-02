@@ -56,7 +56,7 @@
 /// `AuctionResult`, also implements the [`HasUrl`] trait, which requires that the output
 /// type has the requisite fields available.
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>AuctionResultsProvider&lt;TYPES: NodeType&gt;: Send + Sync {
+</span><span class="kw">pub trait </span>AuctionResultsProvider&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
     <span class="doccomment">/// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
     </span><span class="kw">type </span>AuctionResult: HasUrl;
