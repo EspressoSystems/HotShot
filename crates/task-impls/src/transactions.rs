@@ -225,17 +225,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                         .add(1);
 
                     let membership_total_nodes = self.membership.total_nodes();
-
-                    // Calculate the builder fee for the empty block
-                    let Some(bid_fee) = null_block::builder_fee(membership_total_nodes) else {
-                        error!("Failed to get bid fee");
-                        return None;
-                    };
-
-                    let Some(sequencing_fee) =
-                        null_block::builder_fee(self.membership.total_nodes())
+                    let Some(null_fee) = null_block::builder_fee(self.membership.total_nodes())
                     else {
-                        error!("Failed to get sequencing fee");
+                        error!("Failed to get null fee");
                         return None;
                     };
 
@@ -251,8 +243,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
                             vec![].into(),
                             metadata,
                             block_view,
-                            vec1::vec1![bid_fee],
-                            vec1::vec1![sequencing_fee],
+                            vec1::vec1![null_fee.clone()],
+                            vec1::vec1![null_fee],
                             precompute_data,
                         ))),
                         &event_stream,
