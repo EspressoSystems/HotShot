@@ -672,9 +672,8 @@
             <span class="comment">// If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
             // we don't want to delay this message, and from now on we consider the primary as down
             </span><span class="macro">warn!</span>(
-                <span class="string">"Primary failed more than {} times and is considered down now"</span>,
-                COMBINED_NETWORK_MIN_PRIMARY_FAILURES
-            );
+                <span class="string">"View progression is slower than normally, stop delaying messages on the secondary"
+            </span>);
             <span class="self">self</span>.primary_down.store(<span class="bool-val">true</span>, Ordering::Relaxed);
             primary_failed = <span class="bool-val">true</span>;
         }
@@ -730,6 +729,7 @@
                 <span class="comment">// The task hasn't been cancelled, the primary probably failed.
                 // Increment the primary fail counter and send the message.
                 </span><span class="macro">debug!</span>(<span class="string">"Sending on secondary after delay, message possibly has not reached recipient on primary"</span>);
+                primary_fail_counter.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
                 secondary_future.<span class="kw">await
             </span>});
             <span class="prelude-val">Ok</span>(())
