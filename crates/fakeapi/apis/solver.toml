@@ -6,7 +6,7 @@ FORMAT_VERSION = "0.1.0"
 # GET the auction result - non permissioned
 [route.get_auction_results_non_permissioned]
 PATH = ["auction_results/:view_number"]
-":view_numbr" = "Integer"
+":view_number" = "Integer"
 METHOD = "GET"
 DOC = """
 GET a fake auction result from the fake Solver. Returns a json object containing a list of
@@ -17,7 +17,7 @@ values are present. This endpoint is open access.
 # GET the auction result - permissioned
 [route.get_auction_results_permissioned]
 PATH = ["auction_results/:view_number/:signature"]
-":view_numbr" = "Integer"
+":view_number" = "Integer"
 ":signature" = "TaggedBase64"
 METHOD = "GET"
 DOC = """

@@ -92,6 +92,7 @@ vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 url = { version = "2.5.2", features = ["serde"] }
 vec1 = { version = "1.12", features = ["serde"] }
+reqwest = { version = "0.12.5", features = ["json"] }
 
 libp2p = { package = "libp2p", version = "0.53", features = [
   "macros",
