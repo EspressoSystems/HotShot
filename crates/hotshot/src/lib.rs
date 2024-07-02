@@ -583,10 +583,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         handle
     }
 
+    #[allow(clippy::too_many_arguments)]
     /// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
-    pub async fn run_twin_tasks(
+    pub async fn spawn_twin_handles(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
@@ -606,10 +607,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         let left_system_context = Self::new(
             public_key.clone(),
             private_key.clone(),
-            nonce.clone(),
+            nonce,
             config.clone(),
             memberships.clone(),
-            network.clone(),
+            Arc::clone(&network),
             initializer.clone(),
             metrics.clone(),
             storage.clone(),
@@ -664,7 +665,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             network_registry: left_network_registry,
             output_event_stream: left_external_event_stream.clone(),
             internal_event_stream: left_internal_event_stream.clone(),
-            hotshot: left_system_context.clone().into(),
+            hotshot: Arc::clone(&left_system_context),
             storage: Arc::clone(&left_system_context.storage),
             network: Arc::clone(&left_system_context.network),
             memberships: Arc::clone(&left_system_context.memberships),
@@ -675,7 +676,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             network_registry: right_network_registry,
             output_event_stream: right_external_event_stream.clone(),
             internal_event_stream: right_internal_event_stream.clone(),
-            hotshot: right_system_context.clone().into(),
+            hotshot: Arc::clone(&right_system_context),
             storage: Arc::clone(&right_system_context.storage),
             network: Arc::clone(&right_system_context.network),
             memberships: Arc::clone(&right_system_context.memberships),
