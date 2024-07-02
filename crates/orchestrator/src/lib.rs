@@ -17,7 +17,7 @@ use client::{BenchResults, BenchResultsDownloadConfig};
 use config::BuilderType;
 use csv::Writer;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-use hotshot_types::{constants::Base, traits::signature_key::SignatureKey, PeerConfig};
+use hotshot_types::{traits::signature_key::SignatureKey, PeerConfig};
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -498,10 +498,6 @@ where
                 self.bench_results.total_transactions_committed = metrics
                     .total_transactions_committed
                     .max(cur_metrics.total_transactions_committed);
-                assert_eq!(
-                    metrics.transaction_size_in_bytes,
-                    cur_metrics.transaction_size_in_bytes
-                );
                 self.bench_results.total_time_elapsed_in_sec = metrics
                     .total_time_elapsed_in_sec
                     .max(cur_metrics.total_time_elapsed_in_sec);
@@ -582,7 +578,7 @@ where
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             let Ok((libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::<Base>::deserialize(&body_bytes)
+                vbs::Serializer::<OrchestratorVersion>::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
@@ -614,7 +610,7 @@ where
 
             // Decode the libp2p data so we can add to our bootstrap nodes (if supplied)
             let Ok((mut pubkey, libp2p_address, libp2p_public_key)) =
-                vbs::Serializer::<Base>::deserialize(&body_bytes)
+                vbs::Serializer::<OrchestratorVersion>::deserialize(&body_bytes)
             else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
@@ -662,7 +658,9 @@ where
             let mut body_bytes = req.body_bytes();
             body_bytes.drain(..12);
 
-            let Ok(urls) = vbs::Serializer::<Base>::deserialize::<Vec<Url>>(&body_bytes) else {
+            let Ok(urls) =
+                vbs::Serializer::<OrchestratorVersion>::deserialize::<Vec<Url>>(&body_bytes)
+            else {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "Malformed body".to_string(),
@@ -672,7 +670,7 @@ where
             let mut futures = urls
                 .into_iter()
                 .map(|url| async {
-                    let client: surf_disco::Client<ServerError, Base> =
+                    let client: surf_disco::Client<ServerError, OrchestratorVersion> =
                         surf_disco::client::Client::builder(url.clone()).build();
                     if client.connect(Some(Duration::from_secs(2))).await {
                         Some(url)

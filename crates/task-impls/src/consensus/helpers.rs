@@ -9,12 +9,11 @@ use anyhow::{ensure, Context, Result};
 use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
-#[cfg(not(feature = "dependency-tasks"))]
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use committable::{Commitment, Committable};
 use hotshot_types::{
-    consensus::{Consensus, View},
+    consensus::{OuterConsensus, View},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::Proposal,
@@ -28,7 +27,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 #[cfg(not(feature = "dependency-tasks"))]
 use {
     super::ConsensusTaskState,
@@ -62,16 +61,18 @@ use crate::{events::HotShotEvent, helpers::broadcast_event};
 /// we merge the dependency tasks.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all, fields(id = id, view = *proposal.data.view_number()))]
 pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     quorum_membership: Arc<TYPES::Membership>,
     view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
+    id: u64,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
 
@@ -195,10 +196,11 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
+#[instrument(skip_all, fields(id = id, view = *view))]
 pub async fn create_and_send_proposal<TYPES: NodeType>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     view: TYPES::Time,
     commitment_and_metadata: CommitmentAndMetadata<TYPES>,
@@ -209,6 +211,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     round_start_delay: u64,
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
+    id: u64,
 ) {
     let consensus_read = consensus.read().await;
     let Some(Some(vid_share)) = consensus_read
@@ -357,11 +360,12 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
 }
 
 /// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
+#[instrument(skip_all)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     next_proposal_view_number: TYPES::Time,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     ensure!(
         quorum_membership.leader(next_proposal_view_number) == public_key,
@@ -417,13 +421,14 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
 /// standard case proposal scenario.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
+#[instrument(skip_all)]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -431,12 +436,13 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
+    id: u64,
 ) -> Result<JoinHandle<()>> {
     let (parent_leaf, state) = parent_leaf_and_state(
         view,
         quorum_membership,
         public_key.clone(),
-        Arc::clone(&consensus),
+        OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
     )
     .await?;
 
@@ -479,7 +485,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         create_and_send_proposal(
             public_key,
             private_key,
-            consensus,
+            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
             sender,
             view,
             cnm,
@@ -490,6 +496,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             delay,
             instance_state,
             version,
+            id,
         )
         .await;
     });
@@ -501,13 +508,14 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 /// `commitment_and_metadata`, or a `decided_upgrade_cert`.
 #[allow(clippy::too_many_arguments)]
 #[cfg(not(feature = "dependency-tasks"))]
+#[instrument(skip_all)]
 pub async fn publish_proposal_if_able<TYPES: NodeType>(
     view: TYPES::Time,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
@@ -515,6 +523,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
+    id: u64,
 ) -> Result<JoinHandle<()>> {
     publish_proposal_from_commitment_and_metadata(
         view,
@@ -530,16 +539,18 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         proposal_cert,
         instance_state,
         version,
+        id,
     )
     .await
 }
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
+#[instrument(skip_all)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
@@ -591,6 +602,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 #[allow(clippy::too_many_lines)]
 #[cfg(not(feature = "dependency-tasks"))]
+#[instrument(skip_all)]
 pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
@@ -630,7 +642,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         view,
         &event_stream,
         task_state.timeout,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         &mut task_state.cur_view,
         &mut task_state.cur_view_time,
         &mut task_state.timeout_task,
@@ -657,7 +669,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             justify_qc.view_number(),
             event_stream.clone(),
             Arc::clone(&task_state.quorum_membership),
-            Arc::clone(&task_state.consensus),
+            OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         )
         .await
         .ok(),
@@ -771,7 +783,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                         Arc::clone(&task_state.quorum_membership),
                         task_state.public_key.clone(),
                         task_state.private_key.clone(),
-                        Arc::clone(&task_state.consensus),
+                        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
                         task_state.round_start_delay,
                         task_state.formed_upgrade_certificate.clone(),
                         task_state.decided_upgrade_cert.clone(),
@@ -779,6 +791,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                         task_state.proposal_cert.clone(),
                         Arc::clone(&task_state.instance_state),
                         version,
+                        task_state.id,
                     )
                     .await?;
 
@@ -807,13 +820,14 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             validate_proposal_safety_and_liveness(
                 proposal.clone(),
                 parent_leaf,
-                Arc::clone(&task_state.consensus),
+                OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
                 task_state.decided_upgrade_cert.clone(),
                 Arc::clone(&task_state.quorum_membership),
                 view_leader_key,
                 event_stream.clone(),
                 sender,
                 task_state.output_event_stream.clone(),
+                task_state.id,
             )
             .map(AnyhowTracing::err_as_debug),
         ));
@@ -890,9 +904,10 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
+#[instrument(skip_all)]
 pub async fn decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal<TYPES>,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     existing_upgrade_cert: &Option<UpgradeCertificate<TYPES>>,
     public_key: &TYPES::SignatureKey,
 ) -> LeafChainTraversalOutcome<TYPES> {
@@ -1010,6 +1025,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 /// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 #[allow(clippy::too_many_lines)]
 #[cfg(not(feature = "dependency-tasks"))]
+#[instrument(skip_all)]
 pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     proposal: &QuorumProposal<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
@@ -1023,7 +1039,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 
     let res = decide_from_proposal(
         proposal,
-        Arc::clone(&task_state.consensus),
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         &task_state.decided_upgrade_cert,
         &task_state.public_key,
     )
@@ -1148,16 +1164,18 @@ type VoteInfo<TYPES> = (
 #[cfg(not(feature = "dependency-tasks"))]
 /// Check if we are able to vote, like whether the proposal is valid,
 /// whether we have DAC and VID share, and if so, vote.
+#[instrument(skip_all, fields(id = id, view = *cur_view))]
 pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     cur_view: TYPES::Time,
     proposal: QuorumProposal<TYPES>,
     public_key: TYPES::SignatureKey,
-    consensus: Arc<RwLock<Consensus<TYPES>>>,
+    consensus: OuterConsensus<TYPES>,
     storage: Arc<RwLock<I::Storage>>,
     quorum_membership: Arc<TYPES::Membership>,
     instance_state: Arc<TYPES::InstanceState>,
     vote_info: VoteInfo<TYPES>,
     version: Version,
+    id: u64,
 ) -> bool {
     use hotshot_types::simple_vote::QuorumVote;
 
@@ -1212,7 +1230,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
             justify_qc.view_number(),
             vote_info.3.clone(),
             Arc::clone(&quorum_membership),
-            Arc::clone(&consensus),
+            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
         )
         .await
         .ok(),

@@ -14,20 +14,21 @@ use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
+    auction_results_provider_types::TestAuctionResultsProvider,
 };
-use hotshot_types::traits::network::BroadcastDelay;
 use hotshot_types::{
     data::ViewNumber,
     message::{DataMessage, Message, MessageKind, VersionedMessage},
     signature_key::{BLSPubKey, BuilderKey},
     traits::{
-        network::{ConnectedNetwork, TestableNetworkingImplementation},
+        network::{BroadcastDelay, ConnectedNetwork, TestableNetworkingImplementation},
         node_implementation::{ConsensusTime, NodeType},
     },
 };
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, trace};
+use vbs::version::StaticVersion;
 
 #[derive(
     Copy,
@@ -45,6 +46,9 @@ use tracing::{instrument, trace};
 pub struct Test;
 
 impl NodeType for Test {
+    type Base = StaticVersion<0, 1>;
+    type Upgrade = StaticVersion<0, 2>;
+    const UPGRADE_HASH: [u8; 32] = [1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,];
     type Time = ViewNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
@@ -59,13 +63,10 @@ impl NodeType for Test {
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct TestImpl {}
 
-pub type DaNetwork = MemoryNetwork<<Test as NodeType>::SignatureKey>;
-pub type QuorumNetwork = MemoryNetwork<<Test as NodeType>::SignatureKey>;
-
 impl NodeImplementation<Test> for TestImpl {
-    type QuorumNetwork = QuorumNetwork;
-    type DaNetwork = DaNetwork;
+    type Network = MemoryNetwork<<Test as NodeType>::SignatureKey>;
     type Storage = TestStorage<Test>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 /// fake Eq

@@ -11,7 +11,6 @@ use crate::{
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::block_info::{
@@ -19,7 +18,7 @@ use hotshot_builder_api::block_info::{
 };
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{null_block, Leaf, PackedBundle},
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
@@ -34,7 +33,6 @@ use hotshot_types::{
     vid::VidCommitment,
 };
 use tracing::{debug, error, instrument, warn};
-use vbs::version::StaticVersionType;
 
 // Parameters for builder querying algorithm
 
@@ -80,11 +78,7 @@ pub struct Bundle<TYPES: NodeType> {
 }
 
 /// Tracks state of a Transaction task
-pub struct TransactionTaskState<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    Ver: StaticVersionType,
-> {
+pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The state's api
     pub builder_timeout: Duration,
 
@@ -95,16 +89,16 @@ pub struct TransactionTaskState<
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
-    /// Network for all nodes
-    pub network: Arc<I::QuorumNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
 
     /// Builder API client
-    pub builder_clients: Vec<BuilderClient<TYPES, Ver>>,
+    pub builder_clients: Vec<BuilderClient<TYPES, TYPES::Base>>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -118,11 +112,9 @@ pub struct TransactionTaskState<
     pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
-    TransactionTaskState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -263,9 +255,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
     }
 
     /// Get last known builder commitment from consensus.
+    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, view = *self.cur_view))]
     async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
         let consensus = self.consensus.read().await;
-
         let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
 
         // Search through all previous views...
@@ -547,9 +539,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType>
 
 #[async_trait]
 /// task state implementation for Transactions Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, Ver: StaticVersionType + 'static> TaskState
-    for TransactionTaskState<TYPES, I, Ver>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for TransactionTaskState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

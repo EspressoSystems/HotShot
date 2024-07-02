@@ -2,11 +2,10 @@ use std::{marker::PhantomData, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
@@ -28,9 +27,9 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
-    /// Network for all nodes
-    pub network: Arc<I::QuorumNetwork>,
+    pub consensus: OuterConsensus<TYPES>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
     /// This Nodes Public Key
@@ -45,7 +44,7 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error", target = "VidTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
