@@ -1,11 +1,16 @@
 #![allow(clippy::panic)]
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Arc,
 };
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 
 use async_broadcast::broadcast;
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use futures::future::join_all;
 use hotshot::{
@@ -17,6 +22,7 @@ use hotshot_example_types::{
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
+use hotshot_fakeapi::fake_solver::FakeSolverState;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
@@ -40,7 +46,7 @@ use super::{
     txn_task::TxnTask,
 };
 use crate::{
-    block_builder::TestBuilderImplementation,
+    block_builder::{BuilderTask, TestBuilderImplementation},
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
     test_launcher::{Network, TestLauncher},
@@ -109,6 +115,7 @@ where
         let TestRunner {
             ref launcher,
             nodes,
+            servers,
             late_start,
             next_node_id: _,
             _pd: _,
@@ -285,6 +292,15 @@ where
             node.handle.shut_down().await;
         }
 
+        // Shutdown all of the servers at the end
+        for server in servers {
+            // Aborting here doesn't cause any problems because we don't maintain any state
+            #[cfg(async_executor_impl = "async-std")]
+            server.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            server.abort();
+        }
+
         assert!(
             error_list.is_empty(),
             "{}",
@@ -296,19 +312,10 @@ where
         );
     }
 
-    /// Add nodes.
-    ///
-    /// # Panics
-    /// Panics if unable to create a [`HotShotInitializer`]
-    pub async fn add_nodes<B: TestBuilderImplementation<TYPES>>(
-        &mut self,
-        total: usize,
-        late_start: &HashSet<u64>,
-    ) -> Vec<u64> {
-        let mut results = vec![];
+    pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
+        &self,
+    ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>) {
         let config = self.launcher.resource_generator.config.clone();
-        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
-
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
@@ -326,14 +333,46 @@ where
             builder_urls.push(builder_url);
         }
 
-        // Initialize the solver API instance
+        (builder_tasks, builder_urls)
+    }
+
+    /// Add servers.
+    ///
+    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) {
         let solver_error_pct = self.launcher.metadata.solver.error_pct;
         let solver_port = portpicker::pick_unused_port().expect("No available ports");
-        let solver_api = define_api().expect("Failed to define solver API");
-        let solver_state = FakeSolverState::new(
-            solver_error_pct,
-            builder_urls,
-        );
+
+        // This should basically never fail
+        let solver_url: Url = format!("http://localhost:{solver_port}")
+            .parse()
+            .expect("Failed to parse solver URL");
+
+        // Initialize the solver API state
+        let solver_state = FakeSolverState::new(Some(solver_error_pct), builder_urls);
+
+        // Then, fire it up as a background thread.
+        self.servers.push(async_spawn(async move {
+            solver_state
+                .run::<TYPES>(solver_url)
+                .await
+                .expect("Unable to run solver api");
+        }));
+    }
+
+    /// Add nodes.
+    ///
+    /// # Panics
+    /// Panics if unable to create a [`HotShotInitializer`]
+    pub async fn add_nodes<B: TestBuilderImplementation<TYPES>>(
+        &mut self,
+        total: usize,
+        late_start: &HashSet<u64>,
+    ) -> Vec<u64> {
+        let mut results = vec![];
+        let config = self.launcher.resource_generator.config.clone();
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+
+        let (mut builder_tasks, builder_urls) = self.init_builders::<B>().await;
 
         // Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
         let mut uninitialized_nodes = Vec::new();
@@ -558,6 +597,8 @@ pub struct TestRunner<
     pub(crate) launcher: TestLauncher<TYPES, I>,
     /// nodes in the test
     pub(crate) nodes: Vec<Node<TYPES, I>>,
+    /// servers in the test
+    pub(crate) servers: Vec<JoinHandle<()>>,
     /// nodes with a late start
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier

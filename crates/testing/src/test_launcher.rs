@@ -47,6 +47,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         TestRunner::<TYPES, I, N> {
             launcher: self,
             nodes: Vec::new(),
+            servers: Vec::new(),
             late_start: HashMap::new(),
             next_node_id: 0,
             _pd: PhantomData,
