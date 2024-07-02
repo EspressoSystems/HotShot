@@ -28,6 +28,7 @@ pub enum FakeSolverFaultType {
 }
 
 /// The state of the fake solver instance
+#[derive(Debug, Clone)]
 pub struct FakeSolverState {
     /// The rate at which an error of any kind occurs
     pub error_pct: f32,
@@ -44,6 +45,25 @@ impl FakeSolverState {
             error_pct: error_pct.unwrap_or(0.0),
             available_builders,
         }
+    }
+
+    /// Runs the fake solver
+    /// # Errors
+    /// This errors if tide disco runs into an issue during serving
+    /// # Panics
+    /// This panics if unable to register the api with tide disco
+    pub async fn run<TYPES: NodeType>(
+        &self,
+        url: Url,
+    ) -> io::Result<()> {
+        let solver_api = define_api::<TYPES, RwLock<FakeSolverState>, StaticVersion<0, 1>>()
+            .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
+        let state = RwLock::new(self);
+        let mut app = App::<RwLock<FakeSolverState>, ServerError>::with_state(state);
+        app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api.unwrap())
+            .expect("Error registering api");
+        tracing::info!("solver listening on {:?}", url);
+        app.serve(url, StaticVersion::<0, 1> {}).await
     }
 
     /// If a random fault event happens, what fault should we send?
@@ -180,21 +200,3 @@ where
     Ok(api)
 }
 
-/// Runs the fake solver
-/// # Errors
-/// This errors if tide disco runs into an issue during serving
-/// # Panics
-/// This panics if unable to register the api with tide disco
-pub async fn run_fake_solver_api<TYPES: NodeType>(
-    state: FakeSolverState,
-    url: Url,
-) -> io::Result<()> {
-    let solver_api = define_api::<TYPES, RwLock<FakeSolverState>, StaticVersion<0, 1>>()
-        .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
-    let state = RwLock::new(state);
-    let mut app = App::<RwLock<FakeSolverState>, ServerError>::with_state(state);
-    app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api.unwrap())
-        .expect("Error registering api");
-    tracing::info!("solver listening on {:?}", url);
-    app.serve(url, StaticVersion::<0, 1> {}).await
-}

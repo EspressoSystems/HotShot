@@ -327,9 +327,13 @@ where
         }
 
         // Initialize the solver API instance
-        // let solver_error_pct = self.launcher.metadata.solver.error_pct;
-        // let solver_port = portpicker::pick_unused_port().expect("No available ports");
-        // let solver_api =
+        let solver_error_pct = self.launcher.metadata.solver.error_pct;
+        let solver_port = portpicker::pick_unused_port().expect("No available ports");
+        let solver_api = define_api().expect("Failed to define solver API");
+        let solver_state = FakeSolverState::new(
+            solver_error_pct,
+            builder_urls,
+        );
 
         // Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
         let mut uninitialized_nodes = Vec::new();

@@ -3315,7 +3315,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.59"
+version = "0.5.60"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
