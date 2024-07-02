@@ -598,12 +598,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
         auction_results_provider: I::AuctionResultsProvider,
-    ) -> (SystemContextHandle<TYPES, I>, SystemContextHandle<TYPES, I>)
-    where
-        TYPES::InstanceState: Clone,
-        TYPES::ValidatedState: Clone,
-        I::AuctionResultsProvider: Clone,
-    {
+    ) -> (SystemContextHandle<TYPES, I>, SystemContextHandle<TYPES, I>) {
         let left_system_context = Self::new(
             public_key.clone(),
             private_key.clone(),
