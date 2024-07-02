@@ -3419,6 +3419,7 @@ dependencies = [
  "tokio",
  "tracing",
  "vbs",
+ "vec1",
 ]
 
 [[package]]
