@@ -171,6 +171,8 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -179,7 +181,7 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{VidDisperse, VidDisperseShare},
+    data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
         election::Membership,
@@ -224,13 +226,15 @@
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">match </span>event.as_ref() {
-            HotShotEvent::BlockRecv(
-                encoded_transactions,
-                metadata,
-                view_number,
-                fee,
-                precompute_data,
-            ) =&gt; {
+            HotShotEvent::BlockRecv(packed_bundle) =&gt; {
+                <span class="kw">let </span>PackedBundle::&lt;TYPES&gt; {
+                    encoded_transactions,
+                    metadata,
+                    view_number,
+                    bid_fees,
+                    vid_precompute,
+                    ..
+                } = packed_bundle;
                 <span class="kw">let </span>payload =
                     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_bytes(encoded_transactions, metadata);
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
@@ -238,7 +242,7 @@
                     Arc::clone(encoded_transactions),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
-                    <span class="prelude-val">Some</span>(precompute_data.clone()),
+                    <span class="prelude-val">Some</span>(vid_precompute.clone()),
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment;
@@ -258,7 +262,7 @@
                         builder_commitment,
                         metadata.clone(),
                         <span class="kw-2">*</span>view_number,
-                        fee.clone(),
+                        bid_fees.first().clone(),
                     )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )

@@ -370,6 +370,12 @@
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -382,7 +388,7 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, OuterConsensus, View},
-    data::DaProposal,
+    data::{DaProposal, PackedBundle},
     event::{Event, EventType},
     message::Proposal,
     simple_certificate::DaCertificate,
@@ -675,8 +681,14 @@
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee, _vid_precomp) =&gt; {
-                <span class="kw">let </span>view = <span class="kw-2">*</span>view;
+            HotShotEvent::BlockRecv(packed_bundle) =&gt; {
+                <span class="kw">let </span>PackedBundle::&lt;TYPES&gt; {
+                    encoded_transactions,
+                    metadata,
+                    view_number,
+                    ..
+                } = packed_bundle;
+                <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
 
                 <span class="comment">// quick hash the encoded txns with sha256
                 </span><span class="kw">let </span>encoded_transactions_hash = Sha256::digest(encoded_transactions);
@@ -693,7 +705,7 @@
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
-                    </span>view_number: view,
+                    </span>view_number,
                 };
 
                 <span class="kw">let </span>message = Proposal {
