@@ -9,7 +9,7 @@ use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{LockedConsensusState, View, OuterConsensus},
+    consensus::{Consensus, OuterConsensus, View},
     data::{DaProposal, PackedBundle},
     event::{Event, EventType},
     message::Proposal,
