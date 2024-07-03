@@ -59,7 +59,6 @@ impl FakeSolverState {
         let mut app = App::<RwLock<FakeSolverState>, ServerError>::with_state(state);
         app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api.unwrap())
             .expect("Error registering api");
-        tracing::info!("solver listening on {:?}", url);
         app.serve(url, StaticVersion::<0, 1> {}).await
     }
 
