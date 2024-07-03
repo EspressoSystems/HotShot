@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use hotshot::traits::implementations::CombinedNetworks;
-use hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
+use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestTypes,
+    storage_types::TestStorage,
+};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use serde::{Deserialize, Serialize};
 
@@ -11,19 +14,13 @@ use crate::infra::CombinedDaRun;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 pub struct NodeImpl {}
 
-/// convenience type alias
-pub type DaNetwork = CombinedNetworks<TestTypes>;
-/// convenience type alias
-pub type VidNetwork = CombinedNetworks<TestTypes>;
-/// convenience type alias
-pub type QuorumNetwork = CombinedNetworks<TestTypes>;
-/// convenience type alias
-pub type ViewSyncNetwork = CombinedNetworks<TestTypes>;
+/// Convenience type alias
+pub type Network = CombinedNetworks<TestTypes>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
-    type QuorumNetwork = QuorumNetwork;
-    type DaNetwork = DaNetwork;
+    type Network = Network;
     type Storage = TestStorage<TestTypes>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 /// convenience type alias
 pub type ThisRun = CombinedDaRun<TestTypes>;

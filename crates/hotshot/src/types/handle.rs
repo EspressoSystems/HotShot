@@ -14,12 +14,13 @@ use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
     error::HotShotError,
-    traits::{election::Membership, node_implementation::NodeType},
+    traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use tracing::instrument;
 
-use crate::{traits::NodeImplementation, types::Event, SystemContext};
+use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext};
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -48,6 +49,12 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Reference to the internal storage for consensus datum.
     pub(crate) storage: Arc<RwLock<I::Storage>>,
+
+    /// Networks used by the instance of hotshot
+    pub network: Arc<I::Network>,
+
+    /// Memberships used by consensus
+    pub memberships: Arc<Memberships<TYPES>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
@@ -146,12 +153,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.hotshot.consensus()
     }
 
-    /// Block the underlying quorum (and DA) networking interfaces until node is
-    /// successfully initialized into the networks.
-    pub async fn wait_for_networks_ready(&self) {
-        self.hotshot.networks.wait_for_networks_ready().await;
-    }
-
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(&mut self) {
         // this is required because `SystemContextHandle` holds an inactive receiver and
@@ -166,8 +167,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         tracing::error!("Shutting down network tasks!");
         self.network_registry.shutdown().await;
 
-        tracing::error!("Shutting down networks!");
-        self.hotshot.networks.shut_down_networks().await;
+        tracing::error!("Shutting down the network!");
+        self.hotshot.network.shut_down().await;
 
         tracing::error!("Shutting down consensus!");
         self.consensus_registry.shutdown().await;
@@ -197,6 +198,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     }
 
     /// Wrapper to get the view number this node is on.
+    #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
     pub async fn cur_view(&self) -> TYPES::Time {
         self.hotshot.consensus.read().await.cur_view()
     }

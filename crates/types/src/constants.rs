@@ -17,16 +17,6 @@ pub const COMBINED_NETWORK_MIN_PRIMARY_FAILURES: u64 = 5;
 /// the number of messages to send over the secondary network without delay before re-attempting the (presumed down) primary network
 pub const COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = 50;
 
-/// Base protocol version, set to 0.1
-pub type Base = StaticVersion<0, 1>;
-/// Upgraded protocol version, set to 0.2
-pub type Upgrade = StaticVersion<0, 2>;
-
-/// Hash for the upgrade from version 0.1 to version 0.2.
-pub const UPGRADE_HASH: [u8; 32] = [
-    1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
-];
-
 /// Default channel size for consensus event sharing
 pub const EVENT_CHANNEL_SIZE: usize = 100_000;
 
@@ -45,6 +35,18 @@ pub type WebServerVersion = StaticVersion<WEB_SERVER_MAJOR_VERSION, WEB_SERVER_M
 
 /// Constant for Web Server CDN Version
 pub const WEB_SERVER_VERSION: WebServerVersion = StaticVersion {};
+
+/// The offset for how far in the future we will send out a `QuorumProposal` with an `UpgradeCertificate` we form. This is also how far in advance of sending a `QuorumProposal` we begin collecting votes on an `UpgradeProposal`.
+pub const UPGRADE_PROPOSE_OFFSET: u64 = 5;
+
+/// The offset for how far in the future the upgrade certificate we attach should be decided on (or else discarded).
+pub const UPGRADE_DECIDE_BY_OFFSET: u64 = UPGRADE_PROPOSE_OFFSET + 5;
+
+/// The offset for how far in the future the upgrade actually begins.
+pub const UPGRADE_BEGIN_OFFSET: u64 = UPGRADE_DECIDE_BY_OFFSET + 5;
+
+/// The offset for how far in the future the upgrade ends.
+pub const UPGRADE_FINISH_OFFSET: u64 = UPGRADE_BEGIN_OFFSET + 5;
 
 /// For `STAKE_TABLE_CAPACITY=200`, the light client prover (a.k.a. `hotshot-state-prover`)
 /// would need to generate proof for a circuit of slightly below 2^20 gates.

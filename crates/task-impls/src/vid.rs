@@ -2,12 +2,11 @@ use std::{marker::PhantomData, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
-    data::{VidDisperse, VidDisperseShare},
+    consensus::OuterConsensus,
+    data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
         election::Membership,
@@ -28,9 +27,9 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
-    /// Network for all nodes
-    pub network: Arc<I::QuorumNetwork>,
+    pub consensus: OuterConsensus<TYPES>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
     /// This Nodes Public Key
@@ -45,20 +44,22 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "VID Main Task", level = "error", target = "VidTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::BlockRecv(
-                encoded_transactions,
-                metadata,
-                view_number,
-                fee,
-                precompute_data,
-            ) => {
+            HotShotEvent::BlockRecv(packed_bundle) => {
+                let PackedBundle::<TYPES> {
+                    encoded_transactions,
+                    metadata,
+                    view_number,
+                    bid_fees,
+                    vid_precompute,
+                    ..
+                } = packed_bundle;
                 let payload =
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
@@ -66,7 +67,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
-                    Some(precompute_data.clone()),
+                    Some(vid_precompute.clone()),
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
@@ -86,7 +87,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                         builder_commitment,
                         metadata.clone(),
                         *view_number,
-                        fee.clone(),
+                        bid_fees.first().clone(),
                     )),
                     &event_stream,
                 )

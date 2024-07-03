@@ -3,9 +3,9 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     fs,
-    marker::PhantomData,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -27,9 +27,10 @@ use hotshot::{
         BlockPayload, NodeImplementation,
     },
     types::SystemContextHandle,
-    Memberships, Networks, SystemContext,
+    Memberships, SystemContext,
 };
 use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
@@ -40,7 +41,6 @@ use hotshot_orchestrator::{
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
     config::{
         BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
-        WebServerConfig,
     },
 };
 use hotshot_testing::block_builder::{
@@ -101,7 +101,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
     // assign default setting
     let mut orchestrator_url = Url::parse("http://localhost:4444").unwrap();
     let mut args = ConfigArgs::default();
-    // start reading from command line
+    // start reading from the command line
     let matches = Command::new("orchestrator")
         .arg(
             Arg::new("config_file")
@@ -153,7 +153,7 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
         )
         .arg(
             Arg::new("commit_sha")
-                .short('h')
+                .short('o')
                 .long("commit_sha")
                 .value_name("SHA")
                 .help("Sets the commit sha to output in the results")
@@ -165,22 +165,6 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
                 .long("orchestrator_url")
                 .value_name("URL")
                 .help("Sets the url of the orchestrator")
-                .required(false),
-        )
-        .arg(
-            Arg::new("webserver_url")
-                .short('w')
-                .long("webserver_url")
-                .value_name("URL")
-                .help("Sets the url of the webserver")
-                .required(false),
-        )
-        .arg(
-            Arg::new("da_webserver_url")
-                .short('a')
-                .long("da_webserver_url")
-                .value_name("URL")
-                .help("Sets the url of the da webserver")
                 .required(false),
         )
         .arg(
@@ -253,20 +237,6 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
     }
     if let Some(orchestrator_url_string) = matches.get_one::<String>("orchestrator_url") {
         orchestrator_url = Url::parse(orchestrator_url_string).unwrap();
-    }
-    if let Some(webserver_url_string) = matches.get_one::<String>("webserver_url") {
-        let updated_web_server_config = WebServerConfig {
-            url: Url::parse(webserver_url_string).unwrap(),
-            wait_between_polls: config.web_server_config.unwrap().wait_between_polls,
-        };
-        config.web_server_config = Some(updated_web_server_config);
-    }
-    if let Some(da_webserver_url_string) = matches.get_one::<String>("da_webserver_url") {
-        let updated_da_web_server_config = WebServerConfig {
-            url: Url::parse(da_webserver_url_string).unwrap(),
-            wait_between_polls: config.da_web_server_config.unwrap().wait_between_polls,
-        };
-        config.da_web_server_config = Some(updated_da_web_server_config);
     }
     if let Some(builder_type) = matches.get_one::<BuilderType>("builder") {
         config.builder = *builder_type;
@@ -366,13 +336,12 @@ where
 #[async_trait]
 pub trait RunDa<
     TYPES: NodeType<InstanceState = TestInstanceState>,
-    DANET: ConnectedNetwork<TYPES::SignatureKey>,
-    QUORUMNET: ConnectedNetwork<TYPES::SignatureKey>,
+    NETWORK: ConnectedNetwork<TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
-        QuorumNetwork = QUORUMNET,
-        DaNetwork = DANET,
+        Network = NETWORK,
         Storage = TestStorage<TYPES>,
+        AuctionResultsProvider = TestAuctionResultsProvider,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -403,14 +372,7 @@ pub trait RunDa<
         let sk = config.config.my_own_validator_config.private_key.clone();
         let known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
 
-        let da_network = self.da_channel();
-        let quorum_network = self.quorum_channel();
-
-        let networks_bundle = Networks {
-            quorum_network: quorum_network.clone().into(),
-            da_network: da_network.clone().into(),
-            _pd: PhantomData,
-        };
+        let network = self.network();
 
         // Create the quorum membership from all nodes
         let quorum_membership = <TYPES as NodeType>::Membership::create_election(
@@ -440,10 +402,11 @@ pub trait RunDa<
             config.node_index,
             config.config,
             memberships,
-            networks_bundle,
+            Arc::from(network),
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::<TYPES>::default(),
+            TestAuctionResultsProvider::default(),
         )
         .await
         .expect("Could not init hotshot")
@@ -612,11 +575,8 @@ pub trait RunDa<
         }
     }
 
-    /// Returns the da network for this run
-    fn da_channel(&self) -> DANET;
-
-    /// Returns the quorum network for this run
-    fn quorum_channel(&self) -> QUORUMNET;
+    /// Returns the underlying network for this run
+    fn network(&self) -> NETWORK;
 
     /// Returns the config for this run
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey>;
@@ -628,10 +588,8 @@ pub trait RunDa<
 pub struct PushCdnDaRun<TYPES: NodeType> {
     /// The underlying configuration
     config: NetworkConfig<TYPES::SignatureKey>,
-    /// The quorum channel
-    quorum_channel: PushCdnNetwork<TYPES>,
-    /// The DA channel
-    da_channel: PushCdnNetwork<TYPES>,
+    /// The underlying network
+    network: PushCdnNetwork<TYPES>,
 }
 
 #[async_trait]
@@ -644,11 +602,11 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = PushCdnNetwork<TYPES>,
-            DaNetwork = PushCdnNetwork<TYPES>,
+            Network = PushCdnNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider,
         >,
-    > RunDa<TYPES, PushCdnNetwork<TYPES>, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
+    > RunDa<TYPES, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -689,19 +647,11 @@ where
         // Wait for the network to be ready
         network.wait_for_ready().await;
 
-        PushCdnDaRun {
-            config,
-            quorum_channel: network.clone(),
-            da_channel: network,
-        }
+        PushCdnDaRun { config, network }
     }
 
-    fn da_channel(&self) -> PushCdnNetwork<TYPES> {
-        self.da_channel.clone()
-    }
-
-    fn quorum_channel(&self) -> PushCdnNetwork<TYPES> {
-        self.quorum_channel.clone()
+    fn network(&self) -> PushCdnNetwork<TYPES> {
+        self.network.clone()
     }
 
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
@@ -713,12 +663,10 @@ where
 
 /// Represents a libp2p-based run
 pub struct Libp2pDaRun<TYPES: NodeType> {
-    /// the network configuration
+    /// The underlying network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
-    /// quorum channel
-    quorum_channel: Libp2pNetwork<TYPES::SignatureKey>,
-    /// data availability channel
-    da_channel: Libp2pNetwork<TYPES::SignatureKey>,
+    /// The underlying network
+    network: Libp2pNetwork<TYPES::SignatureKey>,
 }
 
 #[async_trait]
@@ -731,12 +679,11 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = Libp2pNetwork<TYPES::SignatureKey>,
-            DaNetwork = Libp2pNetwork<TYPES::SignatureKey>,
+            Network = Libp2pNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider,
         >,
-    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, Libp2pNetwork<TYPES::SignatureKey>, NODE>
-    for Libp2pDaRun<TYPES>
+    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE> for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -785,17 +732,12 @@ where
 
         Libp2pDaRun {
             config,
-            quorum_channel: libp2p_network.clone(),
-            da_channel: libp2p_network,
+            network: libp2p_network,
         }
     }
 
-    fn da_channel(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
-        self.da_channel.clone()
-    }
-
-    fn quorum_channel(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
-        self.quorum_channel.clone()
+    fn network(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
+        self.network.clone()
     }
 
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
@@ -807,12 +749,10 @@ where
 
 /// Represents a combined-network-based run
 pub struct CombinedDaRun<TYPES: NodeType> {
-    /// the network configuration
+    /// The underlying network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
-    /// quorum channel
-    quorum_channel: CombinedNetworks<TYPES>,
-    /// data availability channel
-    da_channel: CombinedNetworks<TYPES>,
+    /// The underlying network
+    network: CombinedNetworks<TYPES>,
 }
 
 #[async_trait]
@@ -825,11 +765,11 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            QuorumNetwork = CombinedNetworks<TYPES>,
-            DaNetwork = CombinedNetworks<TYPES>,
+            Network = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider,
         >,
-    > RunDa<TYPES, CombinedNetworks<TYPES>, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
+    > RunDa<TYPES, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -841,24 +781,24 @@ where
         libp2p_advertise_address: Option<SocketAddr>,
     ) -> CombinedDaRun<TYPES> {
         // Initialize our Libp2p network
-        let libp2p_da_run: Libp2pDaRun<TYPES> =
-            <Libp2pDaRun<TYPES> as RunDa<
-                TYPES,
-                Libp2pNetwork<TYPES::SignatureKey>,
-                Libp2pNetwork<TYPES::SignatureKey>,
-                Libp2pImpl,
-            >>::initialize_networking(config.clone(), libp2p_advertise_address)
-            .await;
+        let libp2p_network: Libp2pDaRun<TYPES> = <Libp2pDaRun<TYPES> as RunDa<
+            TYPES,
+            Libp2pNetwork<TYPES::SignatureKey>,
+            Libp2pImpl,
+        >>::initialize_networking(
+            config.clone(), libp2p_advertise_address
+        )
+        .await;
 
         // Initialize our CDN network
-        let cdn_da_run: PushCdnDaRun<TYPES> =
-            <PushCdnDaRun<TYPES> as RunDa<
-                TYPES,
-                PushCdnNetwork<TYPES>,
-                PushCdnNetwork<TYPES>,
-                PushCdnImpl,
-            >>::initialize_networking(config.clone(), libp2p_advertise_address)
-            .await;
+        let cdn_network: PushCdnDaRun<TYPES> = <PushCdnDaRun<TYPES> as RunDa<
+            TYPES,
+            PushCdnNetwork<TYPES>,
+            PushCdnImpl,
+        >>::initialize_networking(
+            config.clone(), libp2p_advertise_address
+        )
+        .await;
 
         // Create our combined network config
         let CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig = config
@@ -866,32 +806,16 @@ where
             .combined_network_config
             .expect("combined network config not specified");
 
-        // Combine the two communication channels
-        let da_channel = CombinedNetworks::new(
-            cdn_da_run.da_channel,
-            libp2p_da_run.da_channel,
-            delay_duration,
-        );
-        let quorum_channel = CombinedNetworks::new(
-            cdn_da_run.quorum_channel,
-            libp2p_da_run.quorum_channel,
-            delay_duration,
-        );
+        // Create our combined network
+        let network =
+            CombinedNetworks::new(cdn_network.network, libp2p_network.network, delay_duration);
 
         // Return the run configuration
-        CombinedDaRun {
-            config,
-            quorum_channel,
-            da_channel,
-        }
+        CombinedDaRun { config, network }
     }
 
-    fn da_channel(&self) -> CombinedNetworks<TYPES> {
-        self.da_channel.clone()
-    }
-
-    fn quorum_channel(&self) -> CombinedNetworks<TYPES> {
-        self.quorum_channel.clone()
+    fn network(&self) -> CombinedNetworks<TYPES> {
+        self.network.clone()
     }
 
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
@@ -908,15 +832,14 @@ pub async fn main_entry_point<
         BlockHeader = TestBlockHeader,
         InstanceState = TestInstanceState,
     >,
-    DACHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
-    QUORUMCHANNEL: ConnectedNetwork<TYPES::SignatureKey>,
+    NETWORK: ConnectedNetwork<TYPES::SignatureKey>,
     NODE: NodeImplementation<
         TYPES,
-        QuorumNetwork = QUORUMCHANNEL,
-        DaNetwork = DACHANNEL,
+        Network = NETWORK,
         Storage = TestStorage<TYPES>,
+        AuctionResultsProvider = TestAuctionResultsProvider,
     >,
-    RUNDA: RunDa<TYPES, DACHANNEL, QUORUMCHANNEL, NODE>,
+    RUNDA: RunDa<TYPES, NETWORK, NODE>,
 >(
     args: ValidatorArgs,
 ) where

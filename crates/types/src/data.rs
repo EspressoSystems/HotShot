@@ -13,6 +13,7 @@ use std::{
 
 use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 use bincode::Options;
@@ -25,6 +26,7 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
+use vec1::Vec1;
 
 use crate::{
     message::Proposal,
@@ -34,7 +36,8 @@ use crate::{
     simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
         block_contents::{
-            vid_commitment, BlockHeader, EncodeBytes, TestableBlock, GENESIS_VID_NUM_STORAGE_NODES,
+            vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
+            GENESIS_VID_NUM_STORAGE_NODES,
         },
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -605,6 +608,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         self.block_header().payload_commitment()
     }
 
+    // TODO: Replace this function with `extends_upgrade` after the following issue is done:
+    // https://github.com/EspressoSystems/HotShot/issues/3357.
     /// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
     ///
     /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
@@ -612,7 +617,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// # Errors
     /// Returns an error if the certificates are not identical, or that when we no longer see a
     /// cert, it's for the right reason.
-    pub fn extends_upgrade(
+    pub fn temp_extends_upgrade(
         &self,
         parent: &Self,
         decided_upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
@@ -628,6 +633,47 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             (None, Some(parent_cert)) => {
                 ensure!(self.view_number() > parent_cert.data.new_version_first_view
                     || (self.view_number() > parent_cert.data.decide_by && decided_upgrade_certificate.is_none()),
+                       "The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
+                );
+            }
+            // If we both have a certificate, they should be identical.
+            // Technically, this prevents us from initiating a new upgrade in the view immediately following an upgrade.
+            // I think this is a fairly lax restriction.
+            (Some(cert), Some(parent_cert)) => {
+                ensure!(cert == parent_cert, "The new leaf does not extend the parent leaf, because it has attached a different upgrade certificate.");
+            }
+        }
+
+        // This check should be added once we sort out the genesis leaf/justify_qc issue.
+        // ensure!(self.parent_commitment() == parent_leaf.commit(), "The commitment of the parent leaf does not match the specified parent commitment.");
+
+        Ok(())
+    }
+
+    /// Validate that a leaf has the right upgrade certificate to be the immediate child of another leaf
+    ///
+    /// This may not be a complete function. Please double-check that it performs the checks you expect before subtituting validation logic with it.
+    ///
+    /// # Errors
+    /// Returns an error if the certificates are not identical, or that when we no longer see a
+    /// cert, it's for the right reason.
+    pub async fn extends_upgrade(
+        &self,
+        parent: &Self,
+        decided_upgrade_certificate: &Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    ) -> Result<()> {
+        match (self.upgrade_certificate(), parent.upgrade_certificate()) {
+            // Easiest cases are:
+            //   - no upgrade certificate on either: this is the most common case, and is always fine.
+            //   - if the parent didn't have a certificate, but we see one now, it just means that we have begun an upgrade: again, this is always fine.
+            (None | Some(_), None) => {}
+            // If we no longer see a cert, we have to make sure that we either:
+            //    - no longer care because we have passed new_version_first_view, or
+            //    - no longer care because we have passed `decide_by` without deciding the certificate.
+            (None, Some(parent_cert)) => {
+                let decided_upgrade_certificate_read = decided_upgrade_certificate.read().await;
+                ensure!(self.view_number() > parent_cert.data.new_version_first_view
+                    || (self.view_number() > parent_cert.data.decide_by && decided_upgrade_certificate_read.is_none()),
                        "The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
                 );
             }
@@ -798,6 +844,49 @@ pub mod null_block {
                 fee_signature: sig,
             }),
             Err(_) => None,
+        }
+    }
+}
+
+/// A packed bundle constructed from a sequence of bundles.
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct PackedBundle<TYPES: NodeType> {
+    /// The combined transactions as bytes.
+    pub encoded_transactions: Arc<[u8]>,
+
+    /// The metadata of the block.
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+
+    /// The view number that this block is associated with.
+    pub view_number: TYPES::Time,
+
+    /// The bid fees for submitting the block.
+    pub bid_fees: Vec1<BuilderFee<TYPES>>,
+
+    /// The sequencing fee for submitting bundles.
+    pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
+
+    /// The Vid precompute for the block.
+    pub vid_precompute: VidPrecomputeData,
+}
+
+impl<TYPES: NodeType> PackedBundle<TYPES> {
+    /// Create a new [`PackedBundle`].
+    pub fn new(
+        encoded_transactions: Arc<[u8]>,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        view_number: TYPES::Time,
+        bid_fees: Vec1<BuilderFee<TYPES>>,
+        sequencing_fees: Vec1<BuilderFee<TYPES>>,
+        vid_precompute: VidPrecomputeData,
+    ) -> Self {
+        Self {
+            encoded_transactions,
+            metadata,
+            view_number,
+            bid_fees,
+            sequencing_fees,
+            vid_precompute,
         }
     }
 }
