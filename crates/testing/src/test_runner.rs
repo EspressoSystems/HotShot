@@ -337,8 +337,7 @@ where
     }
 
     /// Add servers.
-    ///
-    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) {
+    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) -> Url {
         let solver_error_pct = self.launcher.metadata.solver.error_pct;
         let solver_port = portpicker::pick_unused_port().expect("No available ports");
 
@@ -351,12 +350,12 @@ where
         let solver_state = FakeSolverState::new(Some(solver_error_pct), builder_urls);
 
         // Then, fire it up as a background thread.
-        self.servers.push(async_spawn(async move {
+        self.servers.push((solver_url, async_spawn(async move {
             solver_state
                 .run::<TYPES>(solver_url)
                 .await
                 .expect("Unable to run solver api");
-        }));
+        })));
     }
 
     /// Add nodes.
@@ -373,6 +372,7 @@ where
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
         let (mut builder_tasks, builder_urls) = self.init_builders::<B>().await;
+        self.add_servers(builder_urls.clone()).await;
 
         // Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
         let mut uninitialized_nodes = Vec::new();
@@ -586,6 +586,11 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
     pub context: LateNodeContext<TYPES, I>,
 }
 
+pub struct TestServers {
+    solver: Url,
+    builders: Vec<Url>,
+}
+
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<
@@ -598,7 +603,7 @@ pub struct TestRunner<
     /// nodes in the test
     pub(crate) nodes: Vec<Node<TYPES, I>>,
     /// servers in the test
-    pub(crate) servers: Vec<JoinHandle<()>>,
+    pub(crate) servers: Vec<(Url, JoinHandle<()>)>,
     /// nodes with a late start
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier
