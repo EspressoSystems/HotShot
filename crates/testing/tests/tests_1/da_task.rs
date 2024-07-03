@@ -16,7 +16,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{null_block, ViewNumber},
+    data::{null_block, PackedBundle, ViewNumber},
     simple_vote::DaData,
     traits::{
         block_contents::precompute_vid_commitment, election::Membership,
@@ -73,13 +73,14 @@ async fn test_da_task() {
         serial![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
-            BlockRecv(
+            BlockRecv(PackedBundle::new(
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
+                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
                 Some(precompute),
-            ),
+            )),
         ],
         serial![DaProposalRecv(proposals[1].clone(), leaders[1])],
     ];
@@ -155,13 +156,14 @@ async fn test_da_task_storage_failure() {
         serial![
             ViewChange(ViewNumber::new(1)),
             ViewChange(ViewNumber::new(2)),
-            BlockRecv(
+            BlockRecv(PackedBundle::new(
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
+                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
                 Some(precompute),
-            ),
+            ),)
         ],
         serial![DaProposalRecv(proposals[1].clone(), leaders[1])],
         serial![DaProposalValidated(proposals[1].clone(), leaders[1])],

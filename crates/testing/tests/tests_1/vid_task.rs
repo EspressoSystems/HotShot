@@ -15,7 +15,7 @@ use hotshot_testing::{
     serial,
 };
 use hotshot_types::{
-    data::{null_block, DaProposal, VidDisperse, ViewNumber},
+    data::{null_block, DaProposal, PackedBundle, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -85,13 +85,14 @@ async fn test_vid_task() {
         serial![ViewChange(ViewNumber::new(1))],
         serial![
             ViewChange(ViewNumber::new(2)),
-            BlockRecv(
+            BlockRecv(PackedBundle::new(
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
+                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
                 Some(vid_precompute),
-            ),
+            )),
         ],
     ];
 

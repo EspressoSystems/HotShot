@@ -1,3 +1,5 @@
+#![cfg(feature = "dependency-tasks")]
+
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
@@ -13,7 +15,7 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -29,13 +31,13 @@ use tokio::task::JoinHandle;
 use tracing::{debug, instrument, warn};
 use vbs::version::Version;
 
-use self::dependency_handle::{ProposalDependency, ProposalDependencyHandle};
+use self::handlers::{ProposalDependency, ProposalDependencyHandle};
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
 };
 
-mod dependency_handle;
+mod handlers;
 
 /// The state for the quorum proposal task.
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -79,7 +81,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub storage: Arc<RwLock<I::Storage>>,
 
     /// Shared consensus task state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// The node's id
     pub id: u64,
@@ -317,10 +319,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 private_key: self.private_key.clone(),
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
-                consensus: Arc::clone(&self.consensus),
+                consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 version: Arc::clone(&self.version),
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+                id: self.id,
             },
         );
         self.proposal_dependencies
@@ -352,7 +355,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error", target = "QuorumProposalTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

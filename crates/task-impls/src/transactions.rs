@@ -6,14 +6,13 @@ use std::{
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
-use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
-    data::{null_block, Leaf},
+    consensus::OuterConsensus,
+    data::{null_block, Leaf, PackedBundle},
     event::{Event, EventType},
     message::version,
     simple_certificate::UpgradeCertificate,
@@ -62,6 +61,22 @@ pub struct BuilderResponse<TYPES: NodeType> {
     pub precompute_data: Option<VidPrecomputeData>,
 }
 
+/// The Bundle for a portion of a block, provided by a downstream builder that exists in a bundle
+/// auction.
+pub struct Bundle<TYPES: NodeType> {
+    /// The bundle transactions sent by the builder.
+    pub transactions: Vec<<TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction>,
+
+    /// The signature over the bundle.
+    pub signature: TYPES::SignatureKey,
+
+    /// The fee for submitting a bid.
+    pub bid_fee: BuilderFee<TYPES>,
+
+    /// The fee for sequencing
+    pub sequencing_fee: BuilderFee<TYPES>,
+}
+
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The state's api
@@ -74,7 +89,7 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -102,7 +117,7 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -167,14 +182,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     precompute_data,
                 }) = block
                 {
+                    let Some(sequencing_fee) =
+                        null_block::builder_fee(self.membership.total_nodes())
+                    else {
+                        error!("Failed to get sequencing fee");
+                        return None;
+                    };
+
                     broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(
+                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
                             block_payload.encode(),
                             metadata,
                             block_view,
-                            fee,
+                            vec1::vec1![fee],
+                            vec1::vec1![sequencing_fee],
                             precompute_data,
-                        )),
+                        ))),
                         &event_stream,
                     )
                     .await;
@@ -194,10 +217,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                         .add(1);
 
                     let membership_total_nodes = self.membership.total_nodes();
-
-                    // Calculate the builder fee for the empty block
-                    let Some(builder_fee) = null_block::builder_fee(membership_total_nodes) else {
-                        error!("Failed to get builder fee");
+                    let Some(null_fee) = null_block::builder_fee(self.membership.total_nodes())
+                    else {
+                        error!("Failed to get null fee");
                         return None;
                     };
 
@@ -209,13 +231,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
                     // Broadcast the empty block
                     broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(
+                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
                             vec![].into(),
                             metadata,
                             block_view,
-                            builder_fee,
+                            vec1::vec1![null_fee.clone()],
+                            vec1::vec1![null_fee],
                             Some(precompute_data),
-                        )),
+                        ))),
                         &event_stream,
                     )
                     .await;
@@ -232,9 +255,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
     }
 
     /// Get last known builder commitment from consensus.
+    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, view = *self.cur_view))]
     async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
         let consensus = self.consensus.read().await;
-
         let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
 
         // Search through all previous views...

@@ -9,8 +9,8 @@ use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{Consensus, LockedConsensusState, View},
-    data::DaProposal,
+    consensus::{Consensus, OuterConsensus, View},
+    data::{DaProposal, PackedBundle},
     event::{Event, EventType},
     message::Proposal,
     simple_certificate::DaCertificate,
@@ -51,7 +51,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub cur_view: TYPES::Time,
 
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: LockedConsensusState<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
@@ -82,7 +82,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -216,17 +216,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.network.is_primary_down() {
-                    let consensus = Arc::clone(&self.consensus);
+                    let consensus =
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
                     let membership = Arc::clone(&self.quorum_membership);
                     let pk = self.private_key.clone();
+                    let public_key = self.public_key.clone();
+                    let chan = event_stream.clone();
                     async_spawn(async move {
                         Consensus::calculate_and_update_vid(
-                            consensus,
+                            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
                         )
                         .await;
+                        if let Some(Some(vid_share)) = consensus
+                            .read()
+                            .await
+                            .vid_shares()
+                            .get(&view_number)
+                            .map(|shares| shares.get(&public_key).cloned())
+                        {
+                            broadcast_event(
+                                Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                                &chan,
+                            )
+                            .await;
+                        }
                     });
                 }
             }
@@ -287,8 +303,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
 
                 return None;
             }
-            HotShotEvent::BlockRecv(encoded_transactions, metadata, view, _fee, _vid_precomp) => {
-                let view = *view;
+            HotShotEvent::BlockRecv(packed_bundle) => {
+                let PackedBundle::<TYPES> {
+                    encoded_transactions,
+                    metadata,
+                    view_number,
+                    ..
+                } = packed_bundle;
+                let view_number = *view_number;
 
                 // quick hash the encoded txns with sha256
                 let encoded_transactions_hash = Sha256::digest(encoded_transactions);
@@ -305,7 +327,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
-                    view_number: view,
+                    view_number,
                 };
 
                 let message = Proposal {

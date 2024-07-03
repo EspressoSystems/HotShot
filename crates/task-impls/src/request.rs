@@ -10,13 +10,12 @@ use std::{
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
-use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::QuorumProposal,
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
@@ -54,7 +53,7 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub network: Arc<I::Network>,
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    pub state: Arc<RwLock<Consensus<TYPES>>>,
+    pub state: OuterConsensus<TYPES>,
     /// Last seen view, we won't request for proposals before older than this view
     pub view: TYPES::Time,
     /// Delay before requesting peers
@@ -157,6 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     }
 
     /// Creates the srequest structures for all types that are needed.
+    #[instrument(skip_all, target = "NetworkRequestState", fields(id = self.id, view = *view))]
     async fn build_requests(&self, view: TYPES::Time) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
         if !self.state.read().await.vid_shares().contains_key(&view) {
@@ -201,11 +201,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         recipients.shuffle(&mut thread_rng());
         let requester = DelayedRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
-            state: Arc::clone(&self.state),
+            state: OuterConsensus::new(Arc::clone(&self.state.inner_consensus)),
+            public_key: self.public_key.clone(),
             sender,
             delay: self.delay,
             recipients,
             shutdown_flag: Arc::clone(&self.shutdown_flag),
+            id: self.id,
         };
         let Some(signature) = self.serialize_and_sign(&request) else {
             return;
@@ -252,7 +254,9 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The underlying network to send requests on
     pub network: Arc<I::Network>,
     /// Shared state to check if the data go populated
-    state: Arc<RwLock<Consensus<TYPES>>>,
+    state: OuterConsensus<TYPES>,
+    /// our public key
+    public_key: TYPES::SignatureKey,
     /// Channel to send the event when we receive a response
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Duration to delay sending the first request
@@ -261,6 +265,8 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     recipients: Vec<TYPES::SignatureKey>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     shutdown_flag: Arc<AtomicBool>,
+    /// The node's id
+    id: u64,
 }
 
 /// A task the requests some data immediately from one peer
@@ -388,18 +394,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
         }
     }
     /// Returns true if we got the data we wanted, or the view has moved on.
+    #[instrument(skip_all, target = "DelayedRequester", fields(id = self.id, view = *req.0))]
     async fn cancel_vid(&self, req: &VidRequest<TYPES>) -> bool {
         let view = req.0;
         let state = self.state.read().await;
-        self.shutdown_flag.load(Ordering::Relaxed)
+        let cancel = self.shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(&view)
-            || state.cur_view() > view
+            || state.cur_view() > view;
+        if cancel {
+            if let Some(Some(vid_share)) = state
+                .vid_shares()
+                .get(&view)
+                .map(|shares| shares.get(&self.public_key).cloned())
+            {
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                    &self.sender,
+                )
+                .await;
+            }
+            tracing::debug!(
+                "Canceling vid request for view {:?}, cur view is {:?}",
+                view,
+                state.cur_view()
+            );
+        }
+        cancel
     }
 
     /// Transform a response into a `HotShotEvent`
     async fn handle_response_message(&self, message: SequencingMessage<TYPES>) {
         let event = match message {
             SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) => {
+                tracing::info!("vid req complete, got vid {:?}", prop);
                 HotShotEvent::VidShareRecv(prop)
             }
             _ => return,
