@@ -66,7 +66,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
-                    Some(precompute_data.clone()),
+                    precompute_data.clone(),
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;

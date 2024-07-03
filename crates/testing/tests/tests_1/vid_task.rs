@@ -90,7 +90,7 @@ async fn test_vid_task() {
                 TestMetadata,
                 ViewNumber::new(2),
                 null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
-                vid_precompute,
+                Some(vid_precompute),
             ),
         ],
     ];

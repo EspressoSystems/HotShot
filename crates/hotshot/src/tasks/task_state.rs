@@ -177,7 +177,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             private_key: handle.private_key().clone(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            builder_clients: handle
+            builder_clients_v0_1: handle
                 .hotshot
                 .config
                 .builder_urls
@@ -185,6 +185,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
                 .cloned()
                 .map(BuilderClient::new)
                 .collect(),
+            builder_clients_v0_3: Vec::new(),
             decided_upgrade_certificate: None,
         }
     }

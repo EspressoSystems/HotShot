@@ -148,7 +148,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         BuilderFee<TYPES>,
-        VidPrecomputeData,
+        Option<VidPrecomputeData>,
     ),
     /// Event when the transactions task has a block formed
     BlockReady(VidDisperse<TYPES>, TYPES::Time),

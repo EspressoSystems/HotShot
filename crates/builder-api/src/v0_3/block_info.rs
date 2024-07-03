@@ -16,3 +16,12 @@ pub struct AvailableBlockData<TYPES: NodeType> {
         <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
     pub sender: <TYPES as NodeType>::BuilderSignatureKey,
 }
+
+impl<TYPES: NodeType> AvailableBlockData<TYPES> {
+    pub fn validate_signature(&self) -> bool {
+        // verify the signature over the message, construct the builder commitment
+        let builder_commitment = self.block_payload.builder_commitment(&self.metadata);
+        self.sender
+            .validate_builder_signature(&self.signature, builder_commitment.as_ref())
+    }
+}
