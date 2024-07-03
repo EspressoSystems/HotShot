@@ -3253,6 +3253,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "rand 0.8.5",
+ "reqwest",
  "serde",
  "sha2 0.10.8",
  "sha3",

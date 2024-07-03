@@ -115,7 +115,7 @@ where
         let TestRunner {
             ref launcher,
             nodes,
-            servers,
+            solver_server,
             late_start,
             next_node_id: _,
             _pd: _,
@@ -293,12 +293,12 @@ where
         }
 
         // Shutdown all of the servers at the end
-        for server in servers {
-            // Aborting here doesn't cause any problems because we don't maintain any state
+        // Aborting here doesn't cause any problems because we don't maintain any state
+        if let Some(solver_server) = solver_server {
             #[cfg(async_executor_impl = "async-std")]
-            server.cancel().await;
+            solver_server.1.cancel().await;
             #[cfg(async_executor_impl = "tokio")]
-            server.abort();
+            solver_server.1.abort();
         }
 
         assert!(
@@ -337,7 +337,7 @@ where
     }
 
     /// Add servers.
-    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) -> Url {
+    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) {
         let solver_error_pct = self.launcher.metadata.solver.error_pct;
         let solver_port = portpicker::pick_unused_port().expect("No available ports");
 
@@ -350,12 +350,15 @@ where
         let solver_state = FakeSolverState::new(Some(solver_error_pct), builder_urls);
 
         // Then, fire it up as a background thread.
-        self.servers.push((solver_url, async_spawn(async move {
-            solver_state
-                .run::<TYPES>(solver_url)
-                .await
-                .expect("Unable to run solver api");
-        })));
+        self.solver_server = Some((
+            solver_url.clone(),
+            async_spawn(async move {
+                solver_state
+                    .run::<TYPES>(solver_url)
+                    .await
+                    .expect("Unable to run solver api");
+            }),
+        ));
     }
 
     /// Add nodes.
@@ -413,8 +416,11 @@ where
 
             let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
-            let auction_results_provider =
+            let mut auction_results_provider =
                 (self.launcher.resource_generator.auction_results_provider)(node_id);
+            if let Some(solver_server) = &self.solver_server {
+                auction_results_provider.broadcast_url = Some(solver_server.0.clone());
+            }
 
             let network_clone = network.clone();
             let networks_ready_future = async move {
@@ -586,11 +592,6 @@ pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
     pub context: LateNodeContext<TYPES, I>,
 }
 
-pub struct TestServers {
-    solver: Url,
-    builders: Vec<Url>,
-}
-
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<
@@ -602,8 +603,8 @@ pub struct TestRunner<
     pub(crate) launcher: TestLauncher<TYPES, I>,
     /// nodes in the test
     pub(crate) nodes: Vec<Node<TYPES, I>>,
-    /// servers in the test
-    pub(crate) servers: Vec<(Url, JoinHandle<()>)>,
+    /// the solver server running in the test
+    pub(crate) solver_server: Option<(Url, JoinHandle<()>)>,
     /// nodes with a late start
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier
