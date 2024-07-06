@@ -3,8 +3,9 @@
 
 # License
 ## Copyright
-**(c) 2022 Espresso Systems**.
-`HotShot` was developed by Espresso Systems. While we plan to adopt an open source license, we have not yet selected one. As such, all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.
+**(c) 2021-2024 Espresso Systems**.
+`HotShot` was developed by Espresso Systems.
+
 # HotShot Consensus Module
 
 HotShot is a BFT consensus protocol based off of HotStuff, with the addition of proof-of-stake and
