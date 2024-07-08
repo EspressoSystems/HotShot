@@ -181,12 +181,10 @@ where
             state
                 .get_auction_results_permissioned(
                     view_number,
-                    &signature
-                        .try_into()
-                        .map_err(|_| ServerError {
-                            message: "Invalid signature".to_string(),
-                            status: tide_disco::StatusCode::UNPROCESSABLE_ENTITY,
-                        })?
+                    &signature.try_into().map_err(|_| ServerError {
+                        message: "Invalid signature".to_string(),
+                        status: tide_disco::StatusCode::UNPROCESSABLE_ENTITY,
+                    })?,
                 )
                 .await
         }
