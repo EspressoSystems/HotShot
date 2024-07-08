@@ -134,8 +134,11 @@ pub mod v0_1 {
 
     use super::BuilderClientError;
 
+    /// Builder API version
+    pub type Version = StaticVersion<0, 1>;
+
     /// Client for builder API
-    pub type BuilderClient<TYPES> = super::BuilderClient<TYPES, StaticVersion<0, 1>>;
+    pub type BuilderClient<TYPES> = super::BuilderClient<TYPES, Version>;
 
     impl<TYPES: NodeType> BuilderClient<TYPES> {
         /// Claim block header input
@@ -186,7 +189,12 @@ pub mod v0_1 {
 
 /// Version 0.2. No changes in API
 pub mod v0_2 {
+    use vbs::version::StaticVersion;
+
     pub use super::v0_1::*;
+
+    /// Builder API version
+    pub type Version = StaticVersion<0, 2>;
 }
 
 /// Version 0.3. Removes `claim_block_header_input` endpoint, adds fee information
@@ -201,6 +209,9 @@ pub mod v0_3 {
     use vbs::version::StaticVersion;
 
     pub use super::BuilderClientError;
+
+    /// Builder API version
+    pub type Version = StaticVersion<0, 3>;
 
     /// Client for builder API
     pub type BuilderClient<TYPES> = super::BuilderClient<TYPES, StaticVersion<0, 3>>;

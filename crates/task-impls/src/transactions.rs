@@ -28,10 +28,12 @@ use hotshot_types::{
     vid::{VidCommitment, VidPrecomputeData},
 };
 use tracing::{debug, error, instrument, warn};
-use vbs::version::Version;
+use vbs::version::{StaticVersionType, Version};
 
 use crate::{
-    builder::{v0_1::BuilderClient as BuilderClientV0_1, v0_3::BuilderClient as BuilderClientV0_3},
+    builder::{
+        v0_1::BuilderClient as BuilderClientBase, v0_3::BuilderClient as BuilderClientMarketplace,
+    },
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
 };
@@ -49,6 +51,9 @@ const BUILDER_ADDITIONAL_TIME_MULTIPLIER: f32 = 0.2;
 /// Minimum amount of time allotted to both batches, cannot be cut shorter if the first batch
 /// responds extremely fast.
 const BUILDER_MINIMUM_QUERY_TIME: Duration = Duration::from_millis(300);
+
+/// The version of the builder API used by the marketplace
+type MarketplaceVersion = crate::builder::v0_3::Version;
 
 /// Builder Provided Responses
 pub struct BuilderResponse<TYPES: NodeType> {
@@ -99,10 +104,10 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub membership: Arc<TYPES::Membership>,
 
     /// Builder 0.1 API clients
-    pub builder_clients_v0_1: Vec<BuilderClientV0_1<TYPES>>,
+    pub builder_clients: Vec<BuilderClientBase<TYPES>>,
 
     /// Builder 0.3 API clients
-    pub builder_clients_v0_3: Vec<BuilderClientV0_3<TYPES>>,
+    pub builder_clients_marketplace: Vec<BuilderClientMarketplace<TYPES>>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -347,11 +352,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
         version: Version,
     ) -> Vec<(AvailableBlockInfo<TYPES>, usize)> {
+        /// Implementations between versions are essentially the same except for the builder
+        /// clients used. The most conscise way to express this is with a macro.
         macro_rules! inner_impl {
-            ($ver:ident) => {{
+            ($clients:ident) => {{
                 // Create a collection of futures that call available_blocks endpoint for every builder
                 let tasks = self
-                    .$ver
+                    .$clients
                     .iter()
                     .enumerate()
                     .map(|(builder_idx, client)| async move {
@@ -374,13 +381,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     .collect::<FuturesUnordered<_>>();
 
                 // A vector of resolved builder responses
-                let mut results = Vec::with_capacity(self.builder_clients_v0_1.len());
+                let mut results = Vec::with_capacity(self.$clients.len());
 
                 // Instant we start querying builders for available blocks
                 let query_start = Instant::now();
 
                 // First we complete the query to the fastest fraction of the builders
-                let threshold = (self.builder_clients_v0_1.len() * BUILDER_MAIN_BATCH_THRESHOLD_DIVIDEND)
+                let threshold = (self.$clients.len() * BUILDER_MAIN_BATCH_THRESHOLD_DIVIDEND)
                     .div_ceil(BUILDER_MAIN_BATCH_THRESHOLD_DIVISOR);
                 let mut tasks = tasks.take(threshold);
                 while let Some(result) = tasks.next().await {
@@ -419,10 +426,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
             }}
         }
 
-        if version.minor == 3 {
-            inner_impl!(builder_clients_v0_3)
+        if version >= MarketplaceVersion::version() {
+            inner_impl!(builder_clients_marketplace)
         } else {
-            inner_impl!(builder_clients_v0_1)
+            inner_impl!(builder_clients)
         }
     }
 
@@ -449,10 +456,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 .as_ref()
                 .cloned(),
         ) {
-            Ok(v) if v.major == 0 && v.minor >= 1 && v.minor <= 3 => v,
-            Ok(v) => {
-                bail!("Upgrade certificate requires unsupported version {v}, refusing to request blocks");
-            }
+            Ok(v) => v,
             Err(err) => {
                 bail!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
             }
@@ -501,8 +505,54 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 }
             };
 
-            if version.minor == 1 || version.minor == 2 {
-                let client = &self.builder_clients_v0_1[builder_idx];
+            let response = if version >= MarketplaceVersion::version() {
+                let client = &self.builder_clients_marketplace[builder_idx];
+
+                let block = client
+                    .claim_block(
+                        block_info.block_hash.clone(),
+                        view_number.u64(),
+                        self.public_key.clone(),
+                        &request_signature,
+                    )
+                    .await;
+
+                let block_data = match block {
+                    Ok(block_data) => block_data,
+                    Err(err) => {
+                        tracing::warn!(%err, "Error claiming block data");
+                        continue;
+                    }
+                };
+
+                // verify the signature over the message, construct the builder commitment
+                let builder_commitment = block_data
+                    .block_payload
+                    .builder_commitment(&block_data.metadata);
+                if !block_data
+                    .sender
+                    .validate_builder_signature(&block_data.signature, builder_commitment.as_ref())
+                {
+                    tracing::warn!(
+                        "Failed to verify available block data response message signature"
+                    );
+                    continue;
+                }
+
+                let fee = BuilderFee {
+                    fee_amount: block_info.offered_fee,
+                    fee_account: block_data.sender,
+                    fee_signature: block_data.signature,
+                };
+
+                BuilderResponse {
+                    fee,
+                    block_payload: block_data.block_payload,
+                    metadata: block_data.metadata,
+                    precompute_data: None,
+                }
+            } else {
+                let client = &self.builder_clients[builder_idx];
 
                 let (block, header_input) = futures::join! {
                     client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
@@ -547,59 +597,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     fee_signature: header_input.fee_signature,
                 };
 
-                return Ok(BuilderResponse {
+                BuilderResponse {
                     fee,
                     block_payload: block_data.block_payload,
                     metadata: block_data.metadata,
                     precompute_data: Some(header_input.vid_precompute_data),
-                });
-            } else {
-                let client = &self.builder_clients_v0_3[builder_idx];
-
-                let block = client
-                    .claim_block(
-                        block_info.block_hash.clone(),
-                        view_number.u64(),
-                        self.public_key.clone(),
-                        &request_signature,
-                    )
-                    .await;
-
-                let block_data = match block {
-                    Ok(block_data) => block_data,
-                    Err(err) => {
-                        tracing::warn!(%err, "Error claiming block data");
-                        continue;
-                    }
-                };
-
-                // verify the signature over the message, construct the builder commitment
-                let builder_commitment = block_data
-                    .block_payload
-                    .builder_commitment(&block_data.metadata);
-                if !block_data
-                    .sender
-                    .validate_builder_signature(&block_data.signature, builder_commitment.as_ref())
-                {
-                    tracing::warn!(
-                        "Failed to verify available block data response message signature"
-                    );
-                    continue;
                 }
-
-                let fee = BuilderFee {
-                    fee_amount: block_info.offered_fee,
-                    fee_account: block_data.sender,
-                    fee_signature: block_data.signature,
-                };
-
-                return Ok(BuilderResponse {
-                    fee,
-                    block_payload: block_data.block_payload,
-                    metadata: block_data.metadata,
-                    precompute_data: None,
-                });
             };
+
+            return Ok(response);
         }
 
         bail!("Couldn't claim a block from any of the builders");
