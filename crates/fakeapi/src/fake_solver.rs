@@ -54,10 +54,10 @@ impl FakeSolverState {
     /// This panics if unable to register the api with tide disco
     pub async fn run<TYPES: NodeType>(self, url: Url) -> io::Result<()> {
         let solver_api = define_api::<TYPES, RwLock<FakeSolverState>, StaticVersion<0, 1>>()
-            .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
+            .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"))?;
         let state = RwLock::new(self);
         let mut app = App::<RwLock<FakeSolverState>, ServerError>::with_state(state);
-        app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api.unwrap())
+        app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api)
             .expect("Error registering api");
         app.serve(url, StaticVersion::<0, 1> {}).await
     }
