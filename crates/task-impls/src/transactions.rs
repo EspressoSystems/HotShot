@@ -6,6 +6,7 @@ use std::{
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_sleep;
+use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
@@ -30,10 +31,7 @@ use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
 use crate::{
-    builder::{
-        v0_1::BuilderClient as BuilderClientV0_1, v0_3::BuilderClient as BuilderClientV0_3,
-        BuilderClient,
-    },
+    builder::{v0_1::BuilderClient as BuilderClientV0_1, v0_3::BuilderClient as BuilderClientV0_3},
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
 };
@@ -115,7 +113,7 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// This state's ID
     pub id: u64,
     /// Decided upgrade certificate
-    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
@@ -140,9 +138,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 .await;
 
                 return None;
-            }
-            HotShotEvent::UpgradeDecided(cert) => {
-                self.decided_upgrade_certificate = Some(cert.clone());
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
@@ -169,6 +164,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 let block = {
                     if self
                         .decided_upgrade_certificate
+                        .read()
+                        .await
                         .as_ref()
                         .is_some_and(|cert| cert.upgrading_in(block_view))
                     {
@@ -443,7 +440,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         view_number: TYPES::Time,
         parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> anyhow::Result<BuilderResponse<TYPES>> {
-        let version = match version(view_number, &self.decided_upgrade_certificate) {
+        let version = match version(
+            view_number,
+            &self
+                .decided_upgrade_certificate
+                .read()
+                .await
+                .as_ref()
+                .cloned(),
+        ) {
             Ok(v) if v.major == 0 && v.minor >= 1 && v.minor <= 3 => v,
             Ok(v) => {
                 bail!("Upgrade certificate requires unsupported version {v}, refusing to request blocks");
