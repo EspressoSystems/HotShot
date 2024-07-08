@@ -54,17 +54,17 @@ impl FakeSolverState {
     /// This panics if unable to register the api with tide disco
     pub async fn run<TYPES: NodeType>(self, url: Url) -> io::Result<()> {
         let solver_api = define_api::<TYPES, RwLock<FakeSolverState>, StaticVersion<0, 1>>()
-            .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
+            .map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"))?;
         let state = RwLock::new(self);
         let mut app = App::<RwLock<FakeSolverState>, ServerError>::with_state(state);
-        app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api.unwrap())
+        app.register_module::<ServerError, StaticVersion<0, 1>>("api", solver_api)
             .expect("Error registering api");
         app.serve(url, StaticVersion::<0, 1> {}).await
     }
 
     /// If a random fault event happens, what fault should we send?
     #[must_use]
-    pub fn should_fault(&self) -> Option<FakeSolverFaultType> {
+    fn should_fault(&self) -> Option<FakeSolverFaultType> {
         if rand::random::<f32>() < self.error_pct {
             // Spin a random number over the fault types
             if rand::random::<f32>() < 0.5 {
@@ -82,7 +82,7 @@ impl FakeSolverState {
     ///
     /// # Errors
     /// Returns an error if the `should_fault` method is `Some`.
-    pub fn dump_builders(&self) -> Result<Vec<TestAuctionResult>, ServerError> {
+    fn dump_builders(&self) -> Result<Vec<TestAuctionResult>, ServerError> {
         if let Some(fault) = self.should_fault() {
             match fault {
                 FakeSolverFaultType::InternalServerFault => {
@@ -186,8 +186,7 @@ where
                         .map_err(|_| ServerError {
                             message: "Invalid signature".to_string(),
                             status: tide_disco::StatusCode::UNPROCESSABLE_ENTITY,
-                        })
-                        .unwrap(),
+                        })?
                 )
                 .await
         }
