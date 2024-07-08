@@ -13,8 +13,8 @@ toml = { workspace = true }
 tide-disco = { workspace = true }
 anyhow = { workspace = true }
 hotshot-types = { path = "../types" }
-vbs = { worksapce = true }
-serde = { worksapce = true }
+vbs = { workspace = true }
+serde = { workspace = true }
 rand = { workspace = true }
 hotshot-example-types = { path = "../example-types" }
 async-trait = { workspace = true }
