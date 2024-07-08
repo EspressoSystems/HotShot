@@ -30,7 +30,10 @@ use tracing::{debug, error, instrument, warn};
 use vbs::version::Version;
 
 use crate::{
-    builder::{v0_1::BuilderClient as BuilderClientV0_1, v0_3::BuilderClient as BuilderClientV0_3},
+    builder::{
+        v0_1::BuilderClient as BuilderClientV0_1, v0_3::BuilderClient as BuilderClientV0_3,
+        BuilderClient,
+    },
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
 };
@@ -171,7 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     {
                         None
                     } else {
-                        self.wait_for_block().await
+                        self.wait_for_block(block_view).await
                     }
                 };
 
@@ -255,10 +258,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
     }
 
     /// Get last known builder commitment from consensus.
-    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, view = *self.cur_view))]
-    async fn latest_known_vid_commitment(&self) -> (TYPES::Time, VidCommitment) {
+    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view))]
+    async fn latest_known_vid_commitment(
+        &self,
+        block_view: TYPES::Time,
+    ) -> (TYPES::Time, VidCommitment) {
         let consensus = self.consensus.read().await;
-        let mut prev_view = TYPES::Time::new(self.cur_view.saturating_sub(1));
+        let mut prev_view = TYPES::Time::new(block_view.saturating_sub(1));
 
         // Search through all previous views...
         while prev_view != TYPES::Time::genesis() {
@@ -285,12 +291,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         (prev_view, consensus.decided_leaf().payload_commitment())
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "wait_for_block", level = "error")]
-    async fn wait_for_block(&self) -> Option<BuilderResponse<TYPES>> {
+    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
+    async fn wait_for_block(&self, block_view: TYPES::Time) -> Option<BuilderResponse<TYPES>> {
         let task_start_time = Instant::now();
 
         // Find commitment to the block we want to build upon
-        let (view_num, parent_comm) = self.latest_known_vid_commitment().await;
+        let (view_num, parent_comm) = self.latest_known_vid_commitment(block_view).await;
         let parent_comm_sig = match <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
             &self.private_key,
             parent_comm.as_ref(),
