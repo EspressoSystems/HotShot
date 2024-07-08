@@ -64,7 +64,7 @@ impl FakeSolverState {
 
     /// If a random fault event happens, what fault should we send?
     #[must_use]
-    pub fn should_fault(&self) -> Option<FakeSolverFaultType> {
+    fn should_fault(&self) -> Option<FakeSolverFaultType> {
         if rand::random::<f32>() < self.error_pct {
             // Spin a random number over the fault types
             if rand::random::<f32>() < 0.5 {
@@ -82,7 +82,7 @@ impl FakeSolverState {
     ///
     /// # Errors
     /// Returns an error if the `should_fault` method is `Some`.
-    pub fn dump_builders(&self) -> Result<Vec<TestAuctionResult>, ServerError> {
+    fn dump_builders(&self) -> Result<Vec<TestAuctionResult>, ServerError> {
         if let Some(fault) = self.should_fault() {
             match fault {
                 FakeSolverFaultType::InternalServerFault => {
