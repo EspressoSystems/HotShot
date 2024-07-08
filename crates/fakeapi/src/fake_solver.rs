@@ -186,8 +186,7 @@ where
                         .map_err(|_| ServerError {
                             message: "Invalid signature".to_string(),
                             status: tide_disco::StatusCode::UNPROCESSABLE_ENTITY,
-                        })
-                        .unwrap(),
+                        })?
                 )
                 .await
         }
