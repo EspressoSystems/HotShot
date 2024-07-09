@@ -61,7 +61,7 @@ num_nodes_without_stake = 0
 staked_da_nodes = 10
 non_staked_da_nodes = 0
 fixed_leader_for_gpuvid = 1
-next_view_timeout = 12_000
+next_view_timeout = 15_000
 timeout_ratio = [ 11, 10 ]
 round_start_delay = 1
 start_delay = 10_000
@@ -69,7 +69,7 @@ num_bootstrap = 5
 builder_urls = [ "https://builder.staging.testnet.espresso.network/" ]
 
 [config.view_sync_timeout]
-secs = 1
+secs = 15
 nanos = 0
 
 [config.builder_timeout]
