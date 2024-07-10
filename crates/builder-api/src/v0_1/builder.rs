@@ -11,7 +11,10 @@ use tagged_base64::TaggedBase64;
 use tide_disco::{api::ApiError, method::ReadState, Api, RequestError, RequestParams, StatusCode};
 use vbs::version::StaticVersionType;
 
-use super::data_source::{AcceptsTxnSubmits, BuilderDataSource};
+use super::{
+    data_source::{AcceptsTxnSubmits, BuilderDataSource},
+    Version,
+};
 use crate::api::load_api;
 
 #[derive(Args, Default)]
@@ -120,8 +123,6 @@ pub(crate) fn try_extract_param<T: for<'a> TryFrom<&'a TaggedBase64>>(
             status: StatusCode::UNPROCESSABLE_ENTITY,
         })
 }
-
-type Version = vbs::version::StaticVersion<0, 1>;
 
 pub fn define_api<State, Types: NodeType>(
     options: &Options,

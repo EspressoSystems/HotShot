@@ -125,17 +125,14 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
 pub mod v0_1 {
 
     use hotshot_builder_api::v0_1::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
+    pub use hotshot_builder_api::v0_1::Version;
     use hotshot_types::{
         traits::{node_implementation::NodeType, signature_key::SignatureKey},
         utils::BuilderCommitment,
     };
     use tagged_base64::TaggedBase64;
-    use vbs::version::StaticVersion;
 
     use super::BuilderClientError;
-
-    /// Builder API version
-    pub type Version = StaticVersion<0, 1>;
 
     /// Client for builder API
     pub type BuilderClient<TYPES> = super::BuilderClient<TYPES, Version>;
@@ -201,6 +198,7 @@ pub mod v0_2 {
 /// to `claim_block` endpoint.
 pub mod v0_3 {
     use hotshot_builder_api::v0_3::block_info::AvailableBlockData;
+    pub use hotshot_builder_api::v0_3::Version;
     use hotshot_types::{
         traits::{node_implementation::NodeType, signature_key::SignatureKey},
         utils::BuilderCommitment,
@@ -209,9 +207,6 @@ pub mod v0_3 {
     use vbs::version::StaticVersion;
 
     pub use super::BuilderClientError;
-
-    /// Builder API version
-    pub type Version = StaticVersion<0, 3>;
 
     /// Client for builder API
     pub type BuilderClient<TYPES> = super::BuilderClient<TYPES, StaticVersion<0, 3>>;

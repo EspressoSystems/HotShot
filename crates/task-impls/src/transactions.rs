@@ -15,7 +15,6 @@ use hotshot_types::{
     consensus::OuterConsensus,
     data::{null_block, Leaf, PackedBundle},
     event::{Event, EventType},
-    message::version,
     simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
@@ -165,6 +164,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 }
                 let block_view = if make_block { view } else { view + 1 };
 
+                let version = match hotshot_types::message::version(
+                    block_view,
+                    &self
+                        .decided_upgrade_certificate
+                        .read()
+                        .await
+                        .as_ref()
+                        .cloned(),
+                ) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
+                        return None;
+                    }
+                };
+
                 // Request a block from the builder unless we are between versions.
                 let block = {
                     if self
@@ -176,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     {
                         None
                     } else {
-                        self.wait_for_block(block_view).await
+                        self.wait_for_block(block_view, version).await
                     }
                 };
 
@@ -187,10 +202,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     precompute_data,
                 }) = block
                 {
-                    let Some(sequencing_fee) =
-                        null_block::builder_fee(self.membership.total_nodes())
+                    let Some(bid_fee) =
+                        null_block::builder_fee(self.membership.total_nodes(), version)
                     else {
-                        error!("Failed to get sequencing fee");
+                        error!("Failed to get bid fee");
                         return None;
                     };
 
@@ -199,8 +214,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                             block_payload.encode(),
                             metadata,
                             block_view,
+                            vec1::vec1![bid_fee],
                             vec1::vec1![fee],
-                            vec1::vec1![sequencing_fee],
                             precompute_data,
                         ))),
                         &event_stream,
@@ -222,7 +237,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                         .add(1);
 
                     let membership_total_nodes = self.membership.total_nodes();
-                    let Some(null_fee) = null_block::builder_fee(self.membership.total_nodes())
+                    let Some(null_fee) =
+                        null_block::builder_fee(self.membership.total_nodes(), version)
                     else {
                         error!("Failed to get null fee");
                         return None;
@@ -294,7 +310,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
     }
 
     #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
-    async fn wait_for_block(&self, block_view: TYPES::Time) -> Option<BuilderResponse<TYPES>> {
+    async fn wait_for_block(
+        &self,
+        block_view: TYPES::Time,
+        version: Version,
+    ) -> Option<BuilderResponse<TYPES>> {
         let task_start_time = Instant::now();
 
         // Find commitment to the block we want to build upon
@@ -314,7 +334,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
             match async_compatibility_layer::art::async_timeout(
                 self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                self.block_from_builder(parent_comm, view_num, &parent_comm_sig),
+                self.block_from_builder(parent_comm, view_num, &parent_comm_sig, version),
             )
             .await
             {
@@ -446,22 +466,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
         parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+        version: Version,
     ) -> anyhow::Result<BuilderResponse<TYPES>> {
-        let version = match version(
-            view_number,
-            &self
-                .decided_upgrade_certificate
-                .read()
-                .await
-                .as_ref()
-                .cloned(),
-        ) {
-            Ok(v) => v,
-            Err(err) => {
-                bail!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
-            }
-        };
-
         let mut available_blocks = self
             .get_available_blocks(parent_comm, view_number, parent_comm_sig, version)
             .await;

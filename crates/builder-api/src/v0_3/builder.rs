@@ -3,15 +3,13 @@ use hotshot_types::{traits::node_implementation::NodeType, utils::BuilderCommitm
 use snafu::ResultExt;
 use tide_disco::{api::ApiError, method::ReadState, Api};
 
-use super::data_source::BuilderDataSource;
+use super::{data_source::BuilderDataSource, Version};
 /// No changes to these types
 pub use crate::v0_1::builder::{
     submit_api, BlockAvailableSnafu, BlockClaimSnafu, BuildError, BuilderAddressSnafu, Error,
     Options,
 };
 use crate::{api::load_api, v0_1::builder::try_extract_param};
-
-type Version = vbs::version::StaticVersion<0, 3>;
 
 pub fn define_api<State, Types: NodeType>(
     options: &Options,

@@ -15,6 +15,7 @@ use hotshot_testing::{
     serial,
 };
 use hotshot_types::{
+    constants::BaseVersion,
     data::{null_block, DaProposal, PackedBundle, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
@@ -24,6 +25,7 @@ use hotshot_types::{
     },
 };
 use jf_vid::{precomputable::Precomputable, VidScheme};
+use vbs::version::StaticVersionType;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -89,8 +91,16 @@ async fn test_vid_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
-                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
+                vec1::vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
+                vec1::vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
                 Some(vid_precompute),
             )),
         ],
@@ -104,7 +114,8 @@ async fn test_vid_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version())
+                    .unwrap(),
             )),
             exact(BlockReady(vid_disperse, ViewNumber::new(2))),
             exact(VidDisperseSend(vid_proposal.clone(), pub_key)),

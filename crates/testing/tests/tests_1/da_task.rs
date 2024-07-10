@@ -16,6 +16,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
+    constants::BaseVersion,
     data::{null_block, PackedBundle, ViewNumber},
     simple_vote::DaData,
     traits::{
@@ -23,6 +24,7 @@ use hotshot_types::{
         node_implementation::ConsensusTime,
     },
 };
+use vbs::version::StaticVersionType;
 
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -77,8 +79,16 @@ async fn test_da_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
-                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
+                vec1::vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
+                vec1::vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
                 Some(precompute),
             )),
         ],
@@ -160,8 +170,16 @@ async fn test_da_task_storage_failure() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
-                vec1::vec1![null_block::builder_fee(quorum_membership.total_nodes()).unwrap()],
+                vec1::vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
+                vec1::vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
                 Some(precompute),
             ),)
         ],

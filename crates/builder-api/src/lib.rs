@@ -22,5 +22,8 @@
 
 mod api;
 pub mod v0_1;
-pub use v0_1 as v0_2;
+pub mod v0_2 {
+    pub use super::v0_1::*;
+    pub type Version = vbs::version::StaticVersion<0, 2>;
+}
 pub mod v0_3;

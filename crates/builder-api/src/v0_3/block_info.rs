@@ -14,6 +14,8 @@ pub struct AvailableBlockData<TYPES: NodeType> {
     pub fee: u64,
     pub signature:
         <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
+    pub fee_signature:
+        <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderSignature,
     pub sender: <TYPES as NodeType>::BuilderSignatureKey,
 }
 
@@ -23,5 +25,8 @@ impl<TYPES: NodeType> AvailableBlockData<TYPES> {
         let builder_commitment = self.block_payload.builder_commitment(&self.metadata);
         self.sender
             .validate_builder_signature(&self.signature, builder_commitment.as_ref())
+            && self
+                .sender
+                .validate_sequencing_fee_signature_marketplace(&self.fee_signature, self.fee)
     }
 }
