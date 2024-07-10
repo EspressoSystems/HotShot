@@ -130,7 +130,7 @@ async fn test_upgrade_task_vote() {
                 quorum_proposal_validated(),
                 exact(QuorumVoteSend(votes[1].clone())),
             ],
-            task_state_asserts: vec![no_decided_upgrade_cert()],
+            task_state_asserts: vec![no_decided_upgrade_certificate()],
         },
         Expectations {
             output_asserts: vec![
@@ -139,7 +139,7 @@ async fn test_upgrade_task_vote() {
                 quorum_proposal_validated(),
                 exact(QuorumVoteSend(votes[2].clone())),
             ],
-            task_state_asserts: vec![no_decided_upgrade_cert()],
+            task_state_asserts: vec![no_decided_upgrade_certificate()],
         },
         Expectations {
             output_asserts: vec![

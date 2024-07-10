@@ -28,7 +28,7 @@ impl std::fmt::Debug for UpgradeCertPredicate {
 #[async_trait]
 impl Predicate<ConsensusTaskTestState> for UpgradeCertPredicate {
     async fn evaluate(&self, input: &ConsensusTaskTestState) -> PredicateResult {
-        let upgrade_cert = input.decided_upgrade_certificate.clone();
+        let upgrade_cert = input.decided_upgrade_certificate.read().await.clone();
         PredicateResult::from((self.check)(upgrade_cert.into()))
     }
 
