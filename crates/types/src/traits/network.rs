@@ -25,7 +25,7 @@ use std::{
     time::Duration,
 };
 
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::channel::TrySendError;
 use async_trait::async_trait;
 use futures::future::join_all;
 use rand::{
@@ -348,7 +348,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         &self,
         _view_number: ViewNumber,
         _pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
+    ) -> Result<(), TrySendError<Option<(ViewNumber, K)>>> {
         Ok(())
     }
 
