@@ -1,6 +1,9 @@
-use std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
-use hotshot::traits::{NetworkReliability, TestableNodeImplementation};
+use hotshot::{
+    tasks::EventTransformerState,
+    traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
+};
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
     storage_types::TestStorage,
@@ -44,7 +47,7 @@ pub struct TimingData {
 
 /// metadata describing a test
 #[derive(Clone, Debug)]
-pub struct TestDescription {
+pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Total number of staked nodes in the test
     pub num_nodes_with_stake: usize,
     /// Total number of non-staked nodes in the test
@@ -78,6 +81,8 @@ pub struct TestDescription {
     pub builders: Vec1<BuilderDescription>,
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
+    /// nodes with byzantine behaviour
+    pub byzantine_nodes: Vec<(u64, Rc<Box<dyn EventTransformerState<TYPES, I>>>)>,
 }
 
 /// Describes a possible change to builder status during test
@@ -120,7 +125,7 @@ impl Default for TimingData {
     }
 }
 
-impl TestDescription {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
     /// the default metadata for a stress test
     #[must_use]
     #[allow(clippy::redundant_field_names)]
@@ -128,7 +133,7 @@ impl TestDescription {
         let num_nodes_with_stake = 100;
         let num_nodes_without_stake = 0;
 
-        TestDescription {
+        TestDescription::<TYPES, I> {
             num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
             num_nodes_without_stake,
@@ -149,17 +154,17 @@ impl TestDescription {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestDescription::default()
+            ..TestDescription::<TYPES, I>::default()
         }
     }
 
     /// the default metadata for multiple rounds
     #[must_use]
     #[allow(clippy::redundant_field_names)]
-    pub fn default_multiple_rounds() -> TestDescription {
+    pub fn default_multiple_rounds() -> Self {
         let num_nodes_with_stake = 10;
         let num_nodes_without_stake = 0;
-        TestDescription {
+        TestDescription::<TYPES, I> {
             // TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             num_bootstrap_nodes: num_nodes_with_stake,
@@ -180,17 +185,17 @@ impl TestDescription {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestDescription::default()
+            ..TestDescription::<TYPES, I>::default()
         }
     }
 
     /// Default setting with 20 nodes and 8 views of successful views.
     #[must_use]
     #[allow(clippy::redundant_field_names)]
-    pub fn default_more_nodes() -> TestDescription {
+    pub fn default_more_nodes() -> Self {
         let num_nodes_with_stake = 20;
         let num_nodes_without_stake = 0;
-        TestDescription {
+        TestDescription::<TYPES, I> {
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -215,12 +220,12 @@ impl TestDescription {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestDescription::default()
+            ..TestDescription::<TYPES, I>::default()
         }
     }
 }
 
-impl Default for TestDescription {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<TYPES, I> {
     /// by default, just a single round
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
@@ -261,23 +266,20 @@ impl Default for TestDescription {
                 // Default to a 10% error rate.
                 error_pct: 0.1,
             },
+            byzantine_nodes: vec![],
         }
     }
 }
 
-impl TestDescription {
+impl<TYPES: NodeType<InstanceState = TestInstanceState>, I: TestableNodeImplementation<TYPES>>
+    TestDescription<TYPES, I>
+{
     /// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
     #[must_use]
-    pub fn gen_launcher<
-        TYPES: NodeType<InstanceState = TestInstanceState>,
-        I: TestableNodeImplementation<TYPES>,
-    >(
-        self,
-        node_id: u64,
-    ) -> TestLauncher<TYPES, I> {
+    pub fn gen_launcher(self, node_id: u64) -> TestLauncher<TYPES, I> {
         let TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,

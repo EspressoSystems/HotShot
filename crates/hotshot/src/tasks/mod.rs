@@ -206,42 +206,18 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// Consensus <-> [Byzantine logic layer] <-> Network
 pub trait EventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>>
 where
-    Self: Sized + Send + Sync + 'static,
+    Self: std::fmt::Debug + Send + Sync + 'static,
 {
-    /// Initialize the state
-    fn new() -> Self;
-
     /// modify incoming messages from the network
-    fn transform_in(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
+    async fn transform_in(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
 
     /// modify outgoing messages from the network
-    fn transform_out(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
-
-    /// `transform_in`, but wrapping the state in an `Arc` lock
-    async fn transform_in_arc(
-        lock: Arc<RwLock<Self>>,
-        event: &HotShotEvent<TYPES>,
-    ) -> HotShotEvent<TYPES> {
-        let mut state = lock.write().await;
-
-        state.transform_in(event)
-    }
-
-    /// `transform_out`, but wrapping the state in an `Arc` lock
-    async fn transform_out_arc(
-        lock: Arc<RwLock<Self>>,
-        event: &HotShotEvent<TYPES>,
-    ) -> HotShotEvent<TYPES> {
-        let mut state = lock.write().await;
-
-        state.transform_out(event)
-    }
+    async fn transform_out(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
 
     /// Add byzantine network tasks with the trait
-    async fn add_network_tasks(handle: &mut SystemContextHandle<TYPES, I>) {
-        let state_in = Arc::new(RwLock::new(Self::new()));
+    async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I>) {
+        let state_in = Arc::new(RwLock::new(self));
         let state_out = Arc::clone(&state_in);
-
         // channel between the task spawned in this function and the network tasks.
         // with this, we can control exactly what events the network tasks see.
         let (sender, mut receiver) = broadcast(EVENT_CHANNEL_SIZE);
@@ -268,12 +244,10 @@ where
         let out_handle = async_spawn(async move {
             loop {
                 if let Ok(msg) = original_receiver.recv().await {
+                    let mut state = state_out.write().await;
+
                     let _ = sender
-                        .broadcast(
-                            Self::transform_out_arc(Arc::clone(&state_out), &msg)
-                                .await
-                                .into(),
-                        )
+                        .broadcast(state.transform_in(&msg).await.into())
                         .await;
                 }
             }
@@ -284,12 +258,10 @@ where
         let in_handle = async_spawn(async move {
             loop {
                 if let Ok(msg) = receiver.recv().await {
+                    let mut state = state_in.write().await;
+
                     let _ = original_sender
-                        .broadcast(
-                            Self::transform_in_arc(Arc::clone(&state_in), &msg)
-                                .await
-                                .into(),
-                        )
+                        .broadcast(state.transform_in(&msg).await.into())
                         .await;
                 }
             }
