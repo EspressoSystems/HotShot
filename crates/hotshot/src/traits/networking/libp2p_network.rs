@@ -21,7 +21,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{
         self, bounded, unbounded, Receiver as BoundedReceiver, Sender as BoundedSender,
-        UnboundedReceiver, UnboundedSender, TrySendError,
+        TrySendError, UnboundedReceiver, UnboundedSender,
     },
 };
 use async_lock::{Mutex, RwLock};
