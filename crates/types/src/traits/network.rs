@@ -344,7 +344,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     }
 
     /// queues lookup of a node
-    /// 
+    ///
     /// # Errors
     /// Does not error.
     fn queue_node_lookup(

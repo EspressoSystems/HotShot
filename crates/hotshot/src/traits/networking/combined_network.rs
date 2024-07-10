@@ -493,8 +493,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
     ) -> Result<(), TrySendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
-        self.primary()
-            .queue_node_lookup(view_number, pk.clone())?;
+        self.primary().queue_node_lookup(view_number, pk.clone())?;
         self.secondary().queue_node_lookup(view_number, pk)
     }
 
