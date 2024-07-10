@@ -557,16 +557,15 @@
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
 };
 
-<span class="kw">use crate</span>::{
-    builder::BuilderClient,
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -592,6 +591,12 @@
     vid::VidCommitment,
 };
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
+
+<span class="kw">use crate</span>::{
+    builder::BuilderClient,
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 
 <span class="comment">// Parameters for builder querying algorithm
 
@@ -727,7 +732,7 @@
                     {
                         <span class="prelude-val">None
                     </span>} <span class="kw">else </span>{
-                        <span class="self">self</span>.wait_for_block().<span class="kw">await
+                        <span class="self">self</span>.wait_for_block(block_view).<span class="kw">await
                     </span>}
                 };
 
@@ -814,10 +819,13 @@
     </span>}
 
     <span class="doccomment">/// Get last known builder commitment from consensus.
-    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view))]
-    </span><span class="kw">async fn </span>latest_known_vid_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (TYPES::Time, VidCommitment) {
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view))]
+    </span><span class="kw">async fn </span>latest_known_vid_commitment(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_view: TYPES::Time,
+    ) -&gt; (TYPES::Time, VidCommitment) {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>prev_view = TYPES::Time::new(<span class="self">self</span>.cur_view.saturating_sub(<span class="number">1</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>prev_view = TYPES::Time::new(block_view.saturating_sub(<span class="number">1</span>));
 
         <span class="comment">// Search through all previous views...
         </span><span class="kw">while </span>prev_view != TYPES::Time::genesis() {
@@ -844,12 +852,12 @@
         </span>(prev_view, consensus.decided_leaf().payload_commitment())
     }
 
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponses&lt;TYPES&gt;&gt; {
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block_view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponses&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
         <span class="comment">// Find commitment to the block we want to build upon
-        </span><span class="kw">let </span>(view_num, parent_comm) = <span class="self">self</span>.latest_known_vid_commitment().<span class="kw">await</span>;
+        </span><span class="kw">let </span>(view_num, parent_comm) = <span class="self">self</span>.latest_known_vid_commitment(block_view).<span class="kw">await</span>;
         <span class="kw">let </span>parent_comm_sig = <span class="kw">match </span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::sign(
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
             parent_comm.as_ref(),

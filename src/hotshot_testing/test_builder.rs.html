@@ -381,6 +381,18 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
@@ -459,6 +471,8 @@
     </span><span class="kw">pub </span>view_sync_properties: ViewSyncTaskDescription,
     <span class="doccomment">/// description of builders to run
     </span><span class="kw">pub </span>builders: Vec1&lt;BuilderDescription&gt;,
+    <span class="doccomment">/// description of the solver to run
+    </span><span class="kw">pub </span>solver: FakeSolverApiDescription,
 }
 
 <span class="doccomment">/// Describes a possible change to builder status during test
@@ -478,6 +492,12 @@
 </span><span class="kw">pub struct </span>BuilderDescription {
     <span class="doccomment">/// view number -&gt; change to builder status
     </span><span class="kw">pub </span>changes: HashMap&lt;u64, BuilderChange&gt;,
+}
+
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>FakeSolverApiDescription {
+    <span class="doccomment">/// The rate at which errors occur in the mock solver API
+    </span><span class="kw">pub </span>error_pct: f32,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>TimingData {
@@ -632,6 +652,10 @@
                     changes: HashMap::new()
                 }
             ],
+            solver: FakeSolverApiDescription {
+                <span class="comment">// Default to a 10% error rate.
+                </span>error_pct: <span class="number">0.1</span>,
+            },
         }
     }
 }

@@ -845,6 +845,9 @@
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -885,13 +888,13 @@
 };
 
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response
+</span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType&gt;(
     view: TYPES::Time,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
-    <span class="macro">tracing::debug!</span>(<span class="string">"Fetching proposal for view {:?}"</span>, view);
     <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = broadcast(<span class="number">1</span>);
     <span class="kw">let </span>event = ProposalMissing {
         view,
@@ -959,7 +962,7 @@
     </span><span class="kw">pub </span>included_txns: <span class="prelude-ty">Option</span>&lt;HashSet&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;&gt;,
 
     <span class="doccomment">/// The most recent upgrade certificate from one of the leaves.
-    </span><span class="kw">pub </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 }
 
 <span class="doccomment">/// We need Default to be implemented because the leaf ascension has very few failure branches,
@@ -975,7 +978,7 @@
             leaf_views: Vec::new(),
             leaves_decided: Vec::new(),
             included_txns: <span class="prelude-val">None</span>,
-            decided_upgrade_certificate: <span class="prelude-val">None</span>,
+            decided_upgrade_cert: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1073,7 +1076,7 @@
                             <span class="macro">warn!</span>(<span class="string">"Failed to decide an upgrade certificate in time. Ignoring."</span>);
                         } <span class="kw">else </span>{
                             <span class="macro">info!</span>(<span class="string">"Reached decide on upgrade certificate: {:?}"</span>, cert);
-                            res.decided_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
+                            res.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                         }
                     }
                 }
@@ -1125,6 +1128,7 @@
 }
 
 <span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
+</span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType&gt;(
     next_proposal_view_number: TYPES::Time,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1194,6 +1198,7 @@
 /// we merge the dependency tasks.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all, fields(id = id, view = <span class="kw-2">*</span>proposal.data.view_number()))]
 #[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 </span><span class="kw">pub async fn </span>temp_validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
@@ -1205,6 +1210,7 @@
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     sender: TYPES::SignatureKey,
     event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
+    id: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
 
