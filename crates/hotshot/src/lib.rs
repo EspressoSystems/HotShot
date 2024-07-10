@@ -1,22 +1,6 @@
 //! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
-// Documentation module
-#[cfg(feature = "docs")]
-pub mod documentation;
-
-use futures::future::{select, Either};
-use hotshot_types::traits::network::BroadcastDelay;
-use rand::Rng;
-use vbs::version::StaticVersionType;
-
-/// Contains traits consumed by [`SystemContext`]
-pub mod traits;
-/// Contains types used by the crate
-pub mod types;
-
-pub mod tasks;
-
 use std::{
     collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
@@ -29,12 +13,19 @@ use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
+use futures::future::{select, Either};
 use futures::join;
+// -- Rexports
+// External
+/// Reexport rand crate
+pub use rand;
+use rand::Rng;
+use tracing::{debug, instrument, trace};
+use vbs::version::StaticVersionType;
+use vbs::version::Version;
+
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
-// Internal
-/// Reexport error type
-pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
@@ -53,18 +44,27 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-// -- Rexports
-// External
-/// Reexport rand crate
-pub use rand;
-use tracing::{debug, instrument, trace};
-use vbs::version::Version;
+// Internal
+/// Reexport error type
+pub use hotshot_types::error::HotShotError;
+use hotshot_types::traits::network::BroadcastDelay;
 
 use crate::{
     tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
+
+// Documentation module
+#[cfg(feature = "docs")]
+pub mod documentation;
+
+/// Contains traits consumed by [`SystemContext`]
+pub mod traits;
+/// Contains types used by the crate
+pub mod types;
+
+pub mod tasks;
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -179,6 +179,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     ///
     /// # Errors
     /// -
+    /// @audit - INF - why are there two new methods? Also, if this is deprecated, why do we still
+    /// call it?
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         public_key: TYPES::SignatureKey,
@@ -193,6 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         auction_results_provider: I::AuctionResultsProvider,
     ) -> Arc<Self> {
         debug!("Creating a new hotshot");
+        // @audit - L - HotShotInitializer is not validated
 
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
@@ -210,6 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         // block header.
         let validated_state = match initializer.validated_state {
             Some(state) => state,
+            // @audit - INF - How do we guarantee that the anchored leaf is valid?
             None => Arc::new(TYPES::ValidatedState::from_header(
                 anchored_leaf.block_header(),
             )),
@@ -248,6 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             validated_state_map,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
+            // @audit - INF - Erroneous comment in code, locked QC is being stored.
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             anchored_leaf.view_number(),
@@ -295,6 +300,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Panics if sending genesis fails
     #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn start_consensus(&self) {
+        // @audit - L - This will never fire even when the dependency tasks are on!
         #[cfg(feature = "dependncy-tasks")]
         error!("HotShot is running with the dependency tasks feature enabled!!");
 
@@ -384,6 +390,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// Emit an external event
     // A copypasta of `ConsensusApi::send_event`
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
+    // @audit - L - Dead Code
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
         broadcast_event(event, &self.external_event_stream.0).await;
@@ -868,15 +875,19 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Starting view number that we are confident won't lead to a double vote after restart.
     start_view: TYPES::Time,
+
     /// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     high_qc: QuorumCertificate<TYPES>,
+
     /// Undecided leafs that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
     undecided_leafs: Vec<Leaf<TYPES>>,
+
     /// Not yet decided state
     undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
+
     /// Proposals we have sent out to provide to others for catchup
     saved_proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
 }

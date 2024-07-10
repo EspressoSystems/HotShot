@@ -2,13 +2,17 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{bail, Context, ensure, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
+use jf_vid::VidScheme;
+use tracing::{debug, error, info, instrument, trace, warn};
+use vbs::version::Version;
+
 use hotshot_task::{
     dependency::{AndDependency, Dependency, EventDependency, OrDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -33,11 +37,8 @@ use hotshot_types::{
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, trace, warn};
-use vbs::version::Version;
 
 use crate::{
     events::HotShotEvent,
@@ -264,7 +265,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
         let mut vid_share = None;
         for event in res {
             match event.as_ref() {
-                #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
@@ -273,6 +273,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                             return;
                         }
                     } else {
+                        // @audit - L - This only happens if there was already someone else who came
+                        // first and set the value. Therefore, we fail to check the payload commitment
+                        // for the event. So, if an offending event that has a different commitment
+                        // to the other events comes along, those will be wrong when it was actually
+                        // the offending event
                         payload_commitment = Some(proposal_payload_comm);
                     }
                     let parent_commitment = parent_leaf.commit();
@@ -568,6 +573,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
                 trace!("Received Proposal for view {}", *proposal.view_number());
 
+                // @audit - M - Failure to validate a quorum proposal does not result in a vote
+                // failure
                 // Handle the event before creating the dependency task.
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, &event_sender, self).await

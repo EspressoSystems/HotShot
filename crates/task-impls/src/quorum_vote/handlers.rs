@@ -5,6 +5,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_broadcast::Sender;
 use chrono::Utc;
+use tracing::{debug, instrument};
+
 use hotshot_types::{
     consensus::OuterConsensus,
     data::QuorumProposal,
@@ -12,13 +14,13 @@ use hotshot_types::{
     traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     vote::HasViewNumber,
 };
-use tracing::{debug, instrument};
 
-use super::QuorumVoteTaskState;
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
 };
+
+use super::QuorumVoteTaskState;
 
 /// Handles the `QuorumProposalValidated` event.
 #[instrument(skip_all)]
@@ -72,7 +74,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
     #[allow(clippy::cast_precision_loss)]
     if let Some(decided_view_number) = new_decided_view_number {
         // Bring in the cleanup crew. When a new decide is indeed valid, we need to clear out old memory.
-
+        // @audit - L -
         let old_decided_view = consensus_writer.last_decided_view();
         consensus_writer.collect_garbage(old_decided_view, decided_view_number);
 
