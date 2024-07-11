@@ -82,7 +82,15 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
-    pub byzantine_nodes: Vec<(u64, Rc<Box<dyn EventTransformerState<TYPES, I>>>)>,
+    pub byzantine_nodes: fn(u64) -> ByzantineBehaviour<TYPES, I>,
+}
+
+#[derive(Clone, Debug)]
+pub enum ByzantineBehaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    TwinsRandom,
+    TwinsBoth,
+    InterceptNetwork(Rc<Box<dyn EventTransformerState<TYPES, I>>>),
+    None,
 }
 
 /// Describes a possible change to builder status during test
@@ -266,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 // Default to a 10% error rate.
                 error_pct: 0.1,
             },
-            byzantine_nodes: vec![],
+            byzantine_nodes: |_| ByzantineBehaviour::None,
         }
     }
 }
