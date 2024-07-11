@@ -3,13 +3,16 @@ use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Dura
 use hotshot::{
     tasks::EventTransformerState,
     traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
+    types::SystemContextHandle,
+    HotShotInitializer, Memberships, SystemContext, TwinsHandlerState,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
     storage_types::TestStorage,
 };
 use hotshot_types::{
-    traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
+    consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
+    HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
 use vec1::Vec1;
@@ -21,7 +24,7 @@ use super::{
 };
 use crate::{
     spinning_task::SpinningTaskDescription,
-    test_launcher::{ResourceGenerators, TestLauncher},
+    test_launcher::{Network, ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
 };
 /// data describing how a round should be timed.
@@ -82,15 +85,96 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
-    pub byzantine_nodes: fn(u64) -> ByzantineBehaviour<TYPES, I>,
+    pub byzantine_nodes: Rc<fn(u64) -> ByzantineBehaviour<TYPES, I>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum ByzantineBehaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    TwinsRandom,
-    TwinsBoth,
-    InterceptNetwork(Rc<Box<dyn EventTransformerState<TYPES, I>>>),
+    Twins(&'static mut Box<dyn TwinsHandlerState<TYPES, I>>),
+    Single(&'static mut Box<dyn EventTransformerState<TYPES, I>>),
     None,
+}
+
+pub async fn create_test_handle<
+    TYPES: NodeType<InstanceState = TestInstanceState>,
+    I: NodeImplementation<TYPES>,
+>(
+    behaviour: ByzantineBehaviour<TYPES, I>,
+    node_id: u64,
+    network: Network<TYPES, I>,
+    memberships: Memberships<TYPES>,
+    initializer: HotShotInitializer<TYPES>,
+    config: HotShotConfig<TYPES::SignatureKey>,
+    validator_config: ValidatorConfig<TYPES::SignatureKey>,
+    storage: I::Storage,
+    auction_results_provider: I::AuctionResultsProvider,
+) -> SystemContextHandle<TYPES, I> {
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+        .await
+        .unwrap();
+
+    // See whether or not we should be DA
+    let is_da = node_id < config.da_staked_committee_size as u64;
+
+    let validator_config: ValidatorConfig<TYPES::SignatureKey> =
+        ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
+
+    // Get key pair for certificate aggregation
+    let private_key = validator_config.private_key.clone();
+    let public_key = validator_config.public_key.clone();
+
+    match behaviour {
+        ByzantineBehaviour::Twins(state) => {
+            let (left_handle, right_handle) = state
+                .spawn_twin_handles(
+                    public_key,
+                    private_key,
+                    node_id,
+                    config,
+                    memberships,
+                    network,
+                    initializer,
+                    ConsensusMetricsValue::default(),
+                    storage,
+                    auction_results_provider,
+                )
+                .await;
+
+            left_handle
+        }
+        ByzantineBehaviour::Single(state) => {
+            state
+                .spawn_handle(
+                    public_key,
+                    private_key,
+                    node_id,
+                    config,
+                    memberships,
+                    network,
+                    initializer,
+                    ConsensusMetricsValue::default(),
+                    storage,
+                    auction_results_provider,
+                )
+                .await
+        }
+        ByzantineBehaviour::None => {
+            let hotshot = SystemContext::<TYPES, I>::new(
+                public_key,
+                private_key,
+                node_id,
+                config,
+                memberships,
+                network,
+                initializer,
+                ConsensusMetricsValue::default(),
+                storage,
+                auction_results_provider,
+            );
+
+            hotshot.run_tasks().await
+        }
+    }
 }
 
 /// Describes a possible change to builder status during test
@@ -274,7 +358,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 // Default to a 10% error rate.
                 error_pct: 0.1,
             },
-            byzantine_nodes: |_| ByzantineBehaviour::None,
+            byzantine_nodes: Rc::new(|_| ByzantineBehaviour::None),
         }
     }
 }

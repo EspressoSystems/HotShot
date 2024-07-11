@@ -429,19 +429,53 @@ where
 
             networks_ready.push(networks_ready_future);
 
-            if self.launcher.metadata.skip_late && late_start.contains(&node_id) {
-                self.late_start.insert(
-                    node_id,
-                    LateStartNode {
-                        network,
-                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
-                            storage,
-                            memberships,
-                            config,
-                            auction_results_provider,
-                        }),
-                    },
-                );
+            if late_start.contains(&node_id) {
+                if self.launcher.metadata.skip_late {
+                    self.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            network,
+                            context: LateNodeContext::UninitializedContext(
+                                LateNodeContextParameters {
+                                    storage,
+                                    memberships,
+                                    config,
+                                    auction_results_provider,
+                                },
+                            ),
+                        },
+                    );
+                } else {
+                    let initializer =
+                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+                            .await
+                            .unwrap();
+
+                    // See whether or not we should be DA
+                    let is_da = node_id < config.da_staked_committee_size as u64;
+
+                    // We assign node's public key and stake value rather than read from config file since it's a test
+                    let validator_config =
+                        ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
+                    let hotshot = Self::add_node_with_config(
+                        node_id,
+                        network.clone(),
+                        memberships,
+                        initializer,
+                        config,
+                        validator_config,
+                        storage,
+                        auction_results_provider,
+                    )
+                    .await;
+                    self.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            network,
+                            context: LateNodeContext::InitializedContext(hotshot),
+                        },
+                    );
+                }
             } else {
                 let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
                     .await
@@ -464,17 +498,7 @@ where
                     auction_results_provider,
                 )
                 .await;
-                if late_start.contains(&node_id) {
-                    self.late_start.insert(
-                        node_id,
-                        LateStartNode {
-                            network,
-                            context: LateNodeContext::InitializedContext(hotshot),
-                        },
-                    );
-                } else {
-                    uninitialized_nodes.push((node_id, network, hotshot));
-                }
+                uninitialized_nodes.push((node_id, network, hotshot));
             }
 
             results.push(node_id);

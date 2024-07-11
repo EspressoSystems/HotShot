@@ -40,7 +40,11 @@ use hotshot_types::{
 };
 use vbs::version::StaticVersionType;
 
-use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer, Memberships,
+    NetworkTaskRegistry, SignatureKey, SystemContext,
+};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -213,6 +217,55 @@ where
 
     /// modify outgoing messages from the network
     async fn transform_out(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
+
+    /// Creates a `SystemContextHandle` with the given even transformer
+    async fn spawn_handle(
+        &'static mut self,
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        nonce: u64,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        memberships: Memberships<TYPES>,
+        network: Arc<I::Network>,
+        initializer: HotShotInitializer<TYPES>,
+        metrics: ConsensusMetricsValue,
+        storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
+    ) -> SystemContextHandle<TYPES, I> {
+        let hotshot = SystemContext::new(
+            public_key,
+            private_key,
+            nonce,
+            config,
+            memberships,
+            network,
+            initializer,
+            metrics,
+            storage,
+            auction_results_provider,
+        );
+        let consensus_registry = ConsensusTaskRegistry::new();
+        let network_registry = NetworkTaskRegistry::new();
+
+        let output_event_stream = hotshot.external_event_stream.clone();
+        let internal_event_stream = hotshot.internal_event_stream.clone();
+
+        let mut handle = SystemContextHandle {
+            consensus_registry,
+            network_registry,
+            output_event_stream: output_event_stream.clone(),
+            internal_event_stream: internal_event_stream.clone(),
+            hotshot: hotshot.clone().into(),
+            storage: Arc::clone(&hotshot.storage),
+            network: Arc::clone(&hotshot.network),
+            memberships: Arc::clone(&hotshot.memberships),
+        };
+
+        add_consensus_tasks::<TYPES, I>(&mut handle).await;
+        self.add_network_tasks(&mut handle).await;
+
+        handle
+    }
 
     /// Add byzantine network tasks with the trait
     async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I>) {
