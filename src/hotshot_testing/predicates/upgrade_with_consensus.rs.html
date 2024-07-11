@@ -80,7 +80,7 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>Predicate&lt;ConsensusTaskTestState&gt; <span class="kw">for </span>UpgradeCertPredicate {
     <span class="kw">async fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span>ConsensusTaskTestState) -&gt; PredicateResult {
-        <span class="kw">let </span>upgrade_cert = input.decided_upgrade_cert.clone();
+        <span class="kw">let </span>upgrade_cert = input.decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
         PredicateResult::from((<span class="self">self</span>.check)(upgrade_cert.into()))
     }
 
@@ -89,14 +89,14 @@
     }
 }
 
-<span class="kw">pub fn </span>no_decided_upgrade_cert() -&gt; Box&lt;UpgradeCertPredicate&gt; {
-    <span class="kw">let </span>info = <span class="string">"expected decided_upgrade_cert to be None"</span>.to_string();
+<span class="kw">pub fn </span>no_decided_upgrade_certificate() -&gt; Box&lt;UpgradeCertPredicate&gt; {
+    <span class="kw">let </span>info = <span class="string">"expected decided_upgrade_certificate to be None"</span>.to_string();
     <span class="kw">let </span>check: UpgradeCertCallback = Arc::new(<span class="kw">move </span>|s| s.is_none());
     Box::new(UpgradeCertPredicate { info, check })
 }
 
-<span class="kw">pub fn </span>decided_upgrade_cert() -&gt; Box&lt;UpgradeCertPredicate&gt; {
-    <span class="kw">let </span>info = <span class="string">"expected decided_upgrade_cert to be Some(_)"</span>.to_string();
+<span class="kw">pub fn </span>decided_upgrade_certificate() -&gt; Box&lt;UpgradeCertPredicate&gt; {
+    <span class="kw">let </span>info = <span class="string">"expected decided_upgrade_certificate to be Some(_)"</span>.to_string();
     <span class="kw">let </span>check: UpgradeCertCallback = Arc::new(<span class="kw">move </span>|s| s.is_some());
     Box::new(UpgradeCertPredicate { info, check })
 }

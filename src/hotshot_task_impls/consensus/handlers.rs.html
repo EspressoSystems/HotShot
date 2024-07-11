@@ -824,6 +824,7 @@
 <a href="#822" id="822">822</a>
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>core::time::Duration;
@@ -865,9 +866,9 @@
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::{
-        broadcast_event, decide_from_proposal, fetch_proposal, parent_leaf_and_state,
-        temp_validate_proposal_safety_and_liveness, update_view, validate_proposal_view_and_certs,
-        AnyhowTracing, SEND_VIEW_CHANGE_EVENT,
+        broadcast_event, decide_from_proposal, fetch_proposal, parent_leaf_and_state, update_view,
+        validate_proposal_safety_and_liveness, validate_proposal_view_and_certs, AnyhowTracing,
+        SEND_VIEW_CHANGE_EVENT,
     },
 };
 
@@ -982,7 +983,7 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     delay: u64,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -1008,11 +1009,14 @@
         .upgrade_certificate()
         .or(formed_upgrade_certificate);
 
-    <span class="kw">if </span>!proposal_upgrade_certificate
-        .clone()
-        .is_some_and(|cert| cert.temp_is_relevant(view, decided_upgrade_cert).is_ok())
-    {
-        proposal_upgrade_certificate = <span class="prelude-val">None</span>;
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = proposal_upgrade_certificate.clone() {
+        <span class="kw">if </span>cert
+            .is_relevant(view, Arc::clone(<span class="kw-2">&amp;</span>decided_upgrade_certificate))
+            .<span class="kw">await
+            </span>.is_err()
+        {
+            proposal_upgrade_certificate = <span class="prelude-val">None</span>;
+        }
     }
 
     <span class="comment">// We only want to proposal to be attached if any of them are valid.
@@ -1056,7 +1060,7 @@
 }
 
 <span class="doccomment">/// Publishes a proposal if there exists a value which we can propose from. Specifically, we must have either
-/// `commitment_and_metadata`, or a `decided_upgrade_cert`.
+/// `commitment_and_metadata`, or a `decided_upgrade_certificate`.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
 </span><span class="kw">pub async fn </span>publish_proposal_if_able&lt;TYPES: NodeType&gt;(
@@ -1068,7 +1072,7 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     delay: u64,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -1084,7 +1088,7 @@
         consensus,
         delay,
         formed_upgrade_certificate,
-        decided_upgrade_cert,
+        decided_upgrade_certificate,
         commitment_and_metadata,
         proposal_cert,
         instance_state,
@@ -1280,7 +1284,7 @@
                     OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
                     task_state.round_start_delay,
                     task_state.formed_upgrade_certificate.clone(),
-                    task_state.decided_upgrade_cert.clone(),
+                    Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
                     task_state.payload_commitment_and_metadata.clone(),
                     task_state.proposal_cert.clone(),
                     Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
@@ -1307,11 +1311,11 @@
         .entry(proposal.data.view_number())
         .or_default()
         .push(async_spawn(
-            temp_validate_proposal_safety_and_liveness(
+            validate_proposal_safety_and_liveness(
                 proposal.clone(),
                 parent_leaf,
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
-                task_state.decided_upgrade_cert.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
                 Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
                 view_leader_key,
                 event_stream.clone(),
@@ -1338,14 +1342,12 @@
     <span class="kw">let </span>res = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
-        <span class="kw-2">&amp;</span>task_state.decided_upgrade_cert,
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
         <span class="kw-2">&amp;</span>task_state.public_key,
     )
     .<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = res.decided_upgrade_cert {
-        task_state.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
-
         <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state.decided_upgrade_certificate.write().<span class="kw">await</span>;
         <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
         drop(decided_certificate_lock);
@@ -1447,7 +1449,7 @@
 /// sending the vote.
 </span><span class="kw">type </span>VoteInfo&lt;TYPES&gt; = (
     &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;,
     Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 );
@@ -1491,7 +1493,7 @@
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
 
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span>vote_info.<span class="number">1 </span>{
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span>vote_info.<span class="number">1</span>.read().<span class="kw">await</span>.clone() {
         <span class="kw">if </span>upgrade_cert.upgrading_in(cur_view)
             &amp;&amp; <span class="prelude-val">Some</span>(proposal.block_header.payload_commitment())
                 != null_block::commitment(quorum_membership.total_nodes())

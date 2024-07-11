@@ -748,9 +748,6 @@
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -866,9 +863,6 @@
     <span class="doccomment">/// last View Sync Certificate or Timeout Certificate this node formed.
     </span><span class="kw">pub </span>proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// most recent decided upgrade certificate
-    </span><span class="kw">pub </span>decided_upgrade_cert: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// Globally shared reference to the current network version.
     </span><span class="kw">pub </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
 
@@ -964,7 +958,7 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="self">self</span>.round_start_delay,
             <span class="self">self</span>.formed_upgrade_certificate.clone(),
-            <span class="self">self</span>.decided_upgrade_cert.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
             <span class="self">self</span>.payload_commitment_and_metadata.clone(),
             <span class="self">self</span>.proposal_cert.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
@@ -995,7 +989,7 @@
         <span class="kw">if </span>proposal.view_number() != view {
             <span class="kw">return</span>;
         }
-        <span class="kw">let </span>upgrade = <span class="self">self</span>.decided_upgrade_cert.clone();
+        <span class="kw">let </span>upgrade = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate);
         <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
         <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
         <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
@@ -1253,7 +1247,7 @@
 
                 <span class="comment">// If we have a decided upgrade certificate,
                 // we may need to upgrade the protocol version on a view change.
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) = <span class="self">self</span>.decided_upgrade_cert {
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone() {
                     <span class="kw">if </span>new_view == cert.data.new_version_first_view {
                         <span class="macro">warn!</span>(
                             <span class="string">"Updating version based on a decided upgrade cert: {:?}"</span>,

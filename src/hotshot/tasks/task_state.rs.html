@@ -389,7 +389,6 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -621,7 +620,6 @@
             spawned_tasks: BTreeMap::new(),
             formed_upgrade_certificate: <span class="prelude-val">None</span>,
             proposal_cert: <span class="prelude-val">None</span>,
-            decided_upgrade_cert: <span class="prelude-val">None</span>,
             version: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.version),
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             current_proposal: <span class="prelude-val">None</span>,
