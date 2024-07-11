@@ -1102,6 +1102,7 @@
 <a href="#1100" id="1100">1100</a>
 <a href="#1101" id="1101">1101</a>
 <a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1122,7 +1123,10 @@
 <span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::{<span class="self">self</span>, bounded, unbounded, UnboundedReceiver, UnboundedSendError, UnboundedSender},
+    channel::{
+        <span class="self">self</span>, bounded, unbounded, Receiver <span class="kw">as </span>BoundedReceiver, Sender <span class="kw">as </span>BoundedSender,
+        TrySendError, UnboundedReceiver, UnboundedSender,
+    },
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
@@ -1251,7 +1255,7 @@
     <span class="doccomment">/// Sender for broadcast messages
     </span>sender: UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
-    </span>node_lookup_send: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
+    </span>node_lookup_send: BoundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
@@ -1621,7 +1625,7 @@
         // if bounded figure out a way to log dropped msgs
         </span><span class="kw">let </span>(sender, receiver) = unbounded();
         <span class="kw">let </span>(requests_tx, requests_rx) = channel(<span class="number">100</span>);
-        <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = unbounded();
+        <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = bounded(<span class="number">10</span>);
         <span class="kw">let </span>(kill_tx, kill_rx) = bounded(<span class="number">1</span>);
         rx.set_kill_switch(kill_rx);
 
@@ -1661,7 +1665,7 @@
 
     <span class="doccomment">/// Spawns task for looking up nodes pre-emptively
     </span><span class="attr">#[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    </span><span class="kw">fn </span>spawn_node_lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, node_lookup_recv: UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;) {
+    </span><span class="kw">fn </span>spawn_node_lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>node_lookup_recv: BoundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;) {
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
         <span class="kw">let </span>latest_seen_view = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.latest_seen_view);
@@ -2179,16 +2183,15 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::queue_node_lookup"</span>, skip_all)]
-    </span><span class="kw">async fn </span>queue_node_lookup(
+    </span><span class="kw">fn </span>queue_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: ViewNumber,
         pk: K,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;&gt; {
         <span class="self">self</span>.inner
             .node_lookup_send
-            .send(<span class="prelude-val">Some</span>((view_number, pk)))
-            .<span class="kw">await
-    </span>}
+            .try_send(<span class="prelude-val">Some</span>((view_number, pk)))
+    }
 
     <span class="doccomment">/// handles view update
     </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
@@ -2200,8 +2203,7 @@
 
         <span class="kw">let _ </span>= <span class="self">self
             </span>.queue_node_lookup(ViewNumber::new(<span class="kw-2">*</span>future_view), future_leader)
-            .<span class="kw">await
-            </span>.map_err(|err| <span class="macro">tracing::warn!</span>(<span class="string">"failed to process node lookup request: {err}"</span>));
+            .map_err(|err| <span class="macro">tracing::warn!</span>(<span class="string">"failed to process node lookup request: {err}"</span>));
     }
 }
 </code></pre></div></section></main></body></html>

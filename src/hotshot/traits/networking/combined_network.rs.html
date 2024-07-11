@@ -527,8 +527,6 @@
 <a href="#525" id="525">525</a>
 <a href="#526" id="526">526</a>
 <a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span>std::{
@@ -546,7 +544,7 @@
 <span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::UnboundedSendError,
+    channel::TrySendError,
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -1019,16 +1017,14 @@
         <span class="prelude-val">Ok</span>(filtered_msgs)
     }
 
-    <span class="kw">async fn </span>queue_node_lookup(
+    <span class="kw">fn </span>queue_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
-        <span class="self">self</span>.primary()
-            .queue_node_lookup(view_number, pk.clone())
-            .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="self">self</span>.secondary().queue_node_lookup(view_number, pk).<span class="kw">await
-    </span>}
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
+        <span class="self">self</span>.primary().queue_node_lookup(view_number, pk.clone())<span class="question-mark">?</span>;
+        <span class="self">self</span>.secondary().queue_node_lookup(view_number, pk)
+    }
 
     <span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, membership: <span class="kw-2">&amp;</span>T::Membership)
     <span class="kw">where

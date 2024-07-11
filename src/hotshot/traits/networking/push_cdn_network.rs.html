@@ -573,7 +573,7 @@
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::{path::Path, time::Duration};
 
-<span class="kw">use </span>async_compatibility_layer::channel::UnboundedSendError;
+<span class="kw">use </span>async_compatibility_layer::channel::TrySendError;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>async_compatibility_layer::{art::async_sleep, art::async_spawn};
 <span class="kw">use </span>async_trait::async_trait;
@@ -1126,11 +1126,11 @@
     }
 
     <span class="doccomment">/// Do nothing here, as we don't need to look up nodes.
-    </span><span class="kw">async fn </span>queue_node_lookup(
+    </span><span class="kw">fn </span>queue_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: ViewNumber,
         _pk: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), UnboundedSendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 }
