@@ -90,9 +90,9 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[derive(Debug)]
 pub enum Behaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    Twins(&'static mut Box<dyn TwinsHandlerState<TYPES, I>>),
-    Single(&'static mut Box<dyn EventTransformerState<TYPES, I>>),
-    None,
+    ByzantineTwins(&'static mut Box<dyn TwinsHandlerState<TYPES, I>>),
+    Byzantine(&'static mut Box<dyn EventTransformerState<TYPES, I>>),
+    Standard,
 }
 
 pub async fn create_test_handle<
@@ -122,7 +122,7 @@ pub async fn create_test_handle<
     let public_key = validator_config.public_key.clone();
 
     match behaviour {
-        Behaviour::Twins(state) => {
+        Behaviour::ByzantineTwins(state) => {
             let (left_handle, _right_handle) = state
                 .spawn_twin_handles(
                     public_key,
@@ -140,7 +140,7 @@ pub async fn create_test_handle<
 
             left_handle
         }
-        Behaviour::Single(state) => {
+        Behaviour::Byzantine(state) => {
             state
                 .spawn_handle(
                     public_key,
@@ -156,7 +156,7 @@ pub async fn create_test_handle<
                 )
                 .await
         }
-        Behaviour::None => {
+        Behaviour::Standard => {
             let hotshot = SystemContext::<TYPES, I>::new(
                 public_key,
                 private_key,
@@ -356,7 +356,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 // Default to a 10% error rate.
                 error_pct: 0.1,
             },
-            behaviour: Rc::new(|_| Behaviour::None),
+            behaviour: Rc::new(|_| Behaviour::Standard),
         }
     }
 }

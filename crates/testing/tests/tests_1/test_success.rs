@@ -39,8 +39,8 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| { match node_id {
-          1 => Behaviour::Single(Box::leak(Box::new(Box::new(DoubleProposeVote)))),
-          _ => Behaviour::None,
+          1 => Behaviour::Byzantine(Box::leak(Box::new(Box::new(DoubleProposeVote)))),
+          _ => Behaviour::Standard,
           } });
 
         TestDescription {
