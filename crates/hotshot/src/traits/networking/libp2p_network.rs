@@ -394,10 +394,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let mut config_builder = NetworkNodeConfigBuilder::default();
 
         config_builder
-            .replication_factor(
-                NonZeroUsize::new(config.config.num_nodes_with_stake.get() - 2)
-                    .expect("failed to calculate replication factor"),
-            )
             .server_mode(libp2p_config.server_mode)
             .identity(keypair)
             .bound_addr(Some(bind_address.clone()))
@@ -452,11 +448,16 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     /// Returns when network is ready
     pub async fn wait_for_ready(&self) {
         loop {
-            if self.inner.is_ready.load(Ordering::Relaxed) {
+            if self.is_ready() {
                 break;
             }
             async_sleep(Duration::from_secs(1)).await;
         }
+    }
+
+    /// Returns whether or not the network is currently ready.
+    pub fn is_ready(&self) -> bool {
+        self.inner.is_ready.load(Ordering::Relaxed)
     }
 
     /// Constructs new network for a node. Note that this network is unconnected.
@@ -596,7 +597,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let bootstrap_ref = Arc::clone(&self.inner.bootstrap_addrs);
         let handle = Arc::clone(&self.inner.handle);
         let is_bootstrapped = Arc::clone(&self.inner.is_bootstrapped);
-        let node_type = self.inner.handle.config().node_type;
         let is_da = self.inner.is_da;
 
         async_spawn({
@@ -604,31 +604,23 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             async move {
                 let bs_addrs = bootstrap_ref.read().await.clone();
 
-                debug!("Finished adding bootstrap addresses.");
+                // Add known peers to the network
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
+                // Begin the bootstrap process
                 handle.begin_bootstrap().await?;
-
                 while !is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
                     handle.begin_bootstrap().await?;
                 }
 
+                // Subscribe to the QC topic
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
-                // only subscribe to DA events if we are DA
+                // Only subscribe to DA events if we are DA
                 if is_da {
                     handle.subscribe("DA".to_string()).await.unwrap();
                 }
-                // TODO figure out some way of passing in ALL keypairs. That way we can add the
-                // global topic to the topic map
-                // NOTE this wont' work without this change
-
-                info!(
-                    "peer {:?} waiting for publishing, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
 
                 // we want our records published before
                 // we begin participating in consensus
@@ -645,11 +637,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-                info!(
-                    "Node {:?} is ready, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
 
                 while handle
                     .put_record(
@@ -661,14 +648,15 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-                // perform connection
-                info!("WAITING TO CONNECT ON NODE {:?}", id);
+
+                error!("Finished putting Kademlia records");
 
                 // Wait for the network to connect to the required number of peers
                 if let Err(e) = handle.wait_to_connect(4, id).await {
                     error!("Failed to connect to peers: {:?}", e);
                     return Err::<(), NetworkError>(e.into());
                 }
+                error!("Connected to required number of peers");
 
                 is_ready.store(true, Ordering::Relaxed);
                 Ok::<(), NetworkError>(())
@@ -788,7 +776,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         request: Vec<u8>,
         recipient: &K,
     ) -> Result<Vec<u8>, NetworkError> {
-        self.wait_for_ready().await;
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            return Err(NetworkError::NotReady);
+        };
 
         let pid = match self
             .inner
@@ -903,12 +894,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         recipients: BTreeSet<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.wait_for_ready().await;
-        trace!(
-            "broadcasting msg: {:?} with nodes: {:?} connected",
-            message,
-            self.inner.handle.connected_pids().await
-        );
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            return Err(NetworkError::NotReady);
+        };
 
         let topic_map = self.inner.topic_map.read().await;
         let topic = topic_map
@@ -970,6 +959,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         recipients: BTreeSet<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            return Err(NetworkError::NotReady);
+        };
+
         let future_results = recipients
             .into_iter()
             .map(|r| self.direct_message(message.clone(), r));
@@ -992,6 +986,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
     async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            return Err(NetworkError::NotReady);
+        };
+
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
@@ -1002,8 +1001,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 .map_err(|_x| NetworkError::ShutDown)?;
             return Ok(());
         }
-
-        self.wait_for_ready().await;
 
         let pid = match self
             .inner
