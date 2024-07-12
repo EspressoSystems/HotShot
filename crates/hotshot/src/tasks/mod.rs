@@ -271,13 +271,25 @@ where
     async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I>) {
         let state_in = Arc::new(RwLock::new(self));
         let state_out = Arc::clone(&state_in);
-        // channel between the task spawned in this function and the network tasks.
+        // channels between the task spawned in this function and the network tasks.
         // with this, we can control exactly what events the network tasks see.
-        let (sender, mut receiver) = broadcast(EVENT_CHANNEL_SIZE);
+
+        // channel to the network task
+        let (sender_to_network, mut network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+        // channel from the network task
+        let (network_task_sender, mut receiver_from_network) = broadcast(EVENT_CHANNEL_SIZE);
+        // create a copy of the original receiver
+        let (original_sender, mut original_receiver) = (
+            handle.internal_event_stream.0.clone(),
+            handle.internal_event_stream.1.activate_cloned(),
+        );
 
         // replace the internal event stream with the one we just created,
         // so that the network tasks are spawned with our channel.
-        let mut internal_event_stream = (sender.clone(), receiver.clone().deactivate());
+        let mut internal_event_stream = (
+            network_task_sender.clone(),
+            network_task_receiver.clone().deactivate(),
+        );
         std::mem::swap(
             &mut internal_event_stream,
             &mut handle.internal_event_stream,
@@ -286,10 +298,9 @@ where
         // spawn the network tasks with our newly-created channel
         add_network_tasks::<TYPES, I>(handle).await;
 
-        // create a copy of the original receiver
-        let (original_sender, mut original_receiver) = (
-            internal_event_stream.0.clone(),
-            internal_event_stream.1.activate_cloned(),
+        std::mem::swap(
+            &mut internal_event_stream,
+            &mut handle.internal_event_stream,
         );
 
         // spawn a task to listen on the (original) internal event stream,
@@ -302,7 +313,7 @@ where
                     let mut results = state.send_handler(&msg).await;
 
                     while let Some(event) = results.pop() {
-                        let _ = sender.broadcast(event.into()).await;
+                        let _ = sender_to_network.broadcast(event.into()).await;
                     }
                 }
             }
@@ -312,7 +323,7 @@ where
         // and broadcast the transformed events to the original internal event stream
         let recv_handle = async_spawn(async move {
             loop {
-                if let Ok(msg) = receiver.recv().await {
+                if let Ok(msg) = receiver_from_network.recv().await {
                     let mut state = state_in.write().await;
 
                     let mut results = state.recv_handler(&msg).await;
@@ -326,12 +337,6 @@ where
 
         handle.network_registry.register(send_handle);
         handle.network_registry.register(recv_handle);
-
-        // put the old channel back.
-        std::mem::swap(
-            &mut internal_event_stream,
-            &mut handle.internal_event_stream,
-        );
     }
 }
 
