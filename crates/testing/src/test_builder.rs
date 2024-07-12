@@ -90,8 +90,8 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[derive(Debug)]
 pub enum Behaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    ByzantineTwins(&'static mut Box<dyn TwinsHandlerState<TYPES, I>>),
-    Byzantine(&'static mut Box<dyn EventTransformerState<TYPES, I>>),
+    ByzantineTwins(Box<dyn TwinsHandlerState<TYPES, I>>),
+    Byzantine(Box<dyn EventTransformerState<TYPES, I>>),
     Standard,
 }
 
@@ -123,6 +123,7 @@ pub async fn create_test_handle<
 
     match behaviour {
         Behaviour::ByzantineTwins(state) => {
+            let state = Box::leak(state);
             let (left_handle, _right_handle) = state
                 .spawn_twin_handles(
                     public_key,
@@ -141,6 +142,7 @@ pub async fn create_test_handle<
             left_handle
         }
         Behaviour::Byzantine(state) => {
+            let state = Box::leak(state);
             state
                 .spawn_handle(
                     public_key,
