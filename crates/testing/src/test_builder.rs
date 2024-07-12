@@ -85,11 +85,11 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
-    pub byzantine_nodes: Rc<fn(u64) -> ByzantineBehaviour<TYPES, I>>,
+    pub behaviour: Rc<fn(u64) -> Behaviour<TYPES, I>>,
 }
 
 #[derive(Debug)]
-pub enum ByzantineBehaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub enum Behaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     Twins(&'static mut Box<dyn TwinsHandlerState<TYPES, I>>),
     Single(&'static mut Box<dyn EventTransformerState<TYPES, I>>),
     None,
@@ -99,7 +99,7 @@ pub async fn create_test_handle<
     TYPES: NodeType<InstanceState = TestInstanceState>,
     I: NodeImplementation<TYPES>,
 >(
-    behaviour: ByzantineBehaviour<TYPES, I>,
+    behaviour: Behaviour<TYPES, I>,
     node_id: u64,
     network: Network<TYPES, I>,
     memberships: Memberships<TYPES>,
@@ -122,7 +122,7 @@ pub async fn create_test_handle<
     let public_key = validator_config.public_key.clone();
 
     match behaviour {
-        ByzantineBehaviour::Twins(state) => {
+        Behaviour::Twins(state) => {
             let (left_handle, right_handle) = state
                 .spawn_twin_handles(
                     public_key,
@@ -140,7 +140,7 @@ pub async fn create_test_handle<
 
             left_handle
         }
-        ByzantineBehaviour::Single(state) => {
+        Behaviour::Single(state) => {
             state
                 .spawn_handle(
                     public_key,
@@ -156,7 +156,7 @@ pub async fn create_test_handle<
                 )
                 .await
         }
-        ByzantineBehaviour::None => {
+        Behaviour::None => {
             let hotshot = SystemContext::<TYPES, I>::new(
                 public_key,
                 private_key,
@@ -356,7 +356,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 // Default to a 10% error rate.
                 error_pct: 0.1,
             },
-            byzantine_nodes: Rc::new(|_| ByzantineBehaviour::None),
+            behaviour: Rc::new(|_| Behaviour::None),
         }
     }
 }

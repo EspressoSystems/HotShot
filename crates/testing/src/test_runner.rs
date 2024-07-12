@@ -497,7 +497,7 @@ where
         for (node_id, network, memberships, storage, auction_results_provider) in
             uninitialized_nodes
         {
-            let behaviour = (self.launcher.metadata.byzantine_nodes)(node_id);
+            let behaviour = (self.launcher.metadata.behaviour)(node_id);
             let handle = create_test_handle(
                 behaviour,
                 node_id,
