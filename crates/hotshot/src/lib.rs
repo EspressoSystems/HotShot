@@ -621,8 +621,11 @@ where
         let (left_sender, mut left_receiver) = (left.0, left.1);
         let (right_sender, mut right_receiver) = (right.0, right.1);
 
-        let result: Channel<HotShotEvent<TYPES>> = broadcast(EVENT_CHANNEL_SIZE);
-        let (result_sender, mut result_receiver) = (result.0.clone(), result.1.clone());
+        // channel to the network task
+        let (sender_to_network, mut network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+        // channel from the network task
+        let (network_task_sender, mut receiver_from_network): Channel<HotShotEvent<TYPES>> =
+            broadcast(EVENT_CHANNEL_SIZE);
 
         let _recv_loop_handle = async_spawn(async move {
             loop {
@@ -635,14 +638,14 @@ where
                 let mut result = state.recv_handler(&msg).await;
 
                 while let Some(event) = result.pop() {
-                    let _ = result_sender.broadcast(event.into()).await;
+                    let _ = sender_to_network.broadcast(event.into()).await;
                 }
             }
         });
 
         let _send_loop_handle = async_spawn(async move {
             loop {
-                if let Ok(msg) = result_receiver.recv().await {
+                if let Ok(msg) = receiver_from_network.recv().await {
                     let mut state = send_state.write().await;
 
                     let mut result = state.send_handler(&msg).await;
@@ -661,7 +664,7 @@ where
             }
         });
 
-        result
+        (network_task_sender, network_task_receiver)
     }
 
     #[allow(clippy::too_many_arguments)]
