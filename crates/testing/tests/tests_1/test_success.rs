@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
+use hotshot::{DoubleTwinsHandler, TwinsHandlerState};
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
     state_types::TestTypes,
@@ -8,7 +9,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    test_builder::TestDescription,
+    test_builder::{Behaviour, TestDescription},
 };
 cross_tests!(
     TestName: test_success,
@@ -23,6 +24,30 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
+            ..TestDescription::default()
+        }
+    },
+);
+
+cross_tests!(
+    TestName: twins_test_success,
+    Impls: [MemoryImpl],
+    Types: [TestTypes],
+    Ignore: false,
+    Metadata: {
+        let behaviour = Rc::new(|node_id| { match node_id {
+          1 => Behaviour::Twins(Box::leak(Box::new(Box::new(DoubleTwinsHandler)))),
+          _ => Behaviour::None,
+          } });
+
+        TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            behaviour,
             ..TestDescription::default()
         }
     },

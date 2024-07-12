@@ -49,7 +49,7 @@ pub struct TimingData {
 }
 
 /// metadata describing a test
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Total number of staked nodes in the test
     pub num_nodes_with_stake: usize,
@@ -85,7 +85,7 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
-    pub behaviour: Rc<fn(u64) -> Behaviour<TYPES, I>>,
+    pub behaviour: Rc<dyn Fn(u64) -> Behaviour<TYPES, I>>,
 }
 
 #[derive(Debug)]

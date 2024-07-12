@@ -595,17 +595,17 @@ where
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 {
-    /// Handle a message sent to the twin from the outside, forwarding it to one of the two twins.
+    /// Handle a message sent to the twin from the network task, forwarding it to one of the two twins.
     async fn send_handler(
         &mut self,
         event: &HotShotEvent<TYPES>,
-    ) -> Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>;
+    ) -> Vec<Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>>;
 
-    /// Handle a message from either twin, forwarding it to the outside
+    /// Handle a message from either twin, forwarding it to the network task
     async fn recv_handler(
         &mut self,
         event: &Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>,
-    ) -> HotShotEvent<TYPES>;
+    ) -> Vec<HotShotEvent<TYPES>>;
 
     /// Fuse two channels into a single channel
     ///
@@ -632,10 +632,15 @@ where
                 };
 
                 let mut state = recv_state.write().await;
+                let mut result = state.recv_handler(&msg).await;
+
+                while let Some(event) = result.pop() {
 
                 let _ = result_sender
-                    .broadcast(state.recv_handler(&msg).await.into())
+                    .broadcast(event.into())
                     .await;
+
+                }
             }
         });
 
@@ -644,12 +649,16 @@ where
                 if let Ok(msg) = result_receiver.recv().await {
                     let mut state = send_state.write().await;
 
-                    match state.send_handler(&msg).await {
-                        Either::Left(msg) => {
-                            let _ = left_sender.broadcast(msg.into()).await;
-                        }
-                        Either::Right(msg) => {
-                            let _ = right_sender.broadcast(msg.into()).await;
+                    let mut result = state.send_handler(&msg).await;
+
+                    while let Some(event) = result.pop() {
+                        match event {
+                            Either::Left(msg) => {
+                                let _ = left_sender.broadcast(msg.into()).await;
+                            }
+                            Either::Right(msg) => {
+                                let _ = right_sender.broadcast(msg.into()).await;
+                            }
                         }
                     }
                 }
@@ -792,22 +801,48 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TwinsHandlerState<TYPES, I>
     async fn send_handler(
         &mut self,
         event: &HotShotEvent<TYPES>,
-    ) -> Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>> {
+    ) -> Vec<Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>> {
         let random: bool = rand::thread_rng().gen();
 
         #[allow(clippy::match_bool)]
         match random {
-            true => Either::Left(event.clone()),
-            false => Either::Right(event.clone()),
+            true => vec![Either::Left(event.clone())],
+            false => vec![Either::Right(event.clone())],
         }
     }
 
     async fn recv_handler(
         &mut self,
         event: &Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>,
-    ) -> HotShotEvent<TYPES> {
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
-            Either::Left(msg) | Either::Right(msg) => msg.clone(),
+            Either::Left(msg) | Either::Right(msg) => vec![msg.clone()],
+        }
+    }
+}
+
+#[derive(Debug)]
+/// A `TwinsHandlerState` that forwards each message to both twins,
+/// and returns messages from each of them.
+pub struct DoubleTwinsHandler;
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TwinsHandlerState<TYPES, I>
+    for DoubleTwinsHandler
+{
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+    ) -> Vec<Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>> {
+            vec![Either::Left(event.clone()),Either::Right(event.clone())]
+    }
+
+    async fn recv_handler(
+        &mut self,
+        event: &Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>,
+    ) -> Vec<HotShotEvent<TYPES>> {
+        match event {
+            Either::Left(msg) | Either::Right(msg) => vec![msg.clone()],
         }
     }
 }
