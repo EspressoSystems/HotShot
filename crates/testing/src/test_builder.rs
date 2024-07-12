@@ -103,9 +103,7 @@ pub async fn create_test_handle<
     node_id: u64,
     network: Network<TYPES, I>,
     memberships: Memberships<TYPES>,
-    initializer: HotShotInitializer<TYPES>,
     config: HotShotConfig<TYPES::SignatureKey>,
-    validator_config: ValidatorConfig<TYPES::SignatureKey>,
     storage: I::Storage,
     auction_results_provider: I::AuctionResultsProvider,
 ) -> SystemContextHandle<TYPES, I> {
