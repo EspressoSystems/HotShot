@@ -218,6 +218,7 @@ where
     /// modify outgoing messages from the network
     async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
 
+    #[allow(clippy::too_many_arguments)]
     /// Creates a `SystemContextHandle` with the given even transformer
     async fn spawn_handle(
         &'static mut self,
@@ -255,7 +256,7 @@ where
             network_registry,
             output_event_stream: output_event_stream.clone(),
             internal_event_stream: internal_event_stream.clone(),
-            hotshot: hotshot.clone().into(),
+            hotshot: Arc::clone(&hotshot),
             storage: Arc::clone(&hotshot.storage),
             network: Arc::clone(&hotshot.network),
             memberships: Arc::clone(&hotshot.memberships),
@@ -275,7 +276,7 @@ where
         // with this, we can control exactly what events the network tasks see.
 
         // channel to the network task
-        let (sender_to_network, mut network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+        let (sender_to_network, network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         // channel from the network task
         let (network_task_sender, mut receiver_from_network) = broadcast(EVENT_CHANNEL_SIZE);
         // create a copy of the original receiver

@@ -622,7 +622,7 @@ where
         let (right_sender, mut right_receiver) = (right.0, right.1);
 
         // channel to the network task
-        let (sender_to_network, mut network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+        let (sender_to_network, network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         // channel from the network task
         let (network_task_sender, mut receiver_from_network): Channel<HotShotEvent<TYPES>> =
             broadcast(EVENT_CHANNEL_SIZE);

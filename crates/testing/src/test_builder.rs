@@ -123,7 +123,7 @@ pub async fn create_test_handle<
 
     match behaviour {
         Behaviour::Twins(state) => {
-            let (left_handle, right_handle) = state
+            let (left_handle, _right_handle) = state
                 .spawn_twin_handles(
                     public_key,
                     private_key,
