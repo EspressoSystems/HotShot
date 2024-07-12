@@ -371,6 +371,7 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -419,9 +420,10 @@
     Sender&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
     Receiver&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span>builder = TestDescription::default_multiple_rounds();
+    <span class="kw">let </span>builder: TestDescription&lt;TestTypes, MemoryImpl&gt; =
+        TestDescription::default_multiple_rounds();
 
-    <span class="kw">let </span>launcher = builder.gen_launcher::&lt;TestTypes, MemoryImpl&gt;(node_id);
+    <span class="kw">let </span>launcher = builder.gen_launcher(node_id);
 
     <span class="kw">let </span>network = (launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);

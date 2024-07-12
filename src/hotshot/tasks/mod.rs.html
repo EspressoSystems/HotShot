@@ -357,6 +357,63 @@
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -399,7 +456,11 @@
 };
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
-<span class="kw">use crate</span>::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
+<span class="kw">use crate</span>::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer, Memberships,
+    NetworkTaskRegistry, SignatureKey, SystemContext,
+};
 
 <span class="doccomment">/// event for global event stream
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -565,49 +626,87 @@
 /// Consensus &lt;-&gt; [Byzantine logic layer] &lt;-&gt; Network
 </span><span class="kw">pub trait </span>EventTransformerState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;
 <span class="kw">where
-    </span><span class="self">Self</span>: Sized + Send + Sync + <span class="lifetime">'static</span>,
+    </span><span class="self">Self</span>: std::fmt::Debug + Send + Sync + <span class="lifetime">'static</span>,
 {
-    <span class="doccomment">/// Initialize the state
-    </span><span class="kw">fn </span>new() -&gt; <span class="self">Self</span>;
-
     <span class="doccomment">/// modify incoming messages from the network
-    </span><span class="kw">fn </span>transform_in(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; HotShotEvent&lt;TYPES&gt;;
+    </span><span class="kw">async fn </span>recv_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="doccomment">/// modify outgoing messages from the network
-    </span><span class="kw">fn </span>transform_out(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; HotShotEvent&lt;TYPES&gt;;
+    </span><span class="kw">async fn </span>send_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
-    <span class="doccomment">/// `transform_in`, but wrapping the state in an `Arc` lock
-    </span><span class="kw">async fn </span>transform_in_arc(
-        lock: Arc&lt;RwLock&lt;<span class="self">Self</span>&gt;&gt;,
-        event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
-    ) -&gt; HotShotEvent&lt;TYPES&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>state = lock.write().<span class="kw">await</span>;
+    <span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="doccomment">/// Creates a `SystemContextHandle` with the given even transformer
+    </span><span class="kw">async fn </span>spawn_handle(
+        <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw-2">mut </span><span class="self">self</span>,
+        public_key: TYPES::SignatureKey,
+        private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        nonce: u64,
+        config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
+        memberships: Memberships&lt;TYPES&gt;,
+        network: Arc&lt;I::Network&gt;,
+        initializer: HotShotInitializer&lt;TYPES&gt;,
+        metrics: ConsensusMetricsValue,
+        storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
+    ) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
+        <span class="kw">let </span>hotshot = SystemContext::new(
+            public_key,
+            private_key,
+            nonce,
+            config,
+            memberships,
+            network,
+            initializer,
+            metrics,
+            storage,
+            auction_results_provider,
+        );
+        <span class="kw">let </span>consensus_registry = ConsensusTaskRegistry::new();
+        <span class="kw">let </span>network_registry = NetworkTaskRegistry::new();
 
-        state.transform_in(event)
-    }
+        <span class="kw">let </span>output_event_stream = hotshot.external_event_stream.clone();
+        <span class="kw">let </span>internal_event_stream = hotshot.internal_event_stream.clone();
 
-    <span class="doccomment">/// `transform_out`, but wrapping the state in an `Arc` lock
-    </span><span class="kw">async fn </span>transform_out_arc(
-        lock: Arc&lt;RwLock&lt;<span class="self">Self</span>&gt;&gt;,
-        event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
-    ) -&gt; HotShotEvent&lt;TYPES&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>state = lock.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>handle = SystemContextHandle {
+            consensus_registry,
+            network_registry,
+            output_event_stream: output_event_stream.clone(),
+            internal_event_stream: internal_event_stream.clone(),
+            hotshot: Arc::clone(<span class="kw-2">&amp;</span>hotshot),
+            storage: Arc::clone(<span class="kw-2">&amp;</span>hotshot.storage),
+            network: Arc::clone(<span class="kw-2">&amp;</span>hotshot.network),
+            memberships: Arc::clone(<span class="kw-2">&amp;</span>hotshot.memberships),
+        };
 
-        state.transform_out(event)
+        add_consensus_tasks::&lt;TYPES, I&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
+        <span class="self">self</span>.add_network_tasks(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
+
+        handle
     }
 
     <span class="doccomment">/// Add byzantine network tasks with the trait
-    </span><span class="kw">async fn </span>add_network_tasks(handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;) {
-        <span class="kw">let </span>state_in = Arc::new(RwLock::new(<span class="self">Self</span>::new()));
+    </span><span class="kw">async fn </span>add_network_tasks(<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw-2">mut </span><span class="self">self</span>, handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I&gt;) {
+        <span class="kw">let </span>state_in = Arc::new(RwLock::new(<span class="self">self</span>));
         <span class="kw">let </span>state_out = Arc::clone(<span class="kw-2">&amp;</span>state_in);
-
-        <span class="comment">// channel between the task spawned in this function and the network tasks.
+        <span class="comment">// channels between the task spawned in this function and the network tasks.
         // with this, we can control exactly what events the network tasks see.
-        </span><span class="kw">let </span>(sender, <span class="kw-2">mut </span>receiver) = broadcast(EVENT_CHANNEL_SIZE);
+
+        // channel to the network task
+        </span><span class="kw">let </span>(sender_to_network, network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="comment">// channel from the network task
+        </span><span class="kw">let </span>(network_task_sender, <span class="kw-2">mut </span>receiver_from_network) = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="comment">// create a copy of the original receiver
+        </span><span class="kw">let </span>(original_sender, <span class="kw-2">mut </span>original_receiver) = (
+            handle.internal_event_stream.<span class="number">0</span>.clone(),
+            handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+        );
 
         <span class="comment">// replace the internal event stream with the one we just created,
         // so that the network tasks are spawned with our channel.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>internal_event_stream = (sender.clone(), receiver.clone().deactivate());
+        </span><span class="kw">let </span><span class="kw-2">mut </span>internal_event_stream = (
+            network_task_sender.clone(),
+            network_task_receiver.clone().deactivate(),
+        );
         std::mem::swap(
             <span class="kw-2">&amp;mut </span>internal_event_stream,
             <span class="kw-2">&amp;mut </span>handle.internal_event_stream,
@@ -616,52 +715,67 @@
         <span class="comment">// spawn the network tasks with our newly-created channel
         </span>add_network_tasks::&lt;TYPES, I&gt;(handle).<span class="kw">await</span>;
 
-        <span class="comment">// create a copy of the original receiver
-        </span><span class="kw">let </span>(original_sender, <span class="kw-2">mut </span>original_receiver) = (
-            internal_event_stream.<span class="number">0</span>.clone(),
-            internal_event_stream.<span class="number">1</span>.activate_cloned(),
+        std::mem::swap(
+            <span class="kw-2">&amp;mut </span>internal_event_stream,
+            <span class="kw-2">&amp;mut </span>handle.internal_event_stream,
         );
 
         <span class="comment">// spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
-        </span><span class="kw">let </span>out_handle = async_spawn(<span class="kw">async move </span>{
+        </span><span class="kw">let </span>send_handle = async_spawn(<span class="kw">async move </span>{
             <span class="kw">loop </span>{
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = original_receiver.recv().<span class="kw">await </span>{
-                    <span class="kw">let _ </span>= sender
-                        .broadcast(
-                            <span class="self">Self</span>::transform_out_arc(Arc::clone(<span class="kw-2">&amp;</span>state_out), <span class="kw-2">&amp;</span>msg)
-                                .<span class="kw">await
-                                </span>.into(),
-                        )
-                        .<span class="kw">await</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>state = state_out.write().<span class="kw">await</span>;
+
+                    <span class="kw">let </span><span class="kw-2">mut </span>results = state.send_handler(<span class="kw-2">&amp;</span>msg).<span class="kw">await</span>;
+
+                    <span class="kw">while let </span><span class="prelude-val">Some</span>(event) = results.pop() {
+                        <span class="kw">let _ </span>= sender_to_network.broadcast(event.into()).<span class="kw">await</span>;
+                    }
                 }
             }
         });
 
         <span class="comment">// spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
-        </span><span class="kw">let </span>in_handle = async_spawn(<span class="kw">async move </span>{
+        </span><span class="kw">let </span>recv_handle = async_spawn(<span class="kw">async move </span>{
             <span class="kw">loop </span>{
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = receiver.recv().<span class="kw">await </span>{
-                    <span class="kw">let _ </span>= original_sender
-                        .broadcast(
-                            <span class="self">Self</span>::transform_in_arc(Arc::clone(<span class="kw-2">&amp;</span>state_in), <span class="kw-2">&amp;</span>msg)
-                                .<span class="kw">await
-                                </span>.into(),
-                        )
-                        .<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = receiver_from_network.recv().<span class="kw">await </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>state = state_in.write().<span class="kw">await</span>;
+
+                    <span class="kw">let </span><span class="kw-2">mut </span>results = state.recv_handler(<span class="kw-2">&amp;</span>msg).<span class="kw">await</span>;
+
+                    <span class="kw">while let </span><span class="prelude-val">Some</span>(event) = results.pop() {
+                        <span class="kw">let _ </span>= original_sender.broadcast(event.into()).<span class="kw">await</span>;
+                    }
                 }
             }
         });
 
-        handle.network_registry.register(out_handle);
-        handle.network_registry.register(in_handle);
+        handle.network_registry.register(send_handle);
+        handle.network_registry.register(recv_handle);
+    }
+}
 
-        <span class="comment">// put the old channel back.
-        </span>std::mem::swap(
-            <span class="kw-2">&amp;mut </span>internal_event_stream,
-            <span class="kw-2">&amp;mut </span>handle.internal_event_stream,
-        );
+<span class="attr">#[derive(Debug)]
+</span><span class="doccomment">/// An `EventHandlerState` that doubles the `QuorumVoteSend` and `QuorumProposalSend` events
+</span><span class="kw">pub struct </span>DoubleProposeVote;
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; EventTransformerState&lt;TYPES, I&gt;
+    <span class="kw">for </span>DoubleProposeVote
+{
+    <span class="kw">async fn </span>recv_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
+        <span class="macro">vec!</span>[event.clone()]
+    }
+
+    <span class="kw">async fn </span>send_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
+        <span class="kw">match </span>event {
+            HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>) | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>) =&gt; {
+                <span class="macro">vec!</span>[event.clone(), event.clone()]
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">vec!</span>[event.clone()],
+        }
     }
 }
 

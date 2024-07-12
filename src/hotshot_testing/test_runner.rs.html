@@ -614,6 +614,29 @@
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
 <a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -665,6 +688,7 @@
     block_builder::{BuilderTask, TestBuilderImplementation},
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
+    test_builder::create_test_handle,
     test_launcher::{Network, TestLauncher},
     test_task::{TestResult, TestTask},
     txn_task::TxnTaskDescription,
@@ -1045,42 +1069,45 @@
 
             networks_ready.push(networks_ready_future);
 
-            <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late &amp;&amp; late_start.contains(<span class="kw-2">&amp;</span>node_id) {
-                <span class="self">self</span>.late_start.insert(
-                    node_id,
-                    LateStartNode {
-                        network,
-                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
-                            storage,
-                            memberships,
-                            config,
-                            auction_results_provider,
-                        }),
-                    },
-                );
-            } <span class="kw">else </span>{
-                <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
-                    .<span class="kw">await
-                    </span>.unwrap();
+            <span class="kw">if </span>late_start.contains(<span class="kw-2">&amp;</span>node_id) {
+                <span class="kw">if </span><span class="self">self</span>.launcher.metadata.skip_late {
+                    <span class="self">self</span>.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            network,
+                            context: LateNodeContext::UninitializedContext(
+                                LateNodeContextParameters {
+                                    storage,
+                                    memberships,
+                                    config,
+                                    auction_results_provider,
+                                },
+                            ),
+                        },
+                    );
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>initializer =
+                        HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
+                            .<span class="kw">await
+                            </span>.unwrap();
 
-                <span class="comment">// See whether or not we should be DA
-                </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
+                    <span class="comment">// See whether or not we should be DA
+                    </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
 
-                <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
-                </span><span class="kw">let </span>validator_config =
-                    ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
-                <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
-                    node_id,
-                    network.clone(),
-                    memberships,
-                    initializer,
-                    config,
-                    validator_config,
-                    storage,
-                    auction_results_provider,
-                )
-                .<span class="kw">await</span>;
-                <span class="kw">if </span>late_start.contains(<span class="kw-2">&amp;</span>node_id) {
+                    <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
+                    </span><span class="kw">let </span>validator_config =
+                        ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
+                    <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
+                        node_id,
+                        network.clone(),
+                        memberships,
+                        initializer,
+                        config,
+                        validator_config,
+                        storage,
+                        auction_results_provider,
+                    )
+                    .<span class="kw">await</span>;
                     <span class="self">self</span>.late_start.insert(
                         node_id,
                         LateStartNode {
@@ -1088,9 +1115,16 @@
                             context: LateNodeContext::InitializedContext(hotshot),
                         },
                     );
-                } <span class="kw">else </span>{
-                    uninitialized_nodes.push((node_id, network, hotshot));
                 }
+            } <span class="kw">else </span>{
+                uninitialized_nodes.push((
+                    node_id,
+                    network,
+                    memberships,
+                    config,
+                    storage,
+                    auction_results_provider,
+                ));
             }
 
             results.push(node_id);
@@ -1100,8 +1134,20 @@
         </span>join_all(networks_ready).<span class="kw">await</span>;
 
         <span class="comment">// Then start the necessary tasks
-        </span><span class="kw">for </span>(node_id, network, hotshot) <span class="kw">in </span>uninitialized_nodes {
-            <span class="kw">let </span>handle = hotshot.run_tasks().<span class="kw">await</span>;
+        </span><span class="kw">for </span>(node_id, network, memberships, config, storage, auction_results_provider) <span class="kw">in
+            </span>uninitialized_nodes
+        {
+            <span class="kw">let </span>behaviour = (<span class="self">self</span>.launcher.metadata.behaviour)(node_id);
+            <span class="kw">let </span>handle = create_test_handle(
+                behaviour,
+                node_id,
+                network.clone(),
+                memberships,
+                config.clone(),
+                storage,
+                auction_results_provider,
+            )
+            .<span class="kw">await</span>;
 
             <span class="kw">match </span>node_id.cmp(<span class="kw-2">&amp;</span>(config.da_staked_committee_size <span class="kw">as </span>u64 - <span class="number">1</span>)) {
                 std::cmp::Ordering::Less =&gt; {

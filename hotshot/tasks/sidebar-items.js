@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GlobalEvent"],"fn":["add_consensus_tasks","add_network_event_task","add_network_message_task","add_network_tasks","add_request_network_task","add_response_task"],"mod":["task_state"],"trait":["EventTransformerState"]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalEvent"],"fn":["add_consensus_tasks","add_network_event_task","add_network_message_task","add_network_tasks","add_request_network_task","add_response_task"],"mod":["task_state"],"struct":["DoubleProposeVote"],"trait":["EventTransformerState"]};

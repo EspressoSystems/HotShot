@@ -937,6 +937,32 @@
 <a href="#935" id="935">935</a>
 <a href="#936" id="936">936</a>
 <a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -1521,12 +1547,97 @@
 
         handle
     }
+}
+
+<span class="doccomment">/// An async broadcast channel
+</span><span class="kw">type </span>Channel&lt;S&gt; = (Sender&lt;Arc&lt;S&gt;&gt;, Receiver&lt;Arc&lt;S&gt;&gt;);
+
+<span class="attr">#[async_trait]
+</span><span class="doccomment">/// Trait for handling messages for a node with a twin copy of consensus
+</span><span class="kw">pub trait </span>TwinsHandlerState&lt;TYPES, I&gt;
+<span class="kw">where
+    </span><span class="self">Self</span>: std::fmt::Debug + Send + Sync,
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+{
+    <span class="doccomment">/// Handle a message sent to the twin from the network task, forwarding it to one of the two twins.
+    </span><span class="kw">async fn </span>send_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
+    ) -&gt; Vec&lt;Either&lt;HotShotEvent&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;&gt;;
+
+    <span class="doccomment">/// Handle a message from either twin, forwarding it to the network task
+    </span><span class="kw">async fn </span>recv_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: <span class="kw-2">&amp;</span>Either&lt;HotShotEvent&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;,
+    ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;;
+
+    <span class="doccomment">/// Fuse two channels into a single channel
+    ///
+    /// Note: the channels are fused using two async loops, whose `JoinHandle`s are dropped.
+    </span><span class="kw">fn </span>fuse_channels(
+        <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw-2">mut </span><span class="self">self</span>,
+        left: Channel&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        right: Channel&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+    ) -&gt; Channel&lt;HotShotEvent&lt;TYPES&gt;&gt; {
+        <span class="kw">let </span>send_state = Arc::new(RwLock::new(<span class="self">self</span>));
+        <span class="kw">let </span>recv_state = Arc::clone(<span class="kw-2">&amp;</span>send_state);
+
+        <span class="kw">let </span>(left_sender, <span class="kw-2">mut </span>left_receiver) = (left.<span class="number">0</span>, left.<span class="number">1</span>);
+        <span class="kw">let </span>(right_sender, <span class="kw-2">mut </span>right_receiver) = (right.<span class="number">0</span>, right.<span class="number">1</span>);
+
+        <span class="comment">// channel to the network task
+        </span><span class="kw">let </span>(sender_to_network, network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="comment">// channel from the network task
+        </span><span class="kw">let </span>(network_task_sender, <span class="kw-2">mut </span>receiver_from_network): Channel&lt;HotShotEvent&lt;TYPES&gt;&gt; =
+            broadcast(EVENT_CHANNEL_SIZE);
+
+        <span class="kw">let </span>_recv_loop_handle = async_spawn(<span class="kw">async move </span>{
+            <span class="kw">loop </span>{
+                <span class="kw">let </span>msg = <span class="kw">match </span>select(left_receiver.recv(), right_receiver.recv()).<span class="kw">await </span>{
+                    Either::Left(msg) =&gt; Either::Left(msg.<span class="number">0</span>.unwrap().as_ref().clone()),
+                    Either::Right(msg) =&gt; Either::Right(msg.<span class="number">0</span>.unwrap().as_ref().clone()),
+                };
+
+                <span class="kw">let </span><span class="kw-2">mut </span>state = recv_state.write().<span class="kw">await</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>result = state.recv_handler(<span class="kw-2">&amp;</span>msg).<span class="kw">await</span>;
+
+                <span class="kw">while let </span><span class="prelude-val">Some</span>(event) = result.pop() {
+                    <span class="kw">let _ </span>= sender_to_network.broadcast(event.into()).<span class="kw">await</span>;
+                }
+            }
+        });
+
+        <span class="kw">let </span>_send_loop_handle = async_spawn(<span class="kw">async move </span>{
+            <span class="kw">loop </span>{
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = receiver_from_network.recv().<span class="kw">await </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>state = send_state.write().<span class="kw">await</span>;
+
+                    <span class="kw">let </span><span class="kw-2">mut </span>result = state.send_handler(<span class="kw-2">&amp;</span>msg).<span class="kw">await</span>;
+
+                    <span class="kw">while let </span><span class="prelude-val">Some</span>(event) = result.pop() {
+                        <span class="kw">match </span>event {
+                            Either::Left(msg) =&gt; {
+                                <span class="kw">let _ </span>= left_sender.broadcast(msg.into()).<span class="kw">await</span>;
+                            }
+                            Either::Right(msg) =&gt; {
+                                <span class="kw">let _ </span>= right_sender.broadcast(msg.into()).<span class="kw">await</span>;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        (network_task_sender, network_task_receiver)
+    }
 
     <span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="doccomment">/// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
-    </span><span class="kw">pub async fn </span>spawn_twin_handles(
+    </span><span class="kw">async fn </span>spawn_twin_handles(
+        <span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw-2">mut </span><span class="self">self</span>,
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
@@ -1538,7 +1649,7 @@
         storage: I::Storage,
         auction_results_provider: I::AuctionResultsProvider,
     ) -&gt; (SystemContextHandle&lt;TYPES, I&gt;, SystemContextHandle&lt;TYPES, I&gt;) {
-        <span class="kw">let </span>left_system_context = <span class="self">Self</span>::new(
+        <span class="kw">let </span>left_system_context = SystemContext::new(
             public_key.clone(),
             private_key.clone(),
             nonce,
@@ -1550,7 +1661,7 @@
             storage.clone(),
             auction_results_provider.clone(),
         );
-        <span class="kw">let </span>right_system_context = <span class="self">Self</span>::new(
+        <span class="kw">let </span>right_system_context = SystemContext::new(
             public_key,
             private_key,
             nonce,
@@ -1621,7 +1732,7 @@
         add_consensus_tasks::&lt;TYPES, I&gt;(<span class="kw-2">&amp;mut </span>right_handle).<span class="kw">await</span>;
 
         <span class="comment">// fuse the event streams from both handles before initializing the network tasks
-        </span><span class="kw">let </span>fused_internal_event_stream = fuse_channels::&lt;HotShotEvent&lt;TYPES&gt;, RandomTwinsHandler&gt;(
+        </span><span class="kw">let </span>fused_internal_event_stream = <span class="self">self</span>.fuse_channels(
             (left_internal_sender, left_internal_receiver),
             (right_internal_sender, right_internal_receiver),
         );
@@ -1642,121 +1753,62 @@
     }
 }
 
-<span class="doccomment">/// An async broadcast channel
-</span><span class="kw">type </span>Channel&lt;S&gt; = (Sender&lt;Arc&lt;S&gt;&gt;, Receiver&lt;Arc&lt;S&gt;&gt;);
-
-<span class="attr">#[async_trait]
-</span><span class="doccomment">/// Trait for handling messages for a node with a twin copy of consensus
-</span><span class="kw">pub trait </span>TwinsHandlerState&lt;MESSAGE&gt;
-<span class="kw">where
-    </span><span class="self">Self</span>: Sync,
-    MESSAGE: Send + Sync,
-{
-    <span class="doccomment">/// Initialize the state
-    </span><span class="kw">fn </span>new() -&gt; <span class="self">Self</span>;
-
-    <span class="doccomment">/// Handle a message sent to the twin from the outside, forwarding it to one of the two twins.
-    </span><span class="kw">async fn </span>send_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>MESSAGE) -&gt; Either&lt;MESSAGE, MESSAGE&gt;;
-
-    <span class="doccomment">/// Wrapper for `send_handler`.
-    </span><span class="kw">async fn </span>send_handler_arc(
-        lock: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;<span class="self">Self</span>&gt;&gt;,
-        event: <span class="kw-2">&amp;</span>MESSAGE,
-    ) -&gt; Either&lt;MESSAGE, MESSAGE&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>state = lock.write().<span class="kw">await</span>;
-
-        state.send_handler(event).<span class="kw">await
-    </span>}
-
-    <span class="doccomment">/// Handle a message from either twin, forwarding it to the outside
-    </span><span class="kw">async fn </span>recv_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Either&lt;MESSAGE, MESSAGE&gt;) -&gt; MESSAGE;
-
-    <span class="doccomment">/// Wrapper for `recv_handler`.
-    </span><span class="kw">async fn </span>recv_handler_arc(
-        lock: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;<span class="self">Self</span>&gt;&gt;,
-        event: <span class="kw-2">&amp;</span>Either&lt;MESSAGE, MESSAGE&gt;,
-    ) -&gt; MESSAGE {
-        <span class="kw">let </span><span class="kw-2">mut </span>state = lock.write().<span class="kw">await</span>;
-
-        state.recv_handler(event).<span class="kw">await
-    </span>}
-}
-
-<span class="doccomment">/// A `TwinsHandlerState` that randomly forwards a message to either twin,
+<span class="attr">#[derive(Debug)]
+</span><span class="doccomment">/// A `TwinsHandlerState` that randomly forwards a message to either twin,
 /// and returns messages from both.
 </span><span class="kw">pub struct </span>RandomTwinsHandler;
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;MESSAGE: Send + Sync + Clone&gt; TwinsHandlerState&lt;MESSAGE&gt; <span class="kw">for </span>RandomTwinsHandler {
-    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-        RandomTwinsHandler
-    }
-    <span class="kw">async fn </span>send_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>MESSAGE) -&gt; Either&lt;MESSAGE, MESSAGE&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TwinsHandlerState&lt;TYPES, I&gt;
+    <span class="kw">for </span>RandomTwinsHandler
+{
+    <span class="kw">async fn </span>send_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
+    ) -&gt; Vec&lt;Either&lt;HotShotEvent&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">let </span>random: bool = rand::thread_rng().gen();
 
         <span class="attr">#[allow(clippy::match_bool)]
         </span><span class="kw">match </span>random {
-            <span class="bool-val">true </span>=&gt; Either::Left(event.clone()),
-            <span class="bool-val">false </span>=&gt; Either::Right(event.clone()),
+            <span class="bool-val">true </span>=&gt; <span class="macro">vec!</span>[Either::Left(event.clone())],
+            <span class="bool-val">false </span>=&gt; <span class="macro">vec!</span>[Either::Right(event.clone())],
         }
     }
 
-    <span class="kw">async fn </span>recv_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Either&lt;MESSAGE, MESSAGE&gt;) -&gt; MESSAGE {
+    <span class="kw">async fn </span>recv_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: <span class="kw-2">&amp;</span>Either&lt;HotShotEvent&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;,
+    ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">match </span>event {
-            Either::Left(msg) | Either::Right(msg) =&gt; msg.clone(),
+            Either::Left(msg) | Either::Right(msg) =&gt; <span class="macro">vec!</span>[msg.clone()],
         }
     }
 }
 
-<span class="doccomment">/// Fuse two channels into a single channel, using handlers provided by the `STATE` type.
-///
-/// Note: the channels are fused using two async loops, whose `JoinHandle`s are dropped.
-</span><span class="kw">fn </span>fuse_channels&lt;MESSAGE, STATE&gt;(
-    left: Channel&lt;MESSAGE&gt;,
-    right: Channel&lt;MESSAGE&gt;,
-) -&gt; Channel&lt;MESSAGE&gt;
-<span class="kw">where
-    </span>MESSAGE: Clone + std::marker::Send + std::marker::Sync + <span class="lifetime">'static</span>,
-    STATE: TwinsHandlerState&lt;MESSAGE&gt; + Send + <span class="lifetime">'static</span>,
+<span class="attr">#[derive(Debug)]
+</span><span class="doccomment">/// A `TwinsHandlerState` that forwards each message to both twins,
+/// and returns messages from each of them.
+</span><span class="kw">pub struct </span>DoubleTwinsHandler;
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TwinsHandlerState&lt;TYPES, I&gt;
+    <span class="kw">for </span>DoubleTwinsHandler
 {
-    <span class="kw">let </span>send_state = Arc::new(RwLock::new(STATE::new()));
-    <span class="kw">let </span>recv_state = Arc::clone(<span class="kw-2">&amp;</span>send_state);
+    <span class="kw">async fn </span>send_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
+    ) -&gt; Vec&lt;Either&lt;HotShotEvent&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+        <span class="macro">vec!</span>[Either::Left(event.clone()), Either::Right(event.clone())]
+    }
 
-    <span class="kw">let </span>(left_sender, <span class="kw-2">mut </span>left_receiver) = (left.<span class="number">0</span>, left.<span class="number">1</span>);
-    <span class="kw">let </span>(right_sender, <span class="kw-2">mut </span>right_receiver) = (right.<span class="number">0</span>, right.<span class="number">1</span>);
-
-    <span class="kw">let </span>result: Channel&lt;MESSAGE&gt; = broadcast(EVENT_CHANNEL_SIZE);
-    <span class="kw">let </span>(result_sender, <span class="kw-2">mut </span>result_receiver) = (result.<span class="number">0</span>.clone(), result.<span class="number">1</span>.clone());
-
-    <span class="kw">let </span>_recv_loop_handle = async_spawn(<span class="kw">async move </span>{
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>msg = <span class="kw">match </span>select(left_receiver.recv(), right_receiver.recv()).<span class="kw">await </span>{
-                Either::Left(msg) =&gt; Either::Left(msg.<span class="number">0</span>.unwrap().as_ref().clone()),
-                Either::Right(msg) =&gt; Either::Right(msg.<span class="number">0</span>.unwrap().as_ref().clone()),
-            };
-
-            <span class="kw">let _ </span>= result_sender
-                .broadcast(STATE::recv_handler_arc(<span class="kw-2">&amp;</span>recv_state, <span class="kw-2">&amp;</span>msg).<span class="kw">await</span>.into())
-                .<span class="kw">await</span>;
+    <span class="kw">async fn </span>recv_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: <span class="kw-2">&amp;</span>Either&lt;HotShotEvent&lt;TYPES&gt;, HotShotEvent&lt;TYPES&gt;&gt;,
+    ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
+        <span class="kw">match </span>event {
+            Either::Left(msg) | Either::Right(msg) =&gt; <span class="macro">vec!</span>[msg.clone()],
         }
-    });
-
-    <span class="kw">let </span>_send_loop_handle = async_spawn(<span class="kw">async move </span>{
-        <span class="kw">loop </span>{
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = result_receiver.recv().<span class="kw">await </span>{
-                <span class="kw">match </span>STATE::send_handler_arc(<span class="kw-2">&amp;</span>send_state, <span class="kw-2">&amp;</span>msg).<span class="kw">await </span>{
-                    Either::Left(msg) =&gt; {
-                        <span class="kw">let _ </span>= left_sender.broadcast(msg.into()).<span class="kw">await</span>;
-                    }
-                    Either::Right(msg) =&gt; {
-                        <span class="kw">let _ </span>= right_sender.broadcast(msg.into()).<span class="kw">await</span>;
-                    }
-                }
-            }
-        }
-    });
-
-    result
+    }
 }
 
 <span class="attr">#[async_trait]

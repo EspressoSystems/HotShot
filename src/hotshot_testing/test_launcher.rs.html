@@ -104,7 +104,7 @@
     <span class="doccomment">/// generator for resources
     </span><span class="kw">pub </span>resource_generator: ResourceGenerators&lt;TYPES, I&gt;,
     <span class="doccomment">/// metadata used for tasks
-    </span><span class="kw">pub </span>metadata: TestDescription,
+    </span><span class="kw">pub </span>metadata: TestDescription&lt;TYPES, I&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {

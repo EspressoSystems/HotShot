@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["H_256","H_512"],"enum":["HotShotError"],"fn":["fuse_channels"],"mod":["documentation","tasks","traits","types"],"struct":["HotShotInitializer","Memberships","RandomTwinsHandler","SystemContext"],"trait":["TwinsHandlerState"],"type":["Channel"]};
+window.SIDEBAR_ITEMS = {"constant":["H_256","H_512"],"enum":["HotShotError"],"mod":["documentation","tasks","traits","types"],"struct":["DoubleTwinsHandler","HotShotInitializer","Memberships","RandomTwinsHandler","SystemContext"],"trait":["TwinsHandlerState"],"type":["Channel"]};

@@ -393,15 +393,115 @@
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, sync::Arc, time::Duration};
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
-<span class="kw">use </span>hotshot::traits::{NetworkReliability, TestableNodeImplementation};
+<span class="kw">use </span>hotshot::{
+    tasks::EventTransformerState,
+    traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
+    types::SystemContextHandle,
+    HotShotInitializer, Memberships, SystemContext, TwinsHandlerState,
+};
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
     storage_types::TestStorage,
 };
 <span class="kw">use </span>hotshot_types::{
-    traits::node_implementation::NodeType, ExecutionType, HotShotConfig, ValidatorConfig,
+    consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
+    HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
 <span class="kw">use </span>vec1::Vec1;
@@ -413,7 +513,7 @@
 };
 <span class="kw">use crate</span>::{
     spinning_task::SpinningTaskDescription,
-    test_launcher::{ResourceGenerators, TestLauncher},
+    test_launcher::{Network, ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
 };
 <span class="doccomment">/// data describing how a round should be timed.
@@ -438,8 +538,8 @@
 }
 
 <span class="doccomment">/// metadata describing a test
-</span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>TestDescription {
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>TestDescription&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Total number of staked nodes in the test
     </span><span class="kw">pub </span>num_nodes_with_stake: usize,
     <span class="doccomment">/// Total number of non-staked nodes in the test
@@ -473,6 +573,97 @@
     </span><span class="kw">pub </span>builders: Vec1&lt;BuilderDescription&gt;,
     <span class="doccomment">/// description of the solver to run
     </span><span class="kw">pub </span>solver: FakeSolverApiDescription,
+    <span class="doccomment">/// nodes with byzantine behaviour
+    </span><span class="kw">pub </span>behaviour: Rc&lt;<span class="kw">dyn </span>Fn(u64) -&gt; Behaviour&lt;TYPES, I&gt;&gt;,
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub enum </span>Behaviour&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    ByzantineTwins(Box&lt;<span class="kw">dyn </span>TwinsHandlerState&lt;TYPES, I&gt;&gt;),
+    Byzantine(Box&lt;<span class="kw">dyn </span>EventTransformerState&lt;TYPES, I&gt;&gt;),
+    Standard,
+}
+
+<span class="kw">pub async fn </span>create_test_handle&lt;
+    TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
+    I: NodeImplementation&lt;TYPES&gt;,
+&gt;(
+    behaviour: Behaviour&lt;TYPES, I&gt;,
+    node_id: u64,
+    network: Network&lt;TYPES, I&gt;,
+    memberships: Memberships&lt;TYPES&gt;,
+    config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
+    storage: I::Storage,
+    auction_results_provider: I::AuctionResultsProvider,
+) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
+        .<span class="kw">await
+        </span>.unwrap();
+
+    <span class="comment">// See whether or not we should be DA
+    </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
+
+    <span class="kw">let </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
+        ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
+
+    <span class="comment">// Get key pair for certificate aggregation
+    </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
+    <span class="kw">let </span>public_key = validator_config.public_key.clone();
+
+    <span class="kw">match </span>behaviour {
+        Behaviour::ByzantineTwins(state) =&gt; {
+            <span class="kw">let </span>state = Box::leak(state);
+            <span class="kw">let </span>(left_handle, _right_handle) = state
+                .spawn_twin_handles(
+                    public_key,
+                    private_key,
+                    node_id,
+                    config,
+                    memberships,
+                    network,
+                    initializer,
+                    ConsensusMetricsValue::default(),
+                    storage,
+                    auction_results_provider,
+                )
+                .<span class="kw">await</span>;
+
+            left_handle
+        }
+        Behaviour::Byzantine(state) =&gt; {
+            <span class="kw">let </span>state = Box::leak(state);
+            state
+                .spawn_handle(
+                    public_key,
+                    private_key,
+                    node_id,
+                    config,
+                    memberships,
+                    network,
+                    initializer,
+                    ConsensusMetricsValue::default(),
+                    storage,
+                    auction_results_provider,
+                )
+                .<span class="kw">await
+        </span>}
+        Behaviour::Standard =&gt; {
+            <span class="kw">let </span>hotshot = SystemContext::&lt;TYPES, I&gt;::new(
+                public_key,
+                private_key,
+                node_id,
+                config,
+                memberships,
+                network,
+                initializer,
+                ConsensusMetricsValue::default(),
+                storage,
+                auction_results_provider,
+            );
+
+            hotshot.run_tasks().<span class="kw">await
+        </span>}
+    }
 }
 
 <span class="doccomment">/// Describes a possible change to builder status during test
@@ -515,7 +706,7 @@
     }
 }
 
-<span class="kw">impl </span>TestDescription {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TestDescription&lt;TYPES, I&gt; {
     <span class="doccomment">/// the default metadata for a stress test
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
@@ -523,7 +714,7 @@
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">100</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
 
-        TestDescription {
+        <span class="self">Self </span>{
             num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
             num_nodes_without_stake,
@@ -544,17 +735,17 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestDescription::default()
+            ..<span class="self">Self</span>::default()
         }
     }
 
     <span class="doccomment">/// the default metadata for multiple rounds
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
-    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; TestDescription {
+    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
-        TestDescription {
+        TestDescription::&lt;TYPES, I&gt; {
             <span class="comment">// TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             </span>num_bootstrap_nodes: num_nodes_with_stake,
@@ -575,17 +766,17 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestDescription::default()
+            ..TestDescription::&lt;TYPES, I&gt;::default()
         }
     }
 
     <span class="doccomment">/// Default setting with 20 nodes and 8 views of successful views.
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
-    </span><span class="kw">pub fn </span>default_more_nodes() -&gt; TestDescription {
+    </span><span class="kw">pub fn </span>default_more_nodes() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">20</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
-        TestDescription {
+        <span class="self">Self </span>{
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -610,12 +801,12 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestDescription::default()
+            ..<span class="self">Self</span>::default()
         }
     }
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>TestDescription {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Default <span class="kw">for </span>TestDescription&lt;TYPES, I&gt; {
     <span class="doccomment">/// by default, just a single round
     </span><span class="attr">#[allow(clippy::redundant_field_names)]
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
@@ -656,23 +847,20 @@
                 <span class="comment">// Default to a 10% error rate.
                 </span>error_pct: <span class="number">0.1</span>,
             },
+            behaviour: Rc::new(|<span class="kw">_</span>| Behaviour::Standard),
         }
     }
 }
 
-<span class="kw">impl </span>TestDescription {
+<span class="kw">impl</span>&lt;TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;, I: TestableNodeImplementation&lt;TYPES&gt;&gt;
+    TestDescription&lt;TYPES, I&gt;
+{
     <span class="doccomment">/// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>gen_launcher&lt;
-        TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
-        I: TestableNodeImplementation&lt;TYPES&gt;,
-    &gt;(
-        <span class="self">self</span>,
-        node_id: u64,
-    ) -&gt; TestLauncher&lt;TYPES, I&gt; {
+    </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>, node_id: u64) -&gt; TestLauncher&lt;TYPES, I&gt; {
         <span class="kw">let </span>TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,

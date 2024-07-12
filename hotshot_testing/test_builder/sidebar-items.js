@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BuilderChange"],"struct":["BuilderDescription","FakeSolverApiDescription","TestDescription","TimingData"]};
+window.SIDEBAR_ITEMS = {"enum":["Behaviour","BuilderChange"],"fn":["create_test_handle"],"struct":["BuilderDescription","FakeSolverApiDescription","TestDescription","TimingData"]};
