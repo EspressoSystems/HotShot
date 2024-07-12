@@ -18,6 +18,9 @@ use hotshot_types::{
 };
 
 use std::time::Duration;
+use committable::Committable;
+use hotshot_testing::helpers::key_pair_for_id;
+use hotshot_types::simple_vote::{QuorumData, QuorumVote};
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
@@ -102,18 +105,21 @@ async fn test_quorum_vote_task_vote_now() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle(3).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let (private_key, public_key) = key_pair_for_id(3);
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
+    generator.next().await;
+    let previous_view = generator.current_view.clone().unwrap();
     generator.next().await;
     let view = generator.current_view.clone().unwrap();
 
     let vote_dependency_data = VoteDependencyData {
         quorum_proposal: view.quorum_proposal.data.clone(),
-        parent_leaf: view.leaf.clone(),
+        parent_leaf: previous_view.leaf.clone(),
         vid_share: view.vid_proposal.0[0].clone(),
         da_cert: view.da_certificate.clone(),
     };
@@ -122,9 +128,17 @@ async fn test_quorum_vote_task_vote_now() {
     let inputs = vec![serial![VoteNow(view.view_number, vote_dependency_data),]];
 
     let expectations = vec![Expectations::from_outputs(vec![
-        exact(QuorumVoteDependenciesValidated(ViewNumber::new(1))),
+        exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
         validated_state_updated(),
-        quorum_vote_send(),
+        exact(QuorumVoteSend(QuorumVote::<TestTypes>::create_signed_vote(
+            QuorumData {
+                // leaf_commit: view.leaf.clone().commit(),
+                leaf_commit: previous_view.leaf.clone().commit(),
+            },
+            ViewNumber::new(2),
+            &public_key,
+            &private_key,
+        ).unwrap())),
     ])];
 
     let quorum_vote_state =
