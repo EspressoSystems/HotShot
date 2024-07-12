@@ -309,6 +309,11 @@ where
         let send_handle = async_spawn(async move {
             loop {
                 if let Ok(msg) = original_receiver.recv().await {
+                    if matches!(msg.as_ref(), HotShotEvent::Shutdown) {
+                        let _ = sender_to_network.broadcast(msg.clone().into()).await;
+                        break;
+                    }
+
                     let mut state = state_out.write().await;
 
                     let mut results = state.send_handler(&msg).await;
@@ -325,6 +330,11 @@ where
         let recv_handle = async_spawn(async move {
             loop {
                 if let Ok(msg) = receiver_from_network.recv().await {
+                    if matches!(msg.as_ref(), HotShotEvent::Shutdown) {
+                        let _ = original_sender.broadcast(msg.clone().into()).await;
+                        break;
+                    }
+
                     let mut state = state_in.write().await;
 
                     let mut results = state.recv_handler(&msg).await;

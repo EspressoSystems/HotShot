@@ -29,6 +29,7 @@ cross_tests!(
     },
 );
 
+#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: twins_test_success,
     Impls: [MemoryImpl],
