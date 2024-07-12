@@ -56,6 +56,12 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
 </span><span class="kw">use </span>vbs::version::StaticVersion;
@@ -74,6 +80,12 @@
 
 <span class="doccomment">/// the number of messages to send over the secondary network without delay before re-attempting the (presumed down) primary network
 </span><span class="kw">pub const </span>COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL: u64 = <span class="number">50</span>;
+
+<span class="doccomment">/// the default delay duration value in milliseconds of sending on the secondary in the combined networks
+</span><span class="kw">pub const </span>COMBINED_NETWORK_DELAY_DURATION: u64 = <span class="number">5000</span>;
+
+<span class="doccomment">/// The default network data request delay in milliseconds
+</span><span class="kw">pub const </span>REQUEST_DATA_DELAY: u64 = <span class="number">5000</span>;
 
 <span class="doccomment">/// Default channel size for consensus event sharing
 </span><span class="kw">pub const </span>EVENT_CHANNEL_SIZE: usize = <span class="number">100_000</span>;

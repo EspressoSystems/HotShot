@@ -786,6 +786,11 @@
 <a href="#784" id="784">784</a>
 <a href="#785" id="785">785</a>
 <a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     env, fs,
     net::SocketAddr,
@@ -796,7 +801,9 @@
     vec,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::client::OrchestratorClient;
 <span class="kw">use </span>clap::ValueEnum;
+<span class="kw">use </span>hotshot_types::constants::REQUEST_DATA_DELAY;
 <span class="kw">use </span>hotshot_types::{
     traits::signature_key::SignatureKey, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
@@ -807,8 +814,6 @@
 <span class="kw">use </span>toml;
 <span class="kw">use </span>tracing::{error, info};
 <span class="kw">use </span>vec1::Vec1;
-
-<span class="kw">use </span><span class="kw">crate</span>::client::OrchestratorClient;
 
 <span class="doccomment">/// Configuration describing a libp2p node
 </span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -1286,7 +1291,10 @@
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
             builder_timeout: val.config.builder_timeout,
-            data_request_delay: val.config.data_request_delay,
+            data_request_delay: val
+                .config
+                .data_request_delay
+                .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             seed: val.seed,
             transaction_size: val.transaction_size,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
@@ -1367,7 +1375,7 @@
     <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
     </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// Time to wait until we request data associated with a proposal
-    </span><span class="kw">pub </span>data_request_delay: Duration,
+    </span><span class="kw">pub </span>data_request_delay: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     <span class="doccomment">/// Builder API base URL
     </span><span class="attr">#[serde(default = <span class="string">"default_builder_urls"</span>)]
     </span><span class="kw">pub </span>builder_urls: Vec1&lt;Url&gt;,
@@ -1489,7 +1497,9 @@
             start_delay: val.start_delay,
             num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
-            data_request_delay: val.data_request_delay,
+            data_request_delay: val
+                .data_request_delay
+                .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             builder_urls: val.builder_urls,
             start_proposing_view: val.upgrade.start_proposing_view,
             stop_proposing_view: val.upgrade.stop_proposing_view,
@@ -1566,7 +1576,7 @@
             start_delay: <span class="number">1</span>,
             num_bootstrap: <span class="number">5</span>,
             builder_timeout: Duration::from_secs(<span class="number">10</span>),
-            data_request_delay: Duration::from_millis(<span class="number">200</span>),
+            data_request_delay: <span class="prelude-val">Some</span>(Duration::from_millis(REQUEST_DATA_DELAY)),
             builder_urls: default_builder_urls(),
             upgrade: UpgradeConfig::default(),
         }

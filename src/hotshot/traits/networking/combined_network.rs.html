@@ -527,6 +527,8 @@
 <a href="#525" id="525">525</a>
 <a href="#526" id="526">526</a>
 <a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span>std::{
@@ -556,8 +558,8 @@
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::{
-        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_DELAY_DURATION,
+        COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
     },
     data::ViewNumber,
     traits::{
@@ -618,7 +620,7 @@
     </span><span class="kw">pub fn </span>new(
         primary_network: PushCdnNetwork&lt;TYPES&gt;,
         secondary_network: Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
-        delay_duration: Duration,
+        delay_duration: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// Create networks from the ones passed in
         </span><span class="kw">let </span>networks = Arc::from(UnderlyingCombinedNetworks(
@@ -633,7 +635,9 @@
             ))),
             primary_fail_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
             primary_down: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
-            delay_duration: Arc::new(RwLock::new(delay_duration)),
+            delay_duration: Arc::new(RwLock::new(
+                delay_duration.unwrap_or(Duration::from_millis(COMBINED_NETWORK_DELAY_DURATION)),
+            )),
             delayed_tasks_channels: Arc::default(),
             no_delay_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
         }

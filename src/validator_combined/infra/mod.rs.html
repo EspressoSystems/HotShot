@@ -1052,8 +1052,6 @@
 <a href="#1050" id="1050">1050</a>
 <a href="#1051" id="1051">1051</a>
 <a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::HashMap,
@@ -1095,9 +1093,7 @@
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
     client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{
-        BuilderType, CombinedNetworkConfig, NetworkConfig, NetworkConfigFile, NetworkConfigSource,
-    },
+    config::{BuilderType, NetworkConfig, NetworkConfigFile, NetworkConfigSource},
 };
 <span class="kw">use </span>hotshot_testing::block_builder::{
     BuilderTask, RandomBuilderImplementation, SimpleBuilderImplementation,
@@ -1857,10 +1853,10 @@
         .<span class="kw">await</span>;
 
         <span class="comment">// Create our combined network config
-        </span><span class="kw">let </span>CombinedNetworkConfig { delay_duration }: CombinedNetworkConfig = config
-            .clone()
+        </span><span class="kw">let </span>delay_duration = config
             .combined_network_config
-            .expect(<span class="string">"combined network config not specified"</span>);
+            .as_ref()
+            .map(|config| config.delay_duration);
 
         <span class="comment">// Create our combined network
         </span><span class="kw">let </span>network =
