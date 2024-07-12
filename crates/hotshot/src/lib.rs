@@ -635,11 +635,7 @@ where
                 let mut result = state.recv_handler(&msg).await;
 
                 while let Some(event) = result.pop() {
-
-                let _ = result_sender
-                    .broadcast(event.into())
-                    .await;
-
+                    let _ = result_sender.broadcast(event.into()).await;
                 }
             }
         });
@@ -834,7 +830,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TwinsHandlerState<TYPES, I>
         &mut self,
         event: &HotShotEvent<TYPES>,
     ) -> Vec<Either<HotShotEvent<TYPES>, HotShotEvent<TYPES>>> {
-            vec![Either::Left(event.clone()),Either::Right(event.clone())]
+        vec![Either::Left(event.clone()), Either::Right(event.clone())]
     }
 
     async fn recv_handler(

@@ -213,10 +213,10 @@ where
     Self: std::fmt::Debug + Send + Sync + 'static,
 {
     /// modify incoming messages from the network
-    async fn transform_in(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
 
     /// modify outgoing messages from the network
-    async fn transform_out(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES>;
+    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
 
     /// Creates a `SystemContextHandle` with the given even transformer
     async fn spawn_handle(
@@ -294,40 +294,66 @@ where
 
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
-        let out_handle = async_spawn(async move {
+        let send_handle = async_spawn(async move {
             loop {
                 if let Ok(msg) = original_receiver.recv().await {
                     let mut state = state_out.write().await;
 
-                    let _ = sender
-                        .broadcast(state.transform_in(&msg).await.into())
-                        .await;
+                    let mut results = state.send_handler(&msg).await;
+
+                    while let Some(event) = results.pop() {
+                        let _ = sender.broadcast(event.into()).await;
+                    }
                 }
             }
         });
 
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
-        let in_handle = async_spawn(async move {
+        let recv_handle = async_spawn(async move {
             loop {
                 if let Ok(msg) = receiver.recv().await {
                     let mut state = state_in.write().await;
 
-                    let _ = original_sender
-                        .broadcast(state.transform_in(&msg).await.into())
-                        .await;
+                    let mut results = state.recv_handler(&msg).await;
+
+                    while let Some(event) = results.pop() {
+                        let _ = original_sender.broadcast(event.into()).await;
+                    }
                 }
             }
         });
 
-        handle.network_registry.register(out_handle);
-        handle.network_registry.register(in_handle);
+        handle.network_registry.register(send_handle);
+        handle.network_registry.register(recv_handle);
 
         // put the old channel back.
         std::mem::swap(
             &mut internal_event_stream,
             &mut handle.internal_event_stream,
         );
+    }
+}
+
+#[derive(Debug)]
+/// An `EventHandlerState` that doubles the `QuorumVoteSend` and `QuorumProposalSend` events
+pub struct DoubleProposeVote;
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES, I>
+    for DoubleProposeVote
+{
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        vec![event.clone()]
+    }
+
+    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        match event {
+            HotShotEvent::QuorumProposalSend(_, _) | HotShotEvent::QuorumVoteSend(_) => {
+                vec![event.clone(), event.clone()]
+            }
+            _ => vec![event.clone()],
+        }
     }
 }
 

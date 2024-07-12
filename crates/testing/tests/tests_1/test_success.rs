@@ -1,6 +1,6 @@
 use std::{rc::Rc, time::Duration};
 
-use hotshot::{DoubleTwinsHandler, TwinsHandlerState};
+use hotshot::tasks::DoubleProposeVote;
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
     state_types::TestTypes,
@@ -36,7 +36,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| { match node_id {
-          1 => Behaviour::Twins(Box::leak(Box::new(Box::new(DoubleTwinsHandler)))),
+          1 => Behaviour::Single(Box::leak(Box::new(Box::new(DoubleProposeVote)))),
           _ => Behaviour::None,
           } });
 
