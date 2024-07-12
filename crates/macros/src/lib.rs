@@ -118,8 +118,7 @@ impl TestData {
             async fn #test_name() {
                 async_compatibility_layer::logging::setup_logging();
                 async_compatibility_layer::logging::setup_backtrace();
-                let metadata: TestDescription<#ty, #imply> = (#metadata);
-                metadata.gen_launcher(0).launch().run_test::<SimpleBuilderImplementation>().await;
+                TestDescription::<#ty, #imply>::gen_launcher((#metadata), 0).launch().run_test::<SimpleBuilderImplementation>().await;
             }
         }
     }

@@ -223,7 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
         let num_nodes_with_stake = 100;
         let num_nodes_without_stake = 0;
 
-        TestDescription::<TYPES, I> {
+        Self {
             num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
             num_nodes_without_stake,
@@ -244,7 +244,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestDescription::<TYPES, I>::default()
+            ..Self::default()
         }
     }
 
@@ -285,7 +285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
     pub fn default_more_nodes() -> Self {
         let num_nodes_with_stake = 20;
         let num_nodes_without_stake = 0;
-        TestDescription::<TYPES, I> {
+        Self {
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
@@ -310,7 +310,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestDescription::<TYPES, I>::default()
+            ..Self::default()
         }
     }
 }

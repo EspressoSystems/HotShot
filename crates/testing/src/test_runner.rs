@@ -482,6 +482,7 @@ where
                     node_id,
                     network,
                     memberships,
+                    config,
                     storage,
                     auction_results_provider,
                 ));
@@ -494,7 +495,7 @@ where
         join_all(networks_ready).await;
 
         // Then start the necessary tasks
-        for (node_id, network, memberships, storage, auction_results_provider) in
+        for (node_id, network, memberships, config, storage, auction_results_provider) in
             uninitialized_nodes
         {
             let behaviour = (self.launcher.metadata.behaviour)(node_id);
