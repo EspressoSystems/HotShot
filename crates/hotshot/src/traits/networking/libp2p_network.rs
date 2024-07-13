@@ -63,7 +63,7 @@ use libp2p_networking::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::BroadcastDelay;
 
@@ -74,6 +74,8 @@ pub struct Libp2pMetricsValue {
     pub num_connected_peers: Box<dyn Gauge>,
     /// The number of failed messages
     pub num_failed_messages: Box<dyn Counter>,
+    /// Whether or not the network is considered ready
+    pub is_ready: Box<dyn Gauge>,
 }
 
 impl Libp2pMetricsValue {
@@ -86,6 +88,7 @@ impl Libp2pMetricsValue {
         Self {
             num_connected_peers: subgroup.create_gauge("num_connected_peers".into(), None),
             num_failed_messages: subgroup.create_counter("num_failed_messages".into(), None),
+            is_ready: subgroup.create_gauge("is_ready".into(), None),
         }
     }
 }
@@ -394,10 +397,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let mut config_builder = NetworkNodeConfigBuilder::default();
 
         config_builder
-            .replication_factor(
-                NonZeroUsize::new(config.config.num_nodes_with_stake.get() - 2)
-                    .expect("failed to calculate replication factor"),
-            )
             .server_mode(libp2p_config.server_mode)
             .identity(keypair)
             .bound_addr(Some(bind_address.clone()))
@@ -449,10 +448,15 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         .await?)
     }
 
-    /// Returns when network is ready
+    /// Returns whether or not the network is currently ready.
+    pub fn is_ready(&self) -> bool {
+        self.inner.is_ready.load(Ordering::Relaxed)
+    }
+
+    /// Returns only when the network is ready.
     pub async fn wait_for_ready(&self) {
         loop {
-            if self.inner.is_ready.load(Ordering::Relaxed) {
+            if self.is_ready() {
                 break;
             }
             async_sleep(Duration::from_secs(1)).await;
@@ -548,6 +552,9 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             }),
         };
 
+        // Set the network as not ready
+        result.inner.metrics.is_ready.set(0);
+
         result.handle_event_generator(sender, requests_tx, rx);
         result.spawn_node_lookup(node_lookup_recv);
         result.spawn_connect(id);
@@ -570,7 +577,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
 
-                trace!("Performing lookup for peer {:?}", pk);
+                debug!("Performing lookup for peer {:?}", pk);
 
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
@@ -583,7 +590,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                     };
                     // look up
                     if let Err(err) = handle.lookup_node(&pk_bytes, dht_timeout).await {
-                        error!("Failed to perform lookup for key {:?}: {}", pk, err);
+                        warn!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
             }
@@ -596,7 +603,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let bootstrap_ref = Arc::clone(&self.inner.bootstrap_addrs);
         let handle = Arc::clone(&self.inner.handle);
         let is_bootstrapped = Arc::clone(&self.inner.is_bootstrapped);
-        let node_type = self.inner.handle.config().node_type;
+        let inner = Arc::clone(&self.inner);
         let is_da = self.inner.is_da;
 
         async_spawn({
@@ -604,31 +611,23 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             async move {
                 let bs_addrs = bootstrap_ref.read().await.clone();
 
-                debug!("Finished adding bootstrap addresses.");
+                // Add known peers to the network
                 handle.add_known_peers(bs_addrs).await.unwrap();
 
+                // Begin the bootstrap process
                 handle.begin_bootstrap().await?;
-
                 while !is_bootstrapped.load(Ordering::Relaxed) {
                     async_sleep(Duration::from_secs(1)).await;
                     handle.begin_bootstrap().await?;
                 }
 
+                // Subscribe to the QC topic
                 handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
 
-                // only subscribe to DA events if we are DA
+                // Only subscribe to DA events if we are DA
                 if is_da {
                     handle.subscribe("DA".to_string()).await.unwrap();
                 }
-                // TODO figure out some way of passing in ALL keypairs. That way we can add the
-                // global topic to the topic map
-                // NOTE this wont' work without this change
-
-                info!(
-                    "peer {:?} waiting for publishing, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
 
                 // we want our records published before
                 // we begin participating in consensus
@@ -645,11 +644,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-                info!(
-                    "Node {:?} is ready, type: {:?}",
-                    handle.peer_id(),
-                    node_type
-                );
 
                 while handle
                     .put_record(
@@ -661,16 +655,20 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-                // perform connection
-                info!("WAITING TO CONNECT ON NODE {:?}", id);
+
+                error!("Finished putting Kademlia records");
 
                 // Wait for the network to connect to the required number of peers
                 if let Err(e) = handle.wait_to_connect(4, id).await {
                     error!("Failed to connect to peers: {:?}", e);
                     return Err::<(), NetworkError>(e.into());
                 }
+                error!("Connected to required number of peers");
 
+                // Set the network as ready
                 is_ready.store(true, Ordering::Relaxed);
+                inner.metrics.is_ready.set(1);
+
                 Ok::<(), NetworkError>(())
             }
         });
@@ -788,14 +786,20 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         request: Vec<u8>,
         recipient: &K,
     ) -> Result<Vec<u8>, NetworkError> {
-        self.wait_for_ready().await;
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            self.inner.metrics.num_failed_messages.add(1);
+            return Err(NetworkError::NotReady);
+        };
 
         let pid = match self
             .inner
             .handle
             .lookup_node(
-                &bincode::serialize(&recipient)
-                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
+                &bincode::serialize(&recipient).map_err(|e| {
+                    self.inner.metrics.num_failed_messages.add(1);
+                    NetworkError::Libp2p { source: e.into() }
+                })?,
                 self.inner.dht_timeout,
             )
             .await
@@ -836,7 +840,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             }
         };
 
-        Ok(bincode::serialize(&result).map_err(|e| NetworkError::Libp2p { source: e.into() })?)
+        Ok(bincode::serialize(&result).map_err(|e| {
+            self.inner.metrics.num_failed_messages.add(1);
+            NetworkError::Libp2p { source: e.into() }
+        })?)
     }
 
     async fn spawn_request_receiver_task(
@@ -903,30 +910,30 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         recipients: BTreeSet<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.wait_for_ready().await;
-        trace!(
-            "broadcasting msg: {:?} with nodes: {:?} connected",
-            message,
-            self.inner.handle.connected_pids().await
-        );
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            self.inner.metrics.num_failed_messages.add(1);
+            return Err(NetworkError::NotReady);
+        };
 
         let topic_map = self.inner.topic_map.read().await;
         let topic = topic_map
             .get_by_left(&recipients)
-            .ok_or(NetworkError::Libp2p {
-                source: Box::new(NetworkNodeHandleError::NoSuchTopic),
+            .ok_or_else(|| {
+                self.inner.metrics.num_failed_messages.add(1);
+                NetworkError::Libp2p {
+                    source: Box::new(NetworkNodeHandleError::NoSuchTopic),
+                }
             })?
             .clone();
-        trace!("broadcasting to topic: {}", topic);
 
         // gossip doesn't broadcast from itself, so special case
         if recipients.contains(&self.inner.pk) {
             // send to self
-            self.inner
-                .sender
-                .send(message.clone())
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
+            self.inner.sender.send(message.clone()).await.map_err(|_| {
+                self.inner.metrics.num_failed_messages.add(1);
+                NetworkError::ShutDown
+            })?;
         }
 
         // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
@@ -970,6 +977,12 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         recipients: BTreeSet<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            self.inner.metrics.num_failed_messages.add(1);
+            return Err(NetworkError::NotReady);
+        };
+
         let future_results = recipients
             .into_iter()
             .map(|r| self.direct_message(message.clone(), r));
@@ -992,25 +1005,30 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
     async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
+        // If we're not ready, return an error
+        if !self.is_ready() {
+            self.inner.metrics.num_failed_messages.add(1);
+            return Err(NetworkError::NotReady);
+        };
+
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
-            self.inner
-                .sender
-                .send(message)
-                .await
-                .map_err(|_x| NetworkError::ShutDown)?;
+            self.inner.sender.send(message).await.map_err(|_x| {
+                self.inner.metrics.num_failed_messages.add(1);
+                NetworkError::ShutDown
+            })?;
             return Ok(());
         }
-
-        self.wait_for_ready().await;
 
         let pid = match self
             .inner
             .handle
             .lookup_node(
-                &bincode::serialize(&recipient)
-                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
+                &bincode::serialize(&recipient).map_err(|e| {
+                    self.inner.metrics.num_failed_messages.add(1);
+                    NetworkError::Libp2p { source: e.into() }
+                })?,
                 self.inner.dht_timeout,
             )
             .await
@@ -1054,7 +1072,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
         match self.inner.handle.direct_request(pid, &message).await {
             Ok(()) => Ok(()),
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                self.inner.metrics.num_failed_messages.add(1);
+                Err(e.into())
+            }
         }
     }
 
