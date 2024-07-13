@@ -812,7 +812,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Ok(pid) => pid,
             Err(err) => {
                 self.inner.metrics.num_failed_messages.add(1);
-                error!(
+                debug!(
                     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                     request, recipient
                 );
@@ -1027,7 +1027,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Ok(pid) => pid,
             Err(err) => {
                 self.inner.metrics.num_failed_messages.add(1);
-                error!(
+                debug!(
                     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
                     message, recipient
                 );
