@@ -452,7 +452,13 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         .await?)
     }
 
-    /// Returns when network is ready
+    /// Returns whether or not the network is currently ready.
+    #[must_use]
+    pub fn is_ready(&self) -> bool {
+        self.inner.is_ready.load(Ordering::Relaxed)
+    }
+
+    /// Returns only when the network is ready.
     pub async fn wait_for_ready(&self) {
         loop {
             if self.inner.is_ready.load(Ordering::Relaxed) {
