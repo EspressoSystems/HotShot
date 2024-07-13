@@ -9,7 +9,7 @@ use hotshot_types::traits::network::NetworkError as HotshotNetworkError;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use snafu::{ResultExt, Snafu};
-use tracing::{debug, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 use crate::network::{
     behaviours::request_response::{Request, Response},
@@ -143,27 +143,33 @@ impl NetworkNodeHandle {
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
-    /// Wait until at least `num_peers` have connected, or until `timeout` time has passed.
+    /// Wait until at least `num_peers` have connected
     ///
     /// # Errors
-    ///
-    /// Will return any networking error encountered, or `ConnectTimeout` if the `timeout` has elapsed.
+    /// If the channel closes before the result can be sent back
     pub async fn wait_to_connect(
         &self,
-        num_peers: usize,
+        num_required_peers: usize,
         node_id: usize,
     ) -> Result<(), NetworkNodeHandleError> {
-        self.begin_bootstrap().await?;
-        let mut connected_ok = false;
-        while !connected_ok {
-            async_sleep(Duration::from_secs(1)).await;
+        // Wait for the required number of peers to connect
+        loop {
+            // Get the number of currently connected peers
             let num_connected = self.num_connected().await?;
-            info!(
-                "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
-                num_connected, num_peers, node_id
+            if num_connected >= num_required_peers {
+                break;
+            }
+
+            // Log the number of connected peers
+            error!(
+                "Node {} connected to {}/{} peers",
+                node_id, num_connected, num_required_peers
             );
-            connected_ok = num_connected >= num_peers;
+
+            // Sleep for a second before checking again
+            async_sleep(Duration::from_secs(1)).await;
         }
+
         Ok(())
     }
 
