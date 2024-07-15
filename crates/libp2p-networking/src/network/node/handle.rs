@@ -161,7 +161,7 @@ impl NetworkNodeHandle {
             }
 
             // Log the number of connected peers
-            error!(
+            info!(
                 "Node {} connected to {}/{} peers",
                 node_id, num_connected, num_required_peers
             );

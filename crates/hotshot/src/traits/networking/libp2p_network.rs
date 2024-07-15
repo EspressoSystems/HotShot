@@ -660,14 +660,14 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                error!("Finished putting Kademlia records");
+                info!("Finished putting Kademlia records");
 
                 // Wait for the network to connect to the required number of peers
                 if let Err(e) = handle.wait_to_connect(4, id).await {
                     error!("Failed to connect to peers: {:?}", e);
                     return Err::<(), NetworkError>(e.into());
                 }
-                error!("Connected to required number of peers");
+                info!("Connected to required number of peers");
 
                 // Set the network as ready
                 is_ready.store(true, Ordering::Relaxed);
