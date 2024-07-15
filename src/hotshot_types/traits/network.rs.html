@@ -674,6 +674,8 @@
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -841,6 +843,8 @@
         <span class="doccomment">/// vec of errors
         </span>errors: Vec&lt;Box&lt;NetworkError&gt;&gt;,
     },
+    <span class="doccomment">/// The network is not ready yet
+    </span>NotReady,
 }
 
 <span class="doccomment">/// common traits we would like our network messages to implement

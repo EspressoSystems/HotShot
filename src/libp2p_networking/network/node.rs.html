@@ -1192,7 +1192,7 @@
             <span class="prelude-val">Ok</span>(msg) =&gt; {
                 <span class="kw">match </span>msg {
                     ClientRequest::BeginBootstrap =&gt; {
-                        <span class="macro">debug!</span>(<span class="string">"begin bootstrap"</span>);
+                        <span class="macro">debug!</span>(<span class="string">"Beginning Libp2p bootstrap"</span>);
                         <span class="kw">let _ </span>= <span class="self">self</span>.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) =&gt; {
