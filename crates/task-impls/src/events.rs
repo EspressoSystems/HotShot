@@ -194,6 +194,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// A new high_qc has been updated in `Consensus`.
     HighQcUpdated(QuorumCertificate<TYPES>),
+
+    Dummy(QuorumProposal<TYPES>, Leaf<TYPES>),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
@@ -431,6 +433,9 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             }
             HotShotEvent::HighQcUpdated(cert) => {
                 write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
+            }
+            HotShotEvent::Dummy(..) => {
+                write!(f, "DUMMY EVENT")
             }
         }
     }

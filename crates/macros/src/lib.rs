@@ -336,7 +336,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
         for input in &input_group {
             #(
-                tracing::debug!("Test sent: {:?}", input);
+                tracing::debug!("Test sent: {}", input);
 
                 to_task
                     .broadcast(input.clone().into())
@@ -354,7 +354,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
                 let mut result = PredicateResult::Incomplete;
 
                 while let Ok(Ok(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).await {
-                    tracing::debug!("Test received: {:?}", received_output);
+                    tracing::debug!("Test received: {}", received_output);
 
                     let output_asserts = &mut #task_expectations[stage_number].output_asserts;
 
@@ -381,7 +381,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
         while let Ok(input) = loop_receiver.try_recv() {
             #(
-                tracing::debug!("Test sent: {:?}", input);
+                tracing::debug!("Test sent: {}", input);
 
                 to_task
                     .broadcast(input.clone().into())
@@ -397,7 +397,7 @@ pub fn test_scripts(input: proc_macro::TokenStream) -> TokenStream {
 
                 let mut result = PredicateResult::Incomplete;
                 while let Ok(Ok(received_output)) = async_timeout(#scripts.timeout, from_task.recv_direct()).await {
-                    tracing::debug!("Test received: {:?}", received_output);
+                    tracing::debug!("Test received: {}", received_output);
 
                     let output_asserts = &mut #task_expectations[stage_number].output_asserts;
 

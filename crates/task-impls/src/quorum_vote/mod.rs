@@ -264,9 +264,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
         let mut leaf = None;
         let mut vid_share = None;
         for event in res {
+            tracing::error!("Got event {}", event);
             match event.as_ref() {
-                HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
+                // @audit - L - This ALWAYS seems to arrive first, even when the order is
+                // completely randomized. This is because the quorum proposal validated event
+                // always arrives immediately instead of going through a secondary step. Somehow
+                // even when it arrives last it is STILL faster than the broadcast.
+                HotShotEvent::Dummy(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
+                    tracing::error!("Proposal Payload Commitment {proposal_payload_comm:?}");
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
@@ -290,6 +296,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
                     let cert_payload_comm = cert.date().payload_commit;
+                    tracing::error!("CERT PAYLOAD COMMITMENT {cert_payload_comm:?}\n Payload Commitment: {payload_commitment:?}");
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
@@ -298,9 +305,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     } else {
                         payload_commitment = Some(cert_payload_comm);
                     }
+                    tracing::error!("Payload Commitment: {payload_commitment:?}");
                 }
                 HotShotEvent::VidShareValidated(share) => {
                     let vid_payload_commitment = share.data.payload_commitment;
+                    tracing::error!("Proposal Payload Commitment {vid_payload_commitment:?}");
                     vid_share = Some(share.clone());
                     if let Some(comm) = payload_commitment {
                         if vid_payload_commitment != comm {
@@ -416,8 +425,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     VoteDependency::QuorumProposal => {
-                        if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
-                            proposal.view_number
+                        if let HotShotEvent::Dummy(..) = event {
+                            return true;
+                        // if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
+                        //     proposal.view_number
                         } else {
                             return false;
                         }
@@ -493,14 +504,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 HotShotEvent::VoteNow(..) => {
                     vote_now_dependency.mark_as_completed(event);
                 }
-                HotShotEvent::QuorumProposalValidated(..) => {
-                    quorum_proposal_dependency.mark_as_completed(event);
-                }
+                // HotShotEvent::Dummy(..) => {
+                //     quorum_proposal_dependency.mark_as_completed(event);
+                // }
                 _ => {}
             }
         }
 
-        let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
+        let deps = vec![dac_dependency, vid_dependency,quorum_proposal_dependency];
         let dependency_chain = OrDependency::from_deps(vec![
             // Either we fulfull the dependencies individiaully.
             AndDependency::from_deps(deps),
@@ -581,6 +592,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 {
                     debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
+
+                broadcast_event(
+                    Arc::new(HotShotEvent::Dummy(proposal.clone(), _leaf.clone())),
+                    &event_sender.clone(),
+                )
+                .await;
 
                 self.create_dependency_task_if_new(
                     proposal.view_number,
