@@ -9,7 +9,7 @@ use hotshot_types::traits::network::NetworkError as HotshotNetworkError;
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use snafu::{ResultExt, Snafu};
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::network::{
     behaviours::request_response::{Request, Response},
