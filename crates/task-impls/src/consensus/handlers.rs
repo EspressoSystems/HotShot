@@ -717,9 +717,12 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     };
     drop(read_consnesus);
 
-    let Ok(version) = version(view, &vote_info.1.read().await.clone()) else {
-        error!("Failed to calculate the version.");
-        return false;
+    let version = match version(view, &vote_info.1.read().await.clone()) {
+        Ok(version) => version,
+        Err(e) => {
+            error!("Failed to calculate the version: {e:?}");
+            return false;
+        }
     };
     let Ok((validated_state, state_delta)) = parent_state
         .validate_and_apply_header(
