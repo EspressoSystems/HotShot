@@ -152,6 +152,8 @@ impl NetworkNodeHandle {
         num_required_peers: usize,
         node_id: usize,
     ) -> Result<(), NetworkNodeHandleError> {
+        self.begin_bootstrap().await?;
+
         // Wait for the required number of peers to connect
         loop {
             // Get the number of currently connected peers
