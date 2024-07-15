@@ -800,10 +800,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             .inner
             .handle
             .lookup_node(
-                &bincode::serialize(&recipient).map_err(|e| {
-                    self.inner.metrics.num_failed_messages.add(1);
-                    NetworkError::Libp2p { source: e.into() }
-                })?,
+                &bincode::serialize(&recipient)
+                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
                 self.inner.dht_timeout,
             )
             .await
@@ -1029,10 +1027,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             .inner
             .handle
             .lookup_node(
-                &bincode::serialize(&recipient).map_err(|e| {
-                    self.inner.metrics.num_failed_messages.add(1);
-                    NetworkError::Libp2p { source: e.into() }
-                })?,
+                &bincode::serialize(&recipient)
+                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
                 self.inner.dht_timeout,
             )
             .await
