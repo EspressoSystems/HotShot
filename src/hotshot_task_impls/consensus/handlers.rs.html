@@ -825,6 +825,10 @@
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>core::time::Duration;
@@ -844,7 +848,7 @@
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{version, UpgradeCertificate},
     simple_vote::QuorumData,
     traits::{
         block_contents::BlockHeader,
@@ -987,7 +991,6 @@
     commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
-    version: Version,
     id: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
@@ -1036,6 +1039,8 @@
         <span class="string">"Cannot propose because our VID payload commitment and metadata is for an older view."
     </span>);
 
+    <span class="kw">let </span>version = version(view, <span class="kw-2">&amp;</span>decided_upgrade_certificate.read().<span class="kw">await</span>.clone())<span class="question-mark">?</span>;
+
     <span class="kw">let </span>create_and_send_proposal_handle = async_spawn(<span class="kw">async move </span>{
         create_and_send_proposal(
             public_key,
@@ -1076,7 +1081,6 @@
     commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
-    version: Version,
     id: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     publish_proposal_from_commitment_and_metadata(
@@ -1092,7 +1096,6 @@
         commitment_and_metadata,
         proposal_cert,
         instance_state,
-        version,
         id,
     )
     .<span class="kw">await
@@ -1108,7 +1111,6 @@
     sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
-    version: Version,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumProposal&lt;TYPES&gt;&gt;&gt; {
     <span class="kw">let </span>sender = sender.clone();
     <span class="macro">debug!</span>(
@@ -1288,7 +1290,6 @@
                     task_state.payload_commitment_and_metadata.clone(),
                     task_state.proposal_cert.clone(),
                     Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
-                    version,
                     task_state.id,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1469,7 +1470,6 @@
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
     vote_info: VoteInfo&lt;TYPES&gt;,
-    version: Version,
     id: u64,
 ) -&gt; bool {
     <span class="kw">use </span>hotshot_types::simple_vote::QuorumVote;
@@ -1547,6 +1547,14 @@
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
     drop(read_consnesus);
+
+    <span class="kw">let </span>version = <span class="kw">match </span>version(view, <span class="kw-2">&amp;</span>vote_info.<span class="number">1</span>.read().<span class="kw">await</span>.clone()) {
+        <span class="prelude-val">Ok</span>(version) =&gt; version,
+        <span class="prelude-val">Err</span>(e) =&gt; {
+            <span class="macro">error!</span>(<span class="string">"Failed to calculate the version: {e:?}"</span>);
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        }
+    };
     <span class="kw">let </span><span class="prelude-val">Ok</span>((validated_state, state_delta)) = parent_state
         .validate_and_apply_header(
             instance_state.as_ref(),

@@ -726,28 +726,6 @@
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -781,7 +759,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
-<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
     consensus::handlers::{
@@ -862,9 +839,6 @@
 
     <span class="doccomment">/// last View Sync Certificate or Timeout Certificate this node formed.
     </span><span class="kw">pub </span>proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// Globally shared reference to the current network version.
-    </span><span class="kw">pub </span>version: Arc&lt;RwLock&lt;Version&gt;&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -962,7 +936,6 @@
             <span class="self">self</span>.payload_commitment_and_metadata.clone(),
             <span class="self">self</span>.proposal_cert.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
-            <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>,
             <span class="self">self</span>.id,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -997,7 +970,6 @@
         <span class="kw">let </span>quorum_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
         <span class="kw">let </span>da_mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.da_membership);
         <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
-        <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
         <span class="kw">let </span>id = <span class="self">self</span>.id;
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
             update_state_and_vote_if_able::&lt;TYPES, I&gt;(
@@ -1009,7 +981,6 @@
                 quorum_mem,
                 instance_state,
                 (priv_key, upgrade, da_mem, event_stream),
-                version,
                 id,
             )
             .<span class="kw">await</span>;
@@ -1024,18 +995,11 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="kw">let </span>version = <span class="kw-2">*</span><span class="self">self</span>.version.read().<span class="kw">await</span>;
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.view_number());
-                <span class="kw">match </span>handle_quorum_proposal_recv(
-                    proposal,
-                    sender,
-                    event_stream.clone(),
-                    <span class="self">self</span>,
-                    version,
-                )
-                .<span class="kw">await
+                <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), <span class="self">self</span>)
+                    .<span class="kw">await
                 </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(current_proposal)) =&gt; {
                         <span class="kw">let </span>view = current_proposal.view_number();
@@ -1245,22 +1209,14 @@
 
                 <span class="kw">let </span>old_view_number = <span class="self">self</span>.cur_view;
 
-                <span class="comment">// If we have a decided upgrade certificate,
-                // we may need to upgrade the protocol version on a view change.
+                <span class="comment">// If we have a decided upgrade certificate, the protocol version may also have
+                // been upgraded.
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone() {
                     <span class="kw">if </span>new_view == cert.data.new_version_first_view {
                         <span class="macro">warn!</span>(
-                            <span class="string">"Updating version based on a decided upgrade cert: {:?}"</span>,
+                            <span class="string">"Version upgraded based on a decided upgrade cert: {:?}"</span>,
                             cert
                         );
-                        <span class="kw">let </span><span class="kw-2">mut </span>version = <span class="self">self</span>.version.write().<span class="kw">await</span>;
-                        <span class="kw-2">*</span>version = cert.data.new_version;
-
-                        broadcast_event(
-                            Arc::new(HotShotEvent::VersionUpgrade(cert.data.new_version)),
-                            <span class="kw-2">&amp;</span>event_stream,
-                        )
-                        .<span class="kw">await</span>;
                     }
                 }
 

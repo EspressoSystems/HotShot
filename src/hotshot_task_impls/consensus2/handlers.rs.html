@@ -281,11 +281,6 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
@@ -422,20 +417,15 @@
     <span class="comment">// Move this node to the next view
     </span>task_state.cur_view = new_view_number;
 
-    <span class="comment">// If we have a decided upgrade certificate, we may need to upgrade the protocol version on a
-    // view change.
+    <span class="comment">// If we have a decided upgrade certificate, the protocol version may also have been upgraded.
     </span><span class="kw">let </span>decided_upgrade_certificate_read =
         task_state.decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = decided_upgrade_certificate_read {
         <span class="kw">if </span>new_view_number == cert.data.new_version_first_view {
             <span class="macro">warn!</span>(
-                <span class="string">"Updating version based on a decided upgrade cert: {:?}"</span>,
+                <span class="string">"Version upgraded based on a decided upgrade cert: {:?}"</span>,
                 cert
             );
-            <span class="kw">let </span><span class="kw-2">mut </span>version = task_state.version.write().<span class="kw">await</span>;
-            <span class="kw">let </span>new_version = cert.data.new_version;
-            <span class="kw-2">*</span>version = new_version;
-            broadcast_event(Arc::new(HotShotEvent::VersionUpgrade(new_version)), sender).<span class="kw">await</span>;
         }
     }
 
