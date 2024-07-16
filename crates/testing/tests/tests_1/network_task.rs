@@ -69,8 +69,14 @@ async fn test_network_task() {
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().await.unwrap();
 
-    let (out_tx, mut out_rx) = async_broadcast::broadcast(10);
-    add_network_message_test_task(out_tx.clone(), network.clone()).await;
+    let (out_tx_internal, mut out_rx_internal) = async_broadcast::broadcast(10);
+    let (out_tx_external, _) = async_broadcast::broadcast(10);
+    add_network_message_test_task(
+        out_tx_internal.clone(),
+        out_tx_external.clone(),
+        network.clone(),
+    )
+    .await;
 
     tx.broadcast_direct(Arc::new(HotShotEvent::QuorumProposalSend(
         view.quorum_proposal,
@@ -79,7 +85,7 @@ async fn test_network_task() {
     .await
     .unwrap();
     let res: Arc<HotShotEvent<TestTypes>> =
-        async_timeout(Duration::from_millis(100), out_rx.recv_direct())
+        async_timeout(Duration::from_millis(100), out_rx_internal.recv_direct())
             .await
             .expect("timed out waiting for response")
             .expect("channel closed");
@@ -134,9 +140,15 @@ async fn test_network_storage_fail() {
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().await.unwrap();
 
-    let (out_tx, mut out_rx): (Sender<Arc<HotShotEvent<TestTypes>>>, _) =
+    let (out_tx_internal, mut out_rx_internal): (Sender<Arc<HotShotEvent<TestTypes>>>, _) =
         async_broadcast::broadcast(10);
-    add_network_message_test_task(out_tx.clone(), network.clone()).await;
+    let (out_tx_external, _) = async_broadcast::broadcast(10);
+    add_network_message_test_task(
+        out_tx_internal.clone(),
+        out_tx_external.clone(),
+        network.clone(),
+    )
+    .await;
 
     tx.broadcast_direct(Arc::new(HotShotEvent::QuorumProposalSend(
         view.quorum_proposal,
@@ -144,6 +156,6 @@ async fn test_network_storage_fail() {
     )))
     .await
     .unwrap();
-    let res = async_timeout(Duration::from_millis(100), out_rx.recv_direct()).await;
+    let res = async_timeout(Duration::from_millis(100), out_rx_internal.recv_direct()).await;
     assert!(res.is_err());
 }

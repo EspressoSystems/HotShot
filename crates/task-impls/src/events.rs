@@ -194,9 +194,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// A new high_qc has been updated in `Consensus`.
     HighQcUpdated(QuorumCertificate<TYPES>),
-
-    /// A message destined for the sequencer has been received by HotShot
-    SequencerMessageRecv(Vec<u8>),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
@@ -435,7 +432,6 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::HighQcUpdated(cert) => {
                 write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
             }
-            HotShotEvent::SequencerMessageRecv(_) => write!(f, "SequencerMessageRecv"),
         }
     }
 }
