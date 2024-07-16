@@ -164,8 +164,8 @@ pub enum EventType<TYPES: NodeType> {
         sender: TYPES::SignatureKey,
     },
 
-    /// A message destined for the sequencer was received
-    SequencerMessage(Vec<u8>),
+    /// A message destined for external listeners was received
+    ExternalMessageReceived(Vec<u8>),
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 /// A list of actions that we track for nodes
