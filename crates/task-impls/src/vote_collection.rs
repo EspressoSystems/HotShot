@@ -158,6 +158,7 @@ where
         + 'static,
     VoteCollectionTaskState<TYPES, VOTE, CERT>: HandleVoteEvent<TYPES, VOTE, CERT>,
 {
+    // @audit - L - This check always passes in all cases that it is used in.
     if vote.view_number() != info.view {
         error!(
             "Vote view does not match! vote view is {} current view is {}",
@@ -176,6 +177,7 @@ where
         membership: Arc::clone(&info.membership),
         public_key: info.public_key.clone(),
         accumulator: Some(new_accumulator),
+        // @audit - L - This should be vote.view_number()
         view: info.view,
         id: info.id,
     };

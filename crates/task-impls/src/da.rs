@@ -141,6 +141,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
+                // @audit - L - Inconsistent use of cur_view from consensus shared state instead of internal state.
                 let curr_view = self.consensus.read().await.cur_view();
                 if curr_view > proposal.data.view_number() + 1 {
                     tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
@@ -149,6 +150,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 // Proposal is fresh and valid, notify the application layer
                 broadcast_event(
                     Event {
+                        // @audit - L - curr_view used for the check above, but used as the value here. If they're
+                        // equivalent, then perhaps we should just not use the consensus cur view, or only use it
+                        // and delete the value entirely from this object.
                         view_number: self.cur_view,
                         event: EventType::DaProposal {
                             proposal: proposal.clone(),
@@ -208,6 +212,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
 
                 // Record the payload we have promised to make available.
+                // @audit - INF - This can fail if a value already exists.
                 if let Err(e) = consensus.update_saved_payloads(
                     view_number,
                     Arc::clone(&proposal.data.encoded_transactions),
@@ -261,6 +266,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
                         membership: Arc::clone(&self.da_membership),
+                        // @audit - L - This should be self.cur_view
                         view: vote.view_number(),
                         id: self.id,
                     };
@@ -290,15 +296,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     return None;
                 }
 
+                // @audit - INF - This warning doesn't do anything.
                 if *view - *self.cur_view > 1 {
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
 
+                // @audit - L - Everything after this should just not exist
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.da_membership.leader(self.cur_view + 1) != self.public_key {
                     return None;
                 }
+
+                // @audit - L - This does not poll anything. This is already logged when we actually
+                // start polling for votes
                 debug!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 return None;
@@ -326,6 +337,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 let data: DaProposal<TYPES> = DaProposal {
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
+                    // @audit - L - Dead comment that needs an answer. Should be deleted afterward
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number,
                 };

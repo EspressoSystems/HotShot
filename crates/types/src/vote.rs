@@ -31,6 +31,8 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Get the signature of the vote sender
     fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
     /// Gets the data which was voted on by this vote
+    ///
+    // @audit - L - This typo is extremely confusing.
     fn date(&self) -> &Self::Commitment;
     /// Gets the Data commitment of the vote
     fn date_commitment(&self) -> Commitment<Self::Commitment>;
@@ -71,6 +73,8 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     // TODO: Make this a static ratio of the total stake of `Membership`
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
     /// Get the commitment which was voted on
+    ///
+    // @audit - L - This typo is extremely confusing.
     fn date(&self) -> &Self::Voteable;
     /// Get the vote commitment which the votes commit to
     fn date_commitment(&self) -> Commitment<Self::Voteable>;
