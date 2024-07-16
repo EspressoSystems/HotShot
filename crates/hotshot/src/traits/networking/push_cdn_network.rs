@@ -185,6 +185,8 @@ pub enum Topic {
     Global = 0,
     /// The DA topic
     Da = 1,
+    /// A passthrough topic for sequencer-adjacent messages
+    Sequencer = 2,
 }
 
 /// Implement the `TopicTrait` for our `Topic` enum. We need this to filter
