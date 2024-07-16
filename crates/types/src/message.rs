@@ -188,6 +188,8 @@ pub enum MessagePurpose {
     UpgradeProposal,
     /// Upgrade vote.
     UpgradeVote,
+    /// A message to be passed through to the sequencer
+    Sequencer,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -200,6 +202,8 @@ pub enum MessageKind<TYPES: NodeType> {
     Consensus(SequencingMessage<TYPES>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<TYPES>),
+    /// A message to be passed through to the sequencer
+    Sequencer(Vec<u8>),
 }
 
 impl<TYPES: NodeType> MessageKind<TYPES> {
@@ -227,6 +231,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
                 ResponseMessage::Found(m) => m.view_number(),
                 ResponseMessage::NotFound | ResponseMessage::Denied => TYPES::Time::new(1),
             },
+            MessageKind::Sequencer(_) => TYPES::Time::new(1),
         }
     }
 
@@ -234,6 +239,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
         match &self {
             MessageKind::Consensus(message) => message.purpose(),
             MessageKind::Data(_) => MessagePurpose::Data,
+            MessageKind::Sequencer(_) => MessagePurpose::Sequencer,
         }
     }
 }

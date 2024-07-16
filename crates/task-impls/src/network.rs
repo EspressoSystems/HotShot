@@ -174,6 +174,16 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         warn!("Request and Response messages should not be received in the NetworkMessage task");
                     }
                 },
+
+                MessageKind::Sequencer(data) => {
+                    // Send the sequencer message to the event stream so the sequencer can
+                    // see it
+                    broadcast_event(
+                        Arc::new(HotShotEvent::SequencerMessageRecv(data)),
+                        &self.event_stream,
+                    )
+                    .await;
+                }
             };
         }
         if !transactions.is_empty() {
