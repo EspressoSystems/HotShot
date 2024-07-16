@@ -178,13 +178,12 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     }
                 },
 
-                MessageKind::Sequencer(data) => {
-                    // Send the sequencer message to the event stream so the sequencer can
-                    // see it
+                MessageKind::External(data) => {
+                    // Send the external message to the external event stream so it can be processed
                     broadcast_event(
                         Event {
                             view_number: TYPES::Time::new(1),
-                            event: EventType::SequencerMessage(data),
+                            event: EventType::ExternalMessageReceived(data),
                         },
                         &self.external_event_stream,
                     )
