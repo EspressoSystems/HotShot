@@ -529,21 +529,6 @@
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Task for doing bootstraps at a regular interval
 </span><span class="kw">pub mod </span>bootstrap;
 <span class="kw">use </span>std::{
@@ -567,7 +552,7 @@
     store::RecordStore, Behaviour <span class="kw">as </span>KademliaBehaviour, BootstrapError, Event <span class="kw">as </span>KademliaEvent,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>tracing::{error, info, warn};
+<span class="kw">use </span>tracing::{debug, error, info, warn};
 
 <span class="doccomment">/// the number of nodes required to get an answer from
 /// in order to trust that the answer is correct when retrieving from the DHT
@@ -919,7 +904,7 @@
     }
 
     <span class="doccomment">/// Send that the bootsrap suceeded
-    </span><span class="kw">fn </span>finsish_bootstrap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    </span><span class="kw">fn </span>finish_bootstrap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>tx) = <span class="self">self</span>.bootstrap_tx.clone() {
             art::async_spawn(
                 <span class="kw">async move </span>{ tx.send(bootstrap::InputEvent::BootstrapFinished).<span class="kw">await </span>},
@@ -947,29 +932,23 @@
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetClosestPeers(r),
                 id: query_id,
-                stats,
+                stats: <span class="kw">_</span>,
                 step: ProgressStep { last: <span class="bool-val">true</span>, .. },
                 ..
             } =&gt; <span class="kw">match </span>r {
-                <span class="prelude-val">Ok</span>(GetClosestPeersOk { key, peers }) =&gt; {
+                <span class="prelude-val">Ok</span>(GetClosestPeersOk { key, peers: <span class="kw">_ </span>}) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = <span class="self">self</span>.in_progress_get_closest_peers.remove(<span class="kw-2">&amp;</span>query_id) {
                         <span class="kw">if </span>chan.send(()).is_err() {
-                            <span class="macro">warn!</span>(<span class="string">"DHT: finished query but client no longer interested"</span>);
+                            <span class="macro">warn!</span>(<span class="string">"DHT: finished query but client was no longer interested"</span>);
                         };
                     };
-                    <span class="macro">info!</span>(
-                        <span class="string">"peer {:?} successfully completed get closest peers for {:?} with peers {:?}"</span>,
-                        <span class="self">self</span>.peer_id, key, peers
-                    );
+                    <span class="macro">debug!</span>(<span class="string">"Successfully got closest peers for key {:?}"</span>, key);
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = <span class="self">self</span>.in_progress_get_closest_peers.remove(<span class="kw-2">&amp;</span>query_id) {
                         <span class="kw">let _</span>: <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = chan.send(());
                     };
-                    <span class="macro">warn!</span>(
-                        <span class="string">"peer {:?} failed to get closest peers with {:?} and stats {:?}"</span>,
-                        <span class="self">self</span>.peer_id, e, stats
-                    );
+                    <span class="macro">warn!</span>(<span class="string">"Failed to get closest peers: {:?}"</span>, e);
                 }
             },
             KademliaEvent::OutboundQueryProgressed {
@@ -990,13 +969,10 @@
                 ..
             } =&gt; {
                 <span class="kw">if </span>num_remaining == <span class="number">0 </span>{
-                    <span class="macro">info!</span>(<span class="string">"Finished bootstrap for peer {:?}"</span>, <span class="self">self</span>.peer_id);
-                    <span class="self">self</span>.finsish_bootstrap();
+                    <span class="macro">info!</span>(<span class="string">"Finished bootstrapping"</span>);
+                    <span class="self">self</span>.finish_bootstrap();
                 } <span class="kw">else </span>{
-                    <span class="macro">warn!</span>(
-                        <span class="string">"Bootstrap in progress: num remaining nodes to ping {:?}"</span>,
-                        num_remaining
-                    );
+                    <span class="macro">debug!</span>(<span class="string">"Bootstrap in progress, {} nodes remaining"</span>, num_remaining);
                 }
                 <span class="kw">return </span><span class="prelude-val">Some</span>(NetworkEvent::IsBootstrapped);
             }
@@ -1006,24 +982,18 @@
             } =&gt; {
                 <span class="kw">let </span>BootstrapError::Timeout { num_remaining, .. } = e;
                 <span class="kw">if </span>num_remaining.is_none() {
-                    <span class="macro">error!</span>(
-                        <span class="string">"Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT."</span>,
-                        <span class="self">self</span>.peer_id, e,
-                    );
+                    <span class="macro">error!</span>(<span class="string">"Failed to bootstrap: {:?}"</span>, e);
                 }
-                <span class="self">self</span>.finsish_bootstrap();
+                <span class="self">self</span>.finish_bootstrap();
             }
             KademliaEvent::RoutablePeer { peer, address: <span class="kw">_ </span>} =&gt; {
-                <span class="macro">info!</span>(<span class="string">"on peer {:?} found routable peer {:?}"</span>, <span class="self">self</span>.peer_id, peer);
+                <span class="macro">debug!</span>(<span class="string">"Found routable peer {:?}"</span>, peer);
             }
             KademliaEvent::PendingRoutablePeer { peer, address: <span class="kw">_ </span>} =&gt; {
-                <span class="macro">info!</span>(
-                    <span class="string">"on peer {:?} have pending routable peer {:?}"</span>,
-                    <span class="self">self</span>.peer_id, peer
-                );
+                <span class="macro">debug!</span>(<span class="string">"Found pending routable peer {:?}"</span>, peer);
             }
             KademliaEvent::UnroutablePeer { peer } =&gt; {
-                <span class="macro">info!</span>(<span class="string">"on peer {:?} have unroutable peer {:?}"</span>, <span class="self">self</span>.peer_id, peer);
+                <span class="macro">debug!</span>(<span class="string">"Found unroutable peer {:?}"</span>, peer);
             }
             KademliaEvent::InboundRequest { request: _r } =&gt; {}
             KademliaEvent::RoutingUpdated {
@@ -1033,13 +1003,13 @@
                 bucket_range: <span class="kw">_</span>,
                 old_peer: <span class="kw">_</span>,
             } =&gt; {
-                <span class="macro">info!</span>(<span class="string">"Routing table update"</span>);
+                <span class="macro">debug!</span>(<span class="string">"Routing table updated"</span>);
             }
             e @ KademliaEvent::OutboundQueryProgressed { .. } =&gt; {
-                <span class="macro">info!</span>(<span class="string">"Not handling dht event {:?}"</span>, e);
+                <span class="macro">debug!</span>(<span class="string">"Not handling dht event {:?}"</span>, e);
             }
             e =&gt; {
-                <span class="macro">error!</span>(<span class="string">"UNHANDLED NEW SWARM VARIANT: {e:?}"</span>);
+                <span class="macro">debug!</span>(<span class="string">"New unhandled swarm event: {e:?}"</span>);
             }
         }
         <span class="prelude-val">None

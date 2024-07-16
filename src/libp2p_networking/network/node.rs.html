@@ -791,13 +791,6 @@
 <a href="#789" id="789">789</a>
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -840,7 +833,7 @@
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
 <span class="kw">use </span>snafu::ResultExt;
-<span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+<span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     config::{
@@ -924,7 +917,7 @@
                 <span class="kw">break </span>address;
             }
         };
-        <span class="macro">info!</span>(<span class="string">"peerid {:?} started on addr: {:?}"</span>, <span class="self">self</span>.peer_id, addr);
+        <span class="macro">info!</span>(<span class="string">"Libp2p listening on {:?}"</span>, addr);
         <span class="prelude-val">Ok</span>(addr)
     }
 
@@ -934,7 +927,7 @@
     /// will start connecting to peers
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
     </span><span class="kw">pub fn </span>add_known_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, known_peers: <span class="kw-2">&amp;</span>[(PeerId, Multiaddr)]) {
-        <span class="macro">info!</span>(<span class="string">"Adding nodes {:?} to {:?}"</span>, known_peers, <span class="self">self</span>.peer_id);
+        <span class="macro">debug!</span>(<span class="string">"Adding {} known peers"</span>, known_peers.len());
         <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
         <span class="kw">let </span><span class="kw-2">mut </span>bs_nodes = HashMap::&lt;PeerId, HashSet&lt;Multiaddr&gt;&gt;::new();
         <span class="kw">let </span><span class="kw-2">mut </span>shuffled = known_peers.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -967,7 +960,7 @@
         <span class="kw">let </span>peer_id = PeerId::from(identity.public());
         <span class="macro">debug!</span>(<span class="question-mark">?</span>peer_id);
         <span class="kw">let </span>transport: BoxedTransport = gen_transport(identity.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="macro">trace!</span>(<span class="string">"Launched network transport"</span>);
+        <span class="macro">debug!</span>(<span class="string">"Launched network transport"</span>);
         <span class="comment">// Generate the swarm
         </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&gt; = {
             <span class="comment">// Use the hash of the message's contents as the ID
@@ -1164,7 +1157,7 @@
                 <span class="macro">error!</span>(<span class="string">"Error publishing to DHT: {e:?} for peer {:?}"</span>, <span class="self">self</span>.peer_id);
             }
             <span class="prelude-val">Ok</span>(qid) =&gt; {
-                <span class="macro">info!</span>(<span class="string">"Success publishing {:?} to DHT"</span>, qid);
+                <span class="macro">debug!</span>(<span class="string">"Published record to DHT with qid {:?}"</span>, qid);
                 <span class="kw">let </span>query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query
@@ -1276,7 +1269,7 @@
                         contents,
                         retry_count,
                     } =&gt; {
-                        <span class="macro">info!</span>(<span class="string">"pid {:?} adding direct request"</span>, <span class="self">self</span>.peer_id);
+                        <span class="macro">debug!</span>(<span class="string">"Sending direct request to {:?}"</span>, pid);
                         <span class="kw">let </span>id = behaviour.add_direct_request(pid, contents.clone());
                         <span class="kw">let </span>req = DMRequest {
                             peer_id: pid,
@@ -1303,7 +1296,7 @@
                             .send_response(chan, response)
                             .is_err()
                         {
-                            <span class="macro">info!</span>(<span class="string">"Data Response dropped because response peer disconnected"</span>);
+                            <span class="macro">debug!</span>(<span class="string">"Data response dropped because client is no longer connected"</span>);
                         }
                     }
                     ClientRequest::AddKnownPeers(peers) =&gt; {
@@ -1311,10 +1304,7 @@
                     }
                     ClientRequest::Prune(pid) =&gt; {
                         <span class="kw">if </span><span class="self">self</span>.swarm.disconnect_peer_id(pid).is_err() {
-                            <span class="macro">error!</span>(
-                                <span class="string">"Peer {:?} could not disconnect from pid {:?}"</span>,
-                                <span class="self">self</span>.peer_id, pid
-                            );
+                            <span class="macro">warn!</span>(<span class="string">"Could not disconnect from {:?}"</span>, pid);
                         }
                     }
                 }
@@ -1335,7 +1325,7 @@
         send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Make the match cleaner
-        </span><span class="macro">info!</span>(<span class="string">"event observed {:?}"</span>, event);
+        </span><span class="macro">debug!</span>(<span class="string">"Swarm event observed {:?}"</span>, event);
 
         <span class="attr">#[allow(deprecated)]
         </span><span class="kw">match </span>event {
@@ -1353,7 +1343,10 @@
                         ESTABLISHED_LIMIT, num_established
                     );
                 } <span class="kw">else </span>{
-                    <span class="macro">info!</span>(<span class="string">"peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left"</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
+                    <span class="macro">debug!</span>(
+                        <span class="string">"Connection established with {:?} at {:?} with {:?} concurrent dial errors"</span>,
+                        peer_id, endpoint, concurrent_dial_errors
+                    );
                 }
 
                 <span class="comment">// Send the number of connected peers to the client
@@ -1375,7 +1368,10 @@
                         ESTABLISHED_LIMIT, num_established
                     );
                 } <span class="kw">else </span>{
-                    <span class="macro">info!</span>(<span class="string">"peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}"</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, num_established, cause);
+                    <span class="macro">debug!</span>(
+                        <span class="string">"Connection closed with {:?} at {:?} due to {:?}"</span>,
+                        peer_id, endpoint, cause
+                    );
                 }
 
                 <span class="comment">// Send the number of connected peers to the client
@@ -1388,7 +1384,7 @@
                 peer_id,
                 connection_id: <span class="kw">_</span>,
             } =&gt; {
-                <span class="macro">info!</span>(<span class="string">"{:?} is dialing {:?}"</span>, <span class="self">self</span>.peer_id, peer_id);
+                <span class="macro">debug!</span>(<span class="string">"Attempting to dial {:?}"</span>, peer_id);
             }
             SwarmEvent::ListenerClosed {
                 listener_id: <span class="kw">_</span>,
@@ -1426,19 +1422,12 @@
                                     public_key: <span class="kw">_</span>,
                                     protocol_version: <span class="kw">_</span>,
                                     agent_version: <span class="kw">_</span>,
-                                    observed_addr,
+                                    observed_addr: <span class="kw">_</span>,
                                 },
                         } = <span class="kw-2">*</span>e
                         {
                             <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
-                            <span class="comment">// NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
-                            // NOTE I manually checked and peer_id corresponds to listen_addrs.
-                            // NOTE Once we've tested on DNS addresses, this should be swapped out to play nicely
-                            // with autonat
-                            </span><span class="macro">info!</span>(
-                                <span class="string">"local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} "</span>,
-                                <span class="self">self</span>.dht_handler.peer_id , peer_id, listen_addrs, observed_addr
-                                );
+
                             <span class="comment">// into hashset to delete duplicates (I checked: there are duplicates)
                             </span><span class="kw">for </span>addr <span class="kw">in </span>listen_addrs.iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;() {
                                 behaviour.dht.add_address(<span class="kw-2">&amp;</span>peer_id, addr.clone());
@@ -1453,15 +1442,15 @@
                             message,
                         } =&gt; <span class="prelude-val">Some</span>(NetworkEvent::GossipMsg(message.data)),
                         GossipEvent::Subscribed { peer_id, topic } =&gt; {
-                            <span class="macro">info!</span>(<span class="string">"Peer: {:?}, Subscribed to topic: {:?}"</span>, peer_id, topic);
+                            <span class="macro">debug!</span>(<span class="string">"Peer {:?} subscribed to topic {:?}"</span>, peer_id, topic);
                             <span class="prelude-val">None
                         </span>}
                         GossipEvent::Unsubscribed { peer_id, topic } =&gt; {
-                            <span class="macro">info!</span>(<span class="string">"Peer: {:?}, Unsubscribed from topic: {:?}"</span>, peer_id, topic);
+                            <span class="macro">debug!</span>(<span class="string">"Peer {:?} unsubscribed from topic {:?}"</span>, peer_id, topic);
                             <span class="prelude-val">None
                         </span>}
                         GossipEvent::GossipsubNotSupported { peer_id } =&gt; {
-                            <span class="macro">info!</span>(<span class="string">"Peer: {:?}, Does not support Gossip"</span>, peer_id);
+                            <span class="macro">warn!</span>(<span class="string">"Peer {:?} does not support gossipsub"</span>, peer_id);
                             <span class="prelude-val">None
                         </span>}
                     },
@@ -1483,13 +1472,13 @@
                                     error,
                                 } =&gt; {
                                     <span class="macro">warn!</span>(
-                                        <span class="string">"Autonat Probe failed to peer {:?}, with error: {:?}"</span>,
+                                        <span class="string">"AutoNAT Probe failed to peer {:?} with error: {:?}"</span>,
                                         peer, error
                                     );
                                 }
                             },
                             autonat::Event::StatusChanged { old, new } =&gt; {
-                                <span class="macro">info!</span>(<span class="string">"autonat Status changed. Old: {:?}, New: {:?}"</span>, old, new);
+                                <span class="macro">debug!</span>(<span class="string">"AutoNAT Status changed. Old: {:?}, New: {:?}"</span>, old, new);
                             }
                         };
                         <span class="prelude-val">None
@@ -1506,24 +1495,24 @@
             }
             SwarmEvent::OutgoingConnectionError {
                 connection_id: <span class="kw">_</span>,
-                peer_id: <span class="kw">_</span>,
+                peer_id,
                 error,
             } =&gt; {
-                <span class="macro">info!</span>(<span class="question-mark">?</span>error, <span class="string">"OUTGOING CONNECTION ERROR, {:?}"</span>, error);
+                <span class="macro">warn!</span>(<span class="string">"Outgoing connection error to {:?}: {:?}"</span>, peer_id, error);
             }
             SwarmEvent::IncomingConnectionError {
                 connection_id: <span class="kw">_</span>,
-                local_addr,
-                send_back_addr,
+                local_addr: <span class="kw">_</span>,
+                send_back_addr: <span class="kw">_</span>,
                 error,
             } =&gt; {
-                <span class="macro">info!</span>(
-                    <span class="string">"INCOMING CONNECTION ERROR: {:?} {:?} {:?}"</span>,
-                    local_addr, send_back_addr, error
-                );
+                <span class="macro">warn!</span>(<span class="string">"Incoming connection error: {:?}"</span>, error);
             }
-            SwarmEvent::ListenerError { listener_id, error } =&gt; {
-                <span class="macro">info!</span>(<span class="string">"LISTENER ERROR {:?} {:?}"</span>, listener_id, error);
+            SwarmEvent::ListenerError {
+                listener_id: <span class="kw">_</span>,
+                error,
+            } =&gt; {
+                <span class="macro">warn!</span>(<span class="string">"Listener error: {:?}"</span>, error);
             }
             SwarmEvent::ExternalAddrConfirmed { address } =&gt; {
                 <span class="kw">let </span>my_id = <span class="kw-2">*</span><span class="self">self</span>.swarm.local_peer_id();
@@ -1533,10 +1522,7 @@
                     .add_address(<span class="kw-2">&amp;</span>my_id, address.clone());
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">error!</span>(
-                    <span class="string">"Unhandled swarm event {:?}. This should not be possible."</span>,
-                    event
-                );
+                <span class="macro">debug!</span>(<span class="string">"Unhandled swarm event {:?}"</span>, event);
             }
         }
         <span class="prelude-val">Ok</span>(())

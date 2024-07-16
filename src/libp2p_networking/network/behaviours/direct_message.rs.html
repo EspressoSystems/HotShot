@@ -132,12 +132,6 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>async_compatibility_layer::{
@@ -146,7 +140,7 @@
 };
 <span class="kw">use </span>libp2p::request_response::{Event, Message, OutboundRequestId, ResponseChannel};
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>tracing::{error, info};
+<span class="kw">use </span>tracing::{debug, error, warn};
 
 <span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
 <span class="kw">use </span><span class="kw">crate</span>::network::{ClientRequest, NetworkEvent};
@@ -194,10 +188,7 @@
                 request_id: <span class="kw">_</span>,
                 error,
             } =&gt; {
-                <span class="macro">error!</span>(
-                    <span class="string">"inbound failure to send message to {:?} with error {:?}"</span>,
-                    peer, error
-                );
+                <span class="macro">error!</span>(<span class="string">"Inbound message failure from {:?}: {:?}"</span>, peer, error);
                 <span class="prelude-val">None
             </span>}
             Event::OutboundFailure {
@@ -205,10 +196,7 @@
                 request_id,
                 error,
             } =&gt; {
-                <span class="macro">error!</span>(
-                    <span class="string">"outbound failure to send message to {:?} with error {:?}"</span>,
-                    peer, error
-                );
+                <span class="macro">error!</span>(<span class="string">"Outbound message failure to {:?}: {:?}"</span>, peer, error);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
                     <span class="kw">if </span>req.retry_count == <span class="number">0 </span>{
                         <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -235,7 +223,7 @@
                     channel,
                     ..
                 } =&gt; {
-                    <span class="macro">info!</span>(<span class="string">"recv-ed DIRECT REQUEST {:?}"</span>, msg);
+                    <span class="macro">debug!</span>(<span class="string">"Received direct request {:?}"</span>, msg);
                     <span class="comment">// receiver, not initiator.
                     // don't track. If we are disconnected, sender will reinitiate
                     </span><span class="prelude-val">Some</span>(NetworkEvent::DirectRequest(msg, peer, channel))
@@ -246,16 +234,16 @@
                 } =&gt; {
                     <span class="comment">// success, finished.
                     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
-                        <span class="macro">info!</span>(<span class="string">"recv-ed DIRECT RESPONSE {:?}"</span>, msg);
+                        <span class="macro">debug!</span>(<span class="string">"Received direct response {:?}"</span>, msg);
                         <span class="prelude-val">Some</span>(NetworkEvent::DirectResponse(msg, req.peer_id))
                     } <span class="kw">else </span>{
-                        <span class="macro">error!</span>(<span class="string">"recv-ed a direct response, but is no longer tracking message!"</span>);
+                        <span class="macro">warn!</span>(<span class="string">"Received response for unknown request id {:?}"</span>, request_id);
                         <span class="prelude-val">None
                     </span>}
                 }
             },
             e @ Event::ResponseSent { .. } =&gt; {
-                <span class="macro">info!</span>(<span class="question-mark">?</span>e, <span class="string">" sending response"</span>);
+                <span class="macro">debug!</span>(<span class="string">"Response sent {:?}"</span>, e);
                 <span class="prelude-val">None
             </span>}
         }
@@ -271,7 +259,7 @@
 
         req.retry_count -= <span class="number">1</span>;
 
-        <span class="macro">info!</span>(<span class="string">"direct message request with id {:?}"</span>, request_id);
+        <span class="macro">debug!</span>(<span class="string">"Adding direct request {:?}"</span>, req);
 
         <span class="self">self</span>.in_progress_rr.insert(request_id, req);
     }

@@ -576,9 +576,6 @@
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, fmt::Debug, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::{
@@ -677,8 +674,6 @@
         receiver: recv_chan,
         recv_kill: <span class="prelude-val">None</span>,
     };
-
-    <span class="macro">info!</span>(<span class="string">"LISTEN ADDRESS IS {:?}"</span>, listen_addr);
 
     <span class="kw">let </span>handle = NetworkNodeHandle {
         network_config: config,
@@ -1011,7 +1006,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         known_peers: Vec&lt;(PeerId, Multiaddr)&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="macro">info!</span>(<span class="string">"ADDING KNOWN PEERS TO {:?}"</span>, <span class="self">self</span>.peer_id);
+        <span class="macro">debug!</span>(<span class="string">"Adding {} known peers"</span>, known_peers.len());
         <span class="kw">let </span>req = ClientRequest::AddKnownPeers(known_peers);
         <span class="self">self</span>.send_request(req).<span class="kw">await
     </span>}
@@ -1021,7 +1016,6 @@
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     </span><span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: ClientRequest) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-        <span class="macro">debug!</span>(<span class="string">"peerid {:?}\t\tsending message {:?}"</span>, <span class="self">self</span>.peer_id, req);
         <span class="self">self</span>.send_network
             .send(req)
             .<span class="kw">await
