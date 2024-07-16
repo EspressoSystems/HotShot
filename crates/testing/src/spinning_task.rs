@@ -171,6 +171,68 @@ where
                                 node.handle.shut_down().await;
                             }
                         }
+                        UpDown::Restart => {
+                            let node_id = idx.try_into().unwrap();
+                            if let Some(node) = self.handles.write().await.get_mut(idx) {
+                                tracing::error!("Node {} shutting down", idx);
+                                node.handle.shut_down().await;
+
+                                let storage = node.handle.storage().clone();
+                                let memberships = node.handle.memberships.clone();
+                                let config = node.handle.hotshot.config.clone();
+                                let auction_results_provider =
+                                    node.handle.hotshot.auction_results_provider.clone();
+                                let read_storage = storage.read().await;
+                                let initializer = HotShotInitializer::<TYPES>::from_reload(
+                                    self.last_decided_leaf.clone(),
+                                    TestInstanceState {},
+                                    None,
+                                    view_number,
+                                    read_storage.proposals_cloned().await,
+                                    read_storage.high_qc().await.unwrap_or(
+                                        QuorumCertificate::genesis(
+                                            &TestValidatedState::default(),
+                                            &TestInstanceState {},
+                                        )
+                                        .await,
+                                    ),
+                                    Vec::new(),
+                                    BTreeMap::new(),
+                                );
+                                // We assign node's public key and stake value rather than read from config file since it's a test
+                                let validator_config = ValidatorConfig::generated_from_seed_indexed(
+                                    [0u8; 32],
+                                    node_id,
+                                    1,
+                                    // For tests, make the node DA based on its index
+                                    node_id < config.da_staked_committee_size as u64,
+                                );
+                                let context = TestRunner::<TYPES, I, N>::add_node_with_config(
+                                    node_id,
+                                    node.network.clone(),
+                                    (*memberships).clone(),
+                                    initializer,
+                                    config,
+                                    validator_config,
+                                    (*read_storage).clone(),
+                                    (*auction_results_provider).clone(),
+                                )
+                                .await;
+                                let handle = context.run_tasks().await;
+
+                                // Create the node and add it to the state, so we can shut them
+                                // down properly later to avoid the overflow error in the overall
+                                // safety task.
+                                let node = Node {
+                                    node_id,
+                                    network: node.network.clone(),
+                                    handle,
+                                };
+                                node.handle.hotshot.start_consensus().await;
+
+                                self.handles.write().await.push(node);
+                            }
+                        }
                         UpDown::NetworkUp => {
                             if let Some(handle) = self.handles.write().await.get(idx) {
                                 tracing::error!("Node {} networks resuming", idx);
@@ -210,6 +272,8 @@ pub enum UpDown {
     NetworkUp,
     /// spin the node's network down
     NetworkDown,
+    /// restart the node
+    Restart,
 }
 
 /// denotes a change in node state
