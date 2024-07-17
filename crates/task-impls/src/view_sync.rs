@@ -116,6 +116,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ViewSyncTaskSt
     async fn cancel_subtasks(&mut self) {}
 }
 
+// @audit - L - NEED better docs here.
 /// State of a view sync replica task
 pub struct ViewSyncReplicaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Timeout for view sync rounds
@@ -167,6 +168,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> {
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Main Task", level = "error")]
+    // @audit - INF - I don't think this is needed anymore.
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
     pub async fn send_to_or_create_replica(
@@ -268,6 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
+                    // @audit - INF - Useless log message
                     debug!("Forwarding message");
                     let result = relay_task
                         .handle_vote_event(Arc::clone(&event), &event_stream)
@@ -282,6 +285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
 
                 // We do not have a relay task already running, so start one
                 if self.membership.leader(vote_view + relay) != self.public_key {
+                    // @audit - L - This issue is long solved. So long, in fact, that webserver no longer exists.
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
                     debug!("View sync vote sent to wrong leader");
                     return;
@@ -389,13 +393,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                     self.num_timeouts_tracked = 0;
 
                     // Garbage collect old tasks
-                    // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
+                    // We could put this into a separate async task, but that would require making several fields on
+                    // ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
                     // cancel poll for votes
                     // run GC
                     for i in *self.last_garbage_collected_view..*self.current_view {
                         self.replica_task_map
                             .write()
                             .await
+                            // @audit - INF - This should not call the constructor every time, we can
+                            // just do it once
                             .remove_entry(&TYPES::Time::new(i));
                         self.pre_commit_relay_map
                             .write()
@@ -411,6 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                             .remove_entry(&TYPES::Time::new(i));
                     }
 
+                    // @audit - L - What happens to this on restart?
                     self.last_garbage_collected_view = self.current_view - 1;
                 }
             }
@@ -430,11 +438,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                     "view timed out",
                 );
 
+                // @audit - INF - Useless log message
                 if self.num_timeouts_tracked >= 3 {
                     error!("Too many consecutive timeouts!  This shouldn't happen");
                 }
 
                 if self.num_timeouts_tracked >= 2 {
+                    // @audit - INF - This should not be an error log.
                     error!("Starting view sync protocol for view {}", *view_number + 1);
 
                     self.send_to_or_create_replica(
@@ -473,8 +483,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
                 let last_seen_certificate = ViewSyncPhase::PreCommit;
 
+                // @audit - INF - These are dupe checks, we should just make a helper.
                 // Ignore certificate if it is for an older round
                 if certificate.view_number() < self.next_view {
+                    // @audit - INF - Duplicate log is useless because it provides no real context.
                     warn!("We're already in a higher round");
 
                     return None;
@@ -482,6 +494,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
+                    // @audit - INF - Error log used when not a true error-level event.
                     error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
@@ -496,6 +509,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                 if certificate.date().relay > self.relay {
                     self.relay = certificate.date().relay;
                 }
+                // \end dupe check block.
 
                 let Ok(vote) = ViewSyncCommitVote::<TYPES>::create_signed_vote(
                     ViewSyncCommitData {
@@ -506,9 +520,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     &self.public_key,
                     &self.private_key,
                 ) else {
+                    // @audit - L - This is a serious error and we completely swallow the message.
                     error!("Failed to sign ViewSyncCommitData!");
                     return None;
                 };
+
+                // @audit - L - Why is this even here?
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncCommitVote(vote);
 
                 if let GeneralConsensusMessage::ViewSyncCommitVote(vote) = message {
@@ -547,6 +564,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
             }
 
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
+                // @audit - L - This should be data driven, and should be set on receipt of the
+                // precipitating event, instead of relying on a hard-coded statement.
                 let last_seen_certificate = ViewSyncPhase::Commit;
 
                 // Ignore certificate if it is for an older round
@@ -600,6 +619,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     *self.next_view
                 );
 
+                // @audit - INF - Why do we do this?
                 broadcast_event(
                     Arc::new(HotShotEvent::ViewChange(self.next_view - 1)),
                     &event_stream,
@@ -623,6 +643,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
+                        // @audit - INF - inconsistent logging punctuation
                         info!(
                             "Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}",
                             relay
@@ -669,6 +690,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     cancel_task(timeout_task).await;
                 }
 
+                // @audit - INF - next_view doesn't appear to change in this process, so why do
+                // we do an additional view change event?
                 broadcast_event(
                     Arc::new(HotShotEvent::ViewChange(self.next_view)),
                     &event_stream,
@@ -738,6 +761,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     }
                     self.relay += 1;
                     match last_seen_certificate {
+                        // @audit - INF - Can this not just be an IF statement?
                         ViewSyncPhase::None | ViewSyncPhase::PreCommit | ViewSyncPhase::Commit => {
                             let Ok(vote) = ViewSyncPreCommitVote::<TYPES>::create_signed_vote(
                                 ViewSyncPreCommitData {
@@ -754,6 +778,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                             let message =
                                 GeneralConsensusMessage::<TYPES>::ViewSyncPreCommitVote(vote);
 
+                            // @audit - INF - This IF statement always passes. Why is it even here?
                             if let GeneralConsensusMessage::ViewSyncPreCommitVote(vote) = message {
                                 broadcast_event(
                                     Arc::new(HotShotEvent::ViewSyncPreCommitVoteSend(vote)),
@@ -762,6 +787,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                                 .await;
                             }
                         }
+                        // @audit - L - This is a panic and should be removed for a log statement.
                         ViewSyncPhase::Finalize => {
                             // This should never occur
                             unimplemented!()

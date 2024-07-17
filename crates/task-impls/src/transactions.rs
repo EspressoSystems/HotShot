@@ -148,6 +148,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
+                    // @audit - L - Why is this even an issue? If this is an error log, the code should die here.
                     error!("View changed by more than 1 going to view {:?}", view);
                     make_block = self.membership.leader(view) == self.public_key;
                 }

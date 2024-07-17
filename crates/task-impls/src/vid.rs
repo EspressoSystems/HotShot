@@ -131,13 +131,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     return None;
                 }
 
+                // @audit - INF - This doesn't do anything.
                 if *view - *self.cur_view > 1 {
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
 
+                // @audit - INF - This whole block can just be deleted.
                 // If we are not the next leader, we should exit
                 if self.membership.leader(self.cur_view + 1) != self.public_key {
+                    // @audit - INF - This should just be deleted.
                     // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
                     return None;
                 }
