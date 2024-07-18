@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use anyhow::{bail, Result};
 use async_trait::async_trait;
 use hotshot_types::traits::{
@@ -13,13 +11,13 @@ use url::Url;
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TestAuctionResult {
     /// The URL of the builder to reach out to.
-    pub urls: HashSet<Url>,
+    pub urls: Vec<Url>,
 }
 
 
 
 impl HasUrls for TestAuctionResult {
-    fn urls(&self) -> HashSet<Url> {
+    fn urls(&self) -> Vec<Url> {
         self.urls.clone()
     }
 }

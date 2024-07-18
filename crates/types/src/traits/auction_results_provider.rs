@@ -1,7 +1,6 @@
 //! This module defines the interaction layer with the Solver via the [`AuctionResultsProvider`] trait,
 //! which handles connecting to, and fetching the allocation results from, the Solver.
 
-use std::collections::HashSet;
 use anyhow::Result;
 use async_trait::async_trait;
 use url::Url;
@@ -13,7 +12,7 @@ use super::node_implementation::NodeType;
 /// list of urls for the builders that HotShot must request from.
 pub trait HasUrls {
     /// Returns the builer url associated with the datatype
-    fn urls(&self) -> HashSet<Url>;
+    fn urls(&self) -> Vec<Url>;
 }
 
 /// The AuctionResultsProvider trait is the sole source of Solver-originated state and interaction,

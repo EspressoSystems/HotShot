@@ -104,7 +104,7 @@ impl FakeSolverState {
         let _ = self
             .available_builders
             .iter()
-            .map(|url|  auction_results.urls.insert(url.clone()) );
+            .map(|url|  auction_results.urls.push(url.clone()) );
         Ok(auction_results)
         
     }
