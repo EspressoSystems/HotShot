@@ -191,6 +191,8 @@ pub enum NetworkEventInternal {
     RequestResponseEvent(libp2p::request_response::Event<Request, Response>),
     /// a autonat event
     AutonatEvent(libp2p::autonat::Event),
+    /// A null event
+    Void(void::Void),
 }
 
 /// Bind all interfaces on port `port`

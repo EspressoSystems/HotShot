@@ -23,6 +23,10 @@ use super::{
 #[derive(NetworkBehaviour, custom_debug::Debug)]
 #[behaviour(to_swarm = "NetworkEventInternal")]
 pub struct NetworkDef {
+    /// For limiting the amount of simultaneous connections
+    #[debug(skip)]
+    pub connection_limits: libp2p::connection_limits::Behaviour,
+
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
@@ -63,8 +67,10 @@ impl NetworkDef {
         direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
         request_response: cbor::Behaviour<Request, Response>,
         autonat: autonat::Behaviour,
+        connection_limits: libp2p::connection_limits::Behaviour,
     ) -> NetworkDef {
         Self {
+            connection_limits,
             gossipsub,
             dht,
             identify,
@@ -157,5 +163,12 @@ impl From<libp2p::request_response::Event<Request, Response>> for NetworkEventIn
 impl From<libp2p::autonat::Event> for NetworkEventInternal {
     fn from(event: libp2p::autonat::Event) -> Self {
         Self::AutonatEvent(event)
+    }
+}
+
+/// `ConnectionLimits` has a `Void` `ToSwarm` implementation
+impl From<void::Void> for NetworkEventInternal {
+    fn from(event: void::Void) -> Self {
+        Self::Void(event)
     }
 }

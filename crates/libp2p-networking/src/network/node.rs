@@ -20,6 +20,7 @@ use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
 use libp2p::{
     autonat,
+    connection_limits::ConnectionLimits,
     core::transport::ListenerId,
     gossipsub::{
         Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
@@ -299,6 +300,17 @@ impl NetworkNode {
                 ..Default::default()
             };
 
+            // Limit the number of simultaneous connections
+            let connection_limits = libp2p::connection_limits::Behaviour::new(
+                ConnectionLimits::default()
+                    .with_max_established(Some(100))
+                    .with_max_established_incoming(Some(70)) // To prevent eclipse attacks
+                    .with_max_established_outgoing(Some(100))
+                    .with_max_established_per_peer(Some(1)) // Just reuse the one we already have
+                    .with_max_pending_incoming(Some(5))
+                    .with_max_pending_outgoing(Some(5)),
+            );
+
             let network = NetworkDef::new(
                 gossipsub,
                 kadem,
@@ -306,6 +318,7 @@ impl NetworkNode {
                 direct_message,
                 request_response,
                 autonat::Behaviour::new(peer_id, autonat_config),
+                connection_limits,
             );
 
             // build swarm
@@ -690,6 +703,8 @@ impl NetworkNode {
                         };
                         None
                     }
+
+                    NetworkEventInternal::Void(_) => None,
                 };
 
                 if let Some(event) = maybe_event {
