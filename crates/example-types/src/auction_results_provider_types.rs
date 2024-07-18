@@ -14,8 +14,6 @@ pub struct TestAuctionResult {
     pub urls: Vec<Url>,
 }
 
-
-
 impl HasUrls for TestAuctionResult {
     fn urls(&self) -> Vec<Url> {
         self.urls.clone()

@@ -99,14 +99,13 @@ impl FakeSolverState {
             }
         }
 
-        let mut auction_results = TestAuctionResult::default(); 
+        let mut auction_results = TestAuctionResult::default();
         // Now just send the builder urls
         let _ = self
             .available_builders
             .iter()
-            .map(|url|  auction_results.urls.push(url.clone()) );
+            .map(|url| auction_results.urls.push(url.clone()));
         Ok(auction_results)
-        
     }
 }
 
