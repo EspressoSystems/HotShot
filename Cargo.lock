@@ -1359,13 +1359,13 @@ checksum = "41c270e7540d725e65ac7f1b212ac8ce349719624d7bcff99f8e2e488e8cf03f"
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.2#09389360284c51dd44a3dae1f1c3b395125abe82"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.3#26a7b21372c4b38dca2f4aecb4267b271d1ac883"
 dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
  "console-subscriber 0.3.0",
- "dashmap 5.5.3",
+ "dashmap",
  "derivative",
  "jf-signature",
  "lazy_static",
@@ -1383,7 +1383,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.2#09389360284c51dd44a3dae1f1c3b395125abe82"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.3#26a7b21372c4b38dca2f4aecb4267b271d1ac883"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1398,7 +1398,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.2#09389360284c51dd44a3dae1f1c3b395125abe82"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.3#26a7b21372c4b38dca2f4aecb4267b271d1ac883"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1412,7 +1412,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.2#09389360284c51dd44a3dae1f1c3b395125abe82"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.3#26a7b21372c4b38dca2f4aecb4267b271d1ac883"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -2096,19 +2096,6 @@ dependencies = [
  "darling_core",
  "quote",
  "syn 2.0.71",
-]
-
-[[package]]
-name = "dashmap"
-version = "5.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
-dependencies = [
- "cfg-if",
- "hashbrown 0.14.5",
- "lock_api",
- "once_cell",
- "parking_lot_core",
 ]
 
 [[package]]
@@ -3188,7 +3175,7 @@ dependencies = [
  "clap",
  "committable",
  "custom_debug",
- "dashmap 6.0.1",
+ "dashmap",
  "derive_more",
  "either",
  "ethereum-types",
@@ -3284,7 +3271,7 @@ dependencies = [
  "clap",
  "committable",
  "custom_debug",
- "dashmap 6.0.1",
+ "dashmap",
  "derive_more",
  "either",
  "futures",
