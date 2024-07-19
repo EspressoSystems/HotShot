@@ -24,6 +24,7 @@ use hotshot_types::{
     ValidatorConfig,
 };
 use snafu::Snafu;
+use tracing::error;
 
 use crate::{
     test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
@@ -173,6 +174,7 @@ where
                         }
                         UpDown::Restart => {
                             let node_id = idx.try_into().unwrap();
+                            error!("restarting node");
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
@@ -230,6 +232,7 @@ where
                                 };
                                 node.handle.hotshot.start_consensus().await;
 
+                                *self.handles.write().await = vec![];
                                 self.handles.write().await.push(node);
                             }
                         }

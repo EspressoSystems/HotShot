@@ -6,7 +6,7 @@ use async_compatibility_layer::{
 };
 use libp2p::request_response::{Event, Message, OutboundRequestId, ResponseChannel};
 use libp2p_identity::PeerId;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 use super::exponential_backoff::ExponentialBackoff;
 use crate::network::{ClientRequest, NetworkEvent};
@@ -95,7 +95,7 @@ impl DMBehaviour {
                     channel,
                     ..
                 } => {
-                    info!("recv-ed DIRECT REQUEST {:?}", msg);
+                    debug!("recv-ed DIRECT REQUEST {:?}", msg);
                     // receiver, not initiator.
                     // don't track. If we are disconnected, sender will reinitiate
                     Some(NetworkEvent::DirectRequest(msg, peer, channel))
@@ -106,7 +106,7 @@ impl DMBehaviour {
                 } => {
                     // success, finished.
                     if let Some(req) = self.in_progress_rr.remove(&request_id) {
-                        info!("recv-ed DIRECT RESPONSE {:?}", msg);
+                        debug!("recv-ed DIRECT RESPONSE {:?}", msg);
                         Some(NetworkEvent::DirectResponse(msg, req.peer_id))
                     } else {
                         error!("recv-ed a direct response, but is no longer tracking message!");
@@ -115,7 +115,7 @@ impl DMBehaviour {
                 }
             },
             e @ Event::ResponseSent { .. } => {
-                info!(?e, " sending response");
+                debug!(?e, " sending response");
                 None
             }
         }
@@ -131,7 +131,7 @@ impl DMBehaviour {
 
         req.retry_count -= 1;
 
-        info!("direct message request with id {:?}", request_id);
+        debug!("direct message request with id {:?}", request_id);
 
         self.in_progress_rr.insert(request_id, req);
     }

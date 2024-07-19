@@ -476,7 +476,7 @@ impl NetworkNode {
                         contents,
                         retry_count,
                     } => {
-                        info!("pid {:?} adding direct request", self.peer_id);
+                        debug!("pid {:?} adding direct request", self.peer_id);
                         let id = behaviour.add_direct_request(pid, contents.clone());
                         let req = DMRequest {
                             peer_id: pid,
@@ -535,7 +535,7 @@ impl NetworkNode {
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
-        info!("event observed {:?}", event);
+        debug!("event observed {:?}", event);
 
         #[allow(deprecated)]
         match event {
@@ -553,7 +553,7 @@ impl NetworkNode {
                         ESTABLISHED_LIMIT, num_established
                     );
                 } else {
-                    info!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
+                    debug!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
                 }
 
                 // Send the number of connected peers to the client
@@ -575,7 +575,7 @@ impl NetworkNode {
                         ESTABLISHED_LIMIT, num_established
                     );
                 } else {
-                    info!("peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}", self.peer_id, peer_id, endpoint, num_established, cause);
+                    debug!("peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}", self.peer_id, peer_id, endpoint, num_established, cause);
                 }
 
                 // Send the number of connected peers to the client
@@ -588,7 +588,7 @@ impl NetworkNode {
                 peer_id,
                 connection_id: _,
             } => {
-                info!("{:?} is dialing {:?}", self.peer_id, peer_id);
+                debug!("{:?} is dialing {:?}", self.peer_id, peer_id);
             }
             SwarmEvent::ListenerClosed {
                 listener_id: _,
@@ -769,7 +769,7 @@ impl NetworkNode {
                         event = self.swarm.next() => {
                             debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
-                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
