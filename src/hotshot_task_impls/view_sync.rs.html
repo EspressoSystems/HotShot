@@ -1228,7 +1228,7 @@
                 <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number);
                 <span class="macro">error!</span>(
                     %leader,
-                    leader_mnemonic = cdn_proto::mnemonic(<span class="kw-2">&amp;</span>leader),
+                    leader_mnemonic = cdn_proto::util::mnemonic(<span class="kw-2">&amp;</span>leader),
                     view_number = <span class="kw-2">*</span>view_number,
                     num_timeouts_tracked = <span class="self">self</span>.num_timeouts_tracked,
                     <span class="string">"view timed out"</span>,
