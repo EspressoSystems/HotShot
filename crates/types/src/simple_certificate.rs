@@ -119,6 +119,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         if self.view_number == TYPES::Time::genesis() {
             return true;
         }
+
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
             membership.committee_qc_stake_table(),
             U256::from(Self::threshold(membership)),
@@ -225,7 +226,7 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
 /// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
 pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
 /// Type alias for a DA certificate over `DaData`
-pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData, SuccessThreshold>;
+pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData<TYPES>, SuccessThreshold>;
 /// Type alias for a Timeout certificate over a view number
 pub type TimeoutCertificate<TYPES> = SimpleCertificate<TYPES, TimeoutData<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncPreCommit` certificate over a view number

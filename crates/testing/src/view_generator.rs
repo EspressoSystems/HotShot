@@ -417,7 +417,7 @@ impl TestView {
 
     pub fn create_da_vote(
         &self,
-        data: DaData,
+        data: DaData<TestTypes>,
         handle: &SystemContextHandle<TestTypes, MemoryImpl>,
     ) -> DaVote<TestTypes> {
         DaVote::create_signed_vote(

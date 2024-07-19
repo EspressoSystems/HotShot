@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{bail, Context, ensure, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -601,6 +601,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     return;
                 }
 
+                // if cert.commit() !=  {
+                //     tracing::error!("GOT AN INVALID CERTIFICATE")
+                //     return false;
+                // }
+
                 // Add to the storage.
                 self.consensus
                     .write()
@@ -609,11 +614,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
                 let mut bad_cert = cert.clone();
                 bad_cert.view_number += 1;
+                bad_cert.data.view_number += 1;
+
                 broadcast_event(
                     Arc::new(HotShotEvent::DacSend(bad_cert, self.public_key.clone())),
                     &event_sender.clone(),
                 )
                 .await;
+
+                tracing::error!("SENDING BAD CERTIFICATE {:?}", bad_cert);
 
                 broadcast_event(
                     Arc::new(HotShotEvent::DaCertificateValidated(cert.clone())),

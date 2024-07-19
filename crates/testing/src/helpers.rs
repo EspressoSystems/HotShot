@@ -303,10 +303,11 @@ pub fn build_da_certificate(
         vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
 
     let da_data = DaData {
+        view_number,
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::<TestTypes, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
+    build_cert::<TestTypes, DaData<TestTypes>, DaVote<TestTypes>, DaCertificate<TestTypes>>(
         da_data,
         da_membership,
         view_number,

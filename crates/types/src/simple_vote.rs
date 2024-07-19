@@ -22,7 +22,9 @@ pub struct QuorumData<TYPES: NodeType> {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
-pub struct DaData {
+pub struct DaData<TYPES: NodeType> {
+    /// F
+    pub view_number: TYPES::Time,
     /// Commitment to a block payload
     pub payload_commit: VidCommitment,
 }
@@ -178,10 +180,11 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     }
 }
 
-impl Committable for DaData {
+impl<TYPES: NodeType> Committable for DaData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
             .var_size_bytes(self.payload_commit.as_ref())
+            .u64(*self.view_number)
             .finalize()
     }
 }
@@ -248,7 +251,7 @@ impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + H
 /// Quorum vote Alias
 pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
 /// DA vote type alias
-pub type DaVote<TYPES> = SimpleVote<TYPES, DaData>;
+pub type DaVote<TYPES> = SimpleVote<TYPES, DaData<TYPES>>;
 /// Timeout Vote type alias
 pub type TimeoutVote<TYPES> = SimpleVote<TYPES, TimeoutData<TYPES>>;
 /// View Sync Commit Vote type alias
