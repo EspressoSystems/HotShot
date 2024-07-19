@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["api","block_info","builder","data_source","query_data"]};
+window.SIDEBAR_ITEMS = {"mod":["api","v0_1","v0_2","v0_3"]};

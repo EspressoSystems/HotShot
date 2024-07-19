@@ -242,7 +242,7 @@
                     Arc::clone(encoded_transactions),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
-                    <span class="prelude-val">Some</span>(vid_precompute.clone()),
+                    vid_precompute.clone(),
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment;

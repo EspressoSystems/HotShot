@@ -892,6 +892,22 @@
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1686,6 +1702,7 @@
 
     </span><span class="kw">use </span>jf_vid::VidScheme;
     <span class="kw">use </span>memoize::memoize;
+    <span class="kw">use </span>vbs::version::StaticVersionType;
 
     <span class="kw">use crate</span>::{
         traits::{
@@ -1714,7 +1731,10 @@
 
     <span class="doccomment">/// Builder fee data for a null block payload
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(num_storage_nodes: usize) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(
+        num_storage_nodes: usize,
+        version: vbs::version::Version,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
         <span class="doccomment">/// Arbitrary fee amount, this block doesn't actually come from a builder
         </span><span class="kw">const </span>FEE_AMOUNT: u64 = <span class="number">0</span>;
 
@@ -1723,21 +1743,33 @@
                 [<span class="number">0_u8</span>; <span class="number">32</span>], <span class="number">0</span>,
             );
 
-        <span class="kw">let </span>(_null_block, null_block_metadata) =
-            &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::empty();
+        <span class="kw">if </span>version &gt;= <span class="kw">crate</span>::constants::MarketplaceVersion::version() {
+            <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(<span class="kw-2">&amp;</span>priv_key, FEE_AMOUNT)
+            {
+                <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
+                    fee_amount: FEE_AMOUNT,
+                    fee_account: pub_key,
+                    fee_signature: sig,
+                }),
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            }
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>(_null_block, null_block_metadata) =
+                &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::empty();
 
-        <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_fee(
-            <span class="kw-2">&amp;</span>priv_key,
-            FEE_AMOUNT,
-            <span class="kw-2">&amp;</span>null_block_metadata,
-            <span class="kw-2">&amp;</span>commitment(num_storage_nodes)<span class="question-mark">?</span>,
-        ) {
-            <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
-                fee_amount: FEE_AMOUNT,
-                fee_account: pub_key,
-                fee_signature: sig,
-            }),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_fee(
+                <span class="kw-2">&amp;</span>priv_key,
+                FEE_AMOUNT,
+                <span class="kw-2">&amp;</span>null_block_metadata,
+                <span class="kw-2">&amp;</span>commitment(num_storage_nodes)<span class="question-mark">?</span>,
+            ) {
+                <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
+                    fee_amount: FEE_AMOUNT,
+                    fee_account: pub_key,
+                    fee_signature: sig,
+                }),
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            }
         }
     }
 }
@@ -1761,7 +1793,7 @@
     </span><span class="kw">pub </span>sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// The Vid precompute for the block.
-    </span><span class="kw">pub </span>vid_precompute: VidPrecomputeData,
+    </span><span class="kw">pub </span>vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; PackedBundle&lt;TYPES&gt; {
@@ -1772,7 +1804,7 @@
         view_number: TYPES::Time,
         bid_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
         sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
-        vid_precompute: VidPrecomputeData,
+        vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             encoded_transactions,

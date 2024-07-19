@@ -65,28 +65,25 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_types::traits::{
-    auction_results_provider::{AuctionResultsProvider, HasUrl},
+    auction_results_provider::{AuctionResultsProvider, HasUrls},
     node_implementation::NodeType,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>url::Url;
 
 <span class="doccomment">/// A mock result for the auction solver. This type is just a pointer to a URL.
-</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 </span><span class="kw">pub struct </span>TestAuctionResult {
     <span class="doccomment">/// The URL of the builder to reach out to.
-    </span><span class="kw">pub </span>url: Url,
+    </span><span class="kw">pub </span>urls: Vec&lt;Url&gt;,
 }
 
-<span class="kw">impl </span>HasUrl <span class="kw">for </span>TestAuctionResult {
-    <span class="kw">fn </span>url(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Url {
-        <span class="self">self</span>.url.clone()
+<span class="kw">impl </span>HasUrls <span class="kw">for </span>TestAuctionResult {
+    <span class="kw">fn </span>urls(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Url&gt; {
+        <span class="self">self</span>.urls.clone()
     }
 }
 
@@ -95,7 +92,7 @@
 </span><span class="kw">pub struct </span>TestAuctionResultsProvider {
     <span class="doccomment">/// We intentionally allow for the results to be pre-cooked for the unit test to gurantee a
     /// particular outcome is met.
-    </span><span class="kw">pub </span>solver_results: Vec&lt;TestAuctionResult&gt;,
+    </span><span class="kw">pub </span>solver_results: TestAuctionResult,
 
     <span class="doccomment">/// A canned type to ensure that an error is thrown in absence of a true fault-injectible
     /// system for logical tests. This will guarantee that `fetch_auction_result` always throws an
@@ -114,15 +111,12 @@
 
     <span class="doccomment">/// Mock fetching the auction results, with optional error injection to simulate failure cases
     /// in the solver.
-    </span><span class="kw">async fn </span>fetch_auction_result(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="self">Self</span>::AuctionResult&gt;&gt; {
+    </span><span class="kw">async fn </span>fetch_auction_result(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AuctionResult&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = <span class="kw-2">&amp;</span><span class="self">self</span>.broadcast_url {
             <span class="kw">let </span>resp =
                 reqwest::get(url.join(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/v0/api/auction_results/{}"</span>, <span class="kw-2">*</span>view_number))<span class="question-mark">?</span>)
                     .<span class="kw">await</span><span class="question-mark">?
-                    </span>.json::&lt;Vec&lt;TestAuctionResult&gt;&gt;()
+                    </span>.json::&lt;TestAuctionResult&gt;()
                     .<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(resp)

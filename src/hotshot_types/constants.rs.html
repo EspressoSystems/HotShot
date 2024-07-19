@@ -62,6 +62,16 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
 </span><span class="kw">use </span>vbs::version::StaticVersion;
@@ -105,6 +115,16 @@
 
 <span class="doccomment">/// Constant for Web Server CDN Version
 </span><span class="kw">pub const </span>WEB_SERVER_VERSION: WebServerVersion = StaticVersion {};
+
+<span class="doccomment">/// Type for semver representation of "Base" version
+</span><span class="kw">pub type </span>BaseVersion = StaticVersion&lt;<span class="number">0</span>, <span class="number">1</span>&gt;;
+<span class="doccomment">/// Constant for semver representation of "Base" version
+</span><span class="kw">pub const </span>BASE_VERSION: BaseVersion = StaticVersion {};
+
+<span class="doccomment">/// Type for semver representation of "Marketplace" version
+</span><span class="kw">pub type </span>MarketplaceVersion = StaticVersion&lt;<span class="number">0</span>, <span class="number">3</span>&gt;;
+<span class="doccomment">/// Constant for semver representation of "Marketplace" version
+</span><span class="kw">pub const </span>MARKETPLACE_VERSION: MarketplaceVersion = StaticVersion {};
 
 <span class="doccomment">/// The offset for how far in the future we will send out a `QuorumProposal` with an `UpgradeCertificate` we form. This is also how far in advance of sending a `QuorumProposal` we begin collecting votes on an `UpgradeProposal`.
 </span><span class="kw">pub const </span>UPGRADE_PROPOSE_OFFSET: u64 = <span class="number">5</span>;

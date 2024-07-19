@@ -27,6 +27,8 @@
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
 </pre></div><pre class="rust"><code><span class="comment">// MIT License
 
 // Copyright (c) 2024 Espresso Systems
@@ -50,8 +52,10 @@
 // SOFTWARE.
 
 </span><span class="kw">mod </span>api;
-<span class="kw">pub mod </span>block_info;
-<span class="kw">pub mod </span>builder;
-<span class="kw">pub mod </span>data_source;
-<span class="kw">pub mod </span>query_data;
+<span class="kw">pub mod </span>v0_1;
+<span class="kw">pub mod </span>v0_2 {
+    <span class="kw">pub use </span><span class="kw">super</span>::v0_1::<span class="kw-2">*</span>;
+    <span class="kw">pub type </span>Version = vbs::version::StaticVersion&lt;<span class="number">0</span>, <span class="number">2</span>&gt;;
+}
+<span class="kw">pub mod </span>v0_3;
 </code></pre></div></section></main></body></html>

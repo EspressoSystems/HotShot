@@ -192,9 +192,6 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     io::{<span class="self">self</span>, ErrorKind},
     thread, time,
@@ -280,7 +277,7 @@
     ///
     /// # Errors
     /// Returns an error if the `should_fault` method is `Some`.
-    </span><span class="kw">fn </span>dump_builders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TestAuctionResult&gt;, ServerError&gt; {
+    </span><span class="kw">fn </span>dump_builders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(fault) = <span class="self">self</span>.should_fault() {
             <span class="kw">match </span>fault {
                 FakeSolverFaultType::InternalServerFault =&gt; {
@@ -296,12 +293,9 @@
             }
         }
 
-        <span class="comment">// Now just send the builder urls
-        </span><span class="prelude-val">Ok</span>(<span class="self">self
-            </span>.available_builders
-            .iter()
-            .map(|url| TestAuctionResult { url: url.clone() })
-            .collect())
+        <span class="prelude-val">Ok</span>(TestAuctionResult {
+            urls: <span class="self">self</span>.available_builders.clone(),
+        })
     }
 }
 
@@ -313,14 +307,14 @@
     </span><span class="kw">async fn </span>get_auction_results_non_permissioned(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: u64,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TestAuctionResult&gt;, ServerError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt;;
 
     <span class="doccomment">/// Get the auction results with a valid signature.
     </span><span class="kw">async fn </span>get_auction_results_permissioned(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: u64,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TestAuctionResult&gt;, ServerError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt;;
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -329,7 +323,7 @@
     </span><span class="kw">async fn </span>get_auction_results_non_permissioned(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: u64,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TestAuctionResult&gt;, ServerError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
         <span class="self">self</span>.dump_builders()
     }
 
@@ -338,7 +332,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: u64,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TestAuctionResult&gt;, ServerError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
         <span class="self">self</span>.dump_builders()
     }
 }

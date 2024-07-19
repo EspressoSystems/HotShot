@@ -349,7 +349,6 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -370,7 +369,7 @@
     traits::BlockPayload,
     types::{Event, EventType, SignatureKey},
 };
-<span class="kw">use </span>hotshot_builder_api::{
+<span class="kw">use </span>hotshot_builder_api::v0_1::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
@@ -589,14 +588,13 @@
     <span class="kw">where
         </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
     {
-        <span class="kw">let </span>builder_api = hotshot_builder_api::builder::define_api::&lt;
+        <span class="kw">let </span>builder_api = hotshot_builder_api::v0_1::builder::define_api::&lt;
             SimpleBuilderSource&lt;TYPES&gt;,
             TYPES,
-            TYPES::Base,
         &gt;(<span class="kw-2">&amp;</span>Options::default())
         .expect(<span class="string">"Failed to construct the builder API"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;SimpleBuilderSource&lt;TYPES&gt;, Error&gt; = App::with_state(<span class="self">self</span>);
-        app.register_module::&lt;Error, TYPES::Base&gt;(<span class="string">"block_info"</span>, builder_api)
+        app.register_module::&lt;Error, <span class="kw">_</span>&gt;(<span class="string">"block_info"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
         async_spawn(app.serve(url, TYPES::Base::instance()));

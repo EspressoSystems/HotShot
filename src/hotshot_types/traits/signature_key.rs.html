@@ -287,7 +287,37 @@
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Minimal compatibility over public key signatures
+
+</span><span class="comment">// data is serialized as big-endian for signing purposes
+</span><span class="attr">#![forbid(clippy::little_endian_bytes)]
+
 </span><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     hash::Hash,
@@ -479,7 +509,8 @@
     <span class="doccomment">/// validate the message with the builder's public key
     </span><span class="kw">fn </span>validate_builder_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderSignature, data: <span class="kw-2">&amp;</span>[u8]) -&gt; bool;
 
-    <span class="doccomment">/// validate signature over fee information with the builder's public key
+    <span class="doccomment">/// validate signature over sequencing fee information
+    /// with the builder's public key
     </span><span class="kw">fn </span>validate_fee_signature&lt;Metadata: EncodeBytes&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderSignature,
@@ -491,6 +522,16 @@
             signature,
             <span class="kw-2">&amp;</span>aggregate_fee_data(fee_amount, metadata, vid_commitment),
         )
+    }
+
+    <span class="doccomment">/// validate signature over sequencing fee information
+    /// with the builder's public key (marketplace version)
+    </span><span class="kw">fn </span>validate_sequencing_fee_signature_marketplace(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderSignature,
+        fee_amount: u64,
+    ) -&gt; bool {
+        <span class="self">self</span>.validate_builder_signature(signature, <span class="kw-2">&amp;</span>fee_amount.to_be_bytes())
     }
 
     <span class="doccomment">/// validate signature over block information with the builder's public key
@@ -515,7 +556,7 @@
         data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::BuilderSignature, <span class="self">Self</span>::SignError&gt;;
 
-    <span class="doccomment">/// sign fee offer for proposed payload
+    <span class="doccomment">/// sign sequencing fee offer for proposed payload
     /// # Errors
     /// If unable to sign the data with the key
     </span><span class="kw">fn </span>sign_fee&lt;Metadata: EncodeBytes&gt;(
@@ -528,6 +569,17 @@
             private_key,
             <span class="kw-2">&amp;</span>aggregate_fee_data(fee_amount, metadata, vid_commitment),
         )
+    }
+
+    <span class="doccomment">/// sign fee offer for proposed payload (marketplace version)
+    /// # Errors
+    /// If unable to sign the data with the key
+    </span><span class="comment">// TODO: this should include view number
+    </span><span class="kw">fn </span>sign_sequencing_fee_marketplace(
+        private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::BuilderPrivateKey,
+        fee_amount: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::BuilderSignature, <span class="self">Self</span>::SignError&gt; {
+        <span class="self">Self</span>::sign_builder_message(private_key, <span class="kw-2">&amp;</span>fee_amount.to_be_bytes())
     }
 
     <span class="doccomment">/// sign information about offered block
