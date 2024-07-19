@@ -283,7 +283,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     let parent_commitment = parent_leaf.commit();
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     if proposed_leaf.parent_commitment() != parent_commitment {
-                        warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
+                        warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote. {}", self.id);
                         return;
                     }
                     leaf = Some(proposed_leaf);
@@ -292,7 +292,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     let cert_payload_comm = cert.date().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
-                            error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
+                            error!("DAC has inconsistent payload commitment with quorum proposal or VID. {}", self.id);
                             return;
                         }
                     } else {
@@ -304,7 +304,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     vid_share = Some(share.clone());
                     if let Some(comm) = payload_commitment {
                         if vid_payload_commitment != comm {
-                            error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
+                            error!("VID has inconsistent payload commitment with quorum proposal or DAC. {}", self.id);
                             return;
                         }
                     } else {
@@ -607,13 +607,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await
                     .update_saved_da_certs(view, cert.clone());
 
-                let mut bad_cert = cert.clone();
-                bad_cert.view_number += 1;
-                broadcast_event(
-                    Arc::new(HotShotEvent::DacSend(bad_cert, self.public_key.clone())),
-                    &event_sender.clone(),
-                )
-                .await;
+                if self.id == 1 {
+                    let mut bad_cert = cert.clone();
+                    bad_cert.view_number += 1;
+                    let mut b2 = bad_cert.clone();
+                    b2.view_number += 1;
+                    let mut b3 = bad_cert.clone();
+                    b3.view_number += 1;
+                    let mut b4 = bad_cert.clone();
+                    b4.view_number += 1;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DacSend(bad_cert.clone(), self.public_key.clone())),
+                        &event_sender.clone(),
+                    )
+                        .await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DacSend(b2.clone(), self.public_key.clone())),
+                        &event_sender.clone(),
+                    )
+                        .await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DacSend(b3.clone(), self.public_key.clone())),
+                        &event_sender.clone(),
+                    )
+                        .await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DacSend(b4.clone(), self.public_key.clone())),
+                        &event_sender.clone(),
+                    )
+                        .await;
+                }
 
                 broadcast_event(
                     Arc::new(HotShotEvent::DaCertificateValidated(cert.clone())),
