@@ -607,6 +607,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await
                     .update_saved_da_certs(view, cert.clone());
 
+                let mut bad_cert = cert.clone();
+                bad_cert.view_number += 1;
+                broadcast_event(
+                    Arc::new(HotShotEvent::DacSend(bad_cert, self.public_key.clone())),
+                    &event_sender.clone(),
+                )
+                .await;
+
                 broadcast_event(
                     Arc::new(HotShotEvent::DaCertificateValidated(cert.clone())),
                     &event_sender.clone(),

@@ -8,6 +8,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::TestDescription,
 };
 cross_tests!(
@@ -23,6 +24,10 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                num_failed_views: 100,
+                ..Default::default()
+            },
             ..TestDescription::default()
         }
     },
