@@ -435,13 +435,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     event,
                 );
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _) => {
+            HotShotEvent::QuorumProposalRecv(proposal, key) => {
                 let view_number = proposal.data.view_number();
 
                 // All nodes get the latest proposed view as a proxy of `cur_view` of olde.
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
                     return;
+                }
+
+                if self.id == 4 && *self.latest_proposed_view > 4 {
+                    let mut bad_proposal = proposal.clone();
+                    for i in 0..5 {
+                        bad_proposal.data.view_number += 1;
+                        broadcast_event(
+                            HotShotEvent::QuorumProposalRecv(bad_proposal.clone(), key.clone())
+                                .into(),
+                            &event_sender,
+                        )
+                        .await;
+                    }
                 }
 
                 self.create_dependency_task_if_new(
