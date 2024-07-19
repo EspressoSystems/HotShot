@@ -607,7 +607,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     .await
                     .update_saved_da_certs(view, cert.clone());
 
-                if self.id == 1 {
+                if self.id == 4 && *self.latest_voted_view > 4 {
                     let mut bad_cert = cert.clone();
                     bad_cert.view_number += 1;
                     let mut b2 = bad_cert.clone();
