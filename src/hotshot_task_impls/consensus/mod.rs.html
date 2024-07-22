@@ -1213,7 +1213,7 @@
                 // been upgraded.
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone() {
                     <span class="kw">if </span>new_view == cert.data.new_version_first_view {
-                        <span class="macro">warn!</span>(
+                        <span class="macro">error!</span>(
                             <span class="string">"Version upgraded based on a decided upgrade cert: {:?}"</span>,
                             cert
                         );

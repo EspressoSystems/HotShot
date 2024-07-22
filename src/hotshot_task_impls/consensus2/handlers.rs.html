@@ -297,7 +297,7 @@
     },
     vote::HasViewNumber,
 };
-<span class="kw">use </span>tracing::{debug, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, instrument};
 
 <span class="kw">use </span><span class="kw">super</span>::Consensus2TaskState;
 <span class="kw">use crate</span>::{
@@ -422,7 +422,7 @@
         task_state.decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = decided_upgrade_certificate_read {
         <span class="kw">if </span>new_view_number == cert.data.new_version_first_view {
-            <span class="macro">warn!</span>(
+            <span class="macro">error!</span>(
                 <span class="string">"Version upgraded based on a decided upgrade cert: {:?}"</span>,
                 cert
             );
