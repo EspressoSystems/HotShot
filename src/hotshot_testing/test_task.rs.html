@@ -154,6 +154,9 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::Result;
@@ -163,6 +166,7 @@
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::future::select_all;
+<span class="kw">use </span>hotshot::types::Event;
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, network::NetworkMessageTaskState};
 <span class="kw">use </span>hotshot_types::{
     message::{Messages, VersionedMessage},
@@ -260,12 +264,14 @@
     TYPES: NodeType,
     NET: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
 &gt;(
-    event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    internal_event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    external_event_stream: Sender&lt;Event&lt;TYPES&gt;&gt;,
     channel: Arc&lt;NET&gt;,
 ) -&gt; JoinHandle&lt;()&gt; {
     <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span>channel);
     <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
-        event_stream: event_stream.clone(),
+        internal_event_stream: internal_event_stream.clone(),
+        external_event_stream: external_event_stream.clone(),
     };
 
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>net);

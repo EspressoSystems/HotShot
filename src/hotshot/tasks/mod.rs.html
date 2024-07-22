@@ -414,6 +414,7 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -514,7 +515,8 @@
     channel: <span class="kw-2">&amp;</span>Arc&lt;NET&gt;,
 ) {
     <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
-        event_stream: handle.internal_event_stream.<span class="number">0</span>.clone(),
+        internal_event_stream: handle.internal_event_stream.<span class="number">0</span>.clone(),
+        external_event_stream: handle.output_event_stream.<span class="number">0</span>.clone(),
     };
 
     <span class="kw">let </span>decided_upgrade_certificate = Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate);

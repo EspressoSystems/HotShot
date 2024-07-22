@@ -186,6 +186,9 @@
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Events that a `HotShot` instance can emit
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -351,6 +354,9 @@
         <span class="doccomment">/// Public key of the leader submitting the proposal
         </span>sender: TYPES::SignatureKey,
     },
+
+    <span class="doccomment">/// A message destined for external listeners was received
+    </span>ExternalMessageReceived(Vec&lt;u8&gt;),
 }
 <span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
 </span><span class="doccomment">/// A list of actions that we track for nodes

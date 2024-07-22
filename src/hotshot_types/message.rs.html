@@ -410,6 +410,12 @@
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -572,6 +578,8 @@
     </span>UpgradeProposal,
     <span class="doccomment">/// Upgrade vote.
     </span>UpgradeVote,
+    <span class="doccomment">/// A message to be passed through to external listeners
+    </span>External,
 }
 
 <span class="comment">// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -584,6 +592,8 @@
     </span>Consensus(SequencingMessage&lt;TYPES&gt;),
     <span class="doccomment">/// Messages relating to sharing data between nodes
     </span>Data(DataMessage&lt;TYPES&gt;),
+    <span class="doccomment">/// A (still serialized) message to be passed through to external listeners
+    </span>External(Vec&lt;u8&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; MessageKind&lt;TYPES&gt; {
@@ -611,6 +621,7 @@
                 ResponseMessage::Found(m) =&gt; m.view_number(),
                 ResponseMessage::NotFound | ResponseMessage::Denied =&gt; TYPES::Time::new(<span class="number">1</span>),
             },
+            MessageKind::External(<span class="kw">_</span>) =&gt; TYPES::Time::new(<span class="number">1</span>),
         }
     }
 
@@ -618,6 +629,7 @@
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             MessageKind::Consensus(message) =&gt; message.purpose(),
             MessageKind::Data(<span class="kw">_</span>) =&gt; MessagePurpose::Data,
+            MessageKind::External(<span class="kw">_</span>) =&gt; MessagePurpose::External,
         }
     }
 }

@@ -533,6 +533,21 @@
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -543,7 +558,7 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     data::{VidDisperse, VidDisperseShare},
-    event::HotShotAction,
+    event::{Event, EventType, HotShotAction},
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
         SequencingMessage, VersionedMessage,
@@ -627,7 +642,10 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>NetworkMessageTaskState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Sender to send internal events this task generates to other tasks
-    </span><span class="kw">pub </span>event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>internal_event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Sender to send external events this task generates to the event stream
+    </span><span class="kw">pub </span>external_event_stream: Sender&lt;Event&lt;TYPES&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkMessageTaskState&lt;TYPES&gt; {
@@ -699,7 +717,7 @@
                     <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
                     // `TransactionsRecv` event) so we can send one event for a vector of messages.
                     // &lt;https://github.com/EspressoSystems/HotShot/issues/1428&gt;
-                    </span>broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.event_stream).<span class="kw">await</span>;
+                    </span>broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream).<span class="kw">await</span>;
                 }
                 MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
                     DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
@@ -709,12 +727,24 @@
                         <span class="macro">warn!</span>(<span class="string">"Request and Response messages should not be received in the NetworkMessage task"</span>);
                     }
                 },
+
+                MessageKind::External(data) =&gt; {
+                    <span class="comment">// Send the external message to the external event stream so it can be processed
+                    </span>broadcast_event(
+                        Event {
+                            view_number: TYPES::Time::new(<span class="number">1</span>),
+                            event: EventType::ExternalMessageReceived(data),
+                        },
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream,
+                    )
+                    .<span class="kw">await</span>;
+                }
             };
         }
         <span class="kw">if </span>!transactions.is_empty() {
             broadcast_event(
                 Arc::new(HotShotEvent::TransactionsRecv(transactions)),
-                <span class="kw-2">&amp;</span><span class="self">self</span>.event_stream,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream,
             )
             .<span class="kw">await</span>;
         }
