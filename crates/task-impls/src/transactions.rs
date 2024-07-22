@@ -17,6 +17,7 @@ use hotshot_types::{
     event::{Event, EventType},
     simple_certificate::UpgradeCertificate,
     traits::{
+        auction_results_provider::AuctionResultsProvider,
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -120,6 +121,8 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub id: u64,
     /// Decided upgrade certificate
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// auction results provider
+    pub auction_results_provider: Arc<I::AuctionResultsProvider>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
@@ -165,6 +168,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     return None;
                 }
                 let block_view = if make_block { view } else { view + 1 };
+
+                let Ok(_bundles) = self
+                    .auction_results_provider
+                    .fetch_bundles(block_view)
+                    .await
+                else {
+                    return None;
+                };
 
                 let version = match hotshot_types::simple_certificate::version(
                     block_view,

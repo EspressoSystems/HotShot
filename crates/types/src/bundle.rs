@@ -1,7 +1,11 @@
 //! This module provides the `Bundle` type that the HotShot leader will use to construct its block
 
+use serde::{Deserialize, Serialize};
+
 use crate::traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "TYPES: NodeType")]
 /// The Bundle for a portion of a block, provided by a downstream
 /// builder that exists in a bundle auction.
 /// This type is maintained by HotShot

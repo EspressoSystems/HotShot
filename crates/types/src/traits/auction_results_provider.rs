@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use url::Url;
 
 use super::node_implementation::NodeType;
+use crate::bundle::Bundle;
 
 /// This trait guarantees that a particular type has urls that can be extracted from it. This trait
 /// essentially ensures that the results returned by the [`AuctionResultsProvider`] trait includes a
@@ -23,9 +24,31 @@ pub trait HasUrls {
 pub trait AuctionResultsProvider<TYPES: NodeType>: Send + Sync + Clone {
     /// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
-    type AuctionResult: HasUrls;
+    type AuctionResult: HasUrls + Send;
 
     /// Fetches the auction result for a view. Does not cache the result,
     /// subsequent calls will invoke additional wasted calls.
     async fn fetch_auction_result(&self, view_number: TYPES::Time) -> Result<Self::AuctionResult>;
+
+    /// Fetches the bundles for a view.
+    async fn fetch_bundles(&self, view_number: TYPES::Time) -> Result<Vec<Bundle<TYPES>>> {
+        let result = self.fetch_auction_result(view_number).await?;
+
+        let mut bundles = Vec::new();
+        let client = reqwest::Client::new();
+
+        for url in result.urls() {
+            // Then, hit the API
+            let bundle: Bundle<TYPES> = client
+                .get(url)
+                .send()
+                .await?
+                .json::<Bundle<TYPES>>()
+                .await?;
+
+            bundles.push(bundle);
+        }
+
+        Ok(bundles)
+    }
 }
