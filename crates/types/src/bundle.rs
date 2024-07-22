@@ -1,0 +1,17 @@
+//! This module provides the `Bundle` type that the HotShot leader will use to construct its block
+
+use crate::traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload};
+
+/// The Bundle for a portion of a block, provided by a downstream
+/// builder that exists in a bundle auction.
+/// This type is maintained by HotShot
+pub struct Bundle<TYPES: NodeType> {
+    /// The bundle transactions sent by the builder.
+    pub transactions: Vec<<TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction>,
+
+    /// The signature over the bundle.
+    pub signature: TYPES::SignatureKey,
+
+    /// The fee for sequencing
+    pub sequencing_fee: BuilderFee<TYPES>,
+}
