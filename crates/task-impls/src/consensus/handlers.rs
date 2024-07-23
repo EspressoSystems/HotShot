@@ -20,7 +20,7 @@ use hotshot_types::{
     simple_certificate::{version, UpgradeCertificate},
     simple_vote::QuorumData,
     traits::{
-        block_contents::BlockHeader,
+        block_contents::BlockHeaderLegacy,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,

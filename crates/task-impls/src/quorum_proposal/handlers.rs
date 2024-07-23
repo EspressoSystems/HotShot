@@ -20,7 +20,8 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::{version, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
+        block_contents::BlockHeaderLegacy, node_implementation::NodeType,
+        signature_key::SignatureKey,
     },
 };
 use tracing::{debug, error, instrument};
@@ -163,7 +164,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             &self.decided_upgrade_certificate.read().await.clone(),
         )?;
 
-        let block_header = TYPES::BlockHeader::new(
+        let block_header = TYPES::BlockHeaderLegacy::new(
             state.as_ref(),
             self.instance_state.as_ref(),
             &parent_leaf,

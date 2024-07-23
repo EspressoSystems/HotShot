@@ -19,7 +19,7 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader,
+        block_contents::BlockHeaderLegacy,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,

@@ -31,7 +31,7 @@ use hotshot::{
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    block_types::{TestBlockHeaderLegacy, TestBlockPayload, TestTransaction},
     node_types::{Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
     storage_types::TestStorage,
@@ -50,7 +50,7 @@ use hotshot_types::{
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
     traits::{
-        block_contents::{BlockHeader, TestableBlock},
+        block_contents::{BlockHeaderLegacy, TestableBlock},
         election::Membership,
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
@@ -595,7 +595,7 @@ impl<
         TYPES: NodeType<
             Transaction = TestTransaction,
             BlockPayload = TestBlockPayload,
-            BlockHeader = TestBlockHeader,
+            BlockHeader = TestBlockHeaderLegacy,
             InstanceState = TestInstanceState,
         >,
         NODE: NodeImplementation<
@@ -672,7 +672,7 @@ impl<
         TYPES: NodeType<
             Transaction = TestTransaction,
             BlockPayload = TestBlockPayload,
-            BlockHeader = TestBlockHeader,
+            BlockHeader = TestBlockHeaderLegacy,
             InstanceState = TestInstanceState,
         >,
         NODE: NodeImplementation<
@@ -758,7 +758,7 @@ impl<
         TYPES: NodeType<
             Transaction = TestTransaction,
             BlockPayload = TestBlockPayload,
-            BlockHeader = TestBlockHeader,
+            BlockHeader = TestBlockHeaderLegacy,
             InstanceState = TestInstanceState,
         >,
         NODE: NodeImplementation<
@@ -827,7 +827,7 @@ where
 pub async fn main_entry_point<
     TYPES: NodeType<
         Transaction = TestTransaction,
-        BlockHeader = TestBlockHeader,
+        BlockHeader = TestBlockHeaderLegacy,
         InstanceState = TestInstanceState,
     >,
     NETWORK: ConnectedNetwork<TYPES::SignatureKey>,
@@ -957,7 +957,7 @@ pub async fn main_entry_point<
 async fn initialize_builder<
     TYPES: NodeType<
         Transaction = TestTransaction,
-        BlockHeader = TestBlockHeader,
+        BlockHeader = TestBlockHeaderLegacy,
         InstanceState = TestInstanceState,
     >,
 >(

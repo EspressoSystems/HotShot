@@ -18,7 +18,7 @@ use vbs::version::StaticVersionType;
 
 use super::{
     auction_results_provider::AuctionResultsProvider,
-    block_contents::{BlockHeader, TestableBlock, Transaction},
+    block_contents::{BlockHeaderLegacy, TestableBlock, Transaction},
     network::{
         AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
     },
@@ -206,7 +206,7 @@ pub trait NodeType:
     /// This should be the same `Time` that `ValidatedState::Time` is using.
     type Time: ConsensusTime;
     /// The block header type that this hotshot setup is using.
-    type BlockHeader: BlockHeader<Self>;
+    type BlockHeader: BlockHeaderLegacy<Self>;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `ValidatedState::BlockPayload` is using.

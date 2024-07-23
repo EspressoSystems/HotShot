@@ -10,7 +10,7 @@ use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
+    block_types::{TestBlockHeaderLegacy, TestBlockPayload, TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
 };
@@ -107,7 +107,7 @@ impl TestView {
             &private_key,
         );
 
-        let block_header = TestBlockHeader {
+        let block_header = TestBlockHeaderLegacy {
             block_number: 1,
             timestamp: 1,
             payload_commitment,
@@ -312,7 +312,7 @@ impl TestView {
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
         };
 
-        let block_header = TestBlockHeader {
+        let block_header = TestBlockHeaderLegacy {
             block_number: *next_view,
             timestamp: *next_view,
             payload_commitment,

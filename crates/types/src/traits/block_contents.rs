@@ -1,6 +1,6 @@
 //! Abstraction over the contents of a block
 //!
-//! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
+//! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeaderLegacy`] traits, which
 //! describe the behaviors that a block is expected to have.
 
 use std::{
@@ -17,7 +17,7 @@ use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
-use super::signature_key::BuilderSignatureKey;
+use super::{auction_results_provider::HasUrls, signature_key::BuilderSignatureKey};
 use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
@@ -176,7 +176,7 @@ pub struct BuilderFee<TYPES: NodeType> {
 }
 
 /// Header of a block, which commits to a [`BlockPayload`].
-pub trait BlockHeader<TYPES: NodeType>:
+pub trait BlockHeaderLegacy<TYPES: NodeType>:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
 {
     /// Error type for this type of block header
@@ -203,6 +203,50 @@ pub trait BlockHeader<TYPES: NodeType>:
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+    ) -> Self;
+
+    /// Get the block number.
+    fn block_number(&self) -> u64;
+
+    /// Get the payload commitment.
+    fn payload_commitment(&self) -> VidCommitment;
+
+    /// Get the metadata.
+    fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata;
+
+    /// Get the builder commitment
+    fn builder_commitment(&self) -> BuilderCommitment;
+}
+
+/// Header of a block, which commits to a [`BlockPayload`].  Used in post-marketplace versions
+pub trait BlockHeaderMarketplace<TYPES: NodeType>:
+    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + DeserializeOwned + Committable
+{
+    /// Error type for this type of block header
+    type Error: Error + Debug + Send + Sync;
+    /// Auction result type. This should be the same type as the type in `AuctionResultsProvider``
+    type AuctionResult: HasUrls;
+
+    /// Build a header with the parent validate state, instance-level state, parent leaf, payload
+    /// commitment, and metadata.
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        parent_state: &TYPES::ValidatedState,
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        parent_leaf: &Leaf<TYPES>,
+        payload_commitment: VidCommitment,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        vid_common: VidCommon,
+        auction_results: Option<Self::AuctionResult>,
+        version: Version,
+    ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
+
+    /// Build the genesis header, payload, and metadata.
+    fn genesis(
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        payload_commitment: VidCommitment,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        auction_results: Option<Self::AuctionResult>,
     ) -> Self;
 
     /// Get the block number.

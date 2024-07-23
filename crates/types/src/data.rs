@@ -36,7 +36,7 @@ use crate::{
     simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
         block_contents::{
-            vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
+            vid_commitment, BlockHeaderLegacy, BuilderFee, EncodeBytes, TestableBlock,
             GENESIS_VID_NUM_STORAGE_NODES,
         },
         election::Membership,

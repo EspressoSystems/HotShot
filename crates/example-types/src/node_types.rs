@@ -13,7 +13,7 @@ use vbs::version::StaticVersion;
 
 use crate::{
     auction_results_provider_types::TestAuctionResultsProvider,
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    block_types::{TestBlockHeaderLegacy, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -42,7 +42,7 @@ impl NodeType for TestTypes {
         0, 0,
     ];
     type Time = ViewNumber;
-    type BlockHeader = TestBlockHeader;
+    type BlockHeader = TestBlockHeaderLegacy;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
     type Transaction = TestTransaction;

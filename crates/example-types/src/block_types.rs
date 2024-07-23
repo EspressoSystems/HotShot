@@ -9,7 +9,7 @@ use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
+        block_contents::{BlockHeaderLegacy, BuilderFee, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -226,9 +226,9 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     }
 }
 
-/// A [`BlockHeader`] that commits to [`TestBlockPayload`].
+/// A [`BlockHeaderLegacy`] that commits to [`TestBlockPayload`].
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Deserialize, Serialize)]
-pub struct TestBlockHeader {
+pub struct TestBlockHeaderLegacy {
     /// Block number.
     pub block_number: u64,
     /// VID commitment to the payload.
@@ -239,8 +239,8 @@ pub struct TestBlockHeader {
     pub timestamp: u64,
 }
 
-impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> BlockHeader<TYPES>
-    for TestBlockHeader
+impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> BlockHeaderLegacy<TYPES>
+    for TestBlockHeaderLegacy
 {
     type Error = std::convert::Infallible;
 
@@ -302,16 +302,16 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     }
 }
 
-impl Committable for TestBlockHeader {
+impl Committable for TestBlockHeaderLegacy {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("Header Comm")
             .u64_field(
                 "block number",
-                <TestBlockHeader as BlockHeader<TestTypes>>::block_number(self),
+                <TestBlockHeaderLegacy as BlockHeaderLegacy<TestTypes>>::block_number(self),
             )
             .constant_str("payload commitment")
             .fixed_size_bytes(
-                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self)
+                <TestBlockHeaderLegacy as BlockHeaderLegacy<TestTypes>>::payload_commitment(self)
                     .as_ref()
                     .as_ref(),
             )

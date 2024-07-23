@@ -5,7 +5,7 @@ use committable::{Commitment, Committable};
 use hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
     traits::{
-        block_contents::BlockHeader,
+        block_contents::BlockHeaderLegacy,
         node_implementation::NodeType,
         states::{InstanceState, StateDelta, TestableState, ValidatedState},
         BlockPayload,

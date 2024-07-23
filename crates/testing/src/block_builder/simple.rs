@@ -25,7 +25,7 @@ use hotshot_builder_api::v0_1::{
 };
 use hotshot_types::{
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType,
+        block_contents::BlockHeaderLegacy, node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
     utils::BuilderCommitment,
