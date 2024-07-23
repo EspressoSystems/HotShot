@@ -238,7 +238,7 @@ pub trait BlockHeaderMarketplace<TYPES: NodeType>:
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         vid_common: VidCommon,
         auction_results: Option<Self::AuctionResult>,
-        builder_fees: Vec<BuilderFee<TYPES>>, 
+        builder_fees: Vec<BuilderFee<TYPES>>,
         version: Version,
     ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
