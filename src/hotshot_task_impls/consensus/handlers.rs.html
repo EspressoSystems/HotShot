@@ -829,6 +829,8 @@
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>core::time::Duration;
@@ -905,8 +907,10 @@
         <span class="macro">error!</span>(<span class="string">"Cannot propopse without our VID share, view {:?}"</span>, view);
         <span class="kw">return</span>;
     };
-    drop(consensus_read);
-    <span class="kw">let </span>block_header = <span class="kw">match </span>TYPES::BlockHeader::new(
+    <span class="comment">// TODO ED: This will need to be version-gated to use the appropriate `BlockHeader::new` function.
+    // Pre-marketplace versions will use `new_legacy` and post-marketplace versions will use `new_marketplace`
+    </span>drop(consensus_read);
+    <span class="kw">let </span>block_header = <span class="kw">match </span>TYPES::BlockHeader::new_legacy(
         state.as_ref(),
         instance_state.as_ref(),
         <span class="kw-2">&amp;</span>parent_leaf,

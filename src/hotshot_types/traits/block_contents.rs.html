@@ -219,6 +219,24 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Transaction`], [`BlockPayload`], and [`BlockHeader`] traits, which
@@ -238,7 +256,7 @@
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>vbs::version::Version;
 
-<span class="kw">use </span><span class="kw">super</span>::signature_key::BuilderSignatureKey;
+<span class="kw">use super</span>::{auction_results_provider::HasUrls, signature_key::BuilderSignatureKey};
 <span class="kw">use crate</span>::{
     data::Leaf,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
@@ -404,9 +422,9 @@
     </span><span class="kw">type </span>Error: Error + Debug + Send + Sync;
 
     <span class="doccomment">/// Build a header with the parent validate state, instance-level state, parent leaf, payload
-    /// commitment, and metadata.
+    /// commitment, and metadata. This is only used in pre-marketplace versions
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    </span><span class="kw">fn </span>new(
+    </span><span class="kw">fn </span>new_legacy(
         parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
@@ -415,6 +433,21 @@
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         builder_fee: BuilderFee&lt;TYPES&gt;,
         vid_common: VidCommon,
+        version: Version,
+    ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;&gt; + Send;
+
+    <span class="doccomment">/// Build a header with the parent validate state, instance-level state, parent leaf, payload
+    /// commitment, metadata, and auction results. This is only used in post-marketplace versions
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">fn </span>new_marketplace&lt;AuctionResults: HasUrls + Send&gt;(
+        parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
+        instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        payload_commitment: VidCommitment,
+        metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
+        builder_fee: Vec&lt;BuilderFee&lt;TYPES&gt;&gt;,
+        vid_common: VidCommon,
+        auction_results: <span class="prelude-ty">Option</span>&lt;AuctionResults&gt;,
         version: Version,
     ) -&gt; <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;&gt; + Send;
 
@@ -437,5 +470,8 @@
 
     <span class="doccomment">/// Get the builder commitment
     </span><span class="kw">fn </span>builder_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BuilderCommitment;
+
+    <span class="doccomment">/// Get the results of the auction for this Header. Only used in post-marketplace versions
+    </span><span class="kw">fn </span>get_auction_results&lt;AuctionResults: HasUrls&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;AuctionResults&gt;;
 }
 </code></pre></div></section></main></body></html>
