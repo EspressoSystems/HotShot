@@ -401,8 +401,12 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let mut config_builder: NetworkNodeConfigBuilder = NetworkNodeConfigBuilder::default();
 
         // The replication factor is the minimum of [the default and 2/3 the number of nodes]
+        let Some(default_replication_factor) = DEFAULT_REPLICATION_FACTOR else {
+            return Err(anyhow!("Default replication factor not supplied"));
+        };
+
         let replication_factor = NonZeroUsize::new(min(
-            DEFAULT_REPLICATION_FACTOR,
+            default_replication_factor.get(),
             config.config.num_nodes_with_stake.get() * 2 / 3,
         ))
         .with_context(|| "Failed to calculate replication factor")?;
