@@ -22,7 +22,7 @@ use hotshot_types::{
     simple_certificate::{version, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote},
     traits::{
-        block_contents::BlockHeaderLegacyLegacy,
+        block_contents::BlockHeaderLegacy,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,

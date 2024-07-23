@@ -164,7 +164,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             &self.decided_upgrade_certificate.read().await.clone(),
         )?;
 
-        let block_header = TYPES::BlockHeaderLegacy::new(
+        let block_header = TYPES::BlockHeader::new(
             state.as_ref(),
             self.instance_state.as_ref(),
             &parent_leaf,
