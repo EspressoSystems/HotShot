@@ -231,7 +231,7 @@
                     encoded_transactions,
                     metadata,
                     view_number,
-                    bid_fees,
+                    sequencing_fees,
                     vid_precompute,
                     ..
                 } = packed_bundle;
@@ -262,7 +262,7 @@
                         builder_commitment,
                         metadata.clone(),
                         <span class="kw-2">*</span>view_number,
-                        bid_fees.first().clone(),
+                        sequencing_fees.first().clone(),
                     )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
