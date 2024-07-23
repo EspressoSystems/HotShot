@@ -1121,12 +1121,26 @@
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::str::FromStr;
 <span class="kw">use </span>std::{
+    cmp::min,
     collections::{BTreeSet, HashSet},
     fmt::Debug,
     net::SocketAddr,
@@ -1138,7 +1152,7 @@
     time::Duration,
 };
 
-<span class="kw">use </span>anyhow::anyhow;
+<span class="kw">use </span>anyhow::{anyhow, Context};
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{
@@ -1183,7 +1197,7 @@
         spawn_network_node, MeshParams,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver, NetworkNodeType,
+        NetworkNodeReceiver, NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
     },
     reexport::{Multiaddr, ResponseChannel},
 };
@@ -1520,11 +1534,23 @@
         .parse()<span class="question-mark">?</span>;
 
         <span class="comment">// Build our libp2p configuration from our global, network configuration
-        </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder: NetworkNodeConfigBuilder = NetworkNodeConfigBuilder::default();
+
+        <span class="comment">// The replication factor is the minimum of [the default and 2/3 the number of nodes]
+        </span><span class="kw">let </span><span class="prelude-val">Some</span>(default_replication_factor) = DEFAULT_REPLICATION_FACTOR <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Default replication factor not supplied"</span>));
+        };
+
+        <span class="kw">let </span>replication_factor = NonZeroUsize::new(min(
+            default_replication_factor.get(),
+            config.config.num_nodes_with_stake.get() * <span class="number">2 </span>/ <span class="number">3</span>,
+        ))
+        .with_context(|| <span class="string">"Failed to calculate replication factor"</span>)<span class="question-mark">?</span>;
 
         config_builder
             .server_mode(libp2p_config.server_mode)
             .identity(keypair)
+            .replication_factor(replication_factor)
             .bound_addr(<span class="prelude-val">Some</span>(bind_address.clone()))
             .mesh_params(<span class="prelude-val">Some</span>(MeshParams {
                 mesh_n_high: libp2p_config.mesh_n_high,

@@ -791,6 +791,13 @@
 <a href="#789" id="789">789</a>
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -838,6 +845,7 @@
 <span class="kw">pub use </span><span class="self">self</span>::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+        DEFAULT_REPLICATION_FACTOR,
     },
     handle::{
         network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
@@ -1144,11 +1152,17 @@
     /// Once replicated upon all nodes, the caller is notified over
     /// `chan`. If there is an error, a [`super::error::DHTError`] is
     /// sent instead.
+    ///
+    /// # Panics
+    /// If the default replication factor is `None`
     </span><span class="kw">pub fn </span>put_record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>query: KadPutQuery) {
         <span class="kw">let </span>record = Record::new(query.key.clone(), query.value.clone());
         <span class="kw">match </span><span class="self">self</span>.swarm.behaviour_mut().dht.put_record(
             record,
-            libp2p::kad::Quorum::N(<span class="self">self</span>.dht_handler.replication_factor()),
+            libp2p::kad::Quorum::N(
+                NonZeroUsize::try_from(<span class="self">self</span>.dht_handler.replication_factor().get() / <span class="number">2</span>)
+                    .expect(<span class="string">"replication factor should be bigger than 0"</span>),
+            ),
         ) {
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="comment">// failed try again later

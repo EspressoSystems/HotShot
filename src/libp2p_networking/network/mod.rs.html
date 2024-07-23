@@ -276,7 +276,7 @@
     node::{
         network_node_handle_error, spawn_network_node, MeshParams, NetworkNode, NetworkNodeConfig,
         NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
-        NetworkNodeHandleError, NetworkNodeReceiver,
+        NetworkNodeHandleError, NetworkNodeReceiver, DEFAULT_REPLICATION_FACTOR,
     },
 };
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
