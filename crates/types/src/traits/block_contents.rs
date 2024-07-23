@@ -247,7 +247,6 @@ pub trait BlockHeaderMarketplace<TYPES: NodeType>:
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
-        auction_results: Option<Self::AuctionResult>,
     ) -> Self;
 
     /// Get the block number.
