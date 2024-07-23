@@ -444,12 +444,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                if self.id == 4 && *self.latest_proposed_view > 4 {
+                if self.id == 4 {
+                    tracing::error!("SENDING BAD PROPOPSAL");
                     let mut bad_proposal = proposal.clone();
-                    for i in 0..5 {
+                    for i in 0..1000 {
                         bad_proposal.data.view_number += 1;
                         broadcast_event(
-                            HotShotEvent::QuorumProposalRecv(bad_proposal.clone(), key.clone())
+                            HotShotEvent::QuorumProposalSend(bad_proposal.clone(), key.clone())
                                 .into(),
                             &event_sender,
                         )
