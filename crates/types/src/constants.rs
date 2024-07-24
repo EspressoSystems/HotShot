@@ -44,8 +44,6 @@ pub const WEB_SERVER_VERSION: WebServerVersion = StaticVersion {};
 
 /// Type for semver representation of "Base" version
 pub type BaseVersion = StaticVersion<0, 1>;
-/// Constant for semver representation of "Base" version
-pub const BASE_VERSION: BaseVersion = StaticVersion {};
 
 /// Type for semver representation of "Marketplace" version
 pub type MarketplaceVersion = StaticVersion<0, 3>;
