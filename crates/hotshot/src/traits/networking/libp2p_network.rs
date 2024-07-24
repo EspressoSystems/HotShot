@@ -45,7 +45,7 @@ use hotshot_types::{
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
-        network::{self, ConnectedNetwork, NetworkError, ResponseMessage},
+        network::{self, ConnectedNetwork, NetworkError, ResponseMessage, Topic},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -60,8 +60,8 @@ use libp2p_networking::{
         behaviours::request_response::{Request, Response},
         spawn_network_node, MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver, NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
+        NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
     },
     reexport::{Multiaddr, ResponseChannel},
 };
@@ -529,6 +529,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         let mut topic_map = BiHashMap::new();
+
         topic_map.insert(quorum_public_keys, QC_TOPIC.to_string());
         topic_map.insert(da_public_keys, "DA".to_string());
 
@@ -922,7 +923,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
-        recipients: BTreeSet<K>,
+        topic: Topic,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
         // If we're not ready, return an error
@@ -931,20 +932,22 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             return Err(NetworkError::NotReady);
         };
 
+        // Get the topic subscribers
+        let topic = topic.to_string();
         let topic_map = self.inner.topic_map.read().await;
-        let topic = topic_map
-            .get_by_left(&recipients)
-            .ok_or_else(|| {
-                self.inner.metrics.num_failed_messages.add(1);
-                NetworkError::Libp2p {
-                    source: Box::new(NetworkNodeHandleError::NoSuchTopic),
-                }
-            })?
-            .clone();
 
-        // gossip doesn't broadcast from itself, so special case
-        if recipients.contains(&self.inner.pk) {
-            // send to self
+        // If the topic existed,
+        if let Some(topic_subscribers) = topic_map.get_by_right(&topic) {
+            // And we are subscribed,
+            if topic_subscribers.contains(&self.inner.pk) {
+                // Short-circuit-send the message to ourselves
+                self.inner.sender.send(message.clone()).await.map_err(|_| {
+                    self.inner.metrics.num_failed_messages.add(1);
+                    NetworkError::ShutDown
+                })?;
+            }
+        } else {
+            // Edge case for all nodes being subscribed to the topic
             self.inner.sender.send(message.clone()).await.map_err(|_| {
                 self.inner.metrics.num_failed_messages.add(1);
                 NetworkError::ShutDown
