@@ -139,10 +139,10 @@ class AreWeWorking:
 
 
 @app.command(help="Watches the native demo and reports any HotShot failures.")
-def evaluate(view_threshold=10_000, host_ip="localhost"):
+def evaluate(view_threshold: int=10_000, host_ip="localhost"):
     working = AreWeWorking()
     with Live(working.table(), refresh_per_second=1) as live:
-        while working.last_decided_view < view_threshold:
+        while working.last_decided_view < int(view_threshold):
             for port in PORT_RANGE:
                 res = requests.get(
                     f"http://{host_ip}:{port}/status/metrics", allow_redirects=True
