@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.61"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.63"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
@@ -28,9 +28,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-ark-bls12-381 = "0.4"
 ark-bn254 = "0.4"
-ark-ec = "0.4"
 ark-ed-on-bn254 = "0.4"
 ark-ff = "0.4"
 ark-serialize = "0.4"
@@ -50,14 +48,16 @@ bitvec = { version = "1", default-features = false, features = [
   "serde",
 ] }
 blake3 = "1.5"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["now"] }
 committable = "0.2"
 custom_debug = "0.5"
 digest = "0.10"
 either = "1.13"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
-ethereum-types = { version = "0.14", features = ["impl-serde"] }
-futures = "0.3"
+ethereum-types = { version = "0.14", default-features = false, features = [
+  "serialize",
+] }
+futures = { version = "0.3", default-features = false }
 # TODO generic-array should not be a direct dependency
 # https://github.com/EspressoSystems/HotShot/issues/1850
 generic-array = { version = "0.14.7", features = ["serde"] }
@@ -66,7 +66,6 @@ jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfis
 jf-signature = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-rescue = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-pcs = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
-jf-relation = { version = "0.4.4", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-utils = { version = "0.4.4", git = "https://github.com/espressosystems/jellyfish", tag = "0.4.5" }
 lazy_static = "1"
 libp2p-identity = "0.2"
@@ -95,42 +94,24 @@ url = { version = "2.5.2", features = ["serde"] }
 vec1 = { version = "1.12", features = ["serde"] }
 reqwest = { version = "0.12.5", features = ["json"] }
 
-libp2p = { package = "libp2p", version = "0.53", features = [
+libp2p = { package = "libp2p", version = "0.53", default-features = false, features = [
   "macros",
   "autonat",
   "cbor",
   "dns",
-  "floodsub",
   "gossipsub",
   "identify",
   "kad",
-  "mdns",
-  "noise",
-  "ping",
-  "plaintext",
-  "pnet",
   "quic",
-  "relay",
   "request-response",
-  "rendezvous",
   "secp256k1",
   "serde",
-  "tcp",
-  "uds",
-  "websocket",
-  "yamux",
 ] }
-tokio = { version = "1", features = [
-  "fs",
-  "io-util",
-  "io-std",
+tokio = { version = "1", default-features = false, features = [
   "macros",
   "net",
   "parking_lot",
-  "process",
-  "rt",
   "rt-multi-thread",
-  "signal",
   "sync",
   "time",
   "tracing",
