@@ -233,6 +233,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         return None;
     }
 
+    #[allow(clippy::too_many_lines)]
     /// marketplace view change handler
     pub async fn handle_view_change_marketplace(
         &mut self,
@@ -295,7 +296,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     TYPES::BlockPayload::from_transactions(
                         transactions,
                         &validated_state,
-                        &self.instance_state.clone(),
+                        &Arc::clone(&self.instance_state),
                     )
                     .await,
                 ) {
@@ -356,7 +357,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         )
         .await;
 
-        return None;
+        None
     }
 
     /// main task event handler
