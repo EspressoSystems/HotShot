@@ -1,6 +1,14 @@
 //! configurable constants for hotshot
 
+use std::time::Duration;
+
 use vbs::version::StaticVersion;
+
+/// timeout for fetching auction results from the solver
+pub const AUCTION_RESULTS_FETCH_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// timeout for fetching bundles from builders
+pub const BUNDLE_FETCH_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// the number of views to gather information for ahead of time
 pub const LOOK_AHEAD: u64 = 5;

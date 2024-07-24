@@ -318,7 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
             }
         }
 
-        // If we couldn't get any bundles, send an empty block
+        // If we couldn't get any bundles (due to either the builders or solver failing to return a result), send an empty block
         warn!(
             "Failed to get a block for view {:?}, proposing empty block",
             block_view
