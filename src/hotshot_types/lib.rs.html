@@ -221,6 +221,7 @@
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types and Traits for the `HotShot` consensus module
 </span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
@@ -234,6 +235,7 @@
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::bincode_opts;
+<span class="kw">pub mod </span>bundle;
 <span class="kw">pub mod </span>consensus;
 <span class="kw">pub mod </span>constants;
 <span class="kw">pub mod </span>data;

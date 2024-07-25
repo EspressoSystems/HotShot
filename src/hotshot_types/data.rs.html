@@ -903,11 +903,6 @@
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1786,9 +1781,6 @@
     <span class="doccomment">/// The view number that this block is associated with.
     </span><span class="kw">pub </span>view_number: TYPES::Time,
 
-    <span class="doccomment">/// The bid fees for submitting the block.
-    </span><span class="kw">pub </span>bid_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// The sequencing fee for submitting bundles.
     </span><span class="kw">pub </span>sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
 
@@ -1802,7 +1794,6 @@
         encoded_transactions: Arc&lt;[u8]&gt;,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         view_number: TYPES::Time,
-        bid_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
         sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
         vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -1810,7 +1801,6 @@
             encoded_transactions,
             metadata,
             view_number,
-            bid_fees,
             sequencing_fees,
             vid_precompute,
         }

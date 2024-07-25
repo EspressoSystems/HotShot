@@ -387,6 +387,7 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -594,6 +595,7 @@
                 .collect(),
             builder_clients_marketplace: Vec::new(),
             decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.decided_upgrade_certificate),
+            auction_results_provider: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.auction_results_provider),
         }
     }
 }
