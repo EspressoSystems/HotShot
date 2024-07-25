@@ -1,5 +1,5 @@
 use hotshot::traits::{
-    election::static_committee::{GeneralStaticCommittee, StaticCommittee},
+    election::{static_committee::StaticCommittee, static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews},
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
     NodeImplementation,
 };
@@ -48,7 +48,7 @@ impl NodeType for TestTypes {
     type Transaction = TestTransaction;
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
-    type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
+    type Membership = StaticCommitteeLeaderForTwoViews<TestTypes, Self::SignatureKey>;
     type BuilderSignatureKey = BuilderKey;
 }
 

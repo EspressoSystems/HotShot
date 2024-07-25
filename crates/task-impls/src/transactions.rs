@@ -113,7 +113,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle_view_change_legacy(
         &mut self,
-        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::Time,
     ) -> Option<HotShotTaskCompleted> {
         let version = match hotshot_types::simple_certificate::version(
@@ -162,7 +162,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     vec1::vec1![fee],
                     precompute_data,
                 ))),
-                &event_stream,
+                event_stream,
             )
             .await;
         } else {
@@ -201,7 +201,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     vec1::vec1![null_fee],
                     Some(precompute_data),
                 ))),
-                &event_stream,
+                event_stream,
             )
             .await;
         };
@@ -213,7 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
     /// marketplace view change handler
     pub async fn handle_view_change_marketplace(
         &mut self,
-        event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::Time,
     ) -> Option<HotShotTaskCompleted> {
         let version = match hotshot_types::simple_certificate::version(
@@ -274,7 +274,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                             sequencing_fees,
                             None,
                         ))),
-                        &event_stream,
+                        event_stream,
                     )
                     .await;
 
@@ -317,7 +317,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 vec1::vec1![null_fee],
                 Some(precompute_data),
             ))),
-            &event_stream,
+            event_stream,
         )
         .await;
 
@@ -360,30 +360,41 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 }
                 self.cur_view = view;
 
-                // return if we aren't the next leader or we skipped last view and aren't the current leader.
-                if !make_block && self.membership.leader(self.cur_view + 1) != self.public_key {
-                    debug!("Not next leader for view {:?}", self.cur_view);
-                    return None;
-                }
-                let block_view = if make_block { view } else { view + 1 };
-
-                let version = match version(
-                    block_view,
-                    &self.decided_upgrade_certificate.read().await.clone(),
-                ) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        tracing::error!("Failed to calculate version: {:?}", e);
+                let next_view = self.cur_view + 1;
+                let next_leader = self.membership.leader(next_view) == self.public_key;
+                let block_views = match (make_block, next_leader) {
+                    // case where we are next leader and current leader
+                    (true, true) => vec![self.cur_view, next_view],
+                    // current view leader
+                    (true, false) => vec![self.cur_view],
+                    // next view leader
+                    (false, true) => vec![next_view],
+                    (false, false) => {
+                        // return if we aren't the next leader or we skipped last view and aren't the current leader.
+                        debug!("Not next leader for view {:?}", self.cur_view);
                         return None;
                     }
                 };
 
-                if version < MarketplaceVersion::VERSION {
-                    self.handle_view_change_legacy(event_stream, block_view)
-                        .await;
-                } else {
-                    self.handle_view_change_marketplace(event_stream, block_view)
-                        .await;
+                for block_view in block_views {
+                    let version = match version(
+                        block_view,
+                        &self.decided_upgrade_certificate.read().await.clone(),
+                    ) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            tracing::error!("Failed to calculate version: {:?}", e);
+                            return None;
+                        }
+                    };
+
+                    if version < MarketplaceVersion::VERSION {
+                        self.handle_view_change_legacy(&event_stream, block_view)
+                            .await;
+                    } else {
+                        self.handle_view_change_marketplace(&event_stream, block_view)
+                            .await;
+                    }
                 }
             }
             HotShotEvent::Shutdown => {
