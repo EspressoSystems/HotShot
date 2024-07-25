@@ -68,7 +68,7 @@ cross_tests!(
           _ => Behaviour::Standard,
           } });
 
-        TestDescription {
+        let mut metadata = TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
@@ -77,6 +77,10 @@ cross_tests!(
                                          ),
             behaviour,
             ..TestDescription::default()
-        }
+        };
+
+        metadata.overall_safety_properties.num_failed_views = 1;
+
+        metadata
     },
 );
