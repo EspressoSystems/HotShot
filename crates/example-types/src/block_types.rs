@@ -244,7 +244,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     for TestBlockHeader
 {
     type Error = std::convert::Infallible;
-    type AuctionResults = TestAuctionResult;
+    type AuctionResult = TestAuctionResult;
 
     async fn new_legacy(
         _parent_state: &TYPES::ValidatedState,
@@ -281,7 +281,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         _builder_fee: Vec<BuilderFee<TYPES>>,
         _vid_common: VidCommon,
-        _auction_results: Option<Self::AuctionResults>,
+        _auction_results: Option<Self::AuctionResult>,
         _version: Version,
     ) -> Result<Self, Self::Error> {
         unimplemented!()
@@ -317,7 +317,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         self.builder_commitment.clone()
     }
 
-    fn get_auction_results(&self) -> Option<Self::AuctionResults> {
+    fn get_auction_results(&self) -> Option<Self::AuctionResult> {
         unimplemented!()
     }
 }
