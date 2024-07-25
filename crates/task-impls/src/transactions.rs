@@ -68,19 +68,6 @@ pub struct BuilderResponse<TYPES: NodeType> {
     pub precompute_data: Option<VidPrecomputeData>,
 }
 
-/// The Bundle for a portion of a block, provided by a downstream builder that exists in a bundle
-/// auction.
-pub struct Bundle<TYPES: NodeType> {
-    /// The bundle transactions sent by the builder.
-    pub transactions: Vec<<TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction>,
-
-    /// The signature over the bundle.
-    pub signature: TYPES::SignatureKey,
-
-    /// The fee for sequencing
-    pub sequencing_fee: BuilderFee<TYPES>,
-}
-
 /// Tracks state of a Transaction task
 pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The state's api
