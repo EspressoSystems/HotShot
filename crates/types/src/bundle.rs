@@ -1,4 +1,4 @@
-//! This module provides the `Bundle` type that the HotShot leader will use to construct its block
+//! This module provides the `Bundle` type
 
 use serde::{Deserialize, Serialize};
 

@@ -77,9 +77,6 @@ pub struct Bundle<TYPES: NodeType> {
     /// The signature over the bundle.
     pub signature: TYPES::SignatureKey,
 
-    /// The fee for submitting a bid.
-    pub bid_fee: BuilderFee<TYPES>,
-
     /// The fee for sequencing
     pub sequencing_fee: BuilderFee<TYPES>,
 }
@@ -170,18 +167,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
             precompute_data,
         }) = block
         {
-            let Some(bid_fee) = null_block::builder_fee(self.membership.total_nodes(), version)
-            else {
-                error!("Failed to get bid fee");
-                return None;
-            };
-
             broadcast_event(
                 Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
                     block_payload.encode(),
                     metadata,
                     block_view,
-                    vec1::vec1![bid_fee],
                     vec1::vec1![fee],
                     precompute_data,
                 ))),
@@ -221,7 +211,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     vec![].into(),
                     metadata,
                     block_view,
-                    vec1::vec1![null_fee.clone()],
                     vec1::vec1![null_fee],
                     Some(precompute_data),
                 ))),
@@ -269,30 +258,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 .fetch_bundles(block_view)
                 .await
             {
-                let Some(null_fee) =
-                    null_block::builder_fee(self.membership.total_nodes(), version)
-                else {
-                    error!("Failed to get null fee");
-                    return None;
-                };
-
                 let mut sequencing_fees = Vec::new();
-                let mut bid_fees: Vec<BuilderFee<TYPES>> = Vec::new();
                 let mut transactions: Vec<
                     <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction,
                 > = Vec::new();
 
                 for bundle in bundles {
                     sequencing_fees.push(bundle.sequencing_fee);
-                    bid_fees.push(null_fee.clone());
                     transactions.extend(bundle.transactions);
                 }
 
                 let validated_state = self.consensus.read().await.decided_state();
 
-                if let (Ok(sequencing_fees), Ok(bid_fees), Ok((block_payload, metadata))) = (
+                if let (Ok(sequencing_fees), Ok((block_payload, metadata))) = (
                     Vec1::try_from_vec(sequencing_fees),
-                    Vec1::try_from_vec(bid_fees),
                     TYPES::BlockPayload::from_transactions(
                         transactions,
                         &validated_state,
@@ -305,7 +284,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                             block_payload.encode(),
                             metadata,
                             block_view,
-                            bid_fees,
                             sequencing_fees,
                             None,
                         ))),
@@ -349,7 +327,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 vec![].into(),
                 metadata,
                 block_view,
-                vec1::vec1![null_fee.clone()],
                 vec1::vec1![null_fee],
                 Some(precompute_data),
             ))),
