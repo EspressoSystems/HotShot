@@ -111,7 +111,11 @@ impl Committable for TestTransaction {
     }
 }
 
-impl Transaction for TestTransaction {}
+impl Transaction for TestTransaction {
+    fn default (num_bytes: usize) -> Self {
+        TestTransaction(vec![0; num_bytes])
+    }
+}
 
 /// A [`BlockPayload`] that contains a list of `TestTransaction`.
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -177,7 +181,7 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
         _validated_state: &Self::ValidatedState,
         _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
-        let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
+        let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect(); 
         Ok((
             Self {
                 transactions: txns_vec,

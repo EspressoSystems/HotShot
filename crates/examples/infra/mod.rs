@@ -424,7 +424,24 @@ pub trait RunDa<
             rounds,
             node_index,
             start_delay_seconds,
-            ..
+            indexed_da,
+            transactions_per_round,
+            manual_start_password,
+            num_bootrap,
+            next_view_timeout,
+            view_sync_timeout,
+            builder_timeout,
+            data_request_delay,
+            seed,
+            transaction_size,
+            key_type_name,
+            libp2p_config,
+            config,
+            cdn_marshal_address,
+            combined_network_config,
+            commit_sha,
+            builder,
+            random_builder,
         } = self.config();
 
         let mut total_transactions_committed = 0;
@@ -493,20 +510,23 @@ pub trait RunDa<
                                     anchor_view = leaf.view_number();
                                 }
 
-                                // send transactions
-                                for _ in 0..transactions_to_send_per_round {
-                                    // append current timestamp to the tx to calc latency
-                                    let timestamp = Utc::now().timestamp();
-                                    let mut tx = transactions.remove(0).into_bytes();
-                                    let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
-                                    tx.append(&mut timestamp_vec);
+                                // ED Here
+                                // if self.config().node_index == 1 {
+                                //     // send transactions
+                                //     for _ in 0..transactions_to_send_per_round {
+                                //         // append current timestamp to the tx to calc latency
+                                //         let timestamp = Utc::now().timestamp();
+                                //         let mut tx = transactions.remove(0).into_bytes();
+                                //         let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+                                //         tx.append(&mut timestamp_vec);
 
-                                    () = context
-                                        .submit_transaction(TestTransaction::new(tx))
-                                        .await
-                                        .unwrap();
-                                    total_transactions_sent += 1;
-                                }
+                                //         () = context
+                                //             .submit_transaction(TestTransaction::new(tx))
+                                //             .await
+                                //             .unwrap();
+                                //         total_transactions_sent += 1;
+                                //     }
+                                // }
                             }
 
                             if let Some(size) = block_size {

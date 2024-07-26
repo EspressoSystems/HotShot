@@ -35,6 +35,7 @@ pub trait EncodeBytes {
 pub trait Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {
+    fn default (num_bytes: usize) -> Self; 
 }
 
 /// Abstraction over the full contents of a block
