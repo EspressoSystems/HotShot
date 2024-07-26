@@ -1,5 +1,8 @@
 use hotshot::traits::{
-    election::{static_committee::{GeneralStaticCommittee, StaticCommittee}, static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews},
+    election::{
+        static_committee::{GeneralStaticCommittee, StaticCommittee},
+        static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
+    },
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
     NodeImplementation,
 };
@@ -82,7 +85,8 @@ impl NodeType for TestConsecutiveLeaderTypes {
     type Transaction = TestTransaction;
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
-    type Membership = StaticCommitteeLeaderForTwoViews<TestConsecutiveLeaderTypes, Self::SignatureKey>;
+    type Membership =
+        StaticCommitteeLeaderForTwoViews<TestConsecutiveLeaderTypes, Self::SignatureKey>;
     type BuilderSignatureKey = BuilderKey;
 }
 

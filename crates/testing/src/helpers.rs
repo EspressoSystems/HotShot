@@ -8,13 +8,14 @@ use ethereum_types::U256;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
-    HotShotInitializer, Memberships, SystemContext
+    HotShotInitializer, Memberships, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
-    block_types::TestTransaction, node_types::{MemoryImpl, TestTypes},
+    block_types::TestTransaction,
+    node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
-    storage_types::TestStorage
+    storage_types::TestStorage,
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
@@ -41,15 +42,21 @@ use crate::test_builder::TestDescription;
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
-pub async fn build_system_handle<TYPES: NodeType<InstanceState = TestInstanceState>, I: NodeImplementation<TYPES, Storage = TestStorage<TYPES>, AuctionResultsProvider = TestAuctionResultsProvider> + TestableNodeImplementation<TYPES>>(
+pub async fn build_system_handle<
+    TYPES: NodeType<InstanceState = TestInstanceState>,
+    I: NodeImplementation<
+            TYPES,
+            Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider,
+        > + TestableNodeImplementation<TYPES>,
+>(
     node_id: u64,
 ) -> (
     SystemContextHandle<TYPES, I>,
     Sender<Arc<HotShotEvent<TYPES>>>,
     Receiver<Arc<HotShotEvent<TYPES>>>,
 ) {
-    let builder: TestDescription<TYPES, I> =
-        TestDescription::default_multiple_rounds();
+    let builder: TestDescription<TYPES, I> = TestDescription::default_multiple_rounds();
 
     let launcher = builder.gen_launcher(node_id);
 
@@ -100,7 +107,7 @@ pub async fn build_system_handle<TYPES: NodeType<InstanceState = TestInstanceSta
         network,
         initializer,
         ConsensusMetricsValue::default(),
-        storage, 
+        storage,
         auction_results_provider,
     )
     .await

@@ -68,7 +68,8 @@ where
     fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
         // two connsecutive views will have same index starting with even number.
         // eg 0->1, 2->3 ... 10->11 etc
-        let index = usize::try_from((*view_number / 2) % self.all_nodes_with_stake.len() as u64).unwrap();
+        let index =
+            usize::try_from((*view_number / 2) % self.all_nodes_with_stake.len() as u64).unwrap();
         let res = self.all_nodes_with_stake[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
