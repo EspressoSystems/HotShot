@@ -166,10 +166,8 @@ struct Libp2pNetworkInner<K: SignatureKey + 'static> {
     is_bootstrapped: Arc<AtomicBool>,
     /// The Libp2p metrics we're managing
     metrics: Libp2pMetricsValue,
-    /// topic map
-    /// hash(hashset) -> topic
-    /// btreemap ordered so is hashable
-    topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
+    /// The list of topics we're subscribed to
+    subscribed_topics: HashSet<String>,
     /// the latest view number (for node lookup purposes)
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven't made that atomic yet and we prefer lock-free
@@ -298,7 +296,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                         .unwrap()
                 };
                 let bootstrap_addrs_ref = Arc::clone(&bootstrap_addrs);
-                let keys = all_keys.clone();
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
                 Box::pin(async move {
@@ -309,10 +306,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             pubkey.clone(),
                             bootstrap_addrs_ref,
                             usize::try_from(node_id).unwrap(),
-                            keys,
                             #[cfg(feature = "hotshot-testing")]
                             reliability_config_dup,
-                            da.clone(),
                             da.contains(&pubkey),
                         )
                         .await
@@ -453,12 +448,8 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             pub_key.clone(),
             Arc::new(RwLock::new(bootstrap_nodes)),
             usize::try_from(config.node_index)?,
-            // NOTE: this introduces an invariant that the keys are assigned using this indexed
-            // function
-            all_keys,
             #[cfg(feature = "hotshot-testing")]
             None,
-            da_keys.clone(),
             da_keys.contains(pub_key),
         )
         .await?)
@@ -499,10 +490,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         pk: K,
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
-        // HACK
-        quorum_public_keys: BTreeSet<K>,
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
-        da_public_keys: BTreeSet<K>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<K>, NetworkError> {
         // Error if there were no bootstrap nodes specified
@@ -528,12 +516,11 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let mut pubkey_pid_map = BiHashMap::new();
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
-        let mut topic_map = BiHashMap::new();
-
-        topic_map.insert(quorum_public_keys, QC_TOPIC.to_string());
-        topic_map.insert(da_public_keys, "DA".to_string());
-
-        let topic_map = RwLock::new(topic_map);
+        // Subscribe to the relevant topics
+        let mut subscribed_topics = HashSet::from_iter(vec![QC_TOPIC.to_string()]);
+        if is_da {
+            subscribed_topics.insert("DA".to_string());
+        }
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
@@ -557,7 +544,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 dht_timeout: Duration::from_secs(120),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics,
-                topic_map,
+                subscribed_topics,
                 node_lookup_send,
                 // Start the latest view from 0. "Latest" refers to "most recent view we are polling for
                 // proposals on". We need this because to have consensus info injected we need a working
@@ -932,22 +919,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             return Err(NetworkError::NotReady);
         };
 
-        // Get the topic subscribers
+        // If we are subscribed to the topic,
         let topic = topic.to_string();
-        let topic_map = self.inner.topic_map.read().await;
-
-        // If the topic existed,
-        if let Some(topic_subscribers) = topic_map.get_by_right(&topic) {
-            // And we are subscribed,
-            if topic_subscribers.contains(&self.inner.pk) {
-                // Short-circuit-send the message to ourselves
-                self.inner.sender.send(message.clone()).await.map_err(|_| {
-                    self.inner.metrics.num_failed_messages.add(1);
-                    NetworkError::ShutDown
-                })?;
-            }
-        } else {
-            // Edge case for all nodes being subscribed to the topic
+        if self.inner.subscribed_topics.contains(&topic) {
+            // Short-circuit-send the message to ourselves
             self.inner.sender.send(message.clone()).await.map_err(|_| {
                 self.inner.metrics.num_failed_messages.add(1);
                 NetworkError::ShutDown
