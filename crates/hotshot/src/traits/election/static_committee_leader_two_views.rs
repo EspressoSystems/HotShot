@@ -8,8 +8,6 @@ use hotshot_types::{
     traits::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey},
     PeerConfig,
 };
-#[cfg(feature = "randomized-leader-election")]
-use rand::{rngs::StdRng, Rng};
 use tracing::debug;
 
 /// Dummy implementation of [`Membership`]
@@ -60,40 +58,12 @@ where
         self.committee_nodes_with_stake.clone()
     }
 
-    #[cfg(not(any(
-        feature = "randomized-leader-election",
-        feature = "fixed-leader-election"
-    )))]
     /// Index the vector of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
         // two connsecutive views will have same index starting with even number.
         // eg 0->1, 2->3 ... 10->11 etc
         let index =
             usize::try_from((*view_number / 2) % self.all_nodes_with_stake.len() as u64).unwrap();
-        let res = self.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::public_key(&res)
-    }
-
-    #[cfg(feature = "fixed-leader-election")]
-    /// Only get leader in fixed set
-    /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        if self.fixed_leader_for_gpuvid <= 0
-            || self.fixed_leader_for_gpuvid > self.all_nodes_with_stake.len()
-        {
-            panic!("fixed_leader_for_gpuvid is not set correctly.");
-        }
-        let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
-        let res = self.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::public_key(&res)
-    }
-
-    #[cfg(feature = "randomized-leader-election")]
-    /// Index the vector of public keys with a random number generated using the current view number as a seed
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
-        let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.nodes_with_stake.len();
         let res = self.all_nodes_with_stake[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }

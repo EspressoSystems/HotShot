@@ -17,7 +17,7 @@ use vbs::version::StaticVersionType;
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-async fn test_transaction_task_double_election_leader() {
+async fn test_transaction_task_leader_two_views_in_a_row() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 

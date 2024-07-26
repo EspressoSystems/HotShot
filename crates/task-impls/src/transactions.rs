@@ -109,6 +109,32 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
+    /// handle view change decide legacy or not
+    pub async fn handle_view_change(
+        &mut self,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+        block_view: TYPES::Time,
+    ) -> Option<HotShotTaskCompleted> {
+        let version = match version(
+            block_view,
+            &self.decided_upgrade_certificate.read().await.clone(),
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!("Failed to calculate version: {:?}", e);
+                return None;
+            }
+        };
+
+        if version < MarketplaceVersion::VERSION {
+            self.handle_view_change_legacy(&event_stream, block_view)
+                .await
+        } else {
+            self.handle_view_change_marketplace(&event_stream, block_view)
+                .await
+        }
+    }
+
     /// legacy view change handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle_view_change_legacy(
@@ -362,39 +388,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
                 let next_view = self.cur_view + 1;
                 let next_leader = self.membership.leader(next_view) == self.public_key;
-                let block_views = match (make_block, next_leader) {
-                    // case where we are next leader and current leader
-                    (true, true) => vec![self.cur_view, next_view],
-                    // current view leader
-                    (true, false) => vec![self.cur_view],
-                    // next view leader
-                    (false, true) => vec![next_view],
-                    (false, false) => {
-                        // return if we aren't the next leader or we skipped last view and aren't the current leader.
-                        debug!("Not next leader for view {:?}", self.cur_view);
-                        return None;
-                    }
-                };
+                if !make_block && !next_leader {
+                    debug!("Not next leader for view {:?}", self.cur_view);
+                    return None;
+                }
 
-                for block_view in block_views {
-                    let version = match version(
-                        block_view,
-                        &self.decided_upgrade_certificate.read().await.clone(),
-                    ) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            tracing::error!("Failed to calculate version: {:?}", e);
-                            return None;
-                        }
-                    };
+                if make_block {
+                    self.handle_view_change(&event_stream, self.cur_view).await;
+                }
 
-                    if version < MarketplaceVersion::VERSION {
-                        self.handle_view_change_legacy(&event_stream, block_view)
-                            .await;
-                    } else {
-                        self.handle_view_change_marketplace(&event_stream, block_view)
-                            .await;
-                    }
+                if next_leader {
+                    self.handle_view_change(&event_stream, next_view).await;
                 }
             }
             HotShotEvent::Shutdown => {
