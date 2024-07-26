@@ -23,7 +23,7 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -92,12 +92,9 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
-    /// Check if the version has been upgraded.
+    /// Check if we have decided on an upgrade certificate
     async fn upgraded(&self) -> bool {
-        if let Some(cert) = self.decided_upgrade_certificate.read().await.clone() {
-            return cert.data.new_version == TYPES::Upgrade::VERSION;
-        }
-        false
+        self.decided_upgrade_certificate.read().await.is_some()
     }
 
     /// main task event handler
@@ -265,7 +262,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
 
                 // Skip proposing if the version has already been upgraded.
                 if self.upgraded().await {
-                    info!(
+                    trace!(
                         "Already upgraded to {:?}, skip proposing.",
                         TYPES::Upgrade::VERSION
                     );
