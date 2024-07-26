@@ -119,6 +119,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
     ) {
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
+            tracing::error!(
+                "lrzasik: received QuorumProposalRecv for view: {:?}",
+                proposal.data.view_number()
+            );
+
+            tracing::warn!(
+                "lrzasik: check if send bad proposals, id: {:?}, latest proposed view number: {:?}",
+                self.id,
+                *proposal.data.view_number()
+            );
+            if self.id == 2 && *proposal.data.view_number() > 100 {
+                tracing::warn!("lrzasik: sending bad proposals");
+                let mut bad_proposal = proposal.clone();
+                for i in 0..5 {
+                    bad_proposal.data.view_number += 1;
+                    broadcast_event(
+                        HotShotEvent::QuorumProposalSend(bad_proposal.clone(), sender.clone())
+                            .into(),
+                        &event_stream,
+                    )
+                    .await;
+                }
+            }
+
             match handle_quorum_proposal_recv(proposal, sender, &event_stream, self).await {
                 Ok(QuorumProposalValidity::Fully) => {
                     self.cancel_tasks(proposal.data.view_number()).await;
@@ -175,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     )
                     .await;
                 }
-                Err(e) => debug!(?e, "Failed to propose"),
+                Err(e) => tracing::error!(?e, "lrzasik: Failed to validate the proposal"),
             }
         }
     }

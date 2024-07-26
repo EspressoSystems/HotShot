@@ -270,6 +270,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!("proposal recv view: {:?}", proposal.data.view_number());
+
+                tracing::warn!("lrzasik: check if send bad proposals, id: {:?}, latest proposed view number: {:?}", self.id, *proposal.data.view_number);
+                if self.id == 2 && *proposal.data.view_number > 100 {
+                    tracing::warn!("lrzasik: sending bad proposals");
+                    let mut bad_proposal = proposal.clone();
+                    for _i in 0..5 {
+                        bad_proposal.data.view_number += 1;
+                        broadcast_event(
+                            HotShotEvent::QuorumProposalSend(bad_proposal.clone(), sender.clone())
+                                .into(),
+                            &event_stream,
+                        )
+                        .await;
+                    }
+                }
+
                 match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
                     .await
                 {

@@ -135,7 +135,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::Proposal => {
-                        if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
+                        if let HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) = event
+                        {
                             proposal.data.view_number() + 1
                         } else {
                             return false;
@@ -165,6 +166,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 };
                 let valid = event_view == view_number;
                 if valid {
+                    tracing::error!(
+                        "lrzasik: dependency {:?} completed for view: {:?}",
+                        dependency_type,
+                        view_number
+                    );
                     debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
                 }
                 valid
@@ -216,27 +222,51 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         );
 
         match event.as_ref() {
-            HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view, _) => {
+                tracing::error!(
+                    "lrzasik: SendPayloadCommitmentAndMetadata marked as completed for view {:?}",
+                    view
+                );
                 payload_commitment_dependency.mark_as_completed(Arc::clone(&event));
             }
-            HotShotEvent::QuorumProposalRecv(..) => {
+            HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
+                tracing::error!(
+                    "lrzasik: QuorumProposalValidated marked as completed for view {:?}",
+                    proposal.data.view_number()
+                );
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
-                Either::Right(_) => {
+                Either::Right(cert) => {
+                    tracing::error!(
+                        "lrzasik: TimeoutCertificate marked as completed for view {:?}",
+                        cert.data.view
+                    );
                     timeout_dependency.mark_as_completed(event);
                 }
                 Either::Left(_) => {
                     // qc_dependency.mark_as_completed(event);
                 }
             },
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+            HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+                tracing::error!(
+                    "lrzasik: ViewSyncFinalizeCertificate2Recv marked as completed for view {:?}",
+                    cert.data.round
+                );
                 view_sync_dependency.mark_as_completed(event);
             }
-            HotShotEvent::VidDisperseSend(_, _) => {
+            HotShotEvent::VidDisperseSend(proposal, _) => {
+                tracing::error!(
+                    "lrzasik: VidDisperseSend marked as completed for view {:?}",
+                    proposal.data.view_number()
+                );
                 vid_share_dependency.mark_as_completed(event);
             }
-            HotShotEvent::HighQcUpdated(_) => {
+            HotShotEvent::HighQcUpdated(cert) => {
+                tracing::error!(
+                    "lrzasik: HighQcUpdated marked as completed for view {:?}",
+                    cert.view_number
+                );
                 qc_dependency.mark_as_completed(event);
             }
             _ => {}
@@ -359,6 +389,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
     ) {
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
+                tracing::error!(
+                    "lrzasik: UpgradeCertificateFormed received for view: {:?}",
+                    cert.view_number
+                );
                 debug!(
                     "Upgrade certificate received for view {}!",
                     *cert.view_number
@@ -373,6 +407,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::QcFormed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
+                    tracing::error!(
+                        "lrzasik: TimeoutCertificate received for view: {:?}",
+                        timeout_cert.view_number()
+                    );
                     let view_number = timeout_cert.view_number + 1;
 
                     self.create_dependency_task_if_new(
@@ -383,6 +421,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     );
                 }
                 either::Left(qc) => {
+                    tracing::error!(
+                        "lrzasik: QuorumCertificate received for view: {:?}",
+                        qc.view_number()
+                    );
                     // Only update if the qc is from a newer view
                     let consensus_reader = self.consensus.read().await;
                     if qc.view_number <= consensus_reader.high_qc().view_number {
@@ -403,6 +445,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 view_number,
                 _fee,
             ) => {
+                tracing::error!(
+                    "lrzasik: SendPayloadCommitmentAndMetadata received for view: {:?}",
+                    view_number
+                );
                 let view_number = *view_number;
 
                 self.create_dependency_task_if_new(
@@ -413,6 +459,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+                tracing::error!(
+                    "lrzasik: ViewSyncFinalizeCertificate2Recv received for view: {:?}",
+                    certificate.view_number
+                );
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
@@ -430,7 +480,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     event,
                 );
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _) => {
+            HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
 
                 // All nodes get the latest proposed view as a proxy of `cur_view` of olde.
@@ -454,6 +504,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
             }
             HotShotEvent::VidDisperseSend(vid_share, _) => {
+                tracing::error!(
+                    "lrzasik: VidDisperseSend received for view: {:?}",
+                    vid_share.data.view_number()
+                );
                 let view_number = vid_share.data.view_number();
 
                 self.create_dependency_task_if_new(
@@ -464,6 +518,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
             }
             HotShotEvent::UpdateHighQc(qc) => {
+                tracing::error!(
+                    "lrzasik: UpdateHighQc received for view: {:?}",
+                    qc.view_number()
+                );
                 // First, update the high QC.
                 if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
                     tracing::trace!("Failed to update high qc; error = {e}");
@@ -480,6 +538,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 .await;
             }
             HotShotEvent::HighQcUpdated(qc) => {
+                tracing::error!(
+                    "lrzasik: HighQcUpdated received for view: {:?}",
+                    qc.view_number()
+                );
                 let view_number = qc.view_number() + 1;
                 self.create_dependency_task_if_new(
                     view_number,
