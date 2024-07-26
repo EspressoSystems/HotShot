@@ -21,8 +21,9 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    // Build the API for node 5.
-    let handle = build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl>(2).await.0;
+    // Build the API for node 2.
+    let node_id = 2;
+    let handle = build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl>(node_id).await.0;
 
     let mut input = Vec::new();
     let mut output = Vec::new();

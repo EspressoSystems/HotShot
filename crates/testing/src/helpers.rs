@@ -76,22 +76,22 @@ pub async fn build_system_handle<
     let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
 
     let memberships = Memberships {
-        quorum_membership: <TYPES as NodeType>::Membership::create_election(
+        quorum_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
-        da_membership: <TYPES as NodeType>::Membership::create_election(
+        da_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             config.known_da_nodes.clone(),
             config.fixed_leader_for_gpuvid,
         ),
-        vid_membership: <TYPES as NodeType>::Membership::create_election(
+        vid_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
-        view_sync_membership: <TYPES as NodeType>::Membership::create_election(
+        view_sync_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake,
             config.fixed_leader_for_gpuvid,
