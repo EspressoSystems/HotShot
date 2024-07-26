@@ -21,11 +21,17 @@
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides the `Bundle` type
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">use </span><span class="kw">crate</span>::traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload};
+<span class="kw">use </span><span class="kw">crate</span>::traits::{
+    block_contents::BuilderFee, node_implementation::NodeType, signature_key::BuilderSignatureKey,
+    BlockPayload,
+};
 
 <span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
@@ -37,7 +43,7 @@
     </span><span class="kw">pub </span>transactions: Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction&gt;,
 
     <span class="doccomment">/// The signature over the bundle.
-    </span><span class="kw">pub </span>signature: TYPES::SignatureKey,
+    </span><span class="kw">pub </span>signature: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderSignature,
 
     <span class="doccomment">/// The fee for sequencing
     </span><span class="kw">pub </span>sequencing_fee: BuilderFee&lt;TYPES&gt;,

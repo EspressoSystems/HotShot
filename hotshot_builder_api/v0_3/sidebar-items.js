@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["block_info","builder","data_source"],"type":["Version"]};
+window.SIDEBAR_ITEMS = {"mod":["builder","data_source"],"type":["Version"]};

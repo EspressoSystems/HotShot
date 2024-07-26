@@ -222,21 +222,6 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::time::{Duration, Instant};
 
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
@@ -433,16 +418,10 @@
     </span><span class="kw">pub type </span>Version = StaticVersion&lt;<span class="number">0</span>, <span class="number">2</span>&gt;;
 }
 
-<span class="doccomment">/// Version 0.3. Removes `claim_block_header_input` endpoint, adds fee information
-/// to `claim_block` endpoint.
+<span class="doccomment">/// Version 0.3: marketplace. Bundles.
 </span><span class="kw">pub mod </span>v0_3 {
-    <span class="kw">use </span>hotshot_builder_api::v0_3::block_info::AvailableBlockData;
     <span class="kw">pub use </span>hotshot_builder_api::v0_3::Version;
-    <span class="kw">use </span>hotshot_types::{
-        traits::{node_implementation::NodeType, signature_key::SignatureKey},
-        utils::BuilderCommitment,
-    };
-    <span class="kw">use </span>tagged_base64::TaggedBase64;
+    <span class="kw">use </span>hotshot_types::{bundle::Bundle, traits::node_implementation::NodeType};
     <span class="kw">use </span>vbs::version::StaticVersion;
 
     <span class="kw">pub use </span><span class="kw">super</span>::BuilderClientError;
@@ -456,18 +435,9 @@
         /// # Errors
         /// - [`BuilderClientError::NotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
-        </span><span class="kw">pub async fn </span>claim_block(
-            <span class="kw-2">&amp;</span><span class="self">self</span>,
-            block_hash: BuilderCommitment,
-            view_number: u64,
-            sender: TYPES::SignatureKey,
-            signature: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-        ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuilderClientError&gt; {
-            <span class="kw">let </span>encoded_signature: TaggedBase64 = signature.clone().into();
+        </span><span class="kw">pub async fn </span>bundle(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Bundle&lt;TYPES&gt;, BuilderClientError&gt; {
             <span class="self">self</span>.inner
-                .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                    <span class="string">"claimblock/{block_hash}/{view_number}/{sender}/{encoded_signature}"
-                </span>))
+                .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"bundle/{view_number}"</span>))
                 .send()
                 .<span class="kw">await
                 </span>.map_err(Into::into)

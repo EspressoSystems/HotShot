@@ -724,59 +724,6 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -784,10 +731,10 @@
 
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>futures::{stream::FuturesUnordered, StreamExt};
+<span class="kw">use </span>futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 <span class="kw">use </span>hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
@@ -797,7 +744,7 @@
     event::{Event, EventType},
     simple_certificate::{version, UpgradeCertificate},
     traits::{
-        auction_results_provider::AuctionResultsProvider,
+        auction_results_provider::{AuctionResultsProvider, HasUrls},
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -808,7 +755,7 @@
     vid::{VidCommitment, VidPrecomputeData},
 };
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
-<span class="kw">use </span>vbs::version::{StaticVersionType, Version};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use crate</span>::{
@@ -922,7 +869,7 @@
             {
                 <span class="prelude-val">None
             </span>} <span class="kw">else </span>{
-                <span class="self">self</span>.wait_for_block(block_view, version).<span class="kw">await
+                <span class="self">self</span>.wait_for_block(block_view).<span class="kw">await
             </span>}
         };
 
@@ -1019,11 +966,36 @@
             </span>.as_ref()
             .is_some_and(|cert| cert.upgrading_in(block_view))
         {
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(bundles) = <span class="self">self
-                </span>.auction_results_provider
-                .fetch_bundles(block_view)
-                .<span class="kw">await
+            <span class="kw">let </span>start = Instant::now();
+
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(urls)) = async_timeout(
+                <span class="self">self</span>.builder_timeout,
+                <span class="self">self</span>.auction_results_provider
+                    .fetch_auction_result(block_view),
+            )
+            .<span class="kw">await
             </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>futures = Vec::new();
+
+                <span class="kw">for </span>url <span class="kw">in </span>urls.urls() {
+                    futures.push(async_timeout(
+                        <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
+                        <span class="kw">async </span>{
+                            <span class="kw">let </span>client = <span class="kw">crate</span>::builder::v0_3::BuilderClient::new(url);
+                            client.bundle(<span class="kw-2">*</span>block_view).<span class="kw">await
+                        </span>},
+                    ));
+                }
+
+                <span class="kw">let </span><span class="kw-2">mut </span>bundles = Vec::new();
+
+                <span class="kw">for </span>bundle <span class="kw">in </span>join_all(futures).<span class="kw">await </span>{
+                    <span class="kw">match </span>bundle {
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(b)) =&gt; bundles.push(b),
+                        <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+                    }
+                }
+
                 <span class="kw">let </span><span class="kw-2">mut </span>sequencing_fees = Vec::new();
                 <span class="kw">let </span><span class="kw-2">mut </span>transactions: Vec&lt;
                     &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction,
@@ -1214,11 +1186,7 @@
     </span>}
 
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>wait_for_block(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        block_view: TYPES::Time,
-        version: Version,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponse&lt;TYPES&gt;&gt; {
+    </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block_view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponse&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
         <span class="comment">// Find commitment to the block we want to build upon
@@ -1249,10 +1217,10 @@
         };
 
         <span class="kw">while </span>task_start_time.elapsed() &lt; <span class="self">self</span>.builder_timeout {
-            <span class="kw">match </span>async_compatibility_layer::art::async_timeout(
+            <span class="kw">match </span>async_timeout(
                 <span class="self">self</span>.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                <span class="self">self</span>.block_from_builder(parent_comm, parent_view, <span class="kw-2">&amp;</span>parent_comm_sig, version),
+                <span class="self">self</span>.block_from_builder(parent_comm, parent_view, <span class="kw-2">&amp;</span>parent_comm_sig),
             )
             .<span class="kw">await
             </span>{
@@ -1288,87 +1256,60 @@
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
         parent_comm_sig: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-        version: Version,
     ) -&gt; Vec&lt;(AvailableBlockInfo&lt;TYPES&gt;, usize)&gt; {
-        <span class="doccomment">/// Implementations between versions are essentially the same except for the builder
-        /// clients used. The most conscise way to express this is with a macro.
-        </span><span class="macro">macro_rules!</span> inner_impl {
-            (<span class="macro-nonterminal">$clients</span>:ident) =&gt; {{
-                <span class="comment">// Create a collection of futures that call available_blocks endpoint for every builder
-                </span><span class="kw">let </span>tasks = <span class="self">self
-                    </span>.<span class="macro-nonterminal">$clients
-                    </span>.iter()
-                    .enumerate()
-                    .map(|(builder_idx, client)| <span class="kw">async move </span>{
-                        client
-                            .available_blocks(
-                                parent_comm,
-                                view_number.u64(),
-                                <span class="self">self</span>.public_key.clone(),
-                                parent_comm_sig,
-                            )
-                            .<span class="kw">await
-                            </span>.map(<span class="kw">move </span>|blocks| {
-                                <span class="comment">// Add index into `self.builder_clients` for each block so that we know
-                                // where to claim it from later
-                                </span>blocks
-                                    .into_iter()
-                                    .map(<span class="kw">move </span>|block_info| (block_info, builder_idx))
-                            })
+        <span class="kw">let </span>tasks = <span class="self">self
+            </span>.builder_clients
+            .iter()
+            .enumerate()
+            .map(|(builder_idx, client)| <span class="kw">async move </span>{
+                client
+                    .available_blocks(
+                        parent_comm,
+                        view_number.u64(),
+                        <span class="self">self</span>.public_key.clone(),
+                        parent_comm_sig,
+                    )
+                    .<span class="kw">await
+                    </span>.map(<span class="kw">move </span>|blocks| {
+                        blocks
+                            .into_iter()
+                            .map(<span class="kw">move </span>|block_info| (block_info, builder_idx))
                     })
-                    .collect::&lt;FuturesUnordered&lt;<span class="kw">_</span>&gt;&gt;();
-
-                <span class="comment">// A vector of resolved builder responses
-                </span><span class="kw">let </span><span class="kw-2">mut </span>results = Vec::with_capacity(<span class="self">self</span>.<span class="macro-nonterminal">$clients</span>.len());
-
-                <span class="comment">// Instant we start querying builders for available blocks
-                </span><span class="kw">let </span>query_start = Instant::now();
-
-                <span class="comment">// First we complete the query to the fastest fraction of the builders
-                </span><span class="kw">let </span>threshold = (<span class="self">self</span>.<span class="macro-nonterminal">$clients</span>.len() * BUILDER_MAIN_BATCH_THRESHOLD_DIVIDEND)
-                    .div_ceil(BUILDER_MAIN_BATCH_THRESHOLD_DIVISOR);
-                <span class="kw">let </span><span class="kw-2">mut </span>tasks = tasks.take(threshold);
-                <span class="kw">while let </span><span class="prelude-val">Some</span>(result) = tasks.next().<span class="kw">await </span>{
-                    results.push(result);
-                    <span class="kw">if </span>query_start.elapsed() &gt; BUILDER_MAIN_BATCH_CUTOFF {
-                        <span class="kw">break</span>;
-                    }
-                }
-
-                <span class="comment">// Then we query the rest, alotting additional `elapsed * BUILDER_ADDITIONAL_TIME_MULTIPLIER`
-                // for them to respond. There's a fixed floor of `BUILDER_MINIMUM_QUERY_TIME` for both
-                // phases
-                </span><span class="kw">let </span>timeout = async_sleep(std::cmp::max(
-                    query_start
-                        .elapsed()
-                        .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),
-                    BUILDER_MINIMUM_QUERY_TIME.saturating_sub(query_start.elapsed()),
-                ));
-                <span class="macro">futures::pin_mut!</span>(timeout); <span class="comment">// Stream::next requires Self::Unpin
-                </span><span class="kw">let </span><span class="kw-2">mut </span>tasks = tasks.into_inner().take_until(timeout);
-                <span class="kw">while let </span><span class="prelude-val">Some</span>(result) = tasks.next().<span class="kw">await </span>{
-                    results.push(result);
-                }
-
-                results
-                    .into_iter()
-                    .filter_map(|result| <span class="kw">match </span>result {
-                        <span class="prelude-val">Ok</span>(value) =&gt; <span class="prelude-val">Some</span>(value),
-                        <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="macro">tracing::warn!</span>(%err, <span class="string">"Error getting available blocks"</span>);
-                            <span class="prelude-val">None
-                        </span>}
-                    })
-                    .flatten()
-                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            }}
+            })
+            .collect::&lt;FuturesUnordered&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::with_capacity(<span class="self">self</span>.builder_clients.len());
+        <span class="kw">let </span>query_start = Instant::now();
+        <span class="kw">let </span>threshold = (<span class="self">self</span>.builder_clients.len() * BUILDER_MAIN_BATCH_THRESHOLD_DIVIDEND)
+            .div_ceil(BUILDER_MAIN_BATCH_THRESHOLD_DIVISOR);
+        <span class="kw">let </span><span class="kw-2">mut </span>tasks = tasks.take(threshold);
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(result) = tasks.next().<span class="kw">await </span>{
+            results.push(result);
+            <span class="kw">if </span>query_start.elapsed() &gt; BUILDER_MAIN_BATCH_CUTOFF {
+                <span class="kw">break</span>;
+            }
         }
-
-        <span class="kw">if </span>version &gt;= MarketplaceVersion::version() {
-            <span class="macro">inner_impl!</span>(builder_clients_marketplace)
-        } <span class="kw">else </span>{
-            <span class="macro">inner_impl!</span>(builder_clients)
+        <span class="kw">let </span>timeout = async_sleep(std::cmp::max(
+            query_start
+                .elapsed()
+                .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),
+            BUILDER_MINIMUM_QUERY_TIME.saturating_sub(query_start.elapsed()),
+        ));
+        <span class="macro">futures::pin_mut!</span>(timeout);
+        <span class="kw">let </span><span class="kw-2">mut </span>tasks = tasks.into_inner().take_until(timeout);
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(result) = tasks.next().<span class="kw">await </span>{
+            results.push(result);
         }
+        results
+            .into_iter()
+            .filter_map(|result| <span class="kw">match </span>result {
+                <span class="prelude-val">Ok</span>(value) =&gt; <span class="prelude-val">Some</span>(value),
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">tracing::warn!</span>(%err,<span class="string">"Error getting available blocks"</span>);
+                    <span class="prelude-val">None
+                </span>}
+            })
+            .flatten()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
     }
 
     <span class="doccomment">/// Get a block from builder.
@@ -1384,10 +1325,9 @@
         parent_comm: VidCommitment,
         view_number: TYPES::Time,
         parent_comm_sig: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-        version: Version,
     ) -&gt; anyhow::Result&lt;BuilderResponse&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="self">self
-            </span>.get_available_blocks(parent_comm, view_number, parent_comm_sig, version)
+            </span>.get_available_blocks(parent_comm, view_number, parent_comm_sig)
             .<span class="kw">await</span>;
 
         available_blocks.sort_by(|(l, <span class="kw">_</span>), (r, <span class="kw">_</span>)| {
@@ -1429,53 +1369,7 @@
                 }
             };
 
-            <span class="kw">let </span>response = <span class="kw">if </span>version &gt;= MarketplaceVersion::version() {
-                <span class="kw">let </span>client = <span class="kw-2">&amp;</span><span class="self">self</span>.builder_clients_marketplace[builder_idx];
-
-                <span class="kw">let </span>block = client
-                    .claim_block(
-                        block_info.block_hash.clone(),
-                        view_number.u64(),
-                        <span class="self">self</span>.public_key.clone(),
-                        <span class="kw-2">&amp;</span>request_signature,
-                    )
-                    .<span class="kw">await</span>;
-
-                <span class="kw">let </span>block_data = <span class="kw">match </span>block {
-                    <span class="prelude-val">Ok</span>(block_data) =&gt; block_data,
-                    <span class="prelude-val">Err</span>(err) =&gt; {
-                        <span class="macro">tracing::warn!</span>(%err, <span class="string">"Error claiming block data"</span>);
-                        <span class="kw">continue</span>;
-                    }
-                };
-
-                <span class="comment">// verify the signature over the message, construct the builder commitment
-                </span><span class="kw">let </span>builder_commitment = block_data
-                    .block_payload
-                    .builder_commitment(<span class="kw-2">&amp;</span>block_data.metadata);
-                <span class="kw">if </span>!block_data
-                    .sender
-                    .validate_builder_signature(<span class="kw-2">&amp;</span>block_data.signature, builder_commitment.as_ref())
-                {
-                    <span class="macro">tracing::warn!</span>(
-                        <span class="string">"Failed to verify available block data response message signature"
-                    </span>);
-                    <span class="kw">continue</span>;
-                }
-
-                <span class="kw">let </span>fee = BuilderFee {
-                    fee_amount: block_info.offered_fee,
-                    fee_account: block_data.sender,
-                    fee_signature: block_data.signature,
-                };
-
-                BuilderResponse {
-                    fee,
-                    block_payload: block_data.block_payload,
-                    metadata: block_data.metadata,
-                    precompute_data: <span class="prelude-val">None</span>,
-                }
-            } <span class="kw">else </span>{
+            <span class="kw">let </span>response = {
                 <span class="kw">let </span>client = <span class="kw-2">&amp;</span><span class="self">self</span>.builder_clients[builder_idx];
 
                 <span class="kw">let </span>(block, header_input) = <span class="macro">futures::join!</span> {
