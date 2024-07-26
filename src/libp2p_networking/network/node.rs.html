@@ -797,7 +797,6 @@
 <a href="#795" id="795">795</a>
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// configuration for the libp2p network (e.g. how it should be built)
 </span><span class="kw">mod </span>config;
 
@@ -1008,16 +1007,15 @@
 
             <span class="comment">// Create a custom gossipsub
             </span><span class="kw">let </span>gossipsub_config = GossipsubConfigBuilder::default()
-                .opportunistic_graft_ticks(<span class="number">3</span>)
                 .heartbeat_interval(Duration::from_secs(<span class="number">1</span>))
                 <span class="comment">// Force all messages to have valid signatures
                 </span>.validation_mode(ValidationMode::Strict)
-                .history_gossip(<span class="number">50</span>)
+                .history_gossip(<span class="number">10</span>)
                 .mesh_n_high(params.mesh_n_high)
                 .mesh_n_low(params.mesh_n_low)
                 .mesh_outbound_min(params.mesh_outbound_min)
                 .mesh_n(params.mesh_n)
-                .history_length(<span class="number">500</span>)
+                .history_length(<span class="number">10</span>)
                 .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 <span class="comment">// Use the (blake3) hash of a message as its ID
                 </span>.message_id_fn(message_id_fn)
