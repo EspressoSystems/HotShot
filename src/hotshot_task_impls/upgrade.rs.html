@@ -349,15 +349,6 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::SystemTime};
 
 <span class="kw">use </span>anyhow::Result;
@@ -452,13 +443,10 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; UpgradeTaskState&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Check if the version has been upgraded.
+    <span class="doccomment">/// Check if we have decided on an upgrade certificate
     </span><span class="kw">async fn </span>upgraded(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone() {
-            <span class="kw">return </span>cert.data.new_version == TYPES::Upgrade::VERSION;
-        }
-        <span class="bool-val">false
-    </span>}
+        <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.is_some()
+    }
 
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Upgrade Task"</span>, level = <span class="string">"error"</span>)]
@@ -623,15 +611,6 @@
 
                 <span class="self">self</span>.cur_view = <span class="kw-2">*</span>new_view;
 
-                <span class="comment">// Skip proposing if the version has already been upgraded.
-                </span><span class="kw">if </span><span class="self">self</span>.upgraded().<span class="kw">await </span>{
-                    <span class="macro">info!</span>(
-                        <span class="string">"Already upgraded to {:?}, skip proposing."</span>,
-                        TYPES::Upgrade::VERSION
-                    );
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-
                 <span class="kw">let </span>view: u64 = <span class="kw-2">*</span><span class="self">self</span>.cur_view;
                 <span class="kw">let </span>time = SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
@@ -643,7 +622,8 @@
                     &amp;&amp; view &lt; <span class="self">self</span>.stop_proposing_view
                     &amp;&amp; time &gt;= <span class="self">self</span>.start_proposing_time
                     &amp;&amp; time &lt; <span class="self">self</span>.stop_proposing_time
-                    &amp;&amp; <span class="self">self
+                    &amp;&amp; !<span class="self">self</span>.upgraded().<span class="kw">await
+                    </span>&amp;&amp; <span class="self">self
                         </span>.quorum_membership
                         .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
                         == <span class="self">self</span>.public_key
@@ -669,6 +649,8 @@
                         upgrade_proposal_data.commit().as_ref(),
                     )
                     .expect(<span class="string">"Failed to sign upgrade proposal commitment!"</span>);
+
+                    <span class="macro">warn!</span>(<span class="string">"Sending upgrade proposal:\n\n {:?}"</span>, upgrade_proposal);
 
                     <span class="kw">let </span>message = Proposal {
                         data: upgrade_proposal,
