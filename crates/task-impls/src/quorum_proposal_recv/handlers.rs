@@ -216,7 +216,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     drop(consensus_write);
 
     broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
         event_sender,
     )
     .await;
