@@ -23,7 +23,7 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -260,15 +260,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
 
                 self.cur_view = *new_view;
 
-                // Skip proposing if the version has already been upgraded.
-                if self.upgraded().await {
-                    trace!(
-                        "Already upgraded to {:?}, skip proposing.",
-                        TYPES::Upgrade::VERSION
-                    );
-                    return None;
-                }
-
                 let view: u64 = *self.cur_view;
                 let time = SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
@@ -280,6 +271,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                     && view < self.stop_proposing_view
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
+                    && !self.upgraded().await
                     && self
                         .quorum_membership
                         .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
@@ -306,6 +298,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         upgrade_proposal_data.commit().as_ref(),
                     )
                     .expect("Failed to sign upgrade proposal commitment!");
+
+                    warn!("Sending upgrade proposal:\n\n {:?}", upgrade_proposal);
 
                     let message = Proposal {
                         data: upgrade_proposal,
