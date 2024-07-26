@@ -1,6 +1,6 @@
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestConsecutiveLeaderTypes},
     block_types::TestMetadata
 };
 use hotshot_task_impls::{
@@ -18,12 +18,11 @@ use vbs::version::StaticVersionType;
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_transaction_task_double_election_leader() {
-
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 5.
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl>(2).await.0;
 
     let mut input = Vec::new();
     let mut output = Vec::new();
@@ -31,7 +30,7 @@ async fn test_transaction_task_double_election_leader() {
     let current_view = ViewNumber::new(4);
     input.push(HotShotEvent::ViewChange(current_view));
     input.push(HotShotEvent::Shutdown);
-    let quorum_membership = handle.hotshot.memberships.view_sync_membership.clone();
+    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     
     let (_, precompute_data) =
         precompute_vid_commitment(&[], quorum_membership.total_nodes());
@@ -54,6 +53,6 @@ async fn test_transaction_task_double_election_leader() {
     exp_packed_bundle.view_number = current_view + 1;
     output.push(HotShotEvent::BlockRecv(exp_packed_bundle));
 
-    let transaction_state = TransactionTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let transaction_state = TransactionTaskState::<TestConsecutiveLeaderTypes, MemoryImpl>::create_from(&handle).await;
     run_harness(input, output, transaction_state, false).await;
 }
