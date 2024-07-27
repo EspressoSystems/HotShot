@@ -21,6 +21,8 @@ REMOTE_USER="$1"
 
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
+
+# TODO ED Make this just a build command
 # build to get the bin in advance, uncomment the following if built first time
 # just async_std example validator-push-cdn -- http://localhost:4444 &
 # # remember to sleep enough time if it's built first time
@@ -49,7 +51,7 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-for total_nodes in 10 50 100 200 500 1000
+for total_nodes in 10 #50 100 200 500 1000
 do
     for da_committee_size in 10
     do

@@ -570,6 +570,7 @@ pub trait RunDa<
             let total_time_elapsed_sec = std::cmp::max(total_time_elapsed.as_secs(), 1u64);
             // extra 8 bytes for timestamp
             let throughput_bytes_per_sec = total_transactions_committed
+            // ED HERE
                 * (transaction_size_in_bytes + 8)
                 / total_time_elapsed_sec;
             let avg_latency_in_sec = total_latency / num_latency;
@@ -990,6 +991,7 @@ where
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
+    // ED HERE
     if !run_config.config.my_own_validator_config.is_da {
         return None;
     }
@@ -1023,6 +1025,7 @@ where
         BuilderType::Random => {
             let builder_task =
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.transaction_size, 
                     run_config.config.num_nodes_with_stake.into(),
                     bind_address,
                     run_config.random_builder.clone().unwrap_or_default(),
@@ -1039,6 +1042,7 @@ where
         BuilderType::Simple => {
             let builder_task =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
+                    run_config.transaction_size, 
                     run_config.config.num_nodes_with_stake.into(),
                     bind_address,
                     (),

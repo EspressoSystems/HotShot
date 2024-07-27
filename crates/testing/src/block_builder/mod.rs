@@ -34,6 +34,7 @@ where
     type Config: Default;
 
     async fn start(
+        transaction_size: usize, 
         num_storage_nodes: usize,
         url: Url,
         options: Self::Config,

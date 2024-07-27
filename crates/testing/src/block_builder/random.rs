@@ -76,6 +76,7 @@ where
     type Config = RandomBuilderConfig;
 
     async fn start(
+        transaction_size: usize, 
         num_storage_nodes: usize,
         url: Url,
         config: RandomBuilderConfig,

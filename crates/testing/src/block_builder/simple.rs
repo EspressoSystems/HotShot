@@ -45,6 +45,7 @@ pub struct SimpleBuilderImplementation;
 
 impl SimpleBuilderImplementation {
     pub async fn create<TYPES: NodeType>(
+        transaction_size: usize,
         num_storage_nodes: usize,
         changes: HashMap<u64, BuilderChange>,
         change_sender: Sender<BuilderChange>,
@@ -63,6 +64,7 @@ impl SimpleBuilderImplementation {
             blocks: blocks.clone(),
             num_storage_nodes,
             should_fail_claims: Arc::clone(&should_fail_claims),
+            transaction_size: transaction_size,
         };
 
         let task = SimpleBuilderTask {
@@ -86,13 +88,16 @@ where
     type Config = ();
 
     async fn start(
+        transaction_size: usize,
         num_storage_nodes: usize,
         url: Url,
         _config: Self::Config,
         changes: HashMap<u64, BuilderChange>,
     ) -> Box<dyn BuilderTask<TYPES>> {
         let (change_sender, change_receiver) = broadcast(128);
-        let (source, task) = Self::create(num_storage_nodes, changes, change_sender).await;
+        let (mut source, task) =
+            Self::create(transaction_size, num_storage_nodes, changes, change_sender).await;
+
         run_builder_source(url, change_receiver, source);
 
         Box::new(task)
@@ -108,6 +113,7 @@ pub struct SimpleBuilderSource<TYPES: NodeType> {
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, SubmittedTransaction<TYPES>>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
     should_fail_claims: Arc<AtomicBool>,
+    transaction_size: usize,
 }
 
 #[async_trait]
@@ -134,7 +140,8 @@ where
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
-        let transaction = TYPES::Transaction::default(1_000); 
+        // TODO ED Get config value of tx size for below
+        let transaction = TYPES::Transaction::default(1_000);
         let transactions = vec![transaction];
 
         // let transactions = self
