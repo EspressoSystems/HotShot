@@ -34,7 +34,7 @@ docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosys
 docker push ghcr.io/espressosystems/hotshot/bench:ed
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_libp2p -i libp2p ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -i libp2p ghcr.io/espressosystems/hotshot/bench:ed
 ecs deploy --region us-east-2 hotshot hotshot_libp2p -c libp2p ${orchestrator_url}
 
 # runstart keydb
