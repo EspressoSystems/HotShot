@@ -59,7 +59,7 @@ do
         then
             for transactions_per_round in 1
             do
-                for transaction_size in 100
+                for transaction_size in 10000000
                 do
                     for fixed_leader_for_gpuvid in 1
                     do
