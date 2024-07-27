@@ -34,8 +34,8 @@ docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosys
 docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -i centralized ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -c centralized ${orchestrator_url}
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -57,9 +57,9 @@ do
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10
+            for transactions_per_round in 1
             do
-                for transaction_size in 100000 1000000 10000000 20000000
+                for transaction_size in 100
                 do
                     for fixed_leader_for_gpuvid in 1
                     do
@@ -106,7 +106,7 @@ EOF
 
                                 # start validators
                                 echo -e "\e[35mGoing to start validators on remote servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
+                                ecs scale --region us-east-2 hotshot hotshot_libp2p ${total_nodes} --timeout -1
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
@@ -116,7 +116,7 @@ EOF
 
                                 # kill them
                                 echo -e "\e[35mGoing to stop validators on remote servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
+                                ecs scale --region us-east-2 hotshot hotshot_libp2p 0 --timeout -1
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"

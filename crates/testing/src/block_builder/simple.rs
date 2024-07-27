@@ -141,7 +141,7 @@ where
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
         // TODO ED Get config value of tx size for below
-        let transaction = TYPES::Transaction::default(1_000);
+        let transaction = TYPES::Transaction::default(self.transaction_size);
         let transactions = vec![transaction];
 
         // let transactions = self
