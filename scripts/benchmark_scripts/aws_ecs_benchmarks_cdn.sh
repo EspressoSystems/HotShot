@@ -30,8 +30,8 @@ ulimit -n 65536
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
-docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
-docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
+docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/bench:ed
+docker push ghcr.io/espressosystems/hotshot/bench:ed
 
 # ecs deploy
 ecs deploy --region us-east-2 hotshot hotshot_libp2p -i libp2p ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
