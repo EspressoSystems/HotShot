@@ -136,9 +136,23 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A example program using the Push CDN
 /// The types we're importing
 </span><span class="kw">pub mod </span>types;
+
+<span class="kw">use </span>std::path::Path;
 
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
@@ -151,6 +165,7 @@
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>infra::{gen_local_address, BUILDER_BASE_PORT};
+<span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 
 <span class="kw">use crate</span>::{
     infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
@@ -185,8 +200,17 @@
     </span><span class="kw">let </span>(broker_public_key, broker_private_key) =
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], <span class="number">1337</span>);
 
-    <span class="comment">// The broker (peer) discovery endpoint shall be a local SQLite file
-    </span><span class="kw">let </span>discovery_endpoint = <span class="string">"test.sqlite"</span>.to_string();
+    <span class="comment">// Get the OS temporary directory
+    </span><span class="kw">let </span>temp_dir = std::env::temp_dir();
+
+    <span class="comment">// Create an SQLite file inside of the temporary directory
+    </span><span class="kw">let </span>discovery_endpoint = temp_dir
+        .join(Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">"test-{}.sqlite"</span>,
+            StdRng::from_entropy().next_u64()
+        )))
+        .to_string_lossy()
+        .into_owned();
 
     <span class="comment">// 2 brokers
     </span><span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
