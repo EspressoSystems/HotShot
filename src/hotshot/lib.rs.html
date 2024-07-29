@@ -1260,8 +1260,8 @@
     /// Panics if sending genesis fails
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="attr">#[cfg(feature = <span class="string">"dependncy-tasks"</span>)]
-        </span><span class="macro">error!</span>(<span class="string">"HotShot is running with the dependency tasks feature enabled!!"</span>);
+        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
+        </span><span class="macro">tracing::error!</span>(<span class="string">"HotShot is running with the dependency tasks feature enabled!!"</span>);
 
         <span class="attr">#[cfg(all(feature = <span class="string">"rewind"</span>, not(debug_assertions)))]
         </span><span class="macro">compile_error!</span>(<span class="string">"Cannot run rewind in production builds!"</span>);
