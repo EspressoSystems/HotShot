@@ -23,7 +23,7 @@ pub trait HasUrls {
 pub trait AuctionResultsProvider<TYPES: NodeType>: Send + Sync + Clone {
     /// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
-    type AuctionResult: HasUrls;
+    type AuctionResult: HasUrls + Send;
 
     /// Fetches the auction result for a view. Does not cache the result,
     /// subsequent calls will invoke additional wasted calls.

@@ -12,7 +12,7 @@
 
 ### BREAKING CHANGE
 
-Adds new type paramaeter, corresponding to the state type, to Message
+Adds new type parameter, corresponding to the state type, to Message
 
 <a name="0.0.2"></a>
 ## [0.0.2] - 2021-10-19

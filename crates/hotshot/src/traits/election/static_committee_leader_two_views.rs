@@ -11,14 +11,12 @@ use hotshot_types::{
     },
     PeerConfig,
 };
-#[cfg(feature = "randomized-leader-election")]
-use rand::{rngs::StdRng, Rng};
 use tracing::debug;
 
 /// Dummy implementation of [`Membership`]
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
+pub struct StaticCommitteeLeaderForTwoViews<T, PUBKEY: SignatureKey> {
     /// All the nodes participating and their stake
     all_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
     /// The nodes on the static committee and their stake
@@ -35,9 +33,9 @@ pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T> = GeneralStaticCommittee<T, BLSPubKey>;
+pub type StaticCommittee<T> = StaticCommitteeLeaderForTwoViews<T, BLSPubKey>;
 
-impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
+impl<T, PUBKEY: SignatureKey> StaticCommitteeLeaderForTwoViews<T, PUBKEY> {
     /// Creates a new dummy elector
     #[must_use]
     pub fn new(
@@ -59,7 +57,7 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
 }
 
 impl<TYPES, PUBKEY: SignatureKey + 'static> Membership<TYPES>
-    for GeneralStaticCommittee<TYPES, PUBKEY>
+    for StaticCommitteeLeaderForTwoViews<TYPES, PUBKEY>
 where
     TYPES: NodeType<SignatureKey = PUBKEY>,
 {
@@ -73,37 +71,12 @@ where
         self.committee_topic.clone()
     }
 
-    #[cfg(not(any(
-        feature = "randomized-leader-election",
-        feature = "fixed-leader-election"
-    )))]
     /// Index the vector of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        let index = usize::try_from(*view_number % self.all_nodes_with_stake.len() as u64).unwrap();
-        let res = self.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::public_key(&res)
-    }
-
-    #[cfg(feature = "fixed-leader-election")]
-    /// Only get leader in fixed set
-    /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        if self.fixed_leader_for_gpuvid <= 0
-            || self.fixed_leader_for_gpuvid > self.all_nodes_with_stake.len()
-        {
-            panic!("fixed_leader_for_gpuvid is not set correctly.");
-        }
-        let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
-        let res = self.all_nodes_with_stake[index].clone();
-        TYPES::SignatureKey::public_key(&res)
-    }
-
-    #[cfg(feature = "randomized-leader-election")]
-    /// Index the vector of public keys with a random number generated using the current view number as a seed
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
-        let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
-        let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.nodes_with_stake.len();
+        // two connsecutive views will have same index starting with even number.
+        // eg 0->1, 2->3 ... 10->11 etc
+        let index =
+            usize::try_from((*view_number / 2) % self.all_nodes_with_stake.len() as u64).unwrap();
         let res = self.all_nodes_with_stake[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
@@ -212,7 +185,7 @@ where
     }
 }
 
-impl<TYPES, PUBKEY: SignatureKey + 'static> GeneralStaticCommittee<TYPES, PUBKEY>
+impl<TYPES, PUBKEY: SignatureKey + 'static> StaticCommitteeLeaderForTwoViews<TYPES, PUBKEY>
 where
     TYPES: NodeType<SignatureKey = PUBKEY>,
 {
