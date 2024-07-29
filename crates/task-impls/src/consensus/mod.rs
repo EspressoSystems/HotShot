@@ -576,7 +576,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 builder_commitment,
                 metadata,
                 view,
-                fee,
+                fees,
             ) => {
                 let view = *view;
                 debug!(
@@ -587,7 +587,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     commitment: *payload_commitment,
                     builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
-                    fee: fee.clone(),
+                    fees: fees.clone(),
                     block_view: view,
                 });
                 if self.quorum_membership.leader(view) == self.public_key

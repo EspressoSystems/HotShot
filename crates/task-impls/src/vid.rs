@@ -87,7 +87,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                         builder_commitment,
                         metadata.clone(),
                         *view_number,
-                        sequencing_fees.first().clone(),
+                        sequencing_fees.clone(),
                     )),
                     &event_stream,
                 )

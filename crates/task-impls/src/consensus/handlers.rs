@@ -14,6 +14,7 @@ use committable::Committable;
 use futures::FutureExt;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus, View},
+    constants::MarketplaceVersion,
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
@@ -33,7 +34,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
-use vbs::version::Version;
+use vbs::version::{StaticVersionType, Version};
 
 use super::ConsensusTaskState;
 use crate::{
@@ -77,23 +78,46 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     // TODO ED: This will need to be version-gated to use the appropriate `BlockHeader::new` function.
     // Pre-marketplace versions will use `new_legacy` and post-marketplace versions will use `new_marketplace`
     drop(consensus_read);
-    let block_header = match TYPES::BlockHeader::new_legacy(
-        state.as_ref(),
-        instance_state.as_ref(),
-        &parent_leaf,
-        commitment_and_metadata.commitment,
-        commitment_and_metadata.builder_commitment,
-        commitment_and_metadata.metadata,
-        commitment_and_metadata.fee,
-        vid_share.data.common,
-        version,
-    )
-    .await
-    {
-        Ok(header) => header,
-        Err(err) => {
-            error!(%err, "Failed to construct block header");
-            return;
+
+    let block_header = if version < MarketplaceVersion::VERSION {
+        match TYPES::BlockHeader::new_legacy(
+            state.as_ref(),
+            instance_state.as_ref(),
+            &parent_leaf,
+            commitment_and_metadata.commitment,
+            commitment_and_metadata.builder_commitment,
+            commitment_and_metadata.metadata,
+            commitment_and_metadata.fees.first().clone(),
+            vid_share.data.common,
+            version,
+        )
+        .await
+        {
+            Ok(header) => header,
+            Err(err) => {
+                error!(%err, "Failed to construct block header");
+                return;
+            }
+        }
+    } else {
+        match TYPES::BlockHeader::new_marketplace(
+            state.as_ref(),
+            instance_state.as_ref(),
+            &parent_leaf,
+            commitment_and_metadata.commitment,
+            commitment_and_metadata.metadata,
+            commitment_and_metadata.fees.to_vec(),
+            vid_share.data.common,
+            None,
+            version,
+        )
+        .await
+        {
+            Ok(header) => header,
+            Err(err) => {
+                error!(%err, "Failed to construct block header");
+                return;
+            }
         }
     };
 
