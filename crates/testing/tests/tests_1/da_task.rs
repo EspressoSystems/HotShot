@@ -32,7 +32,7 @@ async fn test_da_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -84,11 +84,6 @@ async fn test_da_task() {
                     BaseVersion::version()
                 )
                 .unwrap()],
-                vec1::vec1![null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    BaseVersion::version()
-                )
-                .unwrap()],
                 Some(precompute),
             )),
         ],
@@ -120,7 +115,7 @@ async fn test_da_task_storage_failure() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;
@@ -170,11 +165,6 @@ async fn test_da_task_storage_failure() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(
-                    quorum_membership.total_nodes(),
-                    BaseVersion::version()
-                )
-                .unwrap()],
                 vec1::vec1![null_block::builder_fee(
                     quorum_membership.total_nodes(),
                     BaseVersion::version()
