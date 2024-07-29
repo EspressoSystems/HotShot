@@ -426,15 +426,8 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::Task;
-<span class="attr">#[cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-</span><span class="kw">use </span>hotshot_task_impls::consensus::ConsensusTaskState;
 <span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
 </span><span class="kw">use </span>hotshot_task_impls::rewind::RewindTaskState;
-<span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-</span><span class="kw">use </span>hotshot_task_impls::{
-    consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
-    quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
-};
 <span class="kw">use </span>hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
@@ -608,11 +601,18 @@
 
     {
         <span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
-        </span>handle.add_task(ConsensusTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+        </span><span class="kw">use </span>hotshot_task_impls::consensus::ConsensusTaskState;
+
+        handle.add_task(ConsensusTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
     }
     {
         <span class="attr">#![cfg(feature = <span class="string">"dependency-tasks"</span>)]
-        </span>handle.add_task(QuorumProposalTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+        </span><span class="kw">use </span>hotshot_task_impls::{
+            consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
+            quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
+        };
+
+        handle.add_task(QuorumProposalTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
         handle.add_task(QuorumVoteTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
         handle.add_task(QuorumProposalRecvTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
         handle.add_task(Consensus2TaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);

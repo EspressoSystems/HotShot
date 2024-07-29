@@ -200,15 +200,19 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, num::NonZeroU64};
 
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>hotshot_types::traits::network::Topic;
 <span class="comment">// use ark_bls12_381::Parameters as Param381;
 </span><span class="kw">use </span>hotshot_types::traits::signature_key::StakeTableEntryType;
 <span class="kw">use </span>hotshot_types::{
     signature_key::BLSPubKey,
-    traits::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey},
+    traits::{
+        election::Membership, network::Topic, node_implementation::NodeType,
+        signature_key::SignatureKey,
+    },
     PeerConfig,
 };
 <span class="kw">use </span>tracing::debug;
