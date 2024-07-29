@@ -8,7 +8,7 @@ use super::node_implementation::NodeType;
 
 /// The AuctionResultsProvider trait is the sole source of Solver-originated state and interaction,
 /// and returns the results of the Solver's allocation via the associated type. The associated type,
-/// `AuctionResult`, also implements the [`HasUrls`] trait, which requires that the output
+/// `AuctionResult`, also implements the `HasUrls` trait, which requires that the output
 /// type has the requisite fields available.
 #[async_trait]
 pub trait AuctionResultsProvider<TYPES: NodeType>: Send + Sync + Clone {
