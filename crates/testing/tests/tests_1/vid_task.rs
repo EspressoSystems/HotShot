@@ -98,6 +98,7 @@ async fn test_vid_task() {
                 )
                 .unwrap()],
                 Some(vid_precompute),
+                None,
             )),
         ],
     ];
