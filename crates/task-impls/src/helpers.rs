@@ -45,6 +45,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
+    error!("Fetching proposal");
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
         view,
@@ -58,6 +59,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
+    error!("Request for proposal suceeded");
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
 
@@ -282,6 +284,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 #[instrument(skip_all)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     next_proposal_view_number: TYPES::Time,
+    event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     consensus: OuterConsensus<TYPES>,
@@ -290,7 +293,22 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-
+    let parent_view_number = consensus.read().await.high_qc().view_number();
+    if !consensus
+        .read()
+        .await
+        .validated_state_map()
+        .contains_key(&parent_view_number)
+    {
+        let _ = fetch_proposal(
+            parent_view_number,
+            event_stream.clone(),
+            quorum_membership,
+            consensus.clone(),
+        )
+        .await
+        .context("Failed to fetch proposal")?;
+    }
     let consensus_reader = consensus.read().await;
     let parent_view_number = consensus_reader.high_qc().view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(

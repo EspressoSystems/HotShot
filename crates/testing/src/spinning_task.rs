@@ -175,6 +175,7 @@ where
                         UpDown::Restart => {
                             let node_id = idx.try_into().unwrap();
                             error!("restarting node");
+                            let mut new_node = None;
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
@@ -232,8 +233,10 @@ where
                                 };
                                 node.handle.hotshot.start_consensus().await;
 
-                                *self.handles.write().await = vec![];
-                                self.handles.write().await.push(node);
+                                new_node = Some(node);
+                            }
+                            if let Some(node) = new_node {
+                                self.handles.write().await[idx] = node;
                             }
                         }
                         UpDown::NetworkUp => {
