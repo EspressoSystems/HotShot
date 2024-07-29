@@ -577,6 +577,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 metadata,
                 view,
                 fees,
+                auction_result,
             ) => {
                 let view = *view;
                 debug!(
@@ -589,6 +590,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     metadata: metadata.clone(),
                     fees: fees.clone(),
                     block_view: view,
+                    auction_result: auction_result.clone(),
                 });
                 if self.quorum_membership.leader(view) == self.public_key
                     && self.consensus.read().await.high_qc().view_number() + 1 == view

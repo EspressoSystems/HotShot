@@ -103,6 +103,7 @@ async fn test_consensus_task() {
                     BaseVersion::version()
                 )
                 .unwrap()],
+                None,
             ),
         ],
     ];
@@ -290,6 +291,7 @@ async fn test_view_sync_finalize_propose() {
                 TestMetadata,
                 ViewNumber::new(4),
                 vec1![null_block::builder_fee(4, BaseVersion::version()).unwrap()],
+                None,
             ),
         ],
     ];

@@ -736,4 +736,6 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
     pub fees: Vec1<BuilderFee<TYPES>>,
     /// View number this block is for
     pub block_view: TYPES::Time,
+    /// auction result that the block was produced from, if any
+    pub auction_result: Option<TYPES::AuctionResult>,
 }

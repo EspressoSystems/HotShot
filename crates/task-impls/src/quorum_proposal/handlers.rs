@@ -188,7 +188,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
                 commitment_and_metadata.metadata,
                 commitment_and_metadata.fees.to_vec(),
                 vid_share.data.common.clone(),
-                None,
+                commitment_and_metadata.auction_result,
                 version,
             )
             .await
@@ -288,6 +288,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     metadata,
                     view,
                     fees,
+                    auction_result,
                 ) => {
                     commit_and_metadata = Some(CommitmentAndMetadata {
                         commitment: *payload_commitment,
@@ -295,6 +296,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                         metadata: metadata.clone(),
                         fees: fees.clone(),
                         block_view: *view,
+                        auction_result: auction_result.clone(),
                     });
                 }
                 HotShotEvent::QcFormed(cert) => match cert {

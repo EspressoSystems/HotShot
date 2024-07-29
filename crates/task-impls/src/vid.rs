@@ -58,6 +58,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     view_number,
                     sequencing_fees,
                     vid_precompute,
+                    auction_result,
                     ..
                 } = packed_bundle;
                 let payload =
@@ -88,6 +89,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                         metadata.clone(),
                         *view_number,
                         sequencing_fees.clone(),
+                        auction_result.clone(),
                     )),
                     &event_stream,
                 )

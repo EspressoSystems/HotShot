@@ -100,7 +100,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             commitment_and_metadata.metadata,
             commitment_and_metadata.fees.to_vec(),
             vid_share.data.common,
-            None,
+            commitment_and_metadata.auction_result,
             version,
         )
         .await

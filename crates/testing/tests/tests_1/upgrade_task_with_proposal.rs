@@ -148,6 +148,7 @@ async fn test_upgrade_task_with_proposal() {
                 TestMetadata,
                 ViewNumber::new(1),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -164,6 +165,7 @@ async fn test_upgrade_task_with_proposal() {
                 TestMetadata,
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -181,6 +183,7 @@ async fn test_upgrade_task_with_proposal() {
                 TestMetadata,
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(

@@ -116,6 +116,7 @@ async fn test_vid_task() {
                     BaseVersion::version()
                 )
                 .unwrap()],
+                None,
             )),
             exact(BlockReady(vid_disperse, ViewNumber::new(2))),
             exact(VidDisperseSend(vid_proposal.clone(), pub_key)),

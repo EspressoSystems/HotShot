@@ -144,6 +144,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
         <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
         Vec1<BuilderFee<TYPES>>,
+        Option<TYPES::AuctionResult>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(PackedBundle<TYPES>),
@@ -352,7 +353,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::Timeout(view_number) => write!(f, "Timeout(view_number={view_number:?})"),
             HotShotEvent::TransactionsRecv(_) => write!(f, "TransactionsRecv"),
             HotShotEvent::TransactionSend(_, _) => write!(f, "TransactionSend"),
-            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _, _) => {
                 write!(
                     f,
                     "SendPayloadCommitmentAndMetadata(view_number={view_number:?})"

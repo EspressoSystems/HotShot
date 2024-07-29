@@ -94,6 +94,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 TestMetadata,
                 ViewNumber::new(1),
                 vec1![builder_fee.clone()],
+                None,
             ),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
@@ -192,6 +193,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 TestMetadata,
                 ViewNumber::new(1),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -208,6 +210,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 TestMetadata,
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -224,6 +227,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 TestMetadata,
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -240,6 +244,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 TestMetadata,
                 ViewNumber::new(4),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -256,6 +261,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 TestMetadata,
                 ViewNumber::new(5),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -364,6 +370,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
                 null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version())
                     .unwrap()
             ],
+            None,
         ),
         VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
         ValidatedStateUpdated(
@@ -451,6 +458,7 @@ async fn test_quorum_proposal_task_view_sync() {
                 null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version())
                     .unwrap()
             ],
+            None,
         ),
         VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
         ValidatedStateUpdated(
@@ -540,6 +548,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 TestMetadata,
                 ViewNumber::new(1),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -556,6 +565,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 TestMetadata,
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -572,6 +582,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 TestMetadata,
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -588,6 +599,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 TestMetadata,
                 ViewNumber::new(4),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -604,6 +616,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 TestMetadata,
                 ViewNumber::new(5),
                 vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
