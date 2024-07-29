@@ -6,11 +6,13 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
     sync::Arc,
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
+use async_compatibility_layer::art::async_spawn;
 
 use async_compatibility_layer::{
-    art::async_sleep,
+    art::{self, async_sleep},
     logging::{setup_backtrace, setup_logging},
 };
 use async_trait::async_trait;
@@ -411,6 +413,43 @@ pub trait RunDa<
         .0
     }
 
+    async fn generate_and_submit_transactions(context: &SystemContextHandle<TYPES, NODE>) {
+        // let sleep = async_sleep(Duration::from_secs(60));
+        // ED can use interval here, too
+        for _num in 1..30 {
+            let mut tx = vec![0; 1000];
+            let timestamp = Utc::now().timestamp();
+
+            let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+            tx.append(&mut timestamp_vec);
+
+            // ED Check for error
+            () = context
+                .submit_transaction(TestTransaction::new(tx))
+                .await
+                .unwrap();
+            // panic!("Submitted a TX!");
+            art::async_sleep(Duration::from_millis(1000)).await;
+        }
+        // if self.config().node_index == 1 {
+        //     // send transactions
+        //     for _ in 0..transactions_to_send_per_round {
+        //         // append current timestamp to the tx to calc latency
+        //         let timestamp = Utc::now().timestamp();
+        //         let mut tx = vec![0; transaction_size];
+        //         // let mut tx = transactions.remove(0).into_bytes();
+        //         let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+        //         tx.append(&mut timestamp_vec);
+
+        //         () = context
+        //             .submit_transaction(TestTransaction::new(tx))
+        //             .await
+        //             .unwrap();
+        //         total_transactions_sent += 1;
+        //     }
+        // }
+    }
+
     /// Starts HotShot consensus, returns when consensus has finished
     #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
@@ -462,6 +501,27 @@ pub trait RunDa<
         let mut num_successful_commits = 0;
 
         context.hotshot.start_consensus().await;
+        let consensus_lock = context.hotshot.consensus();
+
+        // let new_self = Arc::<SystemContextHandle<TYPES, NODE>>::new(context); 
+
+        let tx_submit_task = async_spawn(async move {
+            for _num in 1..100 {
+                let mut tx = vec![0; 1000];
+                let timestamp = Utc::now().timestamp();
+    
+                let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+                tx.append(&mut timestamp_vec);
+    
+                // ED Check for error
+                () = context
+                    .submit_transaction(TestTransaction::new(tx))
+                    .await
+                    .unwrap();
+                // panic!("Submitted a TX!");
+                art::async_sleep(Duration::from_millis(1000)).await;
+            }
+        });
 
         loop {
             match event_stream.next().await {
@@ -511,21 +571,24 @@ pub trait RunDa<
                                 }
 
                                 // ED Here
+
                                 // if self.config().node_index == 1 {
                                 //     // send transactions
-                                //     for _ in 0..transactions_to_send_per_round {
-                                //         // append current timestamp to the tx to calc latency
-                                //         let timestamp = Utc::now().timestamp();
-                                //         let mut tx = transactions.remove(0).into_bytes();
-                                //         let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
-                                //         tx.append(&mut timestamp_vec);
+                                //     //for _ in 0..transactions_to_send_per_round {
+                                //     self.generate_and_submit_transactions(&context).await;
+                                //     // // append current timestamp to the tx to calc latency
+                                //     // let timestamp = Utc::now().timestamp();
+                                //     // let mut tx = vec![0; transaction_size];
+                                //     // // let mut tx = transactions.remove(0).into_bytes();
+                                //     // let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+                                //     // tx.append(&mut timestamp_vec);
 
-                                //         () = context
-                                //             .submit_transaction(TestTransaction::new(tx))
-                                //             .await
-                                //             .unwrap();
-                                //         total_transactions_sent += 1;
-                                //     }
+                                //     // () = context
+                                //     //     .submit_transaction(TestTransaction::new(tx))
+                                //     //     .await
+                                //     //     .unwrap();
+                                //     // total_transactions_sent += 1;
+                                //     //}
                                 // }
                             }
 
@@ -555,7 +618,10 @@ pub trait RunDa<
                 }
             }
         }
-        let consensus_lock = context.hotshot.consensus();
+
+        // TODO ED Imple broadcast channel to send shutdown message
+        tx_submit_task.await;
+
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         // `failed_num_views` could include uncommitted views
@@ -565,6 +631,7 @@ pub trait RunDa<
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
         println!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
+        // tx_submit_task.await;
         if total_transactions_committed != 0 {
             // prevent devision by 0
             let total_time_elapsed_sec = std::cmp::max(total_time_elapsed.as_secs(), 1u64);
@@ -930,6 +997,7 @@ pub async fn main_entry_point<
     }
 
     // pre-generate transactions
+    // TOOD ED Remove this stuff, we don't need to pre-gen txs anymore
     let NetworkConfig {
         transaction_size,
         rounds,
@@ -1025,7 +1093,7 @@ where
         BuilderType::Random => {
             let builder_task =
                 <RandomBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                    run_config.transaction_size, 
+                    run_config.transaction_size,
                     run_config.config.num_nodes_with_stake.into(),
                     bind_address,
                     run_config.random_builder.clone().unwrap_or_default(),
@@ -1042,7 +1110,7 @@ where
         BuilderType::Simple => {
             let builder_task =
                 <SimpleBuilderImplementation as TestBuilderImplementation<TYPES>>::start(
-                    run_config.transaction_size, 
+                    run_config.transaction_size,
                     run_config.config.num_nodes_with_stake.into(),
                     bind_address,
                     (),
