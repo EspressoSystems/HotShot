@@ -89,7 +89,8 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             vid_share.data.common,
             version,
         )
-        .await.context("Failed to construct legacy block header")?
+        .await
+        .context("Failed to construct legacy block header")?
     } else {
         TYPES::BlockHeader::new_marketplace(
             state.as_ref(),
@@ -102,7 +103,8 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             None,
             version,
         )
-        .await.context("Failed to construct marketplace block header")?
+        .await
+        .context("Failed to construct marketplace block header")?
     };
 
     let proposal = QuorumProposal {
