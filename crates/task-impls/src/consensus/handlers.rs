@@ -65,22 +65,20 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     instance_state: Arc<TYPES::InstanceState>,
     version: Version,
     id: u64,
-) {
+) -> Result<()> {
     let consensus_read = consensus.read().await;
-    let Some(Some(vid_share)) = consensus_read
+    let vid_share = consensus_read
         .vid_shares()
         .get(&view)
         .map(|shares| shares.get(&public_key).cloned())
-    else {
-        error!("Cannot propopse without our VID share, view {:?}", view);
-        return;
-    };
-    // TODO ED: This will need to be version-gated to use the appropriate `BlockHeader::new` function.
-    // Pre-marketplace versions will use `new_legacy` and post-marketplace versions will use `new_marketplace`
+        .context(format!(
+            "Cannot propopse without our VID share, view {view:?}"
+        ))?
+        .context("Failed to get vid share")?;
     drop(consensus_read);
 
     let block_header = if version < MarketplaceVersion::VERSION {
-        match TYPES::BlockHeader::new_legacy(
+        TYPES::BlockHeader::new_legacy(
             state.as_ref(),
             instance_state.as_ref(),
             &parent_leaf,
@@ -91,16 +89,9 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             vid_share.data.common,
             version,
         )
-        .await
-        {
-            Ok(header) => header,
-            Err(err) => {
-                error!(%err, "Failed to construct block header");
-                return;
-            }
-        }
+        .await?
     } else {
-        match TYPES::BlockHeader::new_marketplace(
+        TYPES::BlockHeader::new_marketplace(
             state.as_ref(),
             instance_state.as_ref(),
             &parent_leaf,
@@ -111,14 +102,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             None,
             version,
         )
-        .await
-        {
-            Ok(header) => header,
-            Err(err) => {
-                error!(%err, "Failed to construct block header");
-                return;
-            }
-        }
+        .await?
     };
 
     let proposal = QuorumProposal {
@@ -130,35 +114,29 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
     };
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
-    if proposed_leaf.parent_commitment() != parent_leaf.commit() {
-        return;
-    }
 
-    let Ok(signature) = TYPES::SignatureKey::sign(&private_key, proposed_leaf.commit().as_ref())
-    else {
-        // This should never happen.
-        error!("Failed to sign proposed_leaf.commit()!");
-        return;
-    };
+    ensure!(proposed_leaf.parent_commitment() == parent_leaf.commit());
+
+    let signature = TYPES::SignatureKey::sign(&private_key, proposed_leaf.commit().as_ref())?;
 
     let message = Proposal {
         data: proposal,
         signature,
         _pd: PhantomData,
     };
+
     debug!(
-        "Sending null proposal for view {:?}",
+        "Sending proposal for view {:?}",
         proposed_leaf.view_number(),
     );
-    if let Err(e) = consensus
+
+    consensus
         .write()
         .await
-        .update_last_proposed_view(message.clone())
-    {
-        tracing::trace!("{e:?}");
-        return;
-    }
+        .update_last_proposed_view(message.clone())?;
+
     async_sleep(Duration::from_millis(round_start_delay)).await;
+
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalSend(
             message.clone(),
@@ -167,6 +145,8 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         &event_stream,
     )
     .await;
+
+    Ok(())
 }
 
 /// Send a proposal for the view `view` from the latest high_qc given an upgrade cert. This is the
@@ -237,7 +217,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     let version = version(view, &decided_upgrade_certificate.read().await.clone())?;
 
     let create_and_send_proposal_handle = async_spawn(async move {
-        create_and_send_proposal(
+        match create_and_send_proposal(
             public_key,
             private_key,
             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
@@ -253,7 +233,13 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
             version,
             id,
         )
-        .await;
+        .await
+        {
+            Ok(()) => {}
+            Err(e) => {
+                tracing::error!("Failed to send proposal: {}", e);
+            }
+        };
     });
 
     Ok(create_and_send_proposal_handle)
