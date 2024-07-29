@@ -637,6 +637,10 @@
 <a href="#635" id="635">635</a>
 <a href="#636" id="636">636</a>
 <a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -667,7 +671,7 @@
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
-        network::ConnectedNetwork,
+        network::{ConnectedNetwork, Topic},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
     HotShotConfig, ValidatorConfig,
@@ -1031,21 +1035,25 @@
                 quorum_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     known_nodes_with_stake.clone(),
+                    Topic::Global,
                     config.fixed_leader_for_gpuvid,
                 ),
                 da_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     config.known_da_nodes.clone(),
+                    Topic::Da,
                     config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     known_nodes_with_stake.clone(),
+                    Topic::Global,
                     config.fixed_leader_for_gpuvid,
                 ),
                 view_sync_membership: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     known_nodes_with_stake.clone(),
+                    Topic::Global,
                     config.fixed_leader_for_gpuvid,
                 ),
             };

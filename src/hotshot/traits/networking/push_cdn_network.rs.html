@@ -567,6 +567,15 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
@@ -605,7 +614,7 @@
     data::ViewNumber,
     traits::{
         metrics::{Counter, Metrics, NoMetrics},
-        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError},
+        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError, Topic <span class="kw">as </span>HotShotTopic},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -1026,10 +1035,10 @@
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        topic: HotShotTopic,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.broadcast_message(message, Topic::Global)
+        <span class="self">self</span>.broadcast_message(message, topic.into())
             .<span class="kw">await
             </span>.map_err(|e| {
                 <span class="self">self</span>.metrics.num_failed_messages.add(<span class="number">1</span>);
@@ -1132,6 +1141,15 @@
         _pk: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="kw">impl </span>From&lt;HotShotTopic&gt; <span class="kw">for </span>Topic {
+    <span class="kw">fn </span>from(topic: HotShotTopic) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>topic {
+            HotShotTopic::Global =&gt; Topic::Global,
+            HotShotTopic::Da =&gt; Topic::Da,
+        }
     }
 }
 </code></pre></div></section></main></body></html>

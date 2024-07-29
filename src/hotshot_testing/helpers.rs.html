@@ -381,6 +381,11 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -411,6 +416,7 @@
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
+        network::Topic,
         node_implementation::{ConsensusTime, NodeType},
     },
     utils::{View, ViewInner},
@@ -462,21 +468,25 @@
         quorum_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
+            Topic::Global,
             config.fixed_leader_for_gpuvid,
         ),
         da_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             config.known_da_nodes.clone(),
+            Topic::Da,
             config.fixed_leader_for_gpuvid,
         ),
         vid_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
+            Topic::Global,
             config.fixed_leader_for_gpuvid,
         ),
         view_sync_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake,
+            Topic::Global,
             config.fixed_leader_for_gpuvid,
         ),
     };

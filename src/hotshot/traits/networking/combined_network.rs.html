@@ -563,7 +563,7 @@
     },
     data::ViewNumber,
     traits::{
-        network::{BroadcastDelay, ConnectedNetwork, ResponseChannel},
+        network::{BroadcastDelay, ConnectedNetwork, ResponseChannel, Topic},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -903,24 +903,24 @@
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        topic: Topic,
         broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>primary = <span class="self">self</span>.primary().clone();
         <span class="kw">let </span>secondary = <span class="self">self</span>.secondary().clone();
         <span class="kw">let </span>primary_message = message.clone();
         <span class="kw">let </span>secondary_message = message.clone();
-        <span class="kw">let </span>primary_recipients = recipients.clone();
+        <span class="kw">let </span>topic_clone = topic.clone();
         <span class="self">self</span>.send_both_networks(
             message,
             <span class="kw">async move </span>{
                 primary
-                    .broadcast_message(primary_message, primary_recipients, BroadcastDelay::None)
+                    .broadcast_message(primary_message, topic_clone, BroadcastDelay::None)
                     .<span class="kw">await
             </span>},
             <span class="kw">async move </span>{
                 secondary
-                    .broadcast_message(secondary_message, recipients, BroadcastDelay::None)
+                    .broadcast_message(secondary_message, topic, BroadcastDelay::None)
                     .<span class="kw">await
             </span>},
             broadcast_delay,

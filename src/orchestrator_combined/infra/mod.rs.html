@@ -1052,6 +1052,8 @@
 <a href="#1050" id="1050">1050</a>
 <a href="#1051" id="1051">1051</a>
 <a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::HashMap,
@@ -1075,8 +1077,8 @@
 <span class="kw">use </span>hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CdnMetricsValue, CombinedNetworks, Libp2pMetricsValue,
-            Libp2pNetwork, PushCdnNetwork, Topic, WrappedSignatureKey,
+            derive_libp2p_peer_id, CdnMetricsValue, CdnTopic, CombinedNetworks, Libp2pMetricsValue,
+            Libp2pNetwork, PushCdnNetwork, WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
     },
@@ -1106,7 +1108,7 @@
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
-        network::ConnectedNetwork,
+        network::{ConnectedNetwork, Topic},
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
     },
@@ -1430,6 +1432,7 @@
         </span><span class="kw">let </span>quorum_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
+            Topic::Global,
             config.config.fixed_leader_for_gpuvid,
         );
 
@@ -1438,6 +1441,7 @@
         </span><span class="kw">let </span>da_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
             known_nodes_with_stake.clone(),
             config.config.known_da_nodes.clone(),
+            Topic::Da,
             config.config.fixed_leader_for_gpuvid,
         );
 
@@ -1679,9 +1683,9 @@
         };
 
         <span class="comment">// See if we should be DA, subscribe to the DA topic if so
-        </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[Topic::Global];
+        </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[CdnTopic::Global];
         <span class="kw">if </span>config.config.my_own_validator_config.is_da {
-            topics.push(Topic::Da);
+            topics.push(CdnTopic::Da);
         }
 
         <span class="comment">// Create the network and await the initial connection

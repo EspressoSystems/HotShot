@@ -548,6 +548,7 @@
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -969,6 +970,7 @@
         };
         <span class="kw">let </span>view = message.kind.view_number();
         <span class="kw">let </span>committee = membership.whole_committee(view);
+        <span class="kw">let </span>committee_topic = membership.committee_topic();
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>decided_upgrade_certificate = <span class="self">self</span>.decided_upgrade_certificate.clone();
@@ -1005,7 +1007,7 @@
                     net.direct_message(serialized_message, recipient).<span class="kw">await
                 </span>}
                 TransmitType::Broadcast =&gt; {
-                    net.broadcast_message(serialized_message, committee, broadcast_delay)
+                    net.broadcast_message(serialized_message, committee_topic, broadcast_delay)
                         .<span class="kw">await
                 </span>}
                 TransmitType::DaCommitteeBroadcast =&gt; {

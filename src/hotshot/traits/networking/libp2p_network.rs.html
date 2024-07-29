@@ -1112,28 +1112,6 @@
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
 <a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a>
-<a href="#1134" id="1134">1134</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1181,7 +1159,7 @@
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
-        network::{<span class="self">self</span>, ConnectedNetwork, NetworkError, ResponseMessage},
+        network::{<span class="self">self</span>, ConnectedNetwork, NetworkError, ResponseMessage, Topic},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -1196,8 +1174,8 @@
         behaviours::request_response::{Request, Response},
         spawn_network_node, MeshParams,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver, NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
+        NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
     },
     reexport::{Multiaddr, ResponseChannel},
 };
@@ -1302,10 +1280,8 @@
     </span>is_bootstrapped: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// The Libp2p metrics we're managing
     </span>metrics: Libp2pMetricsValue,
-    <span class="doccomment">/// topic map
-    /// hash(hashset) -&gt; topic
-    /// btreemap ordered so is hashable
-    </span>topic_map: RwLock&lt;BiHashMap&lt;BTreeSet&lt;K&gt;, String&gt;&gt;,
+    <span class="doccomment">/// The list of topics we're subscribed to
+    </span>subscribed_topics: HashSet&lt;String&gt;,
     <span class="doccomment">/// the latest view number (for node lookup purposes)
     /// NOTE: supposed to represent a ViewNumber but we
     /// haven't made that atomic yet and we prefer lock-free
@@ -1434,7 +1410,6 @@
                         .unwrap()
                 };
                 <span class="kw">let </span>bootstrap_addrs_ref = Arc::clone(<span class="kw-2">&amp;</span>bootstrap_addrs);
-                <span class="kw">let </span>keys = all_keys.clone();
                 <span class="kw">let </span>da = da_keys.clone();
                 <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
                 Box::pin(<span class="kw">async move </span>{
@@ -1445,10 +1420,8 @@
                             pubkey.clone(),
                             bootstrap_addrs_ref,
                             usize::try_from(node_id).unwrap(),
-                            keys,
                             <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                             </span>reliability_config_dup,
-                            da.clone(),
                             da.contains(<span class="kw-2">&amp;</span>pubkey),
                         )
                         .<span class="kw">await
@@ -1589,12 +1562,8 @@
             pub_key.clone(),
             Arc::new(RwLock::new(bootstrap_nodes)),
             usize::try_from(config.node_index)<span class="question-mark">?</span>,
-            <span class="comment">// NOTE: this introduces an invariant that the keys are assigned using this indexed
-            // function
-            </span>all_keys,
             <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
             </span><span class="prelude-val">None</span>,
-            da_keys.clone(),
             da_keys.contains(pub_key),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>)
@@ -1635,10 +1604,7 @@
         pk: K,
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
-        <span class="comment">// HACK
-        </span>quorum_public_keys: BTreeSet&lt;K&gt;,
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-        da_public_keys: BTreeSet&lt;K&gt;,
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
         <span class="comment">// Error if there were no bootstrap nodes specified
@@ -1664,11 +1630,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>pubkey_pid_map = BiHashMap::new();
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
-        <span class="kw">let </span><span class="kw-2">mut </span>topic_map = BiHashMap::new();
-        topic_map.insert(quorum_public_keys, QC_TOPIC.to_string());
-        topic_map.insert(da_public_keys, <span class="string">"DA"</span>.to_string());
-
-        <span class="kw">let </span>topic_map = RwLock::new(topic_map);
+        <span class="comment">// Subscribe to the relevant topics
+        </span><span class="kw">let </span><span class="kw-2">mut </span>subscribed_topics = HashSet::from_iter(<span class="macro">vec!</span>[QC_TOPIC.to_string()]);
+        <span class="kw">if </span>is_da {
+            subscribed_topics.insert(<span class="string">"DA"</span>.to_string());
+        }
 
         <span class="comment">// unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
@@ -1692,7 +1658,7 @@
                 </span>dht_timeout: Duration::from_secs(<span class="number">120</span>),
                 is_bootstrapped: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                 metrics,
-                topic_map,
+                subscribed_topics,
                 node_lookup_send,
                 <span class="comment">// Start the latest view from 0. "Latest" refers to "most recent view we are polling for
                 // proposals on". We need this because to have consensus info injected we need a working
@@ -2058,7 +2024,7 @@
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        recipients: BTreeSet&lt;K&gt;,
+        topic: Topic,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're not ready, return an error
@@ -2067,20 +2033,10 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReady);
         };
 
-        <span class="kw">let </span>topic_map = <span class="self">self</span>.inner.topic_map.read().<span class="kw">await</span>;
-        <span class="kw">let </span>topic = topic_map
-            .get_by_left(<span class="kw-2">&amp;</span>recipients)
-            .ok_or_else(|| {
-                <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-                NetworkError::Libp2p {
-                    source: Box::new(NetworkNodeHandleError::NoSuchTopic),
-                }
-            })<span class="question-mark">?
-            </span>.clone();
-
-        <span class="comment">// gossip doesn't broadcast from itself, so special case
-        </span><span class="kw">if </span>recipients.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.pk) {
-            <span class="comment">// send to self
+        <span class="comment">// If we are subscribed to the topic,
+        </span><span class="kw">let </span>topic = topic.to_string();
+        <span class="kw">if </span><span class="self">self</span>.inner.subscribed_topics.contains(<span class="kw-2">&amp;</span>topic) {
+            <span class="comment">// Short-circuit-send the message to ourselves
             </span><span class="self">self</span>.inner.sender.send(message.clone()).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
                 NetworkError::ShutDown
