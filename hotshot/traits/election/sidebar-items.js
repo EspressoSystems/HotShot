@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["static_committee"]};
+window.SIDEBAR_ITEMS = {"mod":["static_committee","static_committee_leader_two_views"]};

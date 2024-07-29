@@ -372,6 +372,15 @@
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
@@ -380,13 +389,16 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot::{
+    traits::{NodeImplementation, TestableNodeImplementation},
     types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotInitializer, Memberships, SystemContext,
 };
 <span class="kw">use </span>hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestTransaction,
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
 };
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
@@ -413,15 +425,21 @@
 <span class="doccomment">/// create the [`SystemContextHandle`] from a node id
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
-</span><span class="kw">pub async fn </span>build_system_handle(
+</span><span class="kw">pub async fn </span>build_system_handle&lt;
+    TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
+    I: NodeImplementation&lt;
+            TYPES,
+            Storage = TestStorage&lt;TYPES&gt;,
+            AuctionResultsProvider = TestAuctionResultsProvider,
+        &gt; + TestableNodeImplementation&lt;TYPES&gt;,
+&gt;(
     node_id: u64,
 ) -&gt; (
-    SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
-    Sender&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
-    Receiver&lt;Arc&lt;HotShotEvent&lt;TestTypes&gt;&gt;&gt;,
+    SystemContextHandle&lt;TYPES, I&gt;,
+    Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span>builder: TestDescription&lt;TestTypes, MemoryImpl&gt; =
-        TestDescription::default_multiple_rounds();
+    <span class="kw">let </span>builder: TestDescription&lt;TYPES, I&gt; = TestDescription::default_multiple_rounds();
 
     <span class="kw">let </span>launcher = builder.gen_launcher(node_id);
 
@@ -430,33 +448,33 @@
     <span class="kw">let </span>auction_results_provider = (launcher.resource_generator.auction_results_provider)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TestTypes&gt;::from_genesis(TestInstanceState {})
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
         .<span class="kw">await
         </span>.unwrap();
 
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();
-    <span class="kw">let </span>public_key = config.my_own_validator_config.public_key;
+    <span class="kw">let </span>public_key = config.my_own_validator_config.public_key.clone();
 
     <span class="kw">let </span>_known_nodes_without_stake = config.known_nodes_without_stake.clone();
 
     <span class="kw">let </span>memberships = Memberships {
-        quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+        quorum_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
-        da_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+        da_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             config.known_da_nodes.clone(),
             config.fixed_leader_for_gpuvid,
         ),
-        vid_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+        vid_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
             config.fixed_leader_for_gpuvid,
         ),
-        view_sync_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::create_election(
+        view_sync_membership: TYPES::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake,
             config.fixed_leader_for_gpuvid,
