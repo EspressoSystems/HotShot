@@ -6,7 +6,7 @@ use libp2p_identity::PeerId;
 use crate::network::NetworkNodeType;
 
 /// The default Kademlia replication factor
-pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(4);
+pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(10);
 
 /// describe the configuration of the network
 #[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]

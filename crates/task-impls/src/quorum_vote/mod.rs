@@ -440,11 +440,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                 };
                 if event_view == view_number {
-                    tracing::error!(
-                        "lrzasik: dependency {:?} completed for view: {:?}",
-                        dependency_type,
-                        view_number
-                    );
                     trace!("Vote dependency {:?} completed", dependency_type);
                     return true;
                 }
@@ -490,15 +485,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         // If we have an event provided to us
         if let Some(event) = event {
             match event.as_ref() {
-                HotShotEvent::VoteNow(view, _) => {
-                    tracing::error!("lrzasik: VoteNow marked as completed for view: {:?}", view);
+                HotShotEvent::VoteNow(..) => {
                     vote_now_dependency.mark_as_completed(event);
                 }
-                HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                    tracing::error!(
-                        "lrzasik: QuorumProposalValidated marked as completed for view: {:?}",
-                        proposal.view_number()
-                    );
+                HotShotEvent::QuorumProposalValidated(..) => {
                     quorum_proposal_dependency.mark_as_completed(event);
                 }
                 _ => {}
@@ -567,7 +557,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
     ) {
         match event.as_ref() {
             HotShotEvent::VoteNow(view, ..) => {
-                tracing::error!("lrzasik: received VoteNow for view: {:?}", view);
                 info!("Vote NOW for view {:?}", *view);
                 self.create_dependency_task_if_new(
                     *view,
@@ -577,10 +566,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
-                tracing::error!(
-                    "lrzasik: received QuorumProposalValidated for view: {:?}",
-                    proposal.view_number
-                );
                 trace!("Received Proposal for view {}", *proposal.view_number());
 
                 // Handle the event before creating the dependency task.
@@ -598,10 +583,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                tracing::error!(
-                    "lrzasik: received DaCertificateRecv for view: {:?}",
-                    cert.view_number
-                );
                 let view = cert.view_number;
                 trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -627,10 +608,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
             HotShotEvent::VidShareRecv(disperse) => {
-                tracing::error!(
-                    "lrzasik: received VidShareRecv for view: {:?}",
-                    disperse.data.view_number()
-                );
                 let view = disperse.data.view_number();
                 trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -692,10 +669,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
-                tracing::error!(
-                    "lrzasik: received QuorumVoteDependenciesValidated for view: {:?}",
-                    view_number
-                );
                 debug!("All vote dependencies verified for view {:?}", view_number);
                 if !self.update_latest_voted_view(*view_number).await {
                     debug!("view not updated");
