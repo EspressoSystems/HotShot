@@ -1,6 +1,5 @@
 // TODO: Remove this after integration
 #![allow(unused_imports)]
-
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
     state_types::TestTypes,
@@ -8,9 +7,14 @@ use hotshot_example_types::{
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
+    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
     test_builder::TestDescription,
 };
+use std::time::Duration;
+
+#[cfg(async_executor_impl = "async-std")]
+use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
 // Test that a good leader can succeed in the view directly after view sync
 #[cfg(not(feature = "dependency-tasks"))]
 cross_tests!(
@@ -51,4 +55,35 @@ cross_tests!(
 
         metadata
     }
+);
+
+#[cfg(async_executor_impl = "async-std")]
+cross_tests!(
+    TestName: dishonest_leader,
+    Impls: [MemoryImpl],
+    Types: [TestTypes],
+    Ignore: false,
+    Metadata: {
+        let behaviour = Rc::new(|node_id| {
+                let dishonest_leader = DishonestLeader::<TestTypes, MemoryImpl>::default();
+                match node_id {
+                    2 => Behaviour::Byzantine(Box::new(dishonest_leader)),
+                    _ => Behaviour::Standard,
+                }
+            });
+
+        let mut metadata = TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            behaviour,
+            ..TestDescription::default()
+        };
+
+        metadata.overall_safety_properties.num_failed_views = 1;
+        metadata
+    },
 );

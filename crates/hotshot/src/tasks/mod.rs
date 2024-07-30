@@ -25,6 +25,8 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
+    data::QuorumProposal,
+    message::Proposal,
     message::{Messages, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
@@ -402,6 +404,83 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES,
         match event {
             HotShotEvent::QuorumProposalSend(_, _) | HotShotEvent::QuorumVoteSend(_) => {
                 vec![event.clone(), event.clone()]
+            }
+            _ => vec![event.clone()],
+        }
+    }
+}
+
+#[derive(Debug)]
+/// An `EventHandlerState` that modifies justify_qc to that of previous view to mock dishonest leader
+pub struct DishonestLeader<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// store events from previous views
+    cached_events: Vec<HotShotEvent<TYPES>>,
+    /// phantom
+    _phantom: std::marker::PhantomData<I>,
+}
+
+/// add trait to handle proposal events for a dishonest leader
+trait DishonestProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// send dishonest proposal
+    fn handle_proposal_send_event(
+        &self,
+        event: &HotShotEvent<TYPES>,
+        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+        sender: &TYPES::SignatureKey,
+    ) -> Vec<HotShotEvent<TYPES>>;
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for DishonestLeader<TYPES, I> {
+    /// create a dishonest leader that stores past events to try a modify a view when they are the leader
+    fn default() -> Self {
+        DishonestLeader {
+            cached_events: Vec::new(),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestProposal<TYPES, I>
+    for DishonestLeader<TYPES, I>
+{
+    fn handle_proposal_send_event(
+        &self,
+        event: &HotShotEvent<TYPES>,
+        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+        sender: &TYPES::SignatureKey,
+    ) -> Vec<HotShotEvent<TYPES>> {
+        let dishonest = self.cached_events.len() == 2;
+        if !dishonest {
+            return vec![event.clone()];
+        }
+
+        match self.cached_events.first().unwrap().clone() {
+            HotShotEvent::QuorumProposalSend(cached_proposal, _cached_sender) => {
+                let mut dishonest_proposal = proposal.clone();
+                dishonest_proposal.data.justify_qc = cached_proposal.data.justify_qc;
+
+                let dishonest_proposal_event =
+                    HotShotEvent::QuorumProposalSend(dishonest_proposal, sender.clone());
+                vec![dishonest_proposal_event]
+            }
+            _ => vec![event.clone()],
+        }
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug>
+    EventTransformerState<TYPES, I> for DishonestLeader<TYPES, I>
+{
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        vec![event.clone()]
+    }
+
+    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        match event {
+            HotShotEvent::QuorumProposalSend(proposal, sender) => {
+                self.cached_events.push(event.clone());
+                self.handle_proposal_send_event(event, proposal, sender)
             }
             _ => vec![event.clone()],
         }
