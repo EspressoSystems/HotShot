@@ -38,6 +38,7 @@ async fn test_vote_dependency_handle() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
+    // We need a handle to be able to build our dependency tasks
     let node_id = 2;
     let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
         .await
@@ -47,6 +48,7 @@ async fn test_vote_dependency_handle() {
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
+    // Generate our state for the test
     let mut proposals = Vec::new();
     let mut leaves = Vec::new();
     let mut dacs = Vec::new();
@@ -68,13 +70,14 @@ async fn test_vote_dependency_handle() {
     }
     drop(consensus_writer);
 
+    // We permute all possible orderings of inputs. Ordinarily we'd use `random!` for this, but
+    // the dependency handles do not (yet) work with the existing test suite.
     // 1,2,3
     // 1,3,2
     // 2,1,3
     // 2,3,1
     // 3,1,2
     // 3,2,1
-
     let all_inputs = vec![
         vec![
             DaCertificateValidated(dacs[1].clone()),
@@ -108,13 +111,16 @@ async fn test_vote_dependency_handle() {
         ],
     ];
 
+    // For each permutation...
     for inputs in all_inputs.into_iter() {
+        // The outputs are static here, but we re-make them since we use `into_iter` below
         let outputs = vec![
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
             validated_state_updated(),
             quorum_vote_send(),
         ];
 
+        // We only need this to be able to make the vote dependency handle state. It's not explicitly necessary, but it's easy.
         let qv = QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
         let event_sender = handle.internal_event_stream_sender();
@@ -140,11 +146,14 @@ async fn test_vote_dependency_handle() {
             broadcast_event(event.into(), &event_sender).await;
         }
 
+        // We need to avoid re-processing the inputs during our output evaluation. This part here is not
+        // strictly necessary, but it makes writing the outputs easier.
         let mut i = 0;
         let mut output_events = vec![];
         while let Ok(Ok(received_output)) =
             async_timeout(TIMEOUT, event_receiver.recv_direct()).await
         {
+            // Skip over all inputs (the order is deterministic).
             if i < inputs_len {
                 i += 1;
                 continue;
@@ -153,6 +162,8 @@ async fn test_vote_dependency_handle() {
             output_events.push(received_output);
         }
 
+        // Finally, evaluate that the test does what we expected. The control flow of the handle always
+        // outputs in the same order.
         for (check, real) in outputs.into_iter().zip(output_events) {
             if check.evaluate(&real).await == PredicateResult::Fail {
                 panic!("Output {real} did not match expected output {check:?}");
