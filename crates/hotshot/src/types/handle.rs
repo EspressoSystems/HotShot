@@ -83,7 +83,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.output_event_stream.1.activate_cloned()
     }
 
-    /// HACK so we can seed dependency tasks during tests...
+    /// HACK so we can create dependency tasks when running tests
     #[must_use]
     pub fn internal_event_stream_sender(&self) -> Sender<Arc<HotShotEvent<TYPES>>> {
         self.internal_event_stream.0.clone()
