@@ -40,7 +40,7 @@ async fn test_quorum_proposal_recv_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
     let consensus = handle.hotshot.consensus();
@@ -81,7 +81,6 @@ async fn test_quorum_proposal_recv_task() {
 
     let expectations = vec![Expectations::from_outputs(vec![
         exact(QuorumProposalPreliminarilyValidated(proposals[1].clone())),
-        exact(ViewChange(ViewNumber::new(2))),
         exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
         exact(ValidatedStateUpdated(
             ViewNumber::new(2),
@@ -96,6 +95,7 @@ async fn test_quorum_proposal_recv_task() {
             proposals[1].data.clone(),
             leaves[0].clone(),
         )),
+        exact(ViewChange(ViewNumber::new(2))),
     ])];
 
     let state = QuorumProposalRecvTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
@@ -129,7 +129,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(4).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(4).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
     let consensus = handle.hotshot.consensus();
