@@ -22,7 +22,6 @@ use hotshot_types::{
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
-        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
@@ -485,8 +484,6 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         proposal.data.clone()
     );
 
-    let view_leader_key = quorum_membership.leader(view);
-
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     //
     // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
@@ -494,7 +491,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     //    proposal.validate_signature(&quorum_membership)?;
     //
     // in a future PR.
-    proposal.validate_signature(view_leader_key)?;
+    proposal.validate_signature(quorum_membership)?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view - 1 {
