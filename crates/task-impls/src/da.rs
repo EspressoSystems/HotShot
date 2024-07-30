@@ -125,7 +125,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 // ED Is this the right leader?
                 let view_leader_key = self.da_membership.leader(view);
                 if view_leader_key != sender {
-                    error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
+                    error!("DA proposal doesn't have expected leader key for view {} \n", *view);
                     return None;
                 }
 
