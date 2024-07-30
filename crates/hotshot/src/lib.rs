@@ -289,6 +289,128 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         inner
     }
 
+    /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
+    ///
+    /// To do a full initialization, use `fn init` instead, which will set up background tasks as
+    /// well.
+    ///
+    /// # Errors
+    /// -
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_from_channels(
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        nonce: u64,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        memberships: Memberships<TYPES>,
+        network: Arc<I::Network>,
+        initializer: HotShotInitializer<TYPES>,
+        metrics: ConsensusMetricsValue,
+        storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
+        internal_channel: (
+            Sender<Arc<HotShotEvent<TYPES>>>,
+            Receiver<Arc<HotShotEvent<TYPES>>>,
+        ),
+        external_channel: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    ) -> Arc<Self> {
+        debug!("Creating a new hotshot");
+
+        let consensus_metrics = Arc::new(metrics);
+        let anchored_leaf = initializer.inner;
+        let instance_state = initializer.instance_state;
+
+        let (internal_tx, internal_rx) = internal_channel;
+        let (mut external_tx, mut external_rx) = external_channel;
+
+        let decided_upgrade_certificate = Arc::new(RwLock::new(None));
+
+        // Allow overflow on the channel, otherwise sending to it may block.
+        external_rx.set_overflow(true);
+
+        // Get the validated state from the initializer or construct an incomplete one from the
+        // block header.
+        let validated_state = match initializer.validated_state {
+            Some(state) => state,
+            None => Arc::new(TYPES::ValidatedState::from_header(
+                anchored_leaf.block_header(),
+            )),
+        };
+
+        // Insert the validated state to state map.
+        let mut validated_state_map = BTreeMap::default();
+        validated_state_map.insert(
+            anchored_leaf.view_number(),
+            View {
+                view_inner: ViewInner::Leaf {
+                    leaf: anchored_leaf.commit(),
+                    state: Arc::clone(&validated_state),
+                    delta: initializer.state_delta.clone(),
+                },
+            },
+        );
+        for (view_num, inner) in initializer.undecided_state {
+            validated_state_map.insert(view_num, inner);
+        }
+
+        let mut saved_leaves = HashMap::new();
+        let mut saved_payloads = BTreeMap::new();
+        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+
+        for leaf in initializer.undecided_leafs {
+            saved_leaves.insert(leaf.commit(), leaf.clone());
+        }
+        if let Some(payload) = anchored_leaf.block_payload() {
+            let encoded_txns = payload.encode();
+
+            saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(&encoded_txns));
+        }
+
+        let consensus = Consensus::new(
+            validated_state_map,
+            anchored_leaf.view_number(),
+            anchored_leaf.view_number(),
+            // TODO this is incorrect
+            // https://github.com/EspressoSystems/HotShot/issues/560
+            anchored_leaf.view_number(),
+            initializer.saved_proposals,
+            saved_leaves,
+            saved_payloads,
+            initializer.high_qc,
+            Arc::clone(&consensus_metrics),
+        );
+
+        let consensus = Arc::new(RwLock::new(consensus));
+        let version = Arc::new(RwLock::new(TYPES::Base::VERSION));
+
+        // This makes it so we won't block on broadcasting if there is not a receiver
+        // Our own copy of the receiver is inactive so it doesn't count.
+        external_tx.set_await_active(false);
+
+        let inner: Arc<SystemContext<TYPES, I>> = Arc::new(SystemContext {
+            id: nonce,
+            consensus: OuterConsensus::new(consensus),
+            instance_state: Arc::new(instance_state),
+            public_key,
+            private_key,
+            config,
+            version,
+            start_view: initializer.start_view,
+            network,
+            memberships: Arc::new(memberships),
+            metrics: Arc::clone(&consensus_metrics),
+            internal_event_stream: (internal_tx, internal_rx.deactivate()),
+            output_event_stream: (external_tx.clone(), external_rx.clone().deactivate()),
+            external_event_stream: (external_tx, external_rx.deactivate()),
+            anchored_leaf: anchored_leaf.clone(),
+            storage: Arc::new(RwLock::new(storage)),
+            decided_upgrade_certificate,
+            auction_results_provider: Arc::new(auction_results_provider),
+        });
+
+        inner
+    }
+
     /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
     ///
     /// # Panics

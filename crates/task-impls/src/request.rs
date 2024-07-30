@@ -306,19 +306,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                 return;
             }
         };
-        if let Ok(Ok(serialized_response)) = response {
-            if let Ok(ResponseMessage::Found(msg)) = bincode::deserialize(&serialized_response) {
-                let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
-                else {
-                    error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
-                    broadcast_event(None, &self.sender).await;
-                    return;
-                };
-                broadcast_event(Some(prop), &self.sender).await;
+        match response {
+            Ok(Ok(serialized_response)) => {
+                if let Ok(ResponseMessage::Found(msg)) = bincode::deserialize(&serialized_response)
+                {
+                    let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
+                    else {
+                        error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
+                        broadcast_event(None, &self.sender).await;
+                        return;
+                    };
+                    error!("proposal found {:?}", prop);
+                    broadcast_event(Some(prop), &self.sender).await;
+                }
+                error!("Proposal not found");
+                broadcast_event(None, &self.sender).await;
             }
-            broadcast_event(None, &self.sender).await;
-        } else {
-            broadcast_event(None, &self.sender).await;
+            Ok(Err(e)) => {
+                error!("request for proposal failed with error {:?}", e);
+                broadcast_event(None, &self.sender).await;
+            }
+            Err(e) => {
+                error!("request for timed out with error {:?}", e);
+                broadcast_event(None, &self.sender).await;
+            }
         }
     }
 }

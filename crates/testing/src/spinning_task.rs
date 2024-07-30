@@ -180,6 +180,12 @@ where
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
 
+                                let Some(LateStartNode { network, .. }) =
+                                    self.late_start.get(&node_id)
+                                else {
+                                    panic!("Restated Nodes must have an unitialized context");
+                                };
+                                network.wait_for_ready().await;
                                 let storage = node.handle.storage().clone();
                                 let memberships = node.handle.memberships.clone();
                                 let config = node.handle.hotshot.config.clone();
@@ -210,17 +216,26 @@ where
                                     // For tests, make the node DA based on its index
                                     node_id < config.da_staked_committee_size as u64,
                                 );
-                                let context = TestRunner::<TYPES, I, N>::add_node_with_config(
-                                    node_id,
-                                    node.network.clone(),
-                                    (*memberships).clone(),
-                                    initializer,
-                                    config,
-                                    validator_config,
-                                    (*read_storage).clone(),
-                                    (*auction_results_provider).clone(),
-                                )
-                                .await;
+                                let context =
+                                    TestRunner::<TYPES, I, N>::add_node_with_config_and_channels(
+                                        node_id,
+                                        network.clone(),
+                                        (*memberships).clone(),
+                                        initializer,
+                                        config,
+                                        validator_config,
+                                        (*read_storage).clone(),
+                                        (*auction_results_provider).clone(),
+                                        (
+                                            node.handle.internal_channel_sender(),
+                                            node.handle.internal_event_stream_known_impl(),
+                                        ),
+                                        (
+                                            node.handle.external_channel_sender(),
+                                            node.handle.event_stream_known_impl(),
+                                        ),
+                                    )
+                                    .await;
                                 let handle = context.run_tasks().await;
 
                                 // Create the node and add it to the state, so we can shut them
@@ -228,7 +243,7 @@ where
                                 // safety task.
                                 let node = Node {
                                     node_id,
-                                    network: node.network.clone(),
+                                    network: network.clone(),
                                     handle,
                                 };
                                 node.handle.hotshot.start_consensus().await;

@@ -31,6 +31,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use tracing::error;
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -378,6 +379,7 @@ pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     add_network_message_task(handle, &network);
 
     if let Some(request_receiver) = network.spawn_request_receiver_task().await {
+        error!("adding request response tasks");
         add_request_network_task(handle).await;
         add_response_task(handle, request_receiver);
     }

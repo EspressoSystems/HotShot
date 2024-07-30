@@ -5,15 +5,16 @@ use std::{
     sync::Arc,
 };
 
-use async_broadcast::broadcast;
+use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use futures::future::join_all;
 use hotshot::{
-    traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
-    Memberships, SystemContext,
+    traits::TestableNodeImplementation,
+    types::{Event, SystemContextHandle},
+    HotShotInitializer, Memberships, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -21,6 +22,7 @@ use hotshot_example_types::{
     storage_types::TestStorage,
 };
 use hotshot_fakeapi::fake_solver::FakeSolverState;
+use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
@@ -88,10 +90,14 @@ where
             .clone();
 
         let mut late_start_nodes: HashSet<u64> = HashSet::new();
+        let mut restart_nodes: HashSet<u64> = HashSet::new();
         for (_, changes) in &spinning_changes {
             for change in changes {
                 if matches!(change.updown, UpDown::Up) {
                     late_start_nodes.insert(change.idx.try_into().unwrap());
+                }
+                if matches!(change.updown, UpDown::Restart) {
+                    restart_nodes.insert(change.idx.try_into().unwrap());
                 }
             }
         }
@@ -99,6 +105,7 @@ where
         self.add_nodes::<B>(
             self.launcher.metadata.num_nodes_with_stake,
             &late_start_nodes,
+            &restart_nodes,
         )
         .await;
         let mut event_rxs = vec![];
@@ -370,6 +377,7 @@ where
         &mut self,
         total: usize,
         late_start: &HashSet<u64>,
+        restart: &HashSet<u64>,
     ) -> Vec<u64> {
         let mut results = vec![];
         let config = self.launcher.resource_generator.config.clone();
@@ -433,6 +441,22 @@ where
             };
 
             networks_ready.push(networks_ready_future);
+
+            if restart.contains(&node_id) {
+                self.late_start.insert(
+                    node_id,
+                    LateStartNode {
+                        network: (self.launcher.resource_generator.channel_generator)(node_id)
+                            .await,
+                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
+                            storage: storage.clone(),
+                            memberships: memberships.clone(),
+                            config: config.clone(),
+                            auction_results_provider: auction_results_provider.clone(),
+                        }),
+                    },
+                );
+            }
 
             if late_start.contains(&node_id) {
                 if self.launcher.metadata.skip_late {
@@ -568,6 +592,45 @@ where
             ConsensusMetricsValue::default(),
             storage,
             auction_results_provider,
+        )
+    }
+
+    /// add a specific node with a config
+    /// # Panics
+    /// if unable to initialize the node's `SystemContext` based on the config
+    #[allow(clippy::too_many_arguments)]
+    pub async fn add_node_with_config_and_channels(
+        node_id: u64,
+        network: Network<TYPES, I>,
+        memberships: Memberships<TYPES>,
+        initializer: HotShotInitializer<TYPES>,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
+        storage: I::Storage,
+        auction_results_provider: I::AuctionResultsProvider,
+        internal_channel: (
+            Sender<Arc<HotShotEvent<TYPES>>>,
+            Receiver<Arc<HotShotEvent<TYPES>>>,
+        ),
+        external_channel: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    ) -> Arc<SystemContext<TYPES, I>> {
+        // Get key pair for certificate aggregation
+        let private_key = validator_config.private_key.clone();
+        let public_key = validator_config.public_key.clone();
+
+        SystemContext::new_from_channels(
+            public_key,
+            private_key,
+            node_id,
+            config,
+            memberships,
+            network,
+            initializer,
+            ConsensusMetricsValue::default(),
+            storage,
+            auction_results_provider,
+            internal_channel,
+            external_channel,
         )
     }
 }
