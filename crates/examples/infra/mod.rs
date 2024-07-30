@@ -991,8 +991,8 @@ where
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
-    // ED HERE
-    if !run_config.config.my_own_validator_config.is_da {
+    // ED HERE Change so only one builder 
+    if run_config.node_index != 0 {
         return None;
     }
 

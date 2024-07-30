@@ -544,7 +544,7 @@ where
 
     fn get_builders(&self) -> Result<Vec<Url>, ServerError> {
         if !matches!(self.config.builder, BuilderType::External)
-            && self.builders.len() != self.config.config.da_staked_committee_size
+            && self.builders.len() < 1
         {
             return Err(ServerError {
                 status: tide_disco::StatusCode::NOT_FOUND,
