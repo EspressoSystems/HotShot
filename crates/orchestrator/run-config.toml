@@ -1,7 +1,7 @@
 rounds = 100
 indexed_da = true
 transactions_per_round = 10
-transaction_size = 100
+transaction_size = 10000000
 node_index = 0
 seed = [
     0,
@@ -71,7 +71,7 @@ mesh_n = 4
 online_time = 10
 server_mode = true
 
-[random_builder]
+[simple_builder]
 txn_in_block = 100
 blocks_per_second = 1
 txn_size = { start = 20, end = 100 }

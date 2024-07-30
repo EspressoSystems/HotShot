@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -63,6 +63,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 let payload =
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
+                let time = Instant::now();
                 let vid_disperse = VidDisperse::calculate_vid_disperse(
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
@@ -70,9 +71,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     vid_precompute.clone(),
                 )
                 .await;
+                error!(
+                    "Time to do VID disperse with precompute: {:?}",
+                    time.elapsed()
+                );
+
                 let payload_commitment = vid_disperse.payload_commitment;
                 let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
                 let mut consensus = self.consensus.write().await;
+                // ED What is this below? 
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {
                         consensus.update_vid_shares(*view_number, disperse);

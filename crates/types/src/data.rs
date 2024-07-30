@@ -509,7 +509,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
                 .unwrap();
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
-
+        // ED HERE Time VID
         let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
 
         let block_header = TYPES::BlockHeader::genesis(

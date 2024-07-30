@@ -36,6 +36,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use tide_disco::{method::ReadState, App, Url};
+use tracing::error;
 use vbs::version::StaticVersionType;
 
 use super::{build_block, run_builder_source, BlockEntry, BuilderTask, TestBuilderImplementation};
@@ -141,6 +142,7 @@ where
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
         // TODO ED Get config value of tx size for below
+        let time = Instant::now(); 
         let transaction = TYPES::Transaction::default(self.transaction_size);
         let transactions = vec![transaction];
 
@@ -187,6 +189,8 @@ where
             .write()
             .await
             .insert(block_entry.metadata.block_hash.clone(), block_entry);
+
+        error!("Time elapse building block: {:?}", time.elapsed());
 
         Ok(vec![metadata])
     }
