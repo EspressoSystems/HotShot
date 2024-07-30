@@ -103,18 +103,18 @@ EOF
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
                                                                                 --commit_sha ${current_commit}${commit_append} &
-                                sleep 30
+                                sleep 120
 
                                 # start leaders need to run on GPU FIRST
                                 # and WAIT for enough time till it registerred at orchestrator
                                 # make sure you're able to access the remote nvidia gpu server
                                 echo -e "\e[35mGoing to start leaders on remote gpu server $REMOTE_GPU_HOST\e[0m"
                                 
-                                ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
-cd HotShot
-nohup bash scripts/benchmark_scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url} > nohup.out &
-exit
-EOF
+                                # ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
+# cd HotShot
+# nohup bash scripts/benchmark_scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url} > nohup.out &
+# exit
+# EOF
 
                                 sleep 1m
 
