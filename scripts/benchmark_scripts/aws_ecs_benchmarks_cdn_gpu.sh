@@ -13,10 +13,10 @@ current_commit=$(git rev-parse HEAD)
 commit_append="_gpu"
 
 # Check if at least two arguments are provided
-if [ $# -lt 3 ]; then
-    echo "Usage: $0 <REMOTE_USER> <REMOTE_GPU_HOST> <REMOTE_BROKER_HOST>"
-    exit 1
-fi
+# if [ $# -lt 3 ]; then
+#     echo "Usage: $0 <REMOTE_USER> <REMOTE_GPU_HOST> <REMOTE_BROKER_HOST>"
+#     exit 1
+# fi
 REMOTE_USER="$1"
 REMOTE_GPU_HOST="$2"
 
