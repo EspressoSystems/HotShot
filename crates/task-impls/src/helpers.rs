@@ -485,12 +485,6 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    //
-    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
-    //
-    //    proposal.validate_signature(&quorum_membership)?;
-    //
-    // in a future PR.
     proposal.validate_signature(quorum_membership)?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
