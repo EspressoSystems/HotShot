@@ -305,7 +305,7 @@ async fn test_all_restart() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
-        next_view_timeout: 5000,
+        next_view_timeout: 2000,
         ..Default::default()
     };
     let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription::default();
@@ -324,6 +324,8 @@ async fn test_all_restart() {
         // Start the nodes before their leadership.
         node_changes: vec![(13, catchup_nodes)],
     };
+    metadata.view_sync_properties =
+        hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 21);
 
     metadata.completion_task_description =
         CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
@@ -334,7 +336,7 @@ async fn test_all_restart() {
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
         // Make sure we keep committing rounds after the catchup, but not the full 50.
         num_successful_views: 22,
-        num_failed_views: 5,
+        num_failed_views: 15,
         ..Default::default()
     };
 

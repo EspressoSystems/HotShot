@@ -600,7 +600,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
             .number_of_views_per_decide_event
             .add_point(cur_number_of_views_per_decide_event as f64);
 
-        error!(
+        debug!(
             "Sending Decide for view {:?}",
             consensus.last_decided_view()
         );

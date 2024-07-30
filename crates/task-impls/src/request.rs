@@ -318,7 +318,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                     };
                     error!("proposal found {:?}", prop);
                     broadcast_event(Some(prop), &self.sender).await;
-                }
+                    return;
+                } 
                 error!("Proposal not found");
                 broadcast_event(None, &self.sender).await;
             }

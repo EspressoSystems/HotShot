@@ -467,7 +467,7 @@ impl<
 
             match transmit_result {
                 Ok(()) => {}
-                Err(e) => error!("Failed to send message from network task: {:?}", e),
+                Err(e) => warn!("Failed to send message from network task: {:?}", e),
             }
         });
     }
