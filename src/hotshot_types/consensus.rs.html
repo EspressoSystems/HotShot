@@ -738,6 +738,9 @@
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides the core consensus types
 
 </span><span class="kw">use </span>std::{
@@ -751,6 +754,7 @@
 <span class="kw">use </span>async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>tracing::{debug, error, instrument, trace};
+<span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
@@ -1472,8 +1476,10 @@
     <span class="doccomment">/// Metadata for the block payload
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     <span class="doccomment">/// Builder fee data
-    </span><span class="kw">pub </span>fee: BuilderFee&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// View number this block is for
     </span><span class="kw">pub </span>block_view: TYPES::Time,
+    <span class="doccomment">/// auction result that the block was produced from, if any
+    </span><span class="kw">pub </span>auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
 }
 </code></pre></div></section></main></body></html>

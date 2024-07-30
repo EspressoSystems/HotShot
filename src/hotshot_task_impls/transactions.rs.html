@@ -739,6 +739,10 @@
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -759,10 +763,10 @@
     event::{Event, EventType},
     simple_certificate::{version, UpgradeCertificate},
     traits::{
-        auction_results_provider::{AuctionResultsProvider, HasUrls},
+        auction_results_provider::AuctionResultsProvider,
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, HasUrls, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
         BlockPayload,
     },
@@ -928,6 +932,7 @@
                     block_view,
                     <span class="macro">vec1::vec1!</span>[fee],
                     precompute_data,
+                    <span class="prelude-val">None</span>,
                 ))),
                 event_stream,
             )
@@ -967,6 +972,7 @@
                     block_view,
                     <span class="macro">vec1::vec1!</span>[null_fee],
                     <span class="prelude-val">Some</span>(precompute_data),
+                    <span class="prelude-val">None</span>,
                 ))),
                 event_stream,
             )
@@ -1018,7 +1024,7 @@
             </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>futures = Vec::new();
 
-                <span class="kw">for </span>url <span class="kw">in </span>urls.urls() {
+                <span class="kw">for </span>url <span class="kw">in </span>urls.clone().urls() {
                     futures.push(async_timeout(
                         <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
                         <span class="kw">async </span>{
@@ -1065,6 +1071,7 @@
                             block_view,
                             sequencing_fees,
                             <span class="prelude-val">None</span>,
+                            <span class="prelude-val">Some</span>(urls),
                         ))),
                         event_stream,
                     )
@@ -1108,6 +1115,7 @@
                 block_view,
                 <span class="macro">vec1::vec1!</span>[null_fee],
                 <span class="prelude-val">Some</span>(precompute_data),
+                <span class="prelude-val">None</span>,
             ))),
             event_stream,
         )

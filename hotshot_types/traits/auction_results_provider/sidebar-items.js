@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["AuctionResultsProvider","HasUrls"]};
+window.SIDEBAR_ITEMS = {"trait":["AuctionResultsProvider"]};

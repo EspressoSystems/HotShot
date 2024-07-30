@@ -726,6 +726,8 @@
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
 <a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -1304,7 +1306,8 @@
                 builder_commitment,
                 metadata,
                 view,
-                fee,
+                fees,
+                auction_result,
             ) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="macro">debug!</span>(
@@ -1315,8 +1318,9 @@
                     commitment: <span class="kw-2">*</span>payload_commitment,
                     builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
-                    fee: fee.clone(),
+                    fees: fees.clone(),
                     block_view: view,
+                    auction_result: auction_result.clone(),
                 });
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number() + <span class="number">1 </span>== view

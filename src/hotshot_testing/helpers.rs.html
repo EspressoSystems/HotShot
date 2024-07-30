@@ -436,7 +436,7 @@
     I: NodeImplementation&lt;
             TYPES,
             Storage = TestStorage&lt;TYPES&gt;,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt; + TestableNodeImplementation&lt;TYPES&gt;,
 &gt;(
     node_id: u64,

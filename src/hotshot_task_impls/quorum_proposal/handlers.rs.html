@@ -329,6 +329,26 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
@@ -345,6 +365,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
+    constants::MarketplaceVersion,
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
     simple_certificate::{version, UpgradeCertificate},
@@ -353,6 +374,7 @@
     },
 };
 <span class="kw">use </span>tracing::{debug, error, instrument};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -492,19 +514,35 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone(),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>block_header = TYPES::BlockHeader::new_legacy(
-            state.as_ref(),
-            <span class="self">self</span>.instance_state.as_ref(),
-            <span class="kw-2">&amp;</span>parent_leaf,
-            commitment_and_metadata.commitment,
-            commitment_and_metadata.builder_commitment,
-            commitment_and_metadata.metadata,
-            commitment_and_metadata.fee,
-            vid_share.data.common.clone(),
-            version,
-        )
-        .<span class="kw">await
-        </span>.context(<span class="string">"Failed to construct block header"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>block_header = <span class="kw">if </span>version &lt; MarketplaceVersion::VERSION {
+            TYPES::BlockHeader::new_legacy(
+                state.as_ref(),
+                <span class="self">self</span>.instance_state.as_ref(),
+                <span class="kw-2">&amp;</span>parent_leaf,
+                commitment_and_metadata.commitment,
+                commitment_and_metadata.builder_commitment,
+                commitment_and_metadata.metadata,
+                commitment_and_metadata.fees.first().clone(),
+                vid_share.data.common.clone(),
+                version,
+            )
+            .<span class="kw">await
+            </span>.context(<span class="string">"Failed to construct legacy block header"</span>)<span class="question-mark">?
+        </span>} <span class="kw">else </span>{
+            TYPES::BlockHeader::new_marketplace(
+                state.as_ref(),
+                <span class="self">self</span>.instance_state.as_ref(),
+                <span class="kw-2">&amp;</span>parent_leaf,
+                commitment_and_metadata.commitment,
+                commitment_and_metadata.metadata,
+                commitment_and_metadata.fees.to_vec(),
+                vid_share.data.common.clone(),
+                commitment_and_metadata.auction_result,
+                version,
+            )
+            .<span class="kw">await
+            </span>.context(<span class="string">"Failed to construct marketplace block header"</span>)<span class="question-mark">?
+        </span>};
 
         <span class="kw">let </span>proposal = QuorumProposal {
             block_header,
@@ -598,14 +636,16 @@
                     builder_commitment,
                     metadata,
                     view,
-                    fee,
+                    fees,
+                    auction_result,
                 ) =&gt; {
                     commit_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
                         commitment: <span class="kw-2">*</span>payload_commitment,
                         builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
-                        fee: fee.clone(),
+                        fees: fees.clone(),
                         block_view: <span class="kw-2">*</span>view,
+                        auction_result: auction_result.clone(),
                     });
                 }
                 HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {

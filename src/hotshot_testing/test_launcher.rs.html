@@ -96,7 +96,7 @@
     <span class="doccomment">/// configuration used to generate each hotshot node
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// generate a new auction results connector for each node
-    </span><span class="kw">pub </span>auction_results_provider: Generator&lt;TestAuctionResultsProvider&gt;,
+    </span><span class="kw">pub </span>auction_results_provider: Generator&lt;TestAuctionResultsProvider&lt;TYPES&gt;&gt;,
 }
 
 <span class="doccomment">/// test launcher

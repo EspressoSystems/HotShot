@@ -173,6 +173,8 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -233,6 +235,7 @@
                     view_number,
                     sequencing_fees,
                     vid_precompute,
+                    auction_result,
                     ..
                 } = packed_bundle;
                 <span class="kw">let </span>payload =
@@ -262,7 +265,8 @@
                         builder_commitment,
                         metadata.clone(),
                         <span class="kw-2">*</span>view_number,
-                        sequencing_fees.first().clone(),
+                        sequencing_fees.clone(),
+                        auction_result.clone(),
                     )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )

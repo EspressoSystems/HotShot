@@ -903,6 +903,11 @@
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -1786,6 +1791,9 @@
 
     <span class="doccomment">/// The Vid precompute for the block.
     </span><span class="kw">pub </span>vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
+
+    <span class="doccomment">/// The auction results for the block, if it was produced as the result of an auction
+    </span><span class="kw">pub </span>auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; PackedBundle&lt;TYPES&gt; {
@@ -1796,6 +1804,7 @@
         view_number: TYPES::Time,
         sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
         vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
+        auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             encoded_transactions,
@@ -1803,6 +1812,7 @@
             view_number,
             sequencing_fees,
             vid_precompute,
+            auction_result,
         }
     }
 }

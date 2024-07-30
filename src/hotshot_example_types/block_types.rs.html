@@ -342,8 +342,6 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{Debug, Display},
     mem::size_of,
@@ -369,7 +367,6 @@
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
-    auction_results_provider_types::TestAuctionResult,
     node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
 };
@@ -590,7 +587,6 @@
     <span class="kw">for </span>TestBlockHeader
 {
     <span class="kw">type </span>Error = std::convert::Infallible;
-    <span class="kw">type </span>AuctionResult = TestAuctionResult;
 
     <span class="kw">async fn </span>new_legacy(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
@@ -627,7 +623,7 @@
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         _builder_fee: Vec&lt;BuilderFee&lt;TYPES&gt;&gt;,
         _vid_common: VidCommon,
-        _auction_results: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::AuctionResult&gt;,
+        _auction_results: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
         _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="macro">unimplemented!</span>()
@@ -663,7 +659,7 @@
         <span class="self">self</span>.builder_commitment.clone()
     }
 
-    <span class="kw">fn </span>get_auction_results(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::AuctionResult&gt; {
+    <span class="kw">fn </span>get_auction_results(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt; {
         <span class="macro">unimplemented!</span>()
     }
 }

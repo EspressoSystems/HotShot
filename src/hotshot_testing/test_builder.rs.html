@@ -487,6 +487,8 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::{
@@ -967,7 +969,9 @@
                 ),
                 storage: Box::new(|<span class="kw">_</span>| TestStorage::&lt;TYPES&gt;::default()),
                 config,
-                auction_results_provider: Box::new(|<span class="kw">_</span>| TestAuctionResultsProvider::default()),
+                auction_results_provider: Box::new(|<span class="kw">_</span>| {
+                    TestAuctionResultsProvider::&lt;TYPES&gt;::default()
+                }),
             },
             metadata: <span class="self">self</span>,
         }

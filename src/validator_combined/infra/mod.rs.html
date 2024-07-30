@@ -1395,7 +1395,7 @@
         TYPES,
         Network = NETWORK,
         Storage = TestStorage&lt;TYPES&gt;,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
     &gt;,
 &gt; <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
@@ -1462,7 +1462,7 @@
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::&lt;TYPES&gt;::default(),
-            TestAuctionResultsProvider::default(),
+            TestAuctionResultsProvider::&lt;TYPES&gt;::default(),
         )
         .<span class="kw">await
         </span>.expect(<span class="string">"Could not init hotshot"</span>)
@@ -1660,7 +1660,7 @@
             TYPES,
             Network = PushCdnNetwork&lt;TYPES&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt;,
     &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
 <span class="kw">where
@@ -1737,7 +1737,7 @@
             TYPES,
             Network = Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt;,
     &gt; RunDa&lt;TYPES, Libp2pNetwork&lt;TYPES::SignatureKey&gt;, NODE&gt; <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
 <span class="kw">where
@@ -1823,7 +1823,7 @@
             TYPES,
             Network = CombinedNetworks&lt;TYPES&gt;,
             Storage = TestStorage&lt;TYPES&gt;,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt;,
     &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
 <span class="kw">where
@@ -1893,7 +1893,7 @@
         TYPES,
         Network = NETWORK,
         Storage = TestStorage&lt;TYPES&gt;,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
     &gt;,
     RUNDA: RunDa&lt;TYPES, NETWORK, NODE&gt;,
 &gt;(
