@@ -199,12 +199,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
 
     /// Get the sender side of the external event stream for testing purpose
     #[cfg(feature = "hotshot-testing")]
+    #[must_use]
     pub fn external_channel_sender(&self) -> Sender<Event<TYPES>> {
         self.output_event_stream.0.clone()
     }
 
     /// Get the sender side of the internal event stream for testing purpose
     #[cfg(feature = "hotshot-testing")]
+    #[must_use]
     pub fn internal_channel_sender(&self) -> Sender<Arc<HotShotEvent<TYPES>>> {
         self.internal_event_stream.0.clone()
     }

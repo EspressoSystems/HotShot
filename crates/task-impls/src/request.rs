@@ -316,19 +316,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                         broadcast_event(None, &self.sender).await;
                         return;
                     };
-                    error!("proposal found {:?}", prop);
+                    debug!("proposal found {:?}", prop);
                     broadcast_event(Some(prop), &self.sender).await;
                     return;
-                } 
-                error!("Proposal not found");
+                }
+                debug!("Proposal not found");
                 broadcast_event(None, &self.sender).await;
             }
             Ok(Err(e)) => {
-                error!("request for proposal failed with error {:?}", e);
+                debug!("request for proposal failed with error {:?}", e);
                 broadcast_event(None, &self.sender).await;
             }
             Err(e) => {
-                error!("request for timed out with error {:?}", e);
+                debug!("request for timed out with error {:?}", e);
                 broadcast_event(None, &self.sender).await;
             }
         }
