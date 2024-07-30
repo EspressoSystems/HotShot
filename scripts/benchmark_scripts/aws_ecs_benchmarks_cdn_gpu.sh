@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # make sure the following line is added to `~/.bashrc`
-source "$HOME/.cargo/env"
+# source "$HOME/.cargo/env"
 
 # assign local ip by curl from AWS metadata server:
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
