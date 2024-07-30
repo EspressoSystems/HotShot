@@ -112,7 +112,7 @@ EOF
                                 
                                 ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
 cd HotShot
-nohup bash scripts/benchmark_scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url} > nohup.out 2>&1 &
+nohup bash scripts/benchmark_scripts/benchmarks_start_leader_gpu.sh ${fixed_leader_for_gpuvid} ${orchestrator_url} > nohup.out &
 exit
 EOF
 
