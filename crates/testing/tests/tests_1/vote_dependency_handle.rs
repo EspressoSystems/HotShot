@@ -68,57 +68,95 @@ async fn test_vote_dependency_handle() {
     }
     drop(consensus_writer);
 
-    let inputs = vec![
-        QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-        DaCertificateValidated(dacs[1].clone()),
-        VidShareValidated(vids[1].0[0].clone()),
+    // 1,2,3
+    // 1,3,2
+    // 2,1,3
+    // 2,3,1
+    // 3,1,2
+    // 3,2,1
+
+    let all_inputs = vec![
+        vec![
+            DaCertificateValidated(dacs[1].clone()),
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+            VidShareValidated(vids[1].0[0].clone()),
+        ],
+        vec![
+            DaCertificateValidated(dacs[1].clone()),
+            VidShareValidated(vids[1].0[0].clone()),
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+        ],
+        vec![
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+            DaCertificateValidated(dacs[1].clone()),
+            VidShareValidated(vids[1].0[0].clone()),
+        ],
+        vec![
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+            VidShareValidated(vids[1].0[0].clone()),
+            DaCertificateValidated(dacs[1].clone()),
+        ],
+        vec![
+            VidShareValidated(vids[1].0[0].clone()),
+            DaCertificateValidated(dacs[1].clone()),
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+        ],
+        vec![
+            VidShareValidated(vids[1].0[0].clone()),
+            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+            DaCertificateValidated(dacs[1].clone()),
+        ],
     ];
 
-    let outputs = vec![
-        exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
-        validated_state_updated(),
-        quorum_vote_send(),
-    ];
+    for inputs in all_inputs.into_iter() {
+        let outputs = vec![
+            exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
+            validated_state_updated(),
+            quorum_vote_send(),
+        ];
 
-    let qv = QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+        let qv = QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
-    let event_sender = handle.internal_event_stream_sender();
-    let mut event_receiver = handle.internal_event_stream_receiver_known_impl();
-    let view_number = ViewNumber::new(node_id);
+        let event_sender = handle.internal_event_stream_sender();
+        let mut event_receiver = handle.internal_event_stream_receiver_known_impl();
+        let view_number = ViewNumber::new(node_id);
 
-    let vote_dependency_handle_state = VoteDependencyHandle::<TestTypes, MemoryImpl> {
-        public_key: qv.public_key.clone(),
-        private_key: qv.private_key.clone(),
-        consensus: OuterConsensus::new(Arc::clone(&qv.consensus.inner_consensus)),
-        instance_state: Arc::clone(&qv.instance_state),
-        quorum_membership: Arc::clone(&qv.quorum_membership),
-        storage: Arc::clone(&qv.storage),
-        view_number,
-        sender: event_sender.clone(),
-        receiver: event_receiver.clone(),
-        decided_upgrade_certificate: Arc::clone(&qv.decided_upgrade_certificate),
-        id: qv.id,
-    };
+        let vote_dependency_handle_state = VoteDependencyHandle::<TestTypes, MemoryImpl> {
+            public_key: qv.public_key.clone(),
+            private_key: qv.private_key.clone(),
+            consensus: OuterConsensus::new(Arc::clone(&qv.consensus.inner_consensus)),
+            instance_state: Arc::clone(&qv.instance_state),
+            quorum_membership: Arc::clone(&qv.quorum_membership),
+            storage: Arc::clone(&qv.storage),
+            view_number,
+            sender: event_sender.clone(),
+            receiver: event_receiver.clone(),
+            decided_upgrade_certificate: Arc::clone(&qv.decided_upgrade_certificate),
+            id: qv.id,
+        };
 
-    let inputs_len = inputs.len();
-    for event in inputs.into_iter() {
-        broadcast_event(event.into(), &event_sender).await;
-    }
-
-    let mut i = 0;
-    let mut output_events = vec![];
-    while let Ok(Ok(received_output)) = async_timeout(TIMEOUT, event_receiver.recv_direct()).await {
-        if i < inputs_len {
-            i += 1;
-            continue;
+        let inputs_len = inputs.len();
+        for event in inputs.into_iter() {
+            broadcast_event(event.into(), &event_sender).await;
         }
 
-        output_events.push(received_output);
-    }
+        let mut i = 0;
+        let mut output_events = vec![];
+        while let Ok(Ok(received_output)) =
+            async_timeout(TIMEOUT, event_receiver.recv_direct()).await
+        {
+            if i < inputs_len {
+                i += 1;
+                continue;
+            }
 
-    for (check, real) in outputs.into_iter().zip(output_events) {
-        if check.evaluate(&real).await == PredicateResult::Fail {
-            panic!("Output {real} did not match expected output {check:?}");
+            output_events.push(received_output);
+        }
+
+        for (check, real) in outputs.into_iter().zip(output_events) {
+            if check.evaluate(&real).await == PredicateResult::Fail {
+                panic!("Output {real} did not match expected output {check:?}");
+            }
         }
     }
 }
