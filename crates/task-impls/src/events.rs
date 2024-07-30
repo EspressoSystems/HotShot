@@ -84,6 +84,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// All dependencies for the quorum vote are validated.
     QuorumVoteDependenciesValidated(TYPES::Time),
     /// A quorum proposal with the given parent leaf is validated.
+    /// The full validation checks include:
+    /// 1. The proposal is not for an old view
+    /// 2. The proposal has been correctly signed by the leader of the current view
+    /// 3. The justify QC is valid
+    /// 4. The proposal passes either liveness or safety check.
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
     /// A quorum proposal is missing for a view that we meed
     QuorumProposalRequest(ProposalMissing<TYPES>),

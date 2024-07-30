@@ -494,11 +494,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     //    proposal.validate_signature(&quorum_membership)?;
     //
     // in a future PR.
-    let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-    ensure!(
-        view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()),
-        "Could not verify proposal's signature."
-    );
+    proposal.validate_signature(view_leader_key)?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view - 1 {
