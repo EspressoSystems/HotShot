@@ -11,7 +11,10 @@ use hotshot_testing::{
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
     test_builder::TestDescription,
 };
+use hotshot_types::data::ViewNumber;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use std::time::Duration;
+use std::collections::HashSet;
 
 #[cfg(async_executor_impl = "async-std")]
 use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
@@ -84,6 +87,7 @@ cross_tests!(
         };
 
         metadata.overall_safety_properties.num_failed_views = 1;
+        metadata.overall_safety_properties.expected_views_to_fail = HashSet::from([ViewNumber::new(8)]);
         metadata
     },
 );
