@@ -102,8 +102,11 @@ pub struct VoteAccumulator<
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
 }
 
-impl<TYPES: NodeType, VOTE: Vote<TYPES> + Committable + Clone, CERT: Certificate<TYPES, Voteable = VOTE::Data>>
-    VoteAccumulator<TYPES, VOTE, CERT>
+impl<
+        TYPES: NodeType,
+        VOTE: Vote<TYPES> + Committable + Clone,
+        CERT: Certificate<TYPES, Voteable = VOTE::Data>,
+    > VoteAccumulator<TYPES, VOTE, CERT>
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.

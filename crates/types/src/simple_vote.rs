@@ -161,10 +161,9 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
         }
     }
 
-    fn commit(
-        data: &DATA,
-        view: TYPES::Time,
-    ) -> Commitment<Self> {
+    /// A private associated function that calculates a commitment based on the provided data and view.
+    /// Used to calculate the vote's commitment including the data and the view number.
+    fn commit(data: &DATA, view: TYPES::Time) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Vote data")
             .u64(*view)
             .var_size_bytes(data.commit().as_ref())
