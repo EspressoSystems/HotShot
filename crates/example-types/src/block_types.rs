@@ -21,6 +21,7 @@ use sha3::{Digest, Keccak256};
 use snafu::Snafu;
 use time::OffsetDateTime;
 use vbs::version::Version;
+use chrono::Utc;
 
 use crate::{
     auction_results_provider_types::TestAuctionResult,
@@ -113,7 +114,13 @@ impl Committable for TestTransaction {
 
 impl Transaction for TestTransaction {
     fn default (num_bytes: usize) -> Self {
-        TestTransaction(vec![0; num_bytes])
+
+        let timestamp = Utc::now().timestamp();
+        let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+        let mut tx = vec![0; num_bytes]; 
+        tx.append(&mut timestamp_vec);
+
+        TestTransaction(tx)
     }
 }
 

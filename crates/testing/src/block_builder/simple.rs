@@ -142,8 +142,13 @@ where
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
         // TODO ED Get config value of tx size for below
-        let time = Instant::now(); 
+        let time = Instant::now();
         let transaction = TYPES::Transaction::default(self.transaction_size);
+
+        // let timestamp = Utc::now().timestamp();
+        // let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+        // let mut tx = transaction.into_bytes();
+        // tx.append(&mut timestamp_vec);
         let transactions = vec![transaction];
 
         // let transactions = self
