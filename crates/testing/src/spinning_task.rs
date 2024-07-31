@@ -67,7 +67,7 @@ where
         TYPES,
         Network = N,
         Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
 {
     type Event = Event<TYPES>;

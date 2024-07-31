@@ -18,10 +18,10 @@ use hotshot_types::{
     event::{Event, EventType},
     simple_certificate::{version, UpgradeCertificate},
     traits::{
-        auction_results_provider::{AuctionResultsProvider, HasUrls},
+        auction_results_provider::AuctionResultsProvider,
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, HasUrls, NodeImplementation, NodeType},
         signature_key::{BuilderSignatureKey, SignatureKey},
         BlockPayload,
     },
@@ -187,6 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     block_view,
                     vec1::vec1![fee],
                     precompute_data,
+                    None,
                 ))),
                 event_stream,
             )
@@ -226,6 +227,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                     block_view,
                     vec1::vec1![null_fee],
                     Some(precompute_data),
+                    None,
                 ))),
                 event_stream,
             )
@@ -277,7 +279,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
             {
                 let mut futures = Vec::new();
 
-                for url in urls.urls() {
+                for url in urls.clone().urls() {
                     futures.push(async_timeout(
                         self.builder_timeout.saturating_sub(start.elapsed()),
                         async {
@@ -324,6 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                             block_view,
                             sequencing_fees,
                             None,
+                            Some(urls),
                         ))),
                         event_stream,
                     )
@@ -367,6 +370,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 block_view,
                 vec1::vec1![null_fee],
                 Some(precompute_data),
+                None,
             ))),
             event_stream,
         )
@@ -444,7 +448,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         let consensus = self.consensus.read().await;
         let mut target_view = TYPES::Time::new(block_view.saturating_sub(1));
 
-        while target_view != TYPES::Time::genesis() {
+        loop {
             let Some(view_data) = consensus.validated_state_map().get(&target_view) else {
                 tracing::warn!(?target_view, "Missing record for view in validated state");
                 return None;
@@ -465,13 +469,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 }
                 ViewInner::Failed => {
                     // For failed views, backtrack
-                    target_view = target_view - 1;
+                    target_view = TYPES::Time::new(target_view.checked_sub(1)?);
                     continue;
                 }
             }
         }
-
-        None
     }
 
     #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
