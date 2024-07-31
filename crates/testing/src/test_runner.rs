@@ -442,22 +442,6 @@ where
 
             networks_ready.push(networks_ready_future);
 
-            if restart.contains(&node_id) {
-                self.late_start.insert(
-                    node_id,
-                    LateStartNode {
-                        network: (self.launcher.resource_generator.channel_generator)(node_id)
-                            .await,
-                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
-                            storage: storage.clone(),
-                            memberships: memberships.clone(),
-                            config: config.clone(),
-                            auction_results_provider: auction_results_provider.clone(),
-                        }),
-                    },
-                );
-            }
-
             if late_start.contains(&node_id) {
                 if self.launcher.metadata.skip_late {
                     self.late_start.insert(
@@ -517,6 +501,21 @@ where
             }
 
             results.push(node_id);
+        }
+
+        // Add the restart nodes after the rest.  This must be done after all the original networks are
+        // created because this will reset the bootstrap info for the restarted nodes
+        for node_id in &results {
+            if restart.contains(node_id) {
+                self.late_start.insert(
+                    *node_id,
+                    LateStartNode {
+                        network: (self.launcher.resource_generator.channel_generator)(*node_id)
+                            .await,
+                        context: LateNodeContext::Restart,
+                    },
+                );
+            }
         }
 
         // Wait for all networks to be ready
@@ -671,6 +670,8 @@ pub enum LateNodeContext<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
     /// The system context that we're passing to the node when it is not yet initialized, so we're
     /// initializing it based on the received leaf and init parameters.
     UninitializedContext(LateNodeContextParameters<TYPES, I>),
+    /// The node is to be restarted so we will build the context from the node that was already running.
+    Restart,
 }
 
 /// A yet-to-be-started node that participates in tests

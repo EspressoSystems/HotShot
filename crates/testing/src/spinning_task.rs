@@ -152,6 +152,9 @@ where
                                         )
                                         .await
                                     }
+                                    LateNodeContext::Restart => {
+                                        panic!("Cannot spin up a node with Restart context")
+                                    }
                                 };
 
                                 let handle = context.run_tasks().await;
@@ -182,8 +185,10 @@ where
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
 
-                                let Some(LateStartNode { network, .. }) =
-                                    self.late_start.get(&node_id)
+                                let Some(LateStartNode {
+                                    network,
+                                    context: LateNodeContext::Restart,
+                                }) = self.late_start.get(&node_id)
                                 else {
                                     panic!("Restated Nodes must have an unitialized context");
                                 };
