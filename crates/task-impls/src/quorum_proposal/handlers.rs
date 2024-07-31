@@ -197,8 +197,8 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             block_header,
             view_number: self.view_number,
             justify_qc: self.consensus.read().await.high_qc().clone(),
-            proposal_certificate,
             upgrade_certificate,
+            proposal_certificate,
         };
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
