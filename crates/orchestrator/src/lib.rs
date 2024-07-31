@@ -378,10 +378,7 @@ where
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
         if !self.peer_pub_ready {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BAD_REQUEST,
-                message: "Peer's public configs are not ready".to_string(),
-            });
+            return Ok(false);
         }
         Ok(self.peer_pub_ready)
     }

@@ -584,7 +584,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
 
     debug!("Updating view from {} to {}", *old_view, *new_view);
 
-    if *old_view / 100 != *new_view / 100 {
+    if *old_view / 20 != *new_view / 20 {
         // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):
         // switch to info! when INFO logs become less cluttered
         error!("Progress: entered view {:>6}", *new_view);
