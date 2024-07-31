@@ -550,6 +550,7 @@ impl<TYPES: NodeType> std::fmt::Debug for OverallSafetyPropertiesDescription<TYP
             .field("check_block", &self.check_block)
             .field("num_failed_rounds_total", &self.num_failed_views)
             .field("transaction_threshold", &self.transaction_threshold)
+            .field("expected views to fail", &self.expected_views_to_fail)
             .finish_non_exhaustive()
     }
 }

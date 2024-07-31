@@ -68,7 +68,12 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| {
-                let dishonest_leader = DishonestLeader::<TestTypes, MemoryImpl>::default();
+                let dishonest_leader = DishonestLeader::<TestTypes, MemoryImpl> {
+                    dishonest_at_proposal_numbers: HashSet::from([2, 3]),
+                    validated_proposals: Vec::new(),
+                    total_proposals_from_node: 0,
+                    _phantom: std::marker::PhantomData
+                };
                 match node_id {
                     2 => Behaviour::Byzantine(Box::new(dishonest_leader)),
                     _ => Behaviour::Standard,
@@ -86,8 +91,10 @@ cross_tests!(
             ..TestDescription::default()
         };
 
-        metadata.overall_safety_properties.num_failed_views = 1;
-        metadata.overall_safety_properties.expected_views_to_fail = HashSet::from([ViewNumber::new(8)]);
+        metadata.overall_safety_properties.num_failed_views = 2;
+        metadata.num_nodes_with_stake = 5;
+        metadata.overall_safety_properties.expected_views_to_fail = 
+            HashSet::from([ViewNumber::new(7), ViewNumber::new(12)]);
         metadata
     },
 );
