@@ -202,7 +202,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
-    #[allow(clippy::panic)]
+    #[allow(clippy::panic, clippy::too_many_lines)]
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -505,11 +505,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<K>, NetworkError> {
-        // Error if there were no bootstrap nodes specified
-        // #[cfg(not(feature = "hotshot-testing"))]
-        // if bootstrap_addrs.read().await.len() == 0 {
-        //     return Err(NetworkError::NoBootstrapNodesSpecified);
-        // }
+
         let (mut rx, network_handle) = spawn_network_node(config.clone(), id)
             .await
             .map_err(Into::<NetworkError>::into)?;
