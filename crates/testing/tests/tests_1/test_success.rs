@@ -57,6 +57,7 @@ cross_tests!(
 );
 
 #[cfg(async_executor_impl = "async-std")]
+/// Test where node 4 sends out the correct quorum proposal and additionally spams the network with an extra 99 malformed proposals 
 cross_tests!(
     TestName: multiple_bad_proposals,
     Impls: [MemoryImpl],
