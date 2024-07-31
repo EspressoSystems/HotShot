@@ -65,7 +65,7 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
 
     // TODO ED We should make this an automatic caclulation
     // FROM GUS: multiplicity must be at least 3 times max_payload_size divided by num_storage_nodes.
-    let muliplicity = 1048576; 
+    let muliplicity = 4096; 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
     VidSchemeType(
