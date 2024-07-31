@@ -11,7 +11,11 @@ use hotshot_testing::{
     test_builder::TestDescription,
 };
 #[cfg(async_executor_impl = "async-std")]
-use {hotshot::tasks::{DoubleProposeVote, BadProposalViewDos}, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
+use {
+    hotshot::tasks::{BadProposalViewDos, DoubleProposeVote},
+    hotshot_testing::test_builder::Behaviour,
+    std::rc::Rc,
+};
 
 cross_tests!(
     TestName: test_success,
@@ -56,8 +60,8 @@ cross_tests!(
     },
 );
 
+// Test where node 4 sends out the correct quorum proposal and additionally spams the network with an extra 99 malformed proposals
 #[cfg(async_executor_impl = "async-std")]
-/// Test where node 4 sends out the correct quorum proposal and additionally spams the network with an extra 99 malformed proposals 
 cross_tests!(
     TestName: multiple_bad_proposals,
     Impls: [MemoryImpl],
