@@ -33,7 +33,7 @@ use hotshot_types::{
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
     traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
-    vote::HasViewNumber,
+    vote::{HasViewNumber, Vote},
 };
 use jf_vid::VidScheme;
 use sha2::Digest;

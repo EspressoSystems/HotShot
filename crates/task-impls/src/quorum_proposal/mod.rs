@@ -22,7 +22,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -365,7 +365,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
-                if cert.data.decide_by >= self.latest_proposed_view + 3 {
+                if cert.vote().data.decide_by >= self.latest_proposed_view + 3 {
                     debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
@@ -417,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.data()
+                        certificate.vote().data()
                     );
                     return;
                 }

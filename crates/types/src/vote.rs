@@ -29,14 +29,27 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> + Committable {
     type Data: Voteable;
 
     /// Get the signature of the vote sender
-    fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
+    fn signature(
+        &self,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType>;
     /// Gets the data which was voted on by this vote
     fn data(&self) -> &Self::Data;
     /// Gets the (Data + view number) commitment of the vote
     fn vote_commitment(&self) -> Commitment<Self>;
 
     /// Gets the public signature key of the votes creator/sender
-    fn signing_key(&self) -> TYPES::SignatureKey;
+    fn signing_key(&self) -> Option<TYPES::SignatureKey>;
+
+    /// # Errors
+    /// If we are unable to sign the data
+    fn create_signed_vote(
+        data: Self::Data,
+        view: TYPES::Time,
+        pub_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError>
+    where
+        Self: Sized;
 }
 
 /// Any type that is associated with a view
@@ -59,8 +72,8 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
 
     /// Build a certificate from the data commitment and the quorum of signers
     fn create_signed_certificate(
-        data_commitment: Commitment<Self::Voteable>,
-        data: Self::Voteable,
+        vote_commitment: Commitment<Self::Voteable>,
+        vote: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
     ) -> Self;
@@ -71,9 +84,9 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     // TODO: Make this a static ratio of the total stake of `Membership`
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
     /// Get the commitment which was voted on
-    fn data(&self) -> &Self::Voteable;
+    fn vote(&self) -> &Self::Voteable;
     /// Get the vote commitment which the votes commit to
-    fn data_commitment(&self) -> Commitment<Self::Voteable>;
+    fn vote_commitment(&self) -> Commitment<Self::Voteable>;
 }
 /// Mapping of vote commitment to signatures and bitvec
 type SignersMap<COMMITMENT, KEY> = HashMap<
@@ -87,7 +100,7 @@ type SignersMap<COMMITMENT, KEY> = HashMap<
 pub struct VoteAccumulator<
     TYPES: NodeType,
     VOTE: Vote<TYPES> + Committable,
-    CERT: Certificate<TYPES, Voteable = VOTE::Data>,
+    CERT: Certificate<TYPES, Voteable = VOTE>,
 > {
     /// Map of all signatures accumulated so far
     pub vote_outcomes: VoteMap2<
@@ -105,17 +118,34 @@ pub struct VoteAccumulator<
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES> + Committable + Clone,
-        CERT: Certificate<TYPES, Voteable = VOTE::Data>,
+        CERT: Certificate<TYPES, Voteable = VOTE>,
     > VoteAccumulator<TYPES, VOTE, CERT>
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.
     pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
-        let key = vote.signing_key();
+        let Some(key) = vote.signing_key() else {
+            error!(
+                "Invalid vote! Vote doesn't include the key. Vote Data {:?}",
+                vote.data()
+            );
+            return Either::Left(());
+        };
+
+        let Some(sig) = vote.signature() else {
+            error!(
+                "Invalid vote! Vote doesn't include the signature. Vote Data {:?}",
+                vote.data()
+            );
+            return Either::Left(());
+        };
 
         let vote_commitment = vote.vote_commitment();
-        if !key.validate(&vote.signature(), vote_commitment.as_ref()) {
-            error!("Invalid vote! Vote Data {:?}", vote.data());
+        if !key.validate(&sig, vote_commitment.as_ref()) {
+            error!(
+                "Invalid vote! Vote signature invalid. Vote Data {:?}",
+                vote.data()
+            );
             return Either::Left(());
         }
 
@@ -131,7 +161,7 @@ impl<
         };
 
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
-            vote.signature();
+            sig.clone();
 
         let (total_stake_casted, total_vote_map) = self
             .vote_outcomes
@@ -155,7 +185,7 @@ impl<
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.stake();
-        total_vote_map.insert(key, (vote.signature(), vote.vote_commitment()));
+        total_vote_map.insert(key, (sig, vote.vote_commitment()));
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC
@@ -172,8 +202,8 @@ impl<
             );
 
             let cert = CERT::create_signed_certificate(
-                vote.data().commit(),
-                vote.data().clone(),
+                vote.commit(),
+                vote.clone(),
                 real_qc_sig,
                 vote.view_number(),
             );

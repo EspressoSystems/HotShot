@@ -25,7 +25,7 @@ use hotshot_types::{
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -222,7 +222,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                 // Check if there's a new upgrade certificate available.
                 if let Some(cert) = leaf.upgrade_certificate() {
                     if leaf.upgrade_certificate() != *existing_upgrade_cert_reader {
-                        if cert.data.decide_by < view_number {
+                        if cert.vote().data().decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
                             info!("Reached decide on upgrade certificate: {:?}", cert);
@@ -301,12 +301,12 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         format!("Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}")
     )?;
 
-    if leaf_commitment != consensus_reader.high_qc().data().leaf_commit {
+    if leaf_commitment != consensus_reader.high_qc().vote().data().leaf_commit {
         // NOTE: This happens on the genesis block
         debug!(
             "They don't equal: {:?}   {:?}",
             leaf_commitment,
-            consensus_reader.high_qc().data().leaf_commit
+            consensus_reader.high_qc().vote().data().leaf_commit
         );
     }
 
@@ -498,7 +498,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         match received_proposal_cert {
             ViewChangeEvidence::Timeout(timeout_cert) => {
                 ensure!(
-                    timeout_cert.data().view == view - 1,
+                    timeout_cert.vote().data().view == view - 1,
                     "Timeout certificate for view {} was not for the immediately preceding view",
                     *view
                 );

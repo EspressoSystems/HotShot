@@ -14,6 +14,7 @@ use vbs::{
     version::{StaticVersion, Version},
     BinarySerializer, Serializer,
 };
+use hotshot_types::simple_vote::SimpleVote;
 
 #[test]
 // Checks that the current program protocol version
@@ -35,9 +36,14 @@ fn version_number_at_start_of_serialization() {
         relay: 37,
         round: view_number,
     };
+    let vote = SimpleVote {
+        signature: None,
+        data,
+        view_number
+    };
     let simple_certificate = SimpleCertificate {
-        data: data.clone(),
-        data_commitment: data.commit(),
+        vote: vote.clone(),
+        vote_commitment: vote.commit(),
         view_number,
         signatures: None,
         _pd: PhantomData,

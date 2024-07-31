@@ -105,10 +105,10 @@ mod sealed {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
     /// The signature share associated with this vote
-    pub signature: (
+    pub signature: Option<(
         TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ),
+    )>,
     /// The leaf commitment being voted on.
     pub data: DATA,
     /// The view this vote was cast for
@@ -124,12 +124,14 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleV
 impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
     type Data = DATA;
 
-    fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
-        self.signature.0.clone()
+    fn signing_key(&self) -> Option<<TYPES as NodeType>::SignatureKey> {
+        self.signature.as_ref().map(|sig| sig.0.clone())
     }
 
-    fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType {
-        self.signature.1.clone()
+    fn signature(
+        &self,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType> {
+        self.signature.as_ref().map(|sig| sig.1.clone())
     }
 
     fn data(&self) -> &DATA {
@@ -139,13 +141,8 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
     fn vote_commitment(&self) -> Commitment<Self> {
         self.commit()
     }
-}
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
-    /// Creates and signs a simple vote
-    /// # Errors
-    /// If we are unable to sign the data
-    pub fn create_signed_vote(
+    fn create_signed_vote(
         data: DATA,
         view: TYPES::Time,
         pub_key: &TYPES::SignatureKey,
@@ -153,14 +150,17 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
     ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError> {
         match TYPES::SignatureKey::sign(private_key, Self::commit(&data, view).as_ref()) {
             Ok(signature) => Ok(Self {
-                signature: (pub_key.clone(), signature),
+                signature: Some((pub_key.clone(), signature)),
                 data,
                 view_number: view,
             }),
             Err(e) => Err(e),
         }
     }
+}
 
+impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
+    /// Creates and signs a simple vote
     /// A private associated function that calculates a commitment based on the provided data and view.
     /// Used to calculate the vote's commitment including the data and the view number.
     fn commit(data: &DATA, view: TYPES::Time) -> Commitment<Self> {
@@ -168,6 +168,15 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
             .u64(*view)
             .var_size_bytes(data.commit().as_ref())
             .finalize()
+    }
+
+    /// Creates a genesis `SimpleVote`
+    pub fn genesis(data: DATA, view: TYPES::Time) -> Self {
+        Self {
+            signature: None,
+            data,
+            view_number: view,
+        }
     }
 }
 

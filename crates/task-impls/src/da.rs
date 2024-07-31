@@ -24,7 +24,7 @@ use hotshot_types::{
         storage::Storage,
     },
     utils::ViewInner,
-    vote::HasViewNumber,
+    vote::{HasViewNumber, Vote},
 };
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]

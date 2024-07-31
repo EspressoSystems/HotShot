@@ -26,7 +26,7 @@ use crate::{
 pub struct VoteCollectionTaskState<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Data> + Debug,
+    CERT: Certificate<TYPES, Voteable = VOTE> + Debug,
 > {
     /// Public key for this node.
     pub public_key: TYPES::SignatureKey,
@@ -48,7 +48,7 @@ pub struct VoteCollectionTaskState<
 pub trait AggregatableVote<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Data>,
+    CERT: Certificate<TYPES, Voteable = VOTE>,
 >
 {
     /// return the leader for this votes
@@ -61,7 +61,7 @@ pub trait AggregatableVote<
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES> + AggregatableVote<TYPES, VOTE, CERT> + Clone,
-        CERT: Certificate<TYPES, Voteable = VOTE::Data> + Debug,
+        CERT: Certificate<TYPES, Voteable = VOTE> + Debug,
     > VoteCollectionTaskState<TYPES, VOTE, CERT>
 {
     /// Take one vote and accumultate it. Returns either the cert or the updated state
@@ -110,7 +110,7 @@ pub trait HandleVoteEvent<TYPES, VOTE, CERT>
 where
     TYPES: NodeType,
     VOTE: Vote<TYPES> + AggregatableVote<TYPES, VOTE, CERT>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Data> + Debug,
+    CERT: Certificate<TYPES, Voteable = VOTE> + Debug,
 {
     /// Handle a vote event
     async fn handle_vote_event(
@@ -150,7 +150,7 @@ where
         + std::marker::Send
         + std::marker::Sync
         + 'static,
-    CERT: Certificate<TYPES, Voteable = VOTE::Data>
+    CERT: Certificate<TYPES, Voteable = VOTE>
         + Debug
         + std::marker::Send
         + std::marker::Sync
