@@ -349,15 +349,15 @@ where
 #[derive(Debug)]
 /// An `EventTransformerState` that multiplies `QuorumProposalSend` events, incrementing the view number of the proposal
 pub struct BadProposalViewDos {
-  /// The number of times to duplicate a `QuorumProposalSend` event
-  pub multiplier: u64,
-  /// The view number increment each time it's duplicated
-  pub increment: u64,
+    /// The number of times to duplicate a `QuorumProposalSend` event
+    pub multiplier: u64,
+    /// The view number increment each time it's duplicated
+    pub increment: u64,
 }
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES, I>
-    for BadProposalViewDos 
+    for BadProposalViewDos
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
         vec![event.clone()]
@@ -366,24 +366,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES,
     async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, signature) => {
-              let mut result = Vec::new();
+                let mut result = Vec::new();
 
-              for n in 0..self.multiplier {
-                let mut modified_proposal = proposal.clone();
+                for n in 0..self.multiplier {
+                    let mut modified_proposal = proposal.clone();
 
-                modified_proposal.data.view_number += (n * self.increment).into();
+                    modified_proposal.data.view_number += (n * self.increment).into();
 
-                result.push(HotShotEvent::QuorumProposalSend(modified_proposal, signature.clone()))
-              }
+                    result.push(HotShotEvent::QuorumProposalSend(
+                        modified_proposal,
+                        signature.clone(),
+                    ))
+                }
 
-              result
+                result
             }
             _ => vec![event.clone()],
         }
     }
 }
-
-
 
 #[derive(Debug)]
 /// An `EventHandlerState` that doubles the `QuorumVoteSend` and `QuorumProposalSend` events
