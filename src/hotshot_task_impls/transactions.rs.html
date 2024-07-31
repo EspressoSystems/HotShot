@@ -741,8 +741,6 @@
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -1193,7 +1191,7 @@
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>target_view = TYPES::Time::new(block_view.saturating_sub(<span class="number">1</span>));
 
-        <span class="kw">while </span>target_view != TYPES::Time::genesis() {
+        <span class="kw">loop </span>{
             <span class="kw">let </span><span class="prelude-val">Some</span>(view_data) = consensus.validated_state_map().get(<span class="kw-2">&amp;</span>target_view) <span class="kw">else </span>{
                 <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>target_view, <span class="string">"Missing record for view in validated state"</span>);
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1214,14 +1212,12 @@
                 }
                 ViewInner::Failed =&gt; {
                     <span class="comment">// For failed views, backtrack
-                    </span>target_view = target_view - <span class="number">1</span>;
+                    </span>target_view = TYPES::Time::new(target_view.checked_sub(<span class="number">1</span>)<span class="question-mark">?</span>);
                     <span class="kw">continue</span>;
                 }
             }
         }
-
-        <span class="prelude-val">None
-    </span>}
+    }
 
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block_view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponse&lt;TYPES&gt;&gt; {
