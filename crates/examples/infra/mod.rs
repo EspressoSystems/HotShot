@@ -537,7 +537,7 @@ pub trait RunDa<
                             // panic!("Submitted a TX!");
                             // error!("Total tx sent: {}", total_transactions_sent);
                             total_transactions_sent += 1;
-                            art::async_sleep(Duration::from_millis(1000)).await;
+                            art::async_sleep(Duration::from_millis(500)).await;
                         }
                         _ => break,
                     }
@@ -570,7 +570,7 @@ pub trait RunDa<
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.block_payload() {
-                                    error!("lengh of tx in block {}", block_payload.num_transactions(leaf.block_header().metadata()));
+                                    // error!("lengh of tx in block {}", block_payload.num_transactions(leaf.block_header().metadata()));
                                     for tx in
                                         block_payload.transactions(leaf.block_header().metadata())
                                     {
@@ -654,6 +654,8 @@ pub trait RunDa<
         println!("[{node_index}]: Total views: {total_num_views}, Failed views: {failed_num_views}, num_successful_commits: {num_successful_commits}");
         // Output run results
         let total_time_elapsed = start.elapsed(); // in seconds
+        error!("Total txs submitted: {}", tx_submit_task.await);
+
         println!("[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}");
         // tx_submit_task.await;
         if total_transactions_committed != 0 {
@@ -666,7 +668,6 @@ pub trait RunDa<
                 / total_time_elapsed_sec;
             let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
-            error!("Total txs submitted: {}", tx_submit_task.await);
             BenchResults {
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,
