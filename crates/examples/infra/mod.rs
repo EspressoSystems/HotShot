@@ -1,16 +1,16 @@
 #![allow(clippy::panic)]
+use async_compatibility_layer::art::async_spawn;
+use futures::channel::oneshot;
 use std::{
     collections::HashMap,
     fmt::Debug,
     fs,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    num::NonZeroUsize,
+    num::{NonZeroU64, NonZeroUsize},
     sync::Arc,
     thread::JoinHandle,
     time::{Duration, Instant},
 };
-use futures::channel::oneshot;
-use async_compatibility_layer::art::async_spawn;
 
 use async_compatibility_layer::{
     art::{self, async_sleep},
@@ -504,47 +504,40 @@ pub trait RunDa<
         context.hotshot.start_consensus().await;
         let (sender, mut receiver) = oneshot::channel();
         let consensus_lock = context.hotshot.consensus();
+        let total_nodes: u64 = self
+            .config()
+            .config
+            .num_nodes_with_stake
+            .clone()
+            .get()
+            .try_into()
+            .unwrap();
+        let node_index = self.config().node_index;
 
         let tx_submit_task = async_spawn(async move {
-            // panic!("{:?}", receiver.try_recv()); 
-            // while receiver.try_recv().is_ok() {
-            //         panic!("doing stuff");
-            // }
-            loop {
-                match receiver.try_recv() {
-                    Ok(None) => {
-                        let mut tx = vec![0; 300];
-                        let timestamp = Utc::now().timestamp();
-            
-                        let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
-                        tx.append(&mut timestamp_vec);
-            
-                        // ED Check for error
-                        () = context
-                            .submit_transaction(TestTransaction::new(tx))
-                            .await
-                            .unwrap();
-                        // panic!("Submitted a TX!");
-                        art::async_sleep(Duration::from_millis(300)).await;
+            // TODO ED make so only 10 nodes submit txs
+            if node_index > total_nodes - 10 {
+                loop {
+                    match receiver.try_recv() {
+                        Ok(None) => {
+                            let mut tx = vec![0; transaction_size];
+                            let timestamp = Utc::now().timestamp();
+
+                            let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+                            tx.append(&mut timestamp_vec);
+
+                            // ED Check for error
+                            () = context
+                                .submit_transaction(TestTransaction::new(tx))
+                                .await
+                                .unwrap();
+                            // panic!("Submitted a TX!");
+                            art::async_sleep(Duration::from_millis(300)).await;
+                        }
+                        _ => break,
                     }
-                    _ => break
                 }
             }
-            // for _num in 1..12 {
-            //     let mut tx = vec![0; 300];
-            //     let timestamp = Utc::now().timestamp();
-    
-            //     let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
-            //     tx.append(&mut timestamp_vec);
-    
-            //     // ED Check for error
-            //     () = context
-            //         .submit_transaction(TestTransaction::new(tx))
-            //         .await
-            //         .unwrap();
-            //     // panic!("Submitted a TX!");
-            //     art::async_sleep(Duration::from_millis(300)).await;
-            // }
         });
 
         loop {
@@ -623,7 +616,7 @@ pub trait RunDa<
 
                             num_successful_commits += leaf_chain.len();
                             if num_successful_commits >= rounds {
-                                let _ = sender.send("Finished consensus"); 
+                                let _ = sender.send("Finished consensus");
                                 break;
                             }
 
@@ -645,7 +638,6 @@ pub trait RunDa<
         }
 
         // TODO ED Imple broadcast channel to send shutdown message
-        
 
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
