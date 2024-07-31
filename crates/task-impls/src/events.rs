@@ -22,6 +22,7 @@ use hotshot_types::{
     vid::VidCommitment,
     vote::{HasViewNumber, VoteDependencyData},
 };
+use vec1::Vec1;
 
 use crate::view_sync::ViewSyncPhase;
 
@@ -84,6 +85,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// All dependencies for the quorum vote are validated.
     QuorumVoteDependenciesValidated(TYPES::Time),
     /// A quorum proposal with the given parent leaf is validated.
+    /// The full validation checks include:
+    /// 1. The proposal is not for an old view
+    /// 2. The proposal has been correctly signed by the leader of the current view
+    /// 3. The justify QC is valid
+    /// 4. The proposal passes either liveness or safety check.
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
     /// A quorum proposal is missing for a view that we meed
     QuorumProposalRequest(ProposalMissing<TYPES>),
@@ -142,7 +148,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
         BuilderCommitment,
         <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
-        BuilderFee<TYPES>,
+        Vec1<BuilderFee<TYPES>>,
+        Option<TYPES::AuctionResult>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(PackedBundle<TYPES>),
@@ -191,6 +198,13 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// A new high_qc has been updated in `Consensus`.
     HighQcUpdated(QuorumCertificate<TYPES>),
+
+    /// A quorum proposal has been preliminarily validated.
+    /// The preliminary checks include:
+    /// 1. The proposal is not for an old view
+    /// 2. The proposal has been correctly signed by the leader of the current view
+    /// 3. The justify QC is valid
+    QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
@@ -351,7 +365,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::Timeout(view_number) => write!(f, "Timeout(view_number={view_number:?})"),
             HotShotEvent::TransactionsRecv(_) => write!(f, "TransactionsRecv"),
             HotShotEvent::TransactionSend(_, _) => write!(f, "TransactionSend"),
-            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _, _) => {
                 write!(
                     f,
                     "SendPayloadCommitmentAndMetadata(view_number={view_number:?})"
@@ -427,6 +441,13 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             }
             HotShotEvent::HighQcUpdated(cert) => {
                 write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
+            }
+            HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
+                write!(
+                    f,
+                    "QuorumProposalPreliminarilyValidated(view_number={:?}",
+                    proposal.data.view_number()
+                )
             }
         }
     }

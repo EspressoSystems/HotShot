@@ -1,5 +1,4 @@
 #![allow(unused_imports)]
-#![cfg(feature = "dependency-tasks")]
 
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -175,7 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                     )
                     .await;
                 }
-                Err(e) => debug!(?e, "Failed to propose"),
+                Err(e) => debug!(?e, "Failed to validate the proposal"),
             }
         }
     }

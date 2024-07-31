@@ -17,7 +17,7 @@ use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
-use super::{auction_results_provider::HasUrls, signature_key::BuilderSignatureKey};
+use super::signature_key::BuilderSignatureKey;
 use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
@@ -65,7 +65,7 @@ pub trait BlockPayload<TYPES: NodeType>:
     /// The type of the instance-level state this state is associated with
     type Instance: InstanceState;
     /// The type of the transitions we are applying
-    type Transaction: Transaction;
+    type Transaction: Transaction + Serialize + DeserializeOwned;
     /// Validated State
     type ValidatedState: ValidatedState<TYPES>;
     /// Data created during block building which feeds into the block header
@@ -200,7 +200,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     /// Build a header with the parent validate state, instance-level state, parent leaf, payload
     /// commitment, metadata, and auction results. This is only used in post-marketplace versions
     #[allow(clippy::too_many_arguments)]
-    fn new_marketplace<AuctionResults: HasUrls + Send>(
+    fn new_marketplace(
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
@@ -208,7 +208,7 @@ pub trait BlockHeader<TYPES: NodeType>:
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         builder_fee: Vec<BuilderFee<TYPES>>,
         vid_common: VidCommon,
-        auction_results: Option<AuctionResults>,
+        auction_results: Option<TYPES::AuctionResult>,
         version: Version,
     ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
@@ -233,5 +233,5 @@ pub trait BlockHeader<TYPES: NodeType>:
     fn builder_commitment(&self) -> BuilderCommitment;
 
     /// Get the results of the auction for this Header. Only used in post-marketplace versions
-    fn get_auction_results<AuctionResults: HasUrls>(&self) -> Option<AuctionResults>;
+    fn get_auction_results(&self) -> Option<TYPES::AuctionResult>;
 }

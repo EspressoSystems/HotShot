@@ -37,6 +37,7 @@ use hotshot_types::{
 };
 use jf_vid::VidScheme;
 use sha2::Digest;
+use vec1::vec1;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
@@ -50,7 +51,7 @@ async fn test_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -97,8 +98,12 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version())
-                    .unwrap(),
+                vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
+                None,
             ),
         ],
     ];
@@ -135,7 +140,7 @@ async fn test_consensus_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -193,7 +198,7 @@ async fn test_view_sync_finalize_propose() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(4).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(4).await.0;
     let (priv_key, pub_key) = key_pair_for_id(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
@@ -285,7 +290,8 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4, BaseVersion::version()).unwrap(),
+                vec1![null_block::builder_fee(4, BaseVersion::version()).unwrap()],
+                None,
             ),
         ],
     ];
@@ -327,7 +333,7 @@ async fn test_view_sync_finalize_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -422,7 +428,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -522,7 +528,7 @@ async fn test_vid_disperse_storage_failure() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;

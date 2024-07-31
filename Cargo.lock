@@ -1452,9 +1452,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.10"
+version = "4.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f6b81fb3c84f5563d509c59b5a48d935f689e993afa90fe39047f05adef9142"
+checksum = "35723e6a11662c2afb578bcf0b88bf6ea8e21282a953428f240574fcc3a2b5b3"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1462,9 +1462,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.10"
+version = "4.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca6706fd5224857d9ac5eb9355f6683563cc0541c7cd9d014043b57cbec78ac"
+checksum = "49eb96cbfa7cfa35017b7cd548c75b14c3118c98b423041d70562665e07fb0fa"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1474,9 +1474,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.8"
+version = "4.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bac35c6dafb060fd4d275d9a4ffae97917c13a6327903a8be2153cd964f7085"
+checksum = "5d029b67f89d30bbb547c89fd5161293c0aec155fc691d7924b64550662db93e"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3046,7 +3046,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3076,7 +3076,7 @@ dependencies = [
  "jf-signature",
  "libp2p-identity",
  "libp2p-networking",
- "lru 0.12.3",
+ "lru 0.12.4",
  "num_enum",
  "portpicker",
  "rand 0.8.5",
@@ -3111,7 +3111,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3143,7 +3143,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3174,7 +3174,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-networking",
  "local-ip-address",
- "lru 0.12.3",
+ "lru 0.12.4",
  "portpicker",
  "rand 0.8.5",
  "serde",
@@ -3192,7 +3192,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
@@ -3210,7 +3210,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3220,7 +3220,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3249,7 +3249,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3270,7 +3270,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3284,7 +3284,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3319,7 +3319,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3344,7 +3344,7 @@ dependencies = [
  "hotshot-types",
  "jf-signature",
  "jf-vid",
- "lru 0.12.3",
+ "lru 0.12.4",
  "portpicker",
  "rand 0.8.5",
  "reqwest",
@@ -3399,6 +3399,7 @@ dependencies = [
  "memoize",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -3538,7 +3539,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -4184,7 +4185,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.5",
 ]
 
 [[package]]
@@ -4364,7 +4365,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
- "lru 0.12.3",
+ "lru 0.12.4",
  "quick-protobuf",
  "quick-protobuf-codec 0.3.1",
  "smallvec",
@@ -4467,7 +4468,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.63"
+version = "0.5.67"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4559,7 +4560,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm-derive",
- "lru 0.12.3",
+ "lru 0.12.4",
  "multistream-select",
  "once_cell",
  "rand 0.8.5",
@@ -4763,9 +4764,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
+checksum = "37ee39891760e7d94734f6f63fedc29a2e4a152f836120753a72503f09fcf904"
 dependencies = [
  "hashbrown 0.14.5",
 ]
@@ -5213,18 +5214,18 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02339744ee7253741199f897151b38e72257d13802d4ee837285cc2990a90845"
+checksum = "4e613fc340b2220f734a8595782c551f1250e969d87d3be1ae0579e8d4065179"
 dependencies = [
  "num_enum_derive",
 ]
 
 [[package]]
 name = "num_enum_derive"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
+checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -6650,11 +6651,12 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.120"
+version = "1.0.121"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
+checksum = "4ab380d7d9f22ef3f21ad3e6c1ebe8e4fc7a2000ccba2e4d71fc96f15b2cb609"
 dependencies = [
  "itoa",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -6932,7 +6934,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d1e02fca405f6280643174a50c942219f0bbf4dbf7d480f1dd864d6f211ae5"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
@@ -7744,9 +7746,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.39.1"
+version = "1.39.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d040ac2b29ab03b09d4129c2f5bbd012a3ac2f79d38ff506a4bf8dd34b0eac8a"
+checksum = "daa4fb1bc778bd6f04cbfc4bb2d06a7396a8f299dc33ea1900cedaa316f467b1"
 dependencies = [
  "backtrace",
  "bytes",

@@ -21,8 +21,8 @@ use futures::StreamExt;
 use hotshot::{
     traits::{
         implementations::{
-            derive_libp2p_peer_id, CdnMetricsValue, CombinedNetworks, Libp2pMetricsValue,
-            Libp2pNetwork, PushCdnNetwork, Topic, WrappedSignatureKey,
+            derive_libp2p_peer_id, CdnMetricsValue, CdnTopic, CombinedNetworks, Libp2pMetricsValue,
+            Libp2pNetwork, PushCdnNetwork, WrappedSignatureKey,
         },
         BlockPayload, NodeImplementation,
     },
@@ -52,7 +52,7 @@ use hotshot_types::{
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
-        network::ConnectedNetwork,
+        network::{ConnectedNetwork, Topic},
         node_implementation::{ConsensusTime, NodeType},
         states::TestableState,
     },
@@ -339,7 +339,7 @@ pub trait RunDa<
         TYPES,
         Network = NETWORK,
         Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -376,6 +376,7 @@ pub trait RunDa<
         let quorum_membership = <TYPES as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             known_nodes_with_stake.clone(),
+            Topic::Global,
             config.config.fixed_leader_for_gpuvid,
         );
 
@@ -384,6 +385,7 @@ pub trait RunDa<
         let da_membership = <TYPES as NodeType>::Membership::create_election(
             known_nodes_with_stake.clone(),
             config.config.known_da_nodes.clone(),
+            Topic::Da,
             config.config.fixed_leader_for_gpuvid,
         );
 
@@ -404,7 +406,7 @@ pub trait RunDa<
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::<TYPES>::default(),
-            TestAuctionResultsProvider::default(),
+            TestAuctionResultsProvider::<TYPES>::default(),
         )
         .await
         .expect("Could not init hotshot")
@@ -602,7 +604,7 @@ impl<
             TYPES,
             Network = PushCdnNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
     > RunDa<TYPES, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -625,9 +627,9 @@ where
         };
 
         // See if we should be DA, subscribe to the DA topic if so
-        let mut topics = vec![Topic::Global];
+        let mut topics = vec![CdnTopic::Global];
         if config.config.my_own_validator_config.is_da {
-            topics.push(Topic::Da);
+            topics.push(CdnTopic::Da);
         }
 
         // Create the network and await the initial connection
@@ -679,7 +681,7 @@ impl<
             TYPES,
             Network = Libp2pNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
     > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE> for Libp2pDaRun<TYPES>
 where
@@ -765,7 +767,7 @@ impl<
             TYPES,
             Network = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
     > RunDa<TYPES, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
 where
@@ -835,7 +837,7 @@ pub async fn main_entry_point<
         TYPES,
         Network = NETWORK,
         Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
     RUNDA: RunDa<TYPES, NETWORK, NODE>,
 >(
