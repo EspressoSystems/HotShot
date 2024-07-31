@@ -70,7 +70,7 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Thr
     /// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
     pub data: VOTEABLE,
     /// commitment of all the votes this cert should be signed over
-    pub vote_commitment: Commitment<VOTEABLE>,
+    pub data_commitment: Commitment<VOTEABLE>,
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
@@ -89,7 +89,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYP
         };
         committable::RawCommitmentBuilder::new("Certificate")
             .field("data", self.data.commit())
-            .field("vote_commitment", self.vote_commitment)
+            .field("vote_commitment", self.data_commitment)
             .field("view number", self.view_number.commit())
             .var_size_field("signatures", &signature_bytes)
             .finalize()
@@ -103,14 +103,14 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     type Threshold = THRESHOLD;
 
     fn create_signed_certificate(
-        vote_commitment: Commitment<VOTEABLE>,
+        data_commitment: Commitment<VOTEABLE>,
         data: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
     ) -> Self {
         SimpleCertificate {
             data,
-            vote_commitment,
+            data_commitment,
             view_number: view,
             signatures: Some(sig),
             _pd: PhantomData,
@@ -126,18 +126,18 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         );
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
-            self.vote_commitment.as_ref(),
+            self.data_commitment.as_ref(),
             self.signatures.as_ref().unwrap(),
         )
     }
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
         THRESHOLD::threshold(membership)
     }
-    fn date(&self) -> &Self::Voteable {
+    fn data(&self) -> &Self::Voteable {
         &self.data
     }
-    fn date_commitment(&self) -> Commitment<Self::Voteable> {
-        self.vote_commitment
+    fn data_commitment(&self) -> Commitment<Self::Voteable> {
+        self.data_commitment
     }
 }
 

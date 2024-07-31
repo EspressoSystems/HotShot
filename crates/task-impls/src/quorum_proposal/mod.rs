@@ -417,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.date()
+                        certificate.data()
                     );
                     return;
                 }

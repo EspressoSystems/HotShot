@@ -301,12 +301,12 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         format!("Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}")
     )?;
 
-    if leaf_commitment != consensus_reader.high_qc().date().leaf_commit {
+    if leaf_commitment != consensus_reader.high_qc().data().leaf_commit {
         // NOTE: This happens on the genesis block
         debug!(
             "They don't equal: {:?}   {:?}",
             leaf_commitment,
-            consensus_reader.high_qc().date().leaf_commit
+            consensus_reader.high_qc().data().leaf_commit
         );
     }
 
@@ -498,7 +498,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         match received_proposal_cert {
             ViewChangeEvidence::Timeout(timeout_cert) => {
                 ensure!(
-                    timeout_cert.date().view == view - 1,
+                    timeout_cert.data().view == view - 1,
                     "Timeout certificate for view {} was not for the immediately preceding view",
                     *view
                 );

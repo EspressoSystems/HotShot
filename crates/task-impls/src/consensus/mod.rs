@@ -630,7 +630,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     error!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.date()
+                        certificate.data()
                     );
                     return;
                 }

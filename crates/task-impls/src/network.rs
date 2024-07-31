@@ -330,21 +330,21 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.data().relay)),
                 ),
                 HotShotEvent::ViewSyncCommitVoteSend(vote) => (
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.data().relay)),
                 ),
                 HotShotEvent::ViewSyncFinalizeVoteSend(vote) => (
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
+                    TransmitType::Direct(membership.leader(vote.view_number() + vote.data().relay)),
                 ),
                 HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => (
                     sender,

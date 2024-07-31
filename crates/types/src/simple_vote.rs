@@ -122,7 +122,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleV
 }
 
 impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
-    type Commitment = DATA;
+    type Data = DATA;
 
     fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
         self.signature.0.clone()
@@ -132,12 +132,12 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
         self.signature.1.clone()
     }
 
-    fn date(&self) -> &DATA {
+    fn data(&self) -> &DATA {
         &self.data
     }
 
-    fn date_commitment(&self) -> Commitment<DATA> {
-        self.data.commit()
+    fn vote_commitment(&self) -> Commitment<Self> {
+        self.commit()
     }
 }
 
@@ -151,7 +151,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
         pub_key: &TYPES::SignatureKey,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError> {
-        match TYPES::SignatureKey::sign(private_key, data.commit().as_ref()) {
+        match TYPES::SignatureKey::sign(private_key, Self::commit(&data, view).as_ref()) {
             Ok(signature) => Ok(Self {
                 signature: (pub_key.clone(), signature),
                 data,
@@ -159,6 +159,22 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
             }),
             Err(e) => Err(e),
         }
+    }
+
+    fn commit(
+        data: &DATA,
+        view: TYPES::Time,
+    ) -> Commitment<Self> {
+        committable::RawCommitmentBuilder::new("Vote data")
+            .u64(*view)
+            .var_size_bytes(data.commit().as_ref())
+            .finalize()
+    }
+}
+
+impl<TYPES: NodeType, DATA: Voteable + 'static> Committable for SimpleVote<TYPES, DATA> {
+    fn commit(&self) -> Commitment<Self> {
+        Self::commit(&self.data, self.view_number)
     }
 }
 

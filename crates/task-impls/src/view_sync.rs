@@ -265,7 +265,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
             HotShotEvent::ViewSyncPreCommitVoteRecv(ref vote) => {
                 let mut map = self.pre_commit_relay_map.write().await;
                 let vote_view = vote.view_number();
-                let relay = vote.date().relay;
+                let relay = vote.data().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
@@ -302,7 +302,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
             HotShotEvent::ViewSyncCommitVoteRecv(ref vote) => {
                 let mut map = self.commit_relay_map.write().await;
                 let vote_view = vote.view_number();
-                let relay = vote.date().relay;
+                let relay = vote.data().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
@@ -339,7 +339,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
                 let mut map = self.finalize_relay_map.write().await;
                 let vote_view = vote.view_number();
-                let relay = vote.date().relay;
+                let relay = vote.data().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
@@ -479,7 +479,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.date());
+                    error!("Not valid view sync cert! {:?}", certificate.data());
 
                     return None;
                 }
@@ -490,13 +490,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.date().relay > self.relay {
-                    self.relay = certificate.date().relay;
+                if certificate.data().relay > self.relay {
+                    self.relay = certificate.data().relay;
                 }
 
                 let Ok(vote) = ViewSyncCommitVote::<TYPES>::create_signed_vote(
                     ViewSyncCommitData {
-                        relay: certificate.date().relay,
+                        relay: certificate.data().relay,
                         round: self.next_view,
                     },
                     self.next_view,
@@ -555,7 +555,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.date());
+                    error!("Not valid view sync cert! {:?}", certificate.data());
 
                     return None;
                 }
@@ -566,13 +566,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.date().relay > self.relay {
-                    self.relay = certificate.date().relay;
+                if certificate.data().relay > self.relay {
+                    self.relay = certificate.data().relay;
                 }
 
                 let Ok(vote) = ViewSyncFinalizeVote::<TYPES>::create_signed_vote(
                     ViewSyncFinalizeData {
-                        relay: certificate.date().relay,
+                        relay: certificate.data().relay,
                         round: self.next_view,
                     },
                     self.next_view,
@@ -647,7 +647,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
 
                 // If certificate is not valid, return current state
                 if !certificate.is_valid_cert(self.membership.as_ref()) {
-                    error!("Not valid view sync cert! {:?}", certificate.date());
+                    error!("Not valid view sync cert! {:?}", certificate.data());
 
                     return None;
                 }
@@ -658,8 +658,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     return Some(HotShotTaskCompleted);
                 }
 
-                if certificate.date().relay > self.relay {
-                    self.relay = certificate.date().relay;
+                if certificate.data().relay > self.relay {
+                    self.relay = certificate.data().relay;
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
