@@ -72,6 +72,7 @@ cross_tests!(
                     dishonest_at_proposal_numbers: HashSet::from([2, 3]),
                     validated_proposals: Vec::new(),
                     total_proposals_from_node: 0,
+                    view_look_back: 1,
                     _phantom: std::marker::PhantomData
                 };
                 match node_id {

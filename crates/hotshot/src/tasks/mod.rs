@@ -419,6 +419,8 @@ pub struct DishonestLeader<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub total_proposals_from_node: u64,
     /// which proposals to be dishonest at
     pub dishonest_at_proposal_numbers: HashSet<u64>,
+    /// how far back to look for a QC
+    pub view_look_back: usize,
     /// phantom
     pub _phantom: std::marker::PhantomData<I>,
 }
@@ -443,17 +445,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestProposal<TYPES, I>
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
         sender: &TYPES::SignatureKey,
     ) -> Vec<HotShotEvent<TYPES>> {
+        let length = self.validated_proposals.len();
         if !self
             .dishonest_at_proposal_numbers
             .contains(&self.total_proposals_from_node)
+            || length == 0
         {
             return vec![event.clone()];
         }
 
-        // get the last validated qc
-        let cached_proposal = self.validated_proposals.last().unwrap().clone();
+        // grab qc from specified look back
+        let proposal_from_lookback = if length - 1 < self.view_look_back {
+            // if look back is to far just take the first proposal
+            self.validated_proposals[0].clone()
+        } else {
+            let index = (self.validated_proposals.len() - 1) - self.view_look_back;
+            self.validated_proposals[index].clone()
+        };
         let mut dishonest_proposal = proposal.clone();
-        dishonest_proposal.data.justify_qc = cached_proposal.justify_qc;
+        dishonest_proposal.data.justify_qc = proposal_from_lookback.justify_qc;
 
         vec![HotShotEvent::QuorumProposalSend(
             dishonest_proposal,
