@@ -79,7 +79,7 @@ cross_tests!(
             ..TestDescription::default()
         };
 
-        metadata.overall_safety_properties.num_failed_views = 1;
+        metadata.overall_safety_properties.num_failed_views = 0;
 
         metadata
     },
