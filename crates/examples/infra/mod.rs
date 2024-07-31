@@ -9,6 +9,7 @@ use std::{
     thread::JoinHandle,
     time::{Duration, Instant},
 };
+use futures::channel::oneshot;
 use async_compatibility_layer::art::async_spawn;
 
 use async_compatibility_layer::{
@@ -501,26 +502,49 @@ pub trait RunDa<
         let mut num_successful_commits = 0;
 
         context.hotshot.start_consensus().await;
+        let (sender, mut receiver) = oneshot::channel();
         let consensus_lock = context.hotshot.consensus();
 
-        // let new_self = Arc::<SystemContextHandle<TYPES, NODE>>::new(context); 
-
         let tx_submit_task = async_spawn(async move {
-            for _num in 1..100 {
-                let mut tx = vec![0; 1000];
-                let timestamp = Utc::now().timestamp();
-    
-                let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
-                tx.append(&mut timestamp_vec);
-    
-                // ED Check for error
-                () = context
-                    .submit_transaction(TestTransaction::new(tx))
-                    .await
-                    .unwrap();
-                // panic!("Submitted a TX!");
-                art::async_sleep(Duration::from_millis(1000)).await;
+            // panic!("{:?}", receiver.try_recv()); 
+            // while receiver.try_recv().is_ok() {
+            //         panic!("doing stuff");
+            // }
+            loop {
+                match receiver.try_recv() {
+                    Ok(None) => {
+                        let mut tx = vec![0; 300];
+                        let timestamp = Utc::now().timestamp();
+            
+                        let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+                        tx.append(&mut timestamp_vec);
+            
+                        // ED Check for error
+                        () = context
+                            .submit_transaction(TestTransaction::new(tx))
+                            .await
+                            .unwrap();
+                        // panic!("Submitted a TX!");
+                        art::async_sleep(Duration::from_millis(300)).await;
+                    }
+                    _ => break
+                }
             }
+            // for _num in 1..12 {
+            //     let mut tx = vec![0; 300];
+            //     let timestamp = Utc::now().timestamp();
+    
+            //     let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+            //     tx.append(&mut timestamp_vec);
+    
+            //     // ED Check for error
+            //     () = context
+            //         .submit_transaction(TestTransaction::new(tx))
+            //         .await
+            //         .unwrap();
+            //     // panic!("Submitted a TX!");
+            //     art::async_sleep(Duration::from_millis(300)).await;
+            // }
         });
 
         loop {
@@ -599,6 +623,7 @@ pub trait RunDa<
 
                             num_successful_commits += leaf_chain.len();
                             if num_successful_commits >= rounds {
+                                let _ = sender.send("Finished consensus"); 
                                 break;
                             }
 
@@ -620,7 +645,7 @@ pub trait RunDa<
         }
 
         // TODO ED Imple broadcast channel to send shutdown message
-        tx_submit_task.await;
+        
 
         let consensus = consensus_lock.read().await;
         let total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
@@ -642,6 +667,7 @@ pub trait RunDa<
                 / total_time_elapsed_sec;
             let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
+            tx_submit_task.await;
             BenchResults {
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,

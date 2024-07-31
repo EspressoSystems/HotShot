@@ -36,6 +36,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use tide_disco::{method::ReadState, App, Url};
+use tracing::error;
 use vbs::version::StaticVersionType;
 
 use super::{build_block, run_builder_source, BlockEntry, BuilderTask, TestBuilderImplementation};
@@ -145,24 +146,24 @@ where
         //let transactions = vec![transaction];
 
         let transactions = self
-        .transactions
-        .read(|txns| {
-            Box::pin(async {
-                txns.values()
-                    .filter(|txn| {
-                        // We want transactions that are either unclaimed, or claimed long ago
-                        // and thus probably not included, or they would've been decided on
-                        // already and removed from the queue
-                        txn.claimed
-                            .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
-                            .unwrap_or(true)
-                    })
-                    .cloned()
-                    .map(|txn| txn.transaction)
-                    .collect::<Vec<TYPES::Transaction>>()
+            .transactions
+            .read(|txns| {
+                Box::pin(async {
+                    txns.values()
+                        .filter(|txn| {
+                            // We want transactions that are either unclaimed, or claimed long ago
+                            // and thus probably not included, or they would've been decided on
+                            // already and removed from the queue
+                            txn.claimed
+                                .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
+                                .unwrap_or(true)
+                        })
+                        .cloned()
+                        .map(|txn| txn.transaction)
+                        .collect::<Vec<TYPES::Transaction>>()
+                })
             })
-        })
-        .await;
+            .await;
 
         if transactions.is_empty() {
             // We don't want to return an empty block if we have no trasnactions, as we would end up
@@ -170,7 +171,26 @@ where
             // Instead, we return no blocks, so that view leader will keep asking for blocks until
             // either we have something non-trivial to propose, or leader runs out of time to propose,
             // in which case view leader will finally propose an empty block themselves.
-            return Ok(vec![]);
+            // return Ok(vec![]);
+            let transaction = TYPES::Transaction::default(self.transaction_size);
+            let transactions = vec![transaction];
+            let block_entry = build_block(
+                transactions,
+                self.num_storage_nodes,
+                self.pub_key.clone(),
+                self.priv_key.clone(),
+            )
+            .await;
+    
+            let metadata = block_entry.metadata.clone();
+    
+            self.blocks
+                .write()
+                .await
+                .insert(block_entry.metadata.block_hash.clone(), block_entry);
+    
+            return Ok(vec![metadata])
+            
         }
 
         let block_entry = build_block(

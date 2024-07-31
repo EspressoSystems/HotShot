@@ -18,7 +18,7 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::instrument;
+use tracing::{error, instrument};
 
 use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext};
 
@@ -142,6 +142,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         &self,
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
+        error!("TX PUBLISHED");
         self.hotshot
             .publish_transaction_async(tx, Arc::clone(&self.hotshot.decided_upgrade_certificate))
             .await
