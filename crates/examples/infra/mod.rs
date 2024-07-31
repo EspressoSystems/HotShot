@@ -532,7 +532,7 @@ pub trait RunDa<
                                 .await
                                 .unwrap();
                             // panic!("Submitted a TX!");
-                            art::async_sleep(Duration::from_millis(300)).await;
+                            art::async_sleep(Duration::from_millis(200)).await;
                         }
                         _ => break,
                     }
