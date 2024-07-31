@@ -3076,7 +3076,7 @@ dependencies = [
  "jf-signature",
  "libp2p-identity",
  "libp2p-networking",
- "lru 0.12.3",
+ "lru 0.12.4",
  "num_enum",
  "portpicker",
  "rand 0.8.5",
@@ -3174,7 +3174,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-networking",
  "local-ip-address",
- "lru 0.12.3",
+ "lru 0.12.4",
  "portpicker",
  "rand 0.8.5",
  "serde",
@@ -3344,7 +3344,7 @@ dependencies = [
  "hotshot-types",
  "jf-signature",
  "jf-vid",
- "lru 0.12.3",
+ "lru 0.12.4",
  "portpicker",
  "rand 0.8.5",
  "reqwest",
@@ -4365,7 +4365,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm",
- "lru 0.12.3",
+ "lru 0.12.4",
  "quick-protobuf",
  "quick-protobuf-codec 0.3.1",
  "smallvec",
@@ -4560,7 +4560,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "libp2p-swarm-derive",
- "lru 0.12.3",
+ "lru 0.12.4",
  "multistream-select",
  "once_cell",
  "rand 0.8.5",
@@ -4764,9 +4764,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
+checksum = "37ee39891760e7d94734f6f63fedc29a2e4a152f836120753a72503f09fcf904"
 dependencies = [
  "hashbrown 0.14.5",
 ]
