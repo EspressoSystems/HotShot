@@ -63,10 +63,13 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
         )
     });
 
+    // TODO ED We should make this an automatic caclulation
+    // FROM GUS: multiplicity must be at least 3 times max_payload_size divided by num_storage_nodes.
+    let muliplicity = 2; 
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
     VidSchemeType(
-        Advz::new(num_storage_nodes, recovery_threshold, &*KZG_SRS).unwrap_or_else(|err| {
+        Advz::with_multiplicity(num_storage_nodes, recovery_threshold, muliplicity, &*KZG_SRS).unwrap_or_else(|err| {
               panic!("advz construction failure: (num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold}); \
                       error: {err}")
         })
