@@ -505,7 +505,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<K>, NetworkError> {
-
         let (mut rx, network_handle) = spawn_network_node(config.clone(), id)
             .await
             .map_err(Into::<NetworkError>::into)?;
