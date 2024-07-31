@@ -371,12 +371,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES,
                 for n in 0..self.multiplier {
                     let mut modified_proposal = proposal.clone();
 
-                    modified_proposal.data.view_number += (n * self.increment).into();
+                    modified_proposal.data.view_number += n * self.increment;
 
                     result.push(HotShotEvent::QuorumProposalSend(
                         modified_proposal,
                         signature.clone(),
-                    ))
+                    ));
                 }
 
                 result
