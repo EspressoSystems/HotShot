@@ -29,12 +29,12 @@ ulimit -n 65536
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
-docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
-docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
+docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-push-cdn:ed
+docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:ed
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -i libp2p ghcr.io/espressosystems/hotshot/validator-push-cdn:ed
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -c libp2p ${orchestrator_url}
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -128,7 +128,7 @@ EOF
 
                                 # start validators
                                 echo -e "\e[35mGoing to start validators on remote cpu servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized $(($total_nodes - $fixed_leader_for_gpuvid)) --timeout -1
+                                ecs scale --region us-east-2 hotshot hotshot_libp2p $(($total_nodes - $fixed_leader_for_gpuvid)) --timeout -1
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
@@ -139,7 +139,7 @@ EOF
                                 # kill them
                                 # shut down nodes
                                 echo -e "\e[35mGoing to stop validators on remote cpu servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
+                                ecs scale --region us-east-2 hotshot hotshot_libp2p 0 --timeout -1
                                 # shut down leaders on gpu
                                 echo -e "\e[35mGoing to stop leaders on remote gpu server\e[0m"
                                 GPU_COUNTER=0
