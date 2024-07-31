@@ -6,6 +6,7 @@ use std::{
 use anyhow::Result;
 use async_lock::RwLock;
 use async_trait::async_trait;
+use futures::future::join_all;
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -94,6 +95,8 @@ where
             }
         }
 
+        let mut new_nodes = vec![];
+        let mut new_networks = vec![];
         // if we have not seen this view before
         if self.latest_view.is_none() || view_number > self.latest_view.unwrap() {
             // perform operations on the nodes
@@ -175,7 +178,6 @@ where
                         UpDown::Restart => {
                             let node_id = idx.try_into().unwrap();
                             error!("restarting node");
-                            let mut new_node = None;
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
@@ -185,7 +187,7 @@ where
                                 else {
                                     panic!("Restated Nodes must have an unitialized context");
                                 };
-                                network.wait_for_ready().await;
+
                                 let storage = node.handle.storage().clone();
                                 let memberships = node.handle.memberships.clone();
                                 let config = node.handle.hotshot.config.clone();
@@ -236,22 +238,8 @@ where
                                         ),
                                     )
                                     .await;
-                                let handle = context.run_tasks().await;
-
-                                // Create the node and add it to the state, so we can shut them
-                                // down properly later to avoid the overflow error in the overall
-                                // safety task.
-                                let node = Node {
-                                    node_id,
-                                    network: network.clone(),
-                                    handle,
-                                };
-                                node.handle.hotshot.start_consensus().await;
-
-                                new_node = Some(node);
-                            }
-                            if let Some(node) = new_node {
-                                self.handles.write().await[idx] = node;
+                                new_nodes.push((context, idx));
+                                new_networks.push(network.clone());
                             }
                         }
                         UpDown::NetworkUp => {
@@ -269,7 +257,29 @@ where
                     }
                 }
             }
+            let mut ready_futs = vec![];
+            while let Some(net) = new_networks.pop() {
+                ready_futs.push(async move {
+                    net.wait_for_ready().await;
+                });
+            }
+            join_all(ready_futs).await;
 
+            while let Some((node, id)) = new_nodes.pop() {
+                let handle = node.run_tasks().await;
+
+                // Create the node and add it to the state, so we can shut them
+                // down properly later to avoid the overflow error in the overall
+                // safety task.
+                let node = Node {
+                    node_id: id.try_into().unwrap(),
+                    network: node.network.clone(),
+                    handle,
+                };
+                node.handle.hotshot.start_consensus().await;
+
+                self.handles.write().await[id] = node;
+            }
             // update our latest view
             self.latest_view = Some(view_number);
         }

@@ -221,6 +221,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     }
     /// Lookup the proposal for the view and respond if it's found/not found
     async fn respond_with_proposal(&self, view: TYPES::Time) -> ResponseMessage<TYPES> {
+        if !self.consensus.read().await.last_proposals().contains_key(&view) {
+            tracing::error!("don't have proposal for view {:?}", view);
+        }
         match self.consensus.read().await.last_proposals().get(&view) {
             Some(prop) => ResponseMessage::Found(SequencingMessage::General(
                 GeneralConsensusMessage::Proposal(prop.clone()),

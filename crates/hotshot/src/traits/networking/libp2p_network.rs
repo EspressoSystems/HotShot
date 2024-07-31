@@ -251,7 +251,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
-                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
+                let replication_factor = NonZeroUsize::new(expected_node_count - 1).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         // NOTICE the implicit assumption that bootstrap is less

@@ -328,7 +328,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                 broadcast_event(None, &self.sender).await;
             }
             Err(e) => {
-                debug!("request for timed out with error {:?}", e);
+                debug!("request for proposal timed out with error {:?}", e);
                 broadcast_event(None, &self.sender).await;
             }
         }

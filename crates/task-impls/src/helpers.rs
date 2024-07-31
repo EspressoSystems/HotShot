@@ -45,7 +45,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
-    error!("Fetching proposal");
+    error!("Fetching proposal for view {:?}", view);
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
         view,
@@ -57,6 +57,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     )
     .await;
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
+        error!("Request for proposal failed");
         bail!("Request for proposal failed");
     };
     error!("Request for proposal suceeded");
