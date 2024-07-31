@@ -172,24 +172,26 @@ where
             // either we have something non-trivial to propose, or leader runs out of time to propose,
             // in which case view leader will finally propose an empty block themselves.
             // return Ok(vec![]);
-            let transaction = TYPES::Transaction::default(self.transaction_size);
-            let transactions = vec![transaction];
-            let block_entry = build_block(
-                transactions,
-                self.num_storage_nodes,
-                self.pub_key.clone(),
-                self.priv_key.clone(),
-            )
-            .await;
+            // let var_name = TYPES::Transaction::default(self.transaction_size);
+            // let transaction = var_name;
+            // let transactions = vec![transaction];
+            // let block_entry = build_block(
+            //     transactions,
+            //     self.num_storage_nodes,
+            //     self.pub_key.clone(),
+            //     self.priv_key.clone(),
+            // )
+            // .await;
     
-            let metadata = block_entry.metadata.clone();
+            // let metadata = block_entry.metadata.clone();
     
-            self.blocks
-                .write()
-                .await
-                .insert(block_entry.metadata.block_hash.clone(), block_entry);
+            // self.blocks
+            //     .write()
+            //     .await
+            //     .insert(block_entry.metadata.block_hash.clone(), block_entry);
     
-            return Ok(vec![metadata])
+            // return Ok(vec![metadata])
+            return Ok(vec![])
             
         }
 

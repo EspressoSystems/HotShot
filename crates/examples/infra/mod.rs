@@ -517,6 +517,7 @@ pub trait RunDa<
         let tx_submit_task = async_spawn(async move {
             // TODO ED make so only 10 nodes submit txs
             if node_index > total_nodes - 10 {
+                // error!("NODE SUBMIT TXZS");
                 loop {
                     match receiver.try_recv() {
                         Ok(None) => {
@@ -527,17 +528,22 @@ pub trait RunDa<
                             tx.append(&mut timestamp_vec);
 
                             // ED Check for error
+                            //let time_to_submit = Instant::now(); 
                             () = context
                                 .submit_transaction(TestTransaction::new(tx))
                                 .await
                                 .unwrap();
+                            //error!("{:?}", time_to_submit.elapsed());
                             // panic!("Submitted a TX!");
-                            art::async_sleep(Duration::from_millis(200)).await;
+                            // error!("Total tx sent: {}", total_transactions_sent);
+                            total_transactions_sent += 1;
+                            art::async_sleep(Duration::from_millis(1000)).await;
                         }
                         _ => break,
                     }
                 }
             }
+            total_transactions_sent
         });
 
         loop {
@@ -564,6 +570,7 @@ pub trait RunDa<
 
                                 // iterate all the decided transactions to calculate latency
                                 if let Some(block_payload) = &leaf.block_payload() {
+                                    error!("lengh of tx in block {}", block_payload.num_transactions(leaf.block_header().metadata()));
                                     for tx in
                                         block_payload.transactions(leaf.block_header().metadata())
                                     {
@@ -659,7 +666,7 @@ pub trait RunDa<
                 / total_time_elapsed_sec;
             let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
-            tx_submit_task.await;
+            error!("Total txs submitted: {}", tx_submit_task.await);
             BenchResults {
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,
@@ -1078,7 +1085,7 @@ where
     Leaf<TYPES>: TestableLeaf,
 {
     // ED HERE
-    if !run_config.config.my_own_validator_config.is_da {
+    if run_config.node_index != 0 {
         return None;
     }
 
