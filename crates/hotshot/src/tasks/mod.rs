@@ -121,7 +121,7 @@ pub fn add_network_message_task<
                             Ok(deserialized) => deserialized,
                             Err(e) => {
                                 tracing::error!("Failed to deserialize message: {}", e);
-                                return;
+                                continue;
                             }
                         };
 
