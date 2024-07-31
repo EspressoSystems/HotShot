@@ -259,6 +259,11 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -400,7 +405,6 @@
 
     validate_proposal_view_and_certs(
         proposal,
-        <span class="kw-2">&amp;</span>sender,
         task_state.cur_view,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
         <span class="kw-2">&amp;</span>task_state.timeout_membership,
@@ -408,7 +412,6 @@
     .context(<span class="string">"Failed to validate proposal view or attached certs"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>view_number = proposal.data.view_number();
-    <span class="kw">let </span>view_leader_key = task_state.quorum_membership.leader(view_number);
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
@@ -416,6 +419,14 @@
         consensus.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
     }
+
+    broadcast_event(
+        Arc::new(HotShotEvent::QuorumProposalPreliminarilyValidated(
+            proposal.clone(),
+        )),
+        event_sender,
+    )
+    .<span class="kw">await</span>;
 
     <span class="comment">// Get the parent leaf and state.
     </span><span class="kw">let </span><span class="kw-2">mut </span>parent_leaf = task_state
@@ -470,7 +481,7 @@
     drop(consensus_write);
 
     broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
         event_sender,
     )
     .<span class="kw">await</span>;
@@ -490,7 +501,6 @@
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
         Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
         Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
-        view_leader_key,
         event_sender.clone(),
         sender,
         task_state.output_event_stream.clone(),

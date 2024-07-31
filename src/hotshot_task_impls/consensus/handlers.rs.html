@@ -840,9 +840,6 @@
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>core::time::Duration;
@@ -1150,7 +1147,6 @@
 
     validate_proposal_view_and_certs(
         proposal,
-        <span class="kw-2">&amp;</span>sender,
         task_state.cur_view,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
         <span class="kw-2">&amp;</span>task_state.timeout_membership,
@@ -1158,7 +1154,6 @@
     .context(<span class="string">"Failed to validate proposal view and attached certs"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>view = proposal.data.view_number();
-    <span class="kw">let </span>view_leader_key = task_state.quorum_membership.leader(view);
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
@@ -1346,7 +1341,6 @@
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
                 Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
                 Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
-                view_leader_key,
                 event_stream.clone(),
                 sender,
                 task_state.output_event_stream.clone(),

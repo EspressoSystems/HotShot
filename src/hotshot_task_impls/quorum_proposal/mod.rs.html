@@ -525,6 +525,7 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -660,7 +661,8 @@
                         }
                     }
                     ProposalDependency::Proposal =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::QuorumProposalRecv(proposal, <span class="kw">_</span>) = event {
+                        <span class="kw">if let </span>HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) = event
+                        {
                             proposal.data.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -745,7 +747,7 @@
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) =&gt; {
                 payload_commitment_dependency.mark_as_completed(Arc::clone(<span class="kw-2">&amp;</span>event));
             }
-            HotShotEvent::QuorumProposalRecv(..) =&gt; {
+            HotShotEvent::QuorumProposalPreliminarilyValidated(..) =&gt; {
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QcFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
@@ -957,7 +959,7 @@
                     event,
                 );
             }
-            HotShotEvent::QuorumProposalRecv(proposal, <span class="kw">_</span>) =&gt; {
+            HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
                 <span class="kw">let </span>view_number = proposal.data.view_number();
 
                 <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of olde.
