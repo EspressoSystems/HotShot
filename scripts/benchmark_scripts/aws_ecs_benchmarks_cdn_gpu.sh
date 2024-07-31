@@ -83,10 +83,10 @@ do
                                     if [ "$BROKER_COUNTER" -ge 2 ]; then
                                         echo -e "\e[35mstart broker $((BROKER_COUNTER - 1)) on $REMOTE_BROKER_HOST\e[0m"
                                         ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
-# cd HotShot
-# nohup bash scripts/benchmark_scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
-# exit
-# EOF
+cd HotShot
+nohup bash scripts/benchmark_scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
+exit
+EOF
                                     fi
                                     BROKER_COUNTER=$((BROKER_COUNTER + 1))
                                 done
