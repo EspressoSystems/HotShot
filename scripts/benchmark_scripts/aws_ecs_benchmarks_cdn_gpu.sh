@@ -54,7 +54,7 @@ round_up() {
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
 for total_nodes in 10 
 do
-    for da_committee_size in 5 
+    for da_committee_size in 10 
     do
         if [ $da_committee_size -le $total_nodes ]
         then
@@ -62,7 +62,7 @@ do
             do
                 for transaction_size in 10000000
                 do
-                    for fixed_leader_for_gpuvid in 1
+                    for fixed_leader_for_gpuvid in 3
                     do
                         if [ $fixed_leader_for_gpuvid -le $da_committee_size ]
                         then
@@ -83,10 +83,10 @@ do
                                     if [ "$BROKER_COUNTER" -ge 2 ]; then
                                         echo -e "\e[35mstart broker $((BROKER_COUNTER - 1)) on $REMOTE_BROKER_HOST\e[0m"
                                         ssh $REMOTE_USER@$REMOTE_BROKER_HOST << EOF
-cd HotShot
-nohup bash scripts/benchmark_scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
-exit
-EOF
+# cd HotShot
+# nohup bash scripts/benchmark_scripts/benchmarks_start_cdn_broker.sh ${keydb_address} > nohup.out 2>&1 &
+# exit
+# EOF
                                     fi
                                     BROKER_COUNTER=$((BROKER_COUNTER + 1))
                                 done
