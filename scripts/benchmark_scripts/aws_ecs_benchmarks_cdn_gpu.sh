@@ -51,15 +51,15 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-for total_nodes in 10 #10 50 100 200 500 1000
+for total_nodes in 10 100 500 1000
 do
-    for da_committee_size in 10 #5 10 50 100
+    for da_committee_size in 10 100
     do
         if [ $da_committee_size -le $total_nodes ]
         then
             for transactions_per_round in 1 #1 10
             do
-                for transaction_size in 10000000 #100000 1000000 10000000 20000000
+                for transaction_size in 100000 500000 750000 1000000 #100000 1000000 10000000 20000000
                 do
                     for fixed_leader_for_gpuvid in 3 #1 5 10
                     do
