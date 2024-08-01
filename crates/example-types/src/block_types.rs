@@ -1,7 +1,7 @@
 use std::{
     fmt::{Debug, Display},
     mem::size_of,
-    sync::Arc, time::Instant,
+    sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -119,9 +119,6 @@ impl Transaction for TestTransaction {
         let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
         let mut tx = vec![0; num_bytes]; 
         tx.append(&mut timestamp_vec);
-
-        // let time = Instant::now(); 
-        // tx.append(time..to_);
 
         TestTransaction(tx)
     }

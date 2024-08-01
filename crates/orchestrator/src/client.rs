@@ -51,7 +51,7 @@ impl BenchResults {
         println!("{0} Benchmark results:", self.partial_results);
         println!(
             "Average view time: {:?} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds",
-            self.avg_latency_in_sec.as_secs(), self.minimum_latency_in_sec, self.maximum_latency_in_sec
+            self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec
         );
         println!("Throughput: {} bytes/sec", self.throughput_bytes_per_sec);
         println!(
