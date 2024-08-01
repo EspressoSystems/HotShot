@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -175,8 +175,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let num_nodes = self.quorum_membership.total_nodes();
+                let time = Instant::now(); 
                 let payload_commitment =
                     spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                error!("Time for DA node to do vid_commitment: {:?}", time.elapsed());
                 #[cfg(async_executor_impl = "tokio")]
                 let payload_commitment = payload_commitment.unwrap();
 
