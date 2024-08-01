@@ -72,10 +72,8 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
 
     /// Build a certificate from the data commitment and the quorum of signers
     fn create_signed_certificate(
-        vote_commitment: Commitment<Self::Voteable>,
         vote: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
-        view: TYPES::Time,
     ) -> Self;
 
     /// Checks if the cert is valid
@@ -201,12 +199,7 @@ impl<
                 &sig_list[..],
             );
 
-            let cert = CERT::create_signed_certificate(
-                vote.commit(),
-                vote.clone(),
-                real_qc_sig,
-                vote.view_number(),
-            );
+            let cert = CERT::create_signed_certificate(vote.clone(), real_qc_sig);
             return Either::Right(cert);
         }
         Either::Left(())

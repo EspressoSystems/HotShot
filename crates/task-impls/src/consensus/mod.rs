@@ -375,11 +375,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
                     debug!(
                         "Attempting to publish proposal after forming a TC for view {}",
-                        *qc.view_number
+                        *qc.view_number()
                     );
 
                     if let Err(e) = self
-                        .publish_proposal(qc.view_number + 1, event_stream)
+                        .publish_proposal(qc.view_number() + 1, event_stream)
                         .await
                     {
                         debug!("Failed to propose; error = {e:?}");
@@ -395,11 +395,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",
-                        *qc.view_number
+                        *qc.view_number()
                     );
 
                     if let Err(e) = self
-                        .publish_proposal(qc.view_number + 1, event_stream)
+                        .publish_proposal(qc.view_number() + 1, event_stream)
                         .await
                     {
                         debug!("Failed to propose; error = {e:?}");
@@ -410,7 +410,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",
-                    *cert.view_number
+                    *cert.view_number()
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
@@ -421,8 +421,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                debug!("DAC Received for view {}!", *cert.view_number);
-                let view = cert.view_number;
+                debug!("DAC Received for view {}!", *cert.view_number());
+                let view = cert.view_number();
 
                 self.consensus
                     .write()
@@ -635,14 +635,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     return;
                 }
 
-                let view = certificate.view_number;
+                let view = certificate.view_number();
 
                 if self.quorum_membership.leader(view) == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                     debug!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
-                        *certificate.view_number
+                        *certificate.view_number()
                     );
 
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
@@ -658,7 +658,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                 let should_propose = self.quorum_membership.leader(new_view) == self.public_key
-                    && self.consensus.read().await.high_qc().view_number == proposal.view_number();
+                    && self.consensus.read().await.high_qc().view_number()
+                        == proposal.view_number();
 
                 if should_propose {
                     debug!(

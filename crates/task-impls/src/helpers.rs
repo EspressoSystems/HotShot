@@ -510,9 +510,9 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
             }
             ViewChangeEvidence::ViewSync(view_sync_cert) => {
                 ensure!(
-                    view_sync_cert.view_number == view,
+                    view_sync_cert.view_number() == view,
                     "View sync cert view number {:?} does not match proposal view number {:?}",
-                    view_sync_cert.view_number,
+                    view_sync_cert.view_number(),
                     view
                 );
 

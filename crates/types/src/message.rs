@@ -324,7 +324,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                         p.data.view_number()
                     }
                     DaConsensusMessage::DaVote(vote_message) => vote_message.view_number(),
-                    DaConsensusMessage::DaCertificate(cert) => cert.view_number,
+                    DaConsensusMessage::DaCertificate(cert) => cert.view_number(),
                     DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.view_number(),
                 }
             }

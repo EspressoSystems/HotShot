@@ -234,7 +234,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
+        let high_qc_view_number = self.consensus.read().await.high_qc().view_number();
         // The validated state of a non-genesis high QC should exist in the state map.
         if *high_qc_view_number != *ViewNumber::genesis()
             && !self
@@ -417,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                     VoteDependency::Dac => {
                         if let HotShotEvent::DaCertificateValidated(cert) = event {
-                            cert.view_number
+                            cert.view_number()
                         } else {
                             return false;
                         }
@@ -581,7 +581,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let view = cert.view_number;
+                let view = cert.view_number();
                 trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;

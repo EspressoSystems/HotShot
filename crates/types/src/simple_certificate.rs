@@ -70,10 +70,6 @@ impl<TYPES: NodeType> Threshold<TYPES> for UpgradeThreshold {
 pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Threshold<TYPES>> {
     /// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
     pub vote: VOTEABLE,
-    /// commitment of all the votes this cert should be signed over
-    pub vote_commitment: Commitment<VOTEABLE>,
-    /// Which view this QC relates to
-    pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
     pub signatures: Option<<TYPES::SignatureKey as SignatureKey>::QcType>,
     /// phantom data for `THRESHOLD` and `TYPES`
@@ -90,35 +86,32 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYP
         };
         committable::RawCommitmentBuilder::new("Certificate")
             .field("vote", self.vote.commit())
-            .field("vote_commitment", self.vote_commitment)
-            .field("view number", self.view_number.commit())
             .var_size_field("signatures", &signature_bytes)
             .finalize()
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>> Certificate<TYPES>
-    for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<
+        TYPES: NodeType,
+        VOTEABLE: Voteable + HasViewNumber<TYPES> + 'static,
+        THRESHOLD: Threshold<TYPES>,
+    > Certificate<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     type Voteable = VOTEABLE;
     type Threshold = THRESHOLD;
 
     fn create_signed_certificate(
-        vote_commitment: Commitment<VOTEABLE>,
         vote: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
-        view: TYPES::Time,
     ) -> Self {
         SimpleCertificate {
             vote,
-            vote_commitment,
-            view_number: view,
             signatures: Some(sig),
             _pd: PhantomData,
         }
     }
     fn is_valid_cert<MEMBERSHIP: Membership<TYPES>>(&self, membership: &MEMBERSHIP) -> bool {
-        if self.view_number == TYPES::Time::genesis() {
+        if self.view_number() == TYPES::Time::genesis() {
             return true;
         }
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
@@ -127,7 +120,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         );
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
-            self.vote_commitment.as_ref(),
+            self.vote_commitment().as_ref(),
             self.signatures.as_ref().unwrap(),
         )
     }
@@ -138,20 +131,23 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         &self.vote
     }
     fn vote_commitment(&self) -> Commitment<Self::Voteable> {
-        self.vote_commitment
+        self.vote.commit()
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
-    HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<
+        TYPES: NodeType,
+        VOTEABLE: Voteable + HasViewNumber<TYPES> + 'static,
+        THRESHOLD: Threshold<TYPES>,
+    > HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     fn view_number(&self) -> TYPES::Time {
-        self.view_number
+        self.vote.view_number()
     }
 }
 impl<TYPES: NodeType> Display for QuorumCertificate<TYPES> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "view: {:?}", self.view_number)
+        write!(f, "view: {:?}", self.view_number())
     }
 }
 

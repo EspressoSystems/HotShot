@@ -138,7 +138,7 @@ pub fn build_cert<
 
     let vote = VOTE::create_signed_vote(data, view, public_key, private_key)
         .expect("Failed to sign data!");
-    CERT::create_signed_certificate(vote.commit(), vote.clone(), real_qc_sig, vote.view_number())
+    CERT::create_signed_certificate(vote.clone(), real_qc_sig)
 }
 
 pub fn vid_share<TYPES: NodeType>(

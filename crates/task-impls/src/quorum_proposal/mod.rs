@@ -361,7 +361,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",
-                    *cert.view_number
+                    *cert.view_number()
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
@@ -373,7 +373,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             }
             HotShotEvent::QcFormed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
-                    let view_number = timeout_cert.view_number + 1;
+                    let view_number = timeout_cert.view_number() + 1;
 
                     self.create_dependency_task_if_new(
                         view_number,
@@ -385,7 +385,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
                     let consensus_reader = self.consensus.read().await;
-                    if qc.view_number <= consensus_reader.high_qc().view_number {
+                    if qc.view_number() <= consensus_reader.high_qc().view_number() {
                         tracing::trace!(
                             "Received a QC for a view that was not > than our current high QC"
                         );
@@ -422,7 +422,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     return;
                 }
 
-                let view_number = certificate.view_number;
+                let view_number = certificate.view_number();
 
                 self.create_dependency_task_if_new(
                     view_number,

@@ -195,7 +195,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+    if justify_qc.view_number() > consensus_read.high_qc().view_number() {
         if let Err(e) = task_state
             .storage
             .write()

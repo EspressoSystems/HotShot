@@ -8,7 +8,7 @@ use hotshot_types::{
     data::Leaf,
     event::{Event, EventType},
     traits::node_implementation::NodeType,
-    vote::Certificate,
+    vote::{Certificate, HasViewNumber},
 };
 
 use crate::{
@@ -61,11 +61,11 @@ impl<TYPES: NodeType> Validatable for NodeMapSanitized<TYPES> {
         // Check that the child leaf follows the parent, possibly with a gap.
         for (parent, child) in leaf_pairs {
             ensure!(
-              child.justify_qc().view_number >= parent.view_number(),
+              child.justify_qc().view_number() >= parent.view_number(),
               "The node has provided leaf:\n\n{child:?}\n\nbut its quorum certificate points to a view before the most recent leaf:\n\n{parent:?}"
             );
 
-            if child.justify_qc().view_number == parent.view_number()
+            if child.justify_qc().view_number() == parent.view_number()
                 && child.justify_qc().vote().data.leaf_commit != parent.commit()
             {
                 bail!("The node has provided leaf:\n\n{child:?}\n\nwhich points to:\n\n{parent:?}\n\nbut the commits do not match.");

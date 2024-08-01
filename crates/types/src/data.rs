@@ -232,7 +232,7 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
             ViewChangeEvidence::Timeout(timeout_cert) => {
                 timeout_cert.vote().data().view == *view - 1
             }
-            ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number == *view,
+            ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number() == *view,
         }
     }
 }
@@ -484,11 +484,8 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         };
         let view = <TYPES::Time as ConsensusTime>::genesis();
         let vote = SimpleVote::genesis(data, view);
-        let commit = vote.commit();
         Self {
             vote,
-            vote_commitment: commit,
-            view_number: view,
             signatures: None,
             _pd: PhantomData,
         }
@@ -528,12 +525,9 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
         };
         let vote = SimpleVote::genesis(null_quorum_data.clone(), view);
-        let commit = vote.commit();
 
         let justify_qc = QuorumCertificate {
             vote,
-            vote_commitment: commit,
-            view_number: view,
             signatures: None,
             _pd: PhantomData,
         };

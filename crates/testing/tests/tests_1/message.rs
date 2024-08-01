@@ -1,7 +1,6 @@
 #[cfg(test)]
 use std::marker::PhantomData;
 
-use committable::Committable;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::{
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
@@ -43,8 +42,6 @@ fn version_number_at_start_of_serialization() {
     };
     let simple_certificate = SimpleCertificate {
         vote: vote.clone(),
-        vote_commitment: vote.commit(),
-        view_number,
         signatures: None,
         _pd: PhantomData,
     };
