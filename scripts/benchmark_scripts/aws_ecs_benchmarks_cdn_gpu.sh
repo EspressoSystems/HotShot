@@ -23,9 +23,9 @@ REMOTE_USER="$1"
 ulimit -n 65536 
 
 # build to get the bin in advance, uncomment the following if built first time
-# just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
+just async_std example_fixed_leader validator-push-cdn -- http://localhost:4444 &
 # remember to sleep enough time if it's built first time
-# sleep 3m
+sleep 3m
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
@@ -51,7 +51,7 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-for total_nodes in 10 100 500 1000
+for total_nodes in 10 100 
 do
     for da_committee_size in 10 100
     do
