@@ -325,7 +325,7 @@ async fn test_all_restart() {
         node_changes: vec![(13, catchup_nodes)],
     };
     metadata.view_sync_properties =
-        hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 21);
+        hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
 
     metadata.completion_task_description =
         CompletionTaskDescription::TimeBasedCompletionTaskBuilder(

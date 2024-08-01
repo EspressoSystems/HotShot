@@ -21,4 +21,3 @@ scripts/preserve_ci_ecs_benchmarks.sh
 **/*.bin
 **/shutdown.sh
 *.log
-.vscode/settins.json

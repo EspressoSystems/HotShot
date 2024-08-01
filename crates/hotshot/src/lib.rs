@@ -177,8 +177,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     ///
-    /// # Errors
-    /// -
+    /// Use this instead of `init` if you want to start the tasks manually
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         public_key: TYPES::SignatureKey,
@@ -216,8 +215,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     ///
-    /// # Errors
-    /// -
+    /// Use this function if you want to use some prexisting channels and to spin up the tasks
+    /// and start consensus manually.  Mostly useful for tests
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     pub fn new_from_channels(
         public_key: TYPES::SignatureKey,
