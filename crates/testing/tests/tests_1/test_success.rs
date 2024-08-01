@@ -8,6 +8,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::TestDescription,
 };
 #[cfg(async_executor_impl = "async-std")]
@@ -20,6 +21,10 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         TestDescription {
+            overall_safety_properties:                                              OverallSafetyPropertiesDescription {
+                                                num_failed_views: 100,
+                                                ..Default::default()
+                                             },
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {

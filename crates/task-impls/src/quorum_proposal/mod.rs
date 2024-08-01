@@ -433,6 +433,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::QuorumProposalRecv(proposal, _) => {
                 let view_number = proposal.data.view_number();
 
+                if self.id == 4 {
+                    let mut bp = proposal.clone();
+                    for i in 0..100 {
+                        bp.data.view_number += 1;
+                        let view_leader_key = self.quorum_membership.leader(bp.data.view_number());
+                        broadcast_event(
+                            HotShotEvent::QuorumProposalSend(bp.clone(), view_leader_key.clone())
+                                .into(),
+                            &event_sender,
+                        )
+                        .await
+                    }
+                }
+
                 // All nodes get the latest proposed view as a proxy of `cur_view` of olde.
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
