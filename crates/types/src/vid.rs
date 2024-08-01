@@ -9,12 +9,13 @@
 //! via the traits exposed here.
 
 use std::{fmt::Debug, ops::Range};
-
+use std::time::Instant;
 use ark_bn254::Bn254;
 use jf_pcs::{
     prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
     PolynomialCommitmentScheme,
 };
+use tracing::error;
 use jf_vid::{
     advz::{
         self,
@@ -65,11 +66,11 @@ pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
 
     // TODO ED We should make this an automatic caclulation
     // FROM GUS: multiplicity must be at least 3 times max_payload_size divided by num_storage_nodes.
-    let muliplicity = 64; 
+    let multiplicity = 64;
     // TODO panic, return `Result`, or make `new` infallible upstream (eg. by panicking)?
     #[allow(clippy::panic)]
     VidSchemeType(
-        Advz::with_multiplicity(num_storage_nodes, recovery_threshold, muliplicity, &*KZG_SRS).unwrap_or_else(|err| {
+        Advz::with_multiplicity(num_storage_nodes, recovery_threshold, multiplicity, &*KZG_SRS).unwrap_or_else(|err| {
               panic!("advz construction failure: (num_storage nodes,recovery_threshold)=({num_storage_nodes},{recovery_threshold}); \
                       error: {err}")
         })
@@ -206,7 +207,10 @@ impl VidScheme for VidSchemeType {
         common: &Self::Common,
         commit: &Self::Commit,
     ) -> VidResult<Result<(), ()>> {
-        self.0.verify_share(share, common, commit)
+        let time = Instant::now();
+        let result = self.0.verify_share(share, common, commit);
+        error!("Time to verify VID share is: {:?}", time.elapsed());
+        result
     }
 
     fn recover_payload(&self, shares: &[Self::Share], common: &Self::Common) -> VidResult<Vec<u8>> {
