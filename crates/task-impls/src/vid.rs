@@ -9,7 +9,6 @@ use hotshot_types::{
     data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
-        election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
