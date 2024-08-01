@@ -51,7 +51,7 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-for total_nodes in 10 #10 50 100 200 500 1000
+for total_nodes in 100 #10 50 100 200 500 1000
 do
     for da_committee_size in 10 #5 10 50 100
     do
