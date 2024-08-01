@@ -481,10 +481,7 @@ where
             } else {
                 // Deal with the bench results from different nodes
                 let cur_metrics = self.bench_results.clone();
-                self.bench_results.avg_latency_in_sec = (metrics.avg_latency_in_sec
-                    * metrics.num_latency
-                    + cur_metrics.avg_latency_in_sec * cur_metrics.num_latency)
-                    / (metrics.num_latency + cur_metrics.num_latency);
+                self.bench_results.avg_latency_in_sec = (cur_metrics.avg_latency_in_sec + metrics.avg_latency_in_sec) / 2;
                 self.bench_results.num_latency += metrics.num_latency;
                 self.bench_results.minimum_latency_in_sec = metrics
                     .minimum_latency_in_sec

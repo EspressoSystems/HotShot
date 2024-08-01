@@ -573,8 +573,8 @@ pub trait RunDa<
             // ED HERE
                 * (transaction_size_in_bytes + 8)
                 / total_time_elapsed_sec;
-            let avg_latency_in_sec = total_latency / num_latency;
-            println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
+            let avg_latency_in_sec = total_time_elapsed.checked_div(rounds.try_into().unwrap()).unwrap();
+            println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_view time: {:?} sec.", avg_latency_in_sec);
             BenchResults {
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,

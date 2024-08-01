@@ -23,7 +23,7 @@ pub struct BenchResults {
     /// Whether it's partial collected results
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: i64,
+    pub avg_latency_in_sec: Duration,
     /// The number of transactions that were latency measured
     pub num_latency: i64,
     /// The minimum latency of the transactions
@@ -50,8 +50,8 @@ impl BenchResults {
         println!("=====================");
         println!("{0} Benchmark results:", self.partial_results);
         println!(
-            "Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds",
-            self.avg_latency_in_sec, self.minimum_latency_in_sec, self.maximum_latency_in_sec
+            "Average view time: {:?} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds",
+            self.avg_latency_in_sec.as_secs(), self.minimum_latency_in_sec, self.maximum_latency_in_sec
         );
         println!("Throughput: {} bytes/sec", self.throughput_bytes_per_sec);
         println!(
@@ -94,7 +94,7 @@ pub struct BenchResultsDownloadConfig {
     /// "Full" if the results are successfully collected from all nodes
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: i64,
+    pub avg_latency_in_sec: Duration,
     /// The minimum latency of the transactions
     pub minimum_latency_in_sec: i64,
     /// The maximum latency of the transactions
