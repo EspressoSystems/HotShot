@@ -71,6 +71,7 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
 
         failed_views: HashSet<TYPES::Time>,
     },
+    /// mismatched expected failed view vs actual failed view
     InconsistentFailedViews {
         expected_failed_views: HashSet<TYPES::Time>,
         actual_failed_views: HashSet<TYPES::Time>,
@@ -89,6 +90,33 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub error: Option<Box<OverallSafetyTaskErr<TYPES>>>,
     /// sender to test event channel
     pub test_sender: Sender<TestEvent>,
+}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TYPES, I> {
+    async fn handle_view_failure(
+        &mut self,
+        num_failed_views: usize,
+        expected_views_to_fail: HashSet<TYPES::Time>,
+        view_number: TYPES::Time,
+    ) {
+        self.ctx.failed_views.insert(view_number);
+        if self.ctx.failed_views.len() > num_failed_views {
+            let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+            self.error = Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
+                failed_views: self.ctx.failed_views.clone(),
+            }));
+        } else if !expected_views_to_fail.is_empty()
+            && !expected_views_to_fail.contains(&view_number)
+        {
+            let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+            self.error = Some(Box::new(
+                OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
+                    expected_failed_views: expected_views_to_fail.clone(),
+                    actual_failed_views: self.ctx.failed_views.clone(),
+                },
+            ));
+        }
+    }
 }
 
 #[async_trait]
@@ -173,24 +201,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                     return Ok(());
                 }
                 ViewStatus::Failed => {
-                    self.ctx.failed_views.insert(view_number);
-                    if self.ctx.failed_views.len() > num_failed_views {
-                        let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
-                        self.error =
-                            Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
-                                failed_views: self.ctx.failed_views.clone(),
-                            }));
-                    } else if !expected_views_to_fail.is_empty()
-                        && !expected_views_to_fail.contains(&view_number)
-                    {
-                        let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
-                        self.error = Some(Box::new(
-                            OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
-                                expected_failed_views: expected_views_to_fail.clone(),
-                                actual_failed_views: self.ctx.failed_views.clone(),
-                            },
-                        ));
-                    }
+                    self.handle_view_failure(num_failed_views, expected_views_to_fail, view_number)
+                        .await;
+
                     return Ok(());
                 }
                 ViewStatus::Err(e) => {
@@ -204,23 +217,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }
         } else if view.check_if_failed(threshold, len) {
             view.status = ViewStatus::Failed;
-            self.ctx.failed_views.insert(view_number);
-            if self.ctx.failed_views.len() > num_failed_views {
-                let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
-                self.error = Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
-                    failed_views: self.ctx.failed_views.clone(),
-                }));
-            } else if !expected_views_to_fail.is_empty()
-                && !expected_views_to_fail.contains(&view_number)
-            {
-                let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
-                self.error = Some(Box::new(
-                    OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
-                        expected_failed_views: expected_views_to_fail.clone(),
-                        actual_failed_views: self.ctx.failed_views.clone(),
-                    },
-                ));
-            }
+            self.handle_view_failure(num_failed_views, expected_views_to_fail, view_number)
+                .await;
             return Ok(());
         }
         Ok(())

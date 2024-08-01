@@ -411,64 +411,55 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES,
 }
 
 #[derive(Debug)]
-/// An `EventHandlerState` that modifies justify_qc to that of previous view to mock dishonest leader
+/// An `EventHandlerState` that modifies justify_qc on `QuorumProposalSend` to that of a previous view to mock dishonest leader
 pub struct DishonestLeader<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// store events from previous views
+    /// Store events from previous views
     pub validated_proposals: Vec<QuorumProposal<TYPES>>,
-    /// how many times current node has been elected leader and sent proposal
+    /// How many times current node has been elected leader and sent proposal
     pub total_proposals_from_node: u64,
-    /// which proposals to be dishonest at
+    /// Which proposals to be dishonest at
     pub dishonest_at_proposal_numbers: HashSet<u64>,
-    /// how far back to look for a QC
+    /// How far back to look for a QC
     pub view_look_back: usize,
-    /// phantom
+    /// Phantom
     pub _phantom: std::marker::PhantomData<I>,
 }
 
-/// add trait to handle proposal events for a dishonest leader
-trait DishonestProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// send dishonest proposal
+/// Add method that will handle `QuorumProposalSend` events
+/// If we have previous proposals stored and the total_proposals_from_node matches a value specified in dishonest_at_proposal_numbers
+/// Then send out the event with the modified proposal that has an older QC
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestLeader<TYPES, I> {
+    /// When a leader is sending a proposal this method will mock a dishonest leader
+    /// We accomplish this by looking back a number of specified views and using that cached proposals QC
     fn handle_proposal_send_event(
         &self,
         event: &HotShotEvent<TYPES>,
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
         sender: &TYPES::SignatureKey,
-    ) -> Vec<HotShotEvent<TYPES>>;
-}
-
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestProposal<TYPES, I>
-    for DishonestLeader<TYPES, I>
-{
-    fn handle_proposal_send_event(
-        &self,
-        event: &HotShotEvent<TYPES>,
-        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-        sender: &TYPES::SignatureKey,
-    ) -> Vec<HotShotEvent<TYPES>> {
+    ) -> HotShotEvent<TYPES> {
         let length = self.validated_proposals.len();
         if !self
             .dishonest_at_proposal_numbers
             .contains(&self.total_proposals_from_node)
             || length == 0
         {
-            return vec![event.clone()];
+            return event.clone();
         }
 
-        // grab qc from specified look back
-        let proposal_from_lookback = if length - 1 < self.view_look_back {
-            // if look back is to far just take the first proposal
+        // Grab proposal from specified view look back
+        let proposal_from_look_back = if length - 1 < self.view_look_back {
+            // If look back is too far just take the first proposal
             self.validated_proposals[0].clone()
         } else {
             let index = (self.validated_proposals.len() - 1) - self.view_look_back;
             self.validated_proposals[index].clone()
         };
-        let mut dishonest_proposal = proposal.clone();
-        dishonest_proposal.data.justify_qc = proposal_from_lookback.justify_qc;
 
-        vec![HotShotEvent::QuorumProposalSend(
-            dishonest_proposal,
-            sender.clone(),
-        )]
+        // Create a dishonest proposal by using the old proposals qc
+        let mut dishonest_proposal = proposal.clone();
+        dishonest_proposal.data.justify_qc = proposal_from_look_back.justify_qc;
+
+        HotShotEvent::QuorumProposalSend(dishonest_proposal, sender.clone())
     }
 }
 
@@ -484,7 +475,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug>
         match event {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 self.total_proposals_from_node += 1;
-                return self.handle_proposal_send_event(event, proposal, sender);
+                return vec![self.handle_proposal_send_event(event, proposal, sender)];
             }
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 self.validated_proposals.push(proposal.clone());
