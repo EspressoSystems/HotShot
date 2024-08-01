@@ -214,6 +214,7 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
@@ -342,6 +343,7 @@
                     <span class="comment">// Build the parent leaf since we didn't find it during the proposal check.
                     </span><span class="kw">let </span>parent_leaf = <span class="kw">match </span>parent_leaf_and_state(
                         proposal.data.view_number() + <span class="number">1</span>,
+                        <span class="kw-2">&amp;</span>event_stream,
                         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                         <span class="self">self</span>.public_key.clone(),
                         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),

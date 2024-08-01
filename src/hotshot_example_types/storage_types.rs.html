@@ -124,6 +124,29 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -136,8 +159,10 @@
     consensus::CommitmentMap,
     data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare},
     message::Proposal,
+    simple_certificate::QuorumCertificate,
     traits::{node_implementation::NodeType, storage::Storage},
     utils::View,
+    vote::HasViewNumber,
 };
 
 <span class="kw">type </span>VidShares&lt;TYPES&gt; = HashMap&lt;
@@ -149,7 +174,8 @@
 </span><span class="kw">pub struct </span>TestStorageState&lt;TYPES: NodeType&gt; {
     vids: VidShares&lt;TYPES&gt;,
     das: HashMap&lt;TYPES::Time, Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;&gt;,
-    proposals: HashMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    high_qc: <span class="prelude-ty">Option</span>&lt;hotshot_types::simple_certificate::QuorumCertificate&lt;TYPES&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Default <span class="kw">for </span>TestStorageState&lt;TYPES&gt; {
@@ -157,7 +183,8 @@
         <span class="self">Self </span>{
             vids: HashMap::new(),
             das: HashMap::new(),
-            proposals: HashMap::new(),
+            proposals: BTreeMap::new(),
+            high_qc: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -175,6 +202,17 @@
             inner: Arc::new(RwLock::new(TestStorageState::default())),
             should_return_err: <span class="bool-val">false</span>,
         }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestStorage&lt;TYPES&gt; {
+    <span class="kw">pub async fn </span>proposals_cloned(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
+        <span class="self">self</span>.inner.read().<span class="kw">await</span>.proposals.clone()
+    }
+    <span class="kw">pub async fn </span>high_qc_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.inner.read().<span class="kw">await</span>.high_qc.clone()
     }
 }
 
@@ -230,10 +268,18 @@
 
     <span class="kw">async fn </span>update_high_qc(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _high_qc: hotshot_types::simple_certificate::QuorumCertificate&lt;TYPES&gt;,
+        new_high_qc: hotshot_types::simple_certificate::QuorumCertificate&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
             <span class="macro">bail!</span>(<span class="string">"Failed to update high qc to storage"</span>);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>current_high_qc) = inner.high_qc {
+            <span class="kw">if </span>new_high_qc.view_number() &gt; current_high_qc.view_number() {
+                inner.high_qc = <span class="prelude-val">Some</span>(new_high_qc);
+            }
+        } <span class="kw">else </span>{
+            inner.high_qc = <span class="prelude-val">Some</span>(new_high_qc);
         }
         <span class="prelude-val">Ok</span>(())
     }

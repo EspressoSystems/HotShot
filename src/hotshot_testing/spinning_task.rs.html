@@ -230,6 +230,104 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -238,6 +336,7 @@
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -325,6 +424,8 @@
             }
         }
 
+        <span class="kw">let </span><span class="kw-2">mut </span>new_nodes = <span class="macro">vec!</span>[];
+        <span class="kw">let </span><span class="kw-2">mut </span>new_networks = <span class="macro">vec!</span>[];
         <span class="comment">// if we have not seen this view before
         </span><span class="kw">if </span><span class="self">self</span>.latest_view.is_none() || view_number &gt; <span class="self">self</span>.latest_view.unwrap() {
             <span class="comment">// perform operations on the nodes
@@ -380,6 +481,9 @@
                                         )
                                         .<span class="kw">await
                                     </span>}
+                                    LateNodeContext::Restart =&gt; {
+                                        <span class="macro">panic!</span>(<span class="string">"Cannot spin up a node with Restart context"</span>)
+                                    }
                                 };
 
                                 <span class="kw">let </span>handle = context.run_tasks().<span class="kw">await</span>;
@@ -403,6 +507,74 @@
                                 node.handle.shut_down().<span class="kw">await</span>;
                             }
                         }
+                        UpDown::Restart =&gt; {
+                            <span class="kw">let </span>node_id = idx.try_into().unwrap();
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get_mut(idx) {
+                                <span class="macro">tracing::error!</span>(<span class="string">"Node {} shutting down"</span>, idx);
+                                node.handle.shut_down().<span class="kw">await</span>;
+
+                                <span class="kw">let </span><span class="prelude-val">Some</span>(LateStartNode {
+                                    network,
+                                    context: LateNodeContext::Restart,
+                                }) = <span class="self">self</span>.late_start.get(<span class="kw-2">&amp;</span>node_id)
+                                <span class="kw">else </span>{
+                                    <span class="macro">panic!</span>(<span class="string">"Restated Nodes must have an unitialized context"</span>);
+                                };
+
+                                <span class="kw">let </span>storage = node.handle.storage().clone();
+                                <span class="kw">let </span>memberships = node.handle.memberships.clone();
+                                <span class="kw">let </span>config = node.handle.hotshot.config.clone();
+                                <span class="kw">let </span>auction_results_provider =
+                                    node.handle.hotshot.auction_results_provider.clone();
+                                <span class="kw">let </span>read_storage = storage.read().<span class="kw">await</span>;
+                                <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
+                                    <span class="self">self</span>.last_decided_leaf.clone(),
+                                    TestInstanceState {},
+                                    <span class="prelude-val">None</span>,
+                                    view_number,
+                                    read_storage.proposals_cloned().<span class="kw">await</span>,
+                                    read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
+                                        QuorumCertificate::genesis(
+                                            <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                                            <span class="kw-2">&amp;</span>TestInstanceState {},
+                                        )
+                                        .<span class="kw">await</span>,
+                                    ),
+                                    Vec::new(),
+                                    BTreeMap::new(),
+                                );
+                                <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
+                                </span><span class="kw">let </span>validator_config = ValidatorConfig::generated_from_seed_indexed(
+                                    [<span class="number">0u8</span>; <span class="number">32</span>],
+                                    node_id,
+                                    <span class="number">1</span>,
+                                    <span class="comment">// For tests, make the node DA based on its index
+                                    </span>node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64,
+                                );
+                                <span class="kw">let </span>context =
+                                    TestRunner::&lt;TYPES, I, N&gt;::add_node_with_config_and_channels(
+                                        node_id,
+                                        network.clone(),
+                                        (<span class="kw-2">*</span>memberships).clone(),
+                                        initializer,
+                                        config,
+                                        validator_config,
+                                        (<span class="kw-2">*</span>read_storage).clone(),
+                                        (<span class="kw-2">*</span>auction_results_provider).clone(),
+                                        (
+                                            node.handle.internal_channel_sender(),
+                                            node.handle.internal_event_stream_known_impl(),
+                                        ),
+                                        (
+                                            node.handle.external_channel_sender(),
+                                            node.handle.event_stream_known_impl(),
+                                        ),
+                                    )
+                                    .<span class="kw">await</span>;
+                                new_nodes.push((context, idx));
+                                new_networks.push(network.clone());
+                            }
+                        }
                         UpDown::NetworkUp =&gt; {
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} networks resuming"</span>, idx);
@@ -418,7 +590,29 @@
                     }
                 }
             }
+            <span class="kw">let </span><span class="kw-2">mut </span>ready_futs = <span class="macro">vec!</span>[];
+            <span class="kw">while let </span><span class="prelude-val">Some</span>(net) = new_networks.pop() {
+                ready_futs.push(<span class="kw">async move </span>{
+                    net.wait_for_ready().<span class="kw">await</span>;
+                });
+            }
+            join_all(ready_futs).<span class="kw">await</span>;
 
+            <span class="kw">while let </span><span class="prelude-val">Some</span>((node, id)) = new_nodes.pop() {
+                <span class="kw">let </span>handle = node.run_tasks().<span class="kw">await</span>;
+
+                <span class="comment">// Create the node and add it to the state, so we can shut them
+                // down properly later to avoid the overflow error in the overall
+                // safety task.
+                </span><span class="kw">let </span>node = Node {
+                    node_id: id.try_into().unwrap(),
+                    network: node.network.clone(),
+                    handle,
+                };
+                node.handle.hotshot.start_consensus().<span class="kw">await</span>;
+
+                <span class="self">self</span>.handles.write().<span class="kw">await</span>[id] = node;
+            }
             <span class="comment">// update our latest view
             </span><span class="self">self</span>.latest_view = <span class="prelude-val">Some</span>(view_number);
         }
@@ -442,6 +636,8 @@
     </span>NetworkUp,
     <span class="doccomment">/// spin the node's network down
     </span>NetworkDown,
+    <span class="doccomment">/// restart the node
+    </span>Restart,
 }
 
 <span class="doccomment">/// denotes a change in node state

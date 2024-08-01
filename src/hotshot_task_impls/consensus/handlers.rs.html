@@ -840,6 +840,7 @@
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>core::time::Duration;
@@ -1014,6 +1015,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;JoinHandle&lt;()&gt;&gt; {
     <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
         view,
+        <span class="kw-2">&amp;</span>sender,
         quorum_membership,
         public_key.clone(),
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),

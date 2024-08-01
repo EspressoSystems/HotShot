@@ -1112,6 +1112,9 @@
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
 <a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -1316,7 +1319,7 @@
     /// - An invalid configuration
     ///   (probably an issue with the defaults of this function)
     /// - An inability to spin up the replica's network
-    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="attr">#[allow(clippy::panic, clippy::too_many_lines)]
     </span><span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -1331,9 +1334,9 @@
             <span class="string">"DA committee size must be less than or equal to total # nodes"
         </span>);
         <span class="kw">let </span>bootstrap_addrs: PeerInfoVec = Arc::default();
+        <span class="kw">let </span>node_ids: Arc&lt;RwLock&lt;HashSet&lt;u64&gt;&gt;&gt; = Arc::default();
         <span class="comment">// We assign known_nodes' public key and stake value rather than read from config file since it's a test
-        </span><span class="kw">let </span><span class="kw-2">mut </span>all_keys = BTreeSet::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0u64</span>..(expected_node_count <span class="kw">as </span>u64) {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], i).<span class="number">1</span>;
@@ -1341,7 +1344,6 @@
             <span class="kw">if </span>i &lt; da_committee_size <span class="kw">as </span>u64 {
                 da_keys.insert(pubkey.clone());
             }
-            all_keys.insert(pubkey);
         }
 
         <span class="comment">// NOTE uncomment this for easier debugging
@@ -1410,9 +1412,18 @@
                         .unwrap()
                 };
                 <span class="kw">let </span>bootstrap_addrs_ref = Arc::clone(<span class="kw-2">&amp;</span>bootstrap_addrs);
+                <span class="kw">let </span>node_ids_ref = Arc::clone(<span class="kw-2">&amp;</span>node_ids);
                 <span class="kw">let </span>da = da_keys.clone();
                 <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
                 Box::pin(<span class="kw">async move </span>{
+                    <span class="comment">// If it's the second time we are starting this network, clear the bootstrap info
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>write_ids = node_ids_ref.write().<span class="kw">await</span>;
+                    <span class="kw">if </span>write_ids.contains(<span class="kw-2">&amp;</span>node_id) {
+                        write_ids.clear();
+                        bootstrap_addrs_ref.write().<span class="kw">await</span>.clear();
+                    }
+                    write_ids.insert(node_id);
+                    drop(write_ids);
                     Arc::new(
                         <span class="kw">match </span>Libp2pNetwork::new(
                             Libp2pMetricsValue::default(),
@@ -1607,11 +1618,6 @@
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
-        <span class="comment">// Error if there were no bootstrap nodes specified
-        </span><span class="attr">#[cfg(not(feature = <span class="string">"hotshot-testing"</span>))]
-        </span><span class="kw">if </span>bootstrap_addrs.read().<span class="kw">await</span>.len() == <span class="number">0 </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NoBootstrapNodesSpecified);
-        }
         <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node(config.clone(), id)
             .<span class="kw">await
             </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>;

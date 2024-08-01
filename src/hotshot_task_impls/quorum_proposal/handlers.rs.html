@@ -349,6 +349,7 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
@@ -465,6 +466,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
             <span class="self">self</span>.view_number,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
             <span class="self">self</span>.public_key.clone(),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),

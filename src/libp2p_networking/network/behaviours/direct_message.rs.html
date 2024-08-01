@@ -196,7 +196,7 @@
                 request_id,
                 error,
             } =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Outbound message failure to {:?}: {:?}"</span>, peer, error);
+                <span class="macro">warn!</span>(<span class="string">"Outbound message failure to {:?}: {:?}"</span>, peer, error);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
                     <span class="kw">if </span>req.retry_count == <span class="number">0 </span>{
                         <span class="kw">return </span><span class="prelude-val">None</span>;
