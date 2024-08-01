@@ -51,9 +51,9 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-for total_nodes in 10 100 
+for total_nodes in 10 
 do
-    for da_committee_size in 10 100
+    for da_committee_size in 10
     do
         if [ $da_committee_size -le $total_nodes ]
         then
