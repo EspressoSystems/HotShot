@@ -250,7 +250,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
-                let replication_factor = NonZeroUsize::new(expected_node_count).unwrap();
+                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
                     NetworkNodeConfigBuilder::default()
                         // NOTICE the implicit assumption that bootstrap is less
@@ -301,16 +301,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 Box::pin(async move {
                     // If it's the second time we are starting this network, clear the bootstrap info
                     let mut write_ids = node_ids_ref.write().await;
-                    let mut clear = false;
                     if write_ids.contains(&node_id) {
                         write_ids.clear();
-                        clear = true;
+                        bootstrap_addrs_ref.write().await.clear();
                     }
                     write_ids.insert(node_id);
                     drop(write_ids);
-                    if clear {
-                        bootstrap_addrs_ref.write().await.clear();
-                    }
                     Arc::new(
                         match Libp2pNetwork::new(
                             Libp2pMetricsValue::default(),

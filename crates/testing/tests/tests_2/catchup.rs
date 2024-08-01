@@ -321,7 +321,7 @@ async fn test_all_restart() {
     metadata.num_nodes_with_stake = 20;
 
     metadata.spinning_properties = SpinningTaskDescription {
-        // Start the nodes before their leadership.
+        // Restart all the nodes in view 13
         node_changes: vec![(13, catchup_nodes)],
     };
     metadata.view_sync_properties =

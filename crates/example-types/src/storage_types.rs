@@ -62,7 +62,7 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
     ) -> BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>> {
         self.inner.read().await.proposals.clone()
     }
-    pub async fn high_qc(&self) -> Option<QuorumCertificate<TYPES>> {
+    pub async fn high_qc_cloned(&self) -> Option<QuorumCertificate<TYPES>> {
         self.inner.read().await.high_qc.clone()
     }
 }

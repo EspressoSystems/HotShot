@@ -205,7 +205,7 @@ where
                                     None,
                                     view_number,
                                     read_storage.proposals_cloned().await,
-                                    read_storage.high_qc().await.unwrap_or(
+                                    read_storage.high_qc_cloned().await.unwrap_or(
                                         QuorumCertificate::genesis(
                                             &TestValidatedState::default(),
                                             &TestInstanceState {},
