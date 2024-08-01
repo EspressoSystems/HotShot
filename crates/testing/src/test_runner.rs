@@ -13,7 +13,7 @@ use async_std::task::JoinHandle;
 use futures::future::join_all;
 use hotshot::{
     traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
-    Memberships, SystemContext,
+    MarketplaceConfig, Memberships, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -421,10 +421,15 @@ where
 
             let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
-            let mut auction_results_provider =
-                (self.launcher.resource_generator.auction_results_provider)(node_id);
+            let mut marketplace_config =
+                (self.launcher.resource_generator.marketplace_config)(node_id);
             if let Some(solver_server) = &self.solver_server {
-                auction_results_provider.broadcast_url = Some(solver_server.0.clone());
+                let mut new_auction_results_provider =
+                    marketplace_config.auction_results_provider.as_ref().clone();
+
+                new_auction_results_provider.broadcast_url = Some(solver_server.0.clone());
+
+                marketplace_config.auction_results_provider = new_auction_results_provider.into();
             }
 
             let network_clone = network.clone();
@@ -445,7 +450,7 @@ where
                                     storage,
                                     memberships,
                                     config,
-                                    auction_results_provider,
+                                    marketplace_config,
                                 },
                             ),
                         },
@@ -470,7 +475,7 @@ where
                         config,
                         validator_config,
                         storage,
-                        auction_results_provider,
+                        marketplace_config,
                     )
                     .await;
                     self.late_start.insert(
@@ -488,7 +493,7 @@ where
                     memberships,
                     config,
                     storage,
-                    auction_results_provider,
+                    marketplace_config,
                 ));
             }
 
@@ -499,7 +504,7 @@ where
         join_all(networks_ready).await;
 
         // Then start the necessary tasks
-        for (node_id, network, memberships, config, storage, auction_results_provider) in
+        for (node_id, network, memberships, config, storage, marketplace_config) in
             uninitialized_nodes
         {
             let behaviour = (self.launcher.metadata.behaviour)(node_id);
@@ -510,7 +515,7 @@ where
                 memberships,
                 config.clone(),
                 storage,
-                auction_results_provider,
+                marketplace_config,
             )
             .await;
 
@@ -551,7 +556,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig<TYPES, I>,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
@@ -567,7 +572,7 @@ where
             initializer,
             ConsensusMetricsValue::default(),
             storage,
-            auction_results_provider,
+            marketplace_config,
         )
     }
 }
@@ -594,8 +599,8 @@ pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementat
     /// The config associted with this node.
     pub config: HotShotConfig<TYPES::SignatureKey>,
 
-    /// The Auction Results handle for this node.
-    pub auction_results_provider: I::AuctionResultsProvider,
+    /// The marketplace config for this node.
+    pub marketplace_config: MarketplaceConfig<TYPES, I>,
 }
 
 /// The late node context dictates how we're building a node that started late during the test.

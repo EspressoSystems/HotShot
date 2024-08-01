@@ -3088,6 +3088,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "url",
  "vbs",
 ]
 
@@ -3186,6 +3187,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber 0.3.18",
+ "url",
  "vbs",
  "vec1",
 ]
@@ -3313,6 +3315,7 @@ dependencies = [
  "time 0.3.36",
  "tokio",
  "tracing",
+ "url",
  "vbs",
  "vec1",
 ]

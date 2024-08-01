@@ -114,7 +114,7 @@ where
                                             storage,
                                             memberships,
                                             config,
-                                            auction_results_provider,
+                                            marketplace_config,
                                         } = late_context_params;
 
                                         let initializer = HotShotInitializer::<TYPES>::from_reload(
@@ -144,7 +144,7 @@ where
                                             config,
                                             validator_config,
                                             storage,
-                                            auction_results_provider,
+                                            marketplace_config,
                                         )
                                         .await
                                     }
