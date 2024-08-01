@@ -1,5 +1,6 @@
 #![cfg(feature = "dependency-tasks")]
 
+use itertools::Itertools;
 use std::time::Duration;
 
 use async_compatibility_layer::art::async_timeout;
@@ -38,8 +39,10 @@ async fn test_vote_dependency_handle() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    // We need a handle to be able to build our dependency tasks
+    // We use a node ID of 2 here abitrarily. We just need it to build the system handle.
     let node_id = 2;
+
+    // Construct the system handle for the node ID to build all of the state objects.
     let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
         .await
         .0;
@@ -72,44 +75,13 @@ async fn test_vote_dependency_handle() {
 
     // We permute all possible orderings of inputs. Ordinarily we'd use `random!` for this, but
     // the dependency handles do not (yet) work with the existing test suite.
-    // 1,2,3
-    // 1,3,2
-    // 2,1,3
-    // 2,3,1
-    // 3,1,2
-    // 3,2,1
     let all_inputs = vec![
-        vec![
-            DaCertificateValidated(dacs[1].clone()),
-            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-            VidShareValidated(vids[1].0[0].clone()),
-        ],
-        vec![
-            DaCertificateValidated(dacs[1].clone()),
-            VidShareValidated(vids[1].0[0].clone()),
-            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-        ],
-        vec![
-            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-            DaCertificateValidated(dacs[1].clone()),
-            VidShareValidated(vids[1].0[0].clone()),
-        ],
-        vec![
-            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-            VidShareValidated(vids[1].0[0].clone()),
-            DaCertificateValidated(dacs[1].clone()),
-        ],
-        vec![
-            VidShareValidated(vids[1].0[0].clone()),
-            DaCertificateValidated(dacs[1].clone()),
-            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-        ],
-        vec![
-            VidShareValidated(vids[1].0[0].clone()),
-            QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-            DaCertificateValidated(dacs[1].clone()),
-        ],
-    ];
+        DaCertificateValidated(dacs[1].clone()),
+        QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+        VidShareValidated(vids[1].0[0].clone()),
+    ]
+    .into_iter()
+    .permutations(3);
 
     // For each permutation...
     for inputs in all_inputs.into_iter() {
