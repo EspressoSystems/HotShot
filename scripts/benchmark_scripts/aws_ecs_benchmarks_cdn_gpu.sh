@@ -109,20 +109,20 @@ EOF
                                 # make sure you're able to access the remote nvidia gpu server
                                 echo -e "\e[35mGoing to start leaders on remote gpu server \e[0m"
                                 GPU_COUNTER=0
-                                for REMOTE_GPU_HOST in "$@"; do
-                                    if [ "$GPU_COUNTER" -ge 1 ]; then
-                                        echo -e "\e[35mStart leader $GPU_COUNTER on gpu server $REMOTE_GPU_HOST \e[0m"
-                                        ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
-cd HotShot
-nohup bash scripts/benchmark_scripts/benchmarks_start_leader_gpu.sh 1 ${orchestrator_url} > nohup.out 2>&1 &
-exit
-EOF
-                                    fi
-                                    if [ $GPU_COUNTER -eq $fixed_leader_for_gpuvid ]; then
-                                        break
-                                    fi
-                                    GPU_COUNTER=$((GPU_COUNTER + 1))
-                                done
+#                                 for REMOTE_GPU_HOST in "$@"; do
+#                                     if [ "$GPU_COUNTER" -ge 1 ]; then
+#                                         echo -e "\e[35mStart leader $GPU_COUNTER on gpu server $REMOTE_GPU_HOST \e[0m"
+#                                         ssh $REMOTE_USER@$REMOTE_GPU_HOST  << EOF
+# cd HotShot
+# nohup bash scripts/benchmark_scripts/benchmarks_start_leader_gpu.sh 1 ${orchestrator_url} > nohup.out 2>&1 &
+# exit
+# EOF
+#                                     fi
+#                                     if [ $GPU_COUNTER -eq $fixed_leader_for_gpuvid ]; then
+#                                         break
+#                                     fi
+#                                     GPU_COUNTER=$((GPU_COUNTER + 1))
+#                                 done
 
                                 sleep 1m
 
