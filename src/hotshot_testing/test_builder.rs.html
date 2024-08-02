@@ -493,6 +493,8 @@
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::{
@@ -562,7 +564,7 @@
     <span class="doccomment">/// Size of the non-staked DA committee for the test
     </span><span class="kw">pub </span>da_non_staked_committee_size: usize,
     <span class="doccomment">/// overall safety property description
-    </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription,
+    </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription&lt;TYPES&gt;,
     <span class="doccomment">/// spinning properties
     </span><span class="kw">pub </span>spinning_properties: SpinningTaskDescription,
     <span class="doccomment">/// txns timing
@@ -725,13 +727,14 @@
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
-            overall_safety_properties: OverallSafetyPropertiesDescription {
+            overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
                 num_successful_views: <span class="number">50</span>,
                 check_leaf: <span class="bool-val">true</span>,
                 check_block: <span class="bool-val">true</span>,
                 num_failed_views: <span class="number">15</span>,
                 transaction_threshold: <span class="number">0</span>,
                 threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
+                expected_views_to_fail: HashMap::new(),
             },
             timing_data: TimingData {
                 next_view_timeout: <span class="number">2000</span>,
@@ -758,13 +761,14 @@
             num_nodes_with_stake,
             num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
-            overall_safety_properties: OverallSafetyPropertiesDescription {
+            overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
                 num_successful_views: <span class="number">20</span>,
                 check_leaf: <span class="bool-val">true</span>,
                 check_block: <span class="bool-val">true</span>,
                 num_failed_views: <span class="number">8</span>,
                 transaction_threshold: <span class="number">0</span>,
                 threshold_calculator: Arc::new(|_active, total| (<span class="number">2 </span>* total / <span class="number">3 </span>+ <span class="number">1</span>)),
+                expected_views_to_fail: HashMap::new(),
             },
             timing_data: TimingData {
                 start_delay: <span class="number">120_000</span>,

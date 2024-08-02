@@ -334,7 +334,7 @@
     <span class="doccomment">/// A map from node ids to (leaves keyed on view number)
     </span><span class="kw">pub </span>consensus_leaves: NetworkMap&lt;TYPES&gt;,
     <span class="doccomment">/// safety task requirements
-    </span><span class="kw">pub </span>safety_properties: OverallSafetyPropertiesDescription,
+    </span><span class="kw">pub </span>safety_properties: OverallSafetyPropertiesDescription&lt;TYPES&gt;,
 }
 
 <span class="attr">#[async_trait]
