@@ -480,9 +480,11 @@ where
 
     // Aggregates results of the run from all nodes
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
+
         self.nodes_post_results += 1;
 
         if metrics.total_transactions_committed != 0 {
+
             // Deal with the bench results
             if self.bench_results.total_transactions_committed == 0 {
                 self.bench_results = metrics;
