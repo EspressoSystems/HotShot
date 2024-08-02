@@ -133,7 +133,7 @@ EOF
                                 # you'll need to do `echo DEL brokers | keydb-cli -a THE_PASSWORD` and set it to whatever password you set
                                 echo DEL brokers | keydb-cli
                                 # make sure you sleep at least 1 min
-                                sleep $(( $total_nodes + 600))
+                                sleep $(( $total_nodes + 300))
                             done
                         fi
                     done
