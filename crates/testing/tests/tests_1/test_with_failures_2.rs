@@ -96,8 +96,7 @@ cross_tests!(
         metadata.num_nodes_with_stake = 5;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
             (ViewNumber::new(7), false),
-            (ViewNumber::new(12), false),
-            (ViewNumber::new(20), false)
+            (ViewNumber::new(12), false)
         ]);
         metadata
     },
