@@ -484,6 +484,7 @@ where
         
 
         if metrics.total_transactions_committed != 0 {
+            self.nodes_post_results += 1;
 
             // Deal with the bench results
             if self.bench_results.total_transactions_committed == 0 {
@@ -491,7 +492,6 @@ where
             } else {
                 self.view_averages.push(metrics.avg_latency_in_sec);
                 println!("{:?}", self.view_averages);
-
                 // Deal with the bench results from different nodes
                 let cur_metrics = self.bench_results.clone();
                 let mut average_view_time = Duration::new(0, 0);
@@ -499,7 +499,7 @@ where
                     average_view_time += *avg;
                 }
                 average_view_time = average_view_time
-                    .checked_div(<u64 as TryInto<u32>>::try_into(self.nodes_post_results).unwrap())
+                    .checked_div(<u64 as TryInto<u32>>::try_into(self.view_averages.len().try_into().unwrap()).unwrap())
                     .unwrap();
 
                     self.bench_results.avg_latency_in_sec = average_view_time;
@@ -525,7 +525,7 @@ where
                     metrics.failed_num_views.max(cur_metrics.failed_num_views);
             }
         }
-        self.nodes_post_results += 1;
+       
 
         if self.bench_results.partial_results == "Unset" {
             self.bench_results.partial_results = "One".to_string();
