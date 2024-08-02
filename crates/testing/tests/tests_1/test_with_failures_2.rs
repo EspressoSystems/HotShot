@@ -1,8 +1,8 @@
 // TODO: Remove this after integration
 #![allow(unused_imports)]
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
-    state_types::TestTypes,
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
+    state_types::TestTypes
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -100,4 +100,40 @@ cross_tests!(
         ]);
         metadata
     },
+);
+
+#[cfg(not(feature = "dependency-tasks"))]
+cross_tests!(
+    TestName: test_with_double_leader_failures,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    // this lets a node be a leader two views in a row
+    Types: [TestConsecutiveLeaderTypes],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription::default_more_nodes();
+        metadata.num_bootstrap_nodes = 10;
+        metadata.num_nodes_with_stake = 12;
+        metadata.da_staked_committee_size = 12;
+        metadata.start_nodes = 12;
+        let dead_nodes = vec![
+            ChangeNode {
+                idx: 3,
+                updown: UpDown::Down,
+            },
+        ];
+
+        // shutdown while node 3 is leader
+        // we want to trigger `ViewSyncTrigger`
+        // then ensure we do not fail again as next leader will be leader 2 views also
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(5, dead_nodes)]
+        };
+
+        // node 3 is leader twice when we shut down
+        metadata.overall_safety_properties.num_failed_views = 2;
+        // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
+        metadata.overall_safety_properties.num_successful_views = 13;
+
+        metadata
+    }
 );
