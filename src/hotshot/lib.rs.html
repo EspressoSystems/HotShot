@@ -1006,6 +1006,16 @@
 <a href="#1004" id="1004">1004</a>
 <a href="#1005" id="1005">1005</a>
 <a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
 //!
 
@@ -1016,6 +1026,7 @@
 <span class="kw">use </span>futures::future::{select, Either};
 <span class="kw">use </span>hotshot_types::traits::network::BroadcastDelay;
 <span class="kw">use </span>rand::Rng;
+<span class="kw">use </span>url::Url;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="doccomment">/// Contains traits consumed by [`SystemContext`]
@@ -1078,6 +1089,15 @@
 </span><span class="kw">pub const </span>H_512: usize = <span class="number">64</span>;
 <span class="doccomment">/// Length, in bytes, of a 256 bit hash
 </span><span class="kw">pub const </span>H_256: usize = <span class="number">32</span>;
+
+<span class="attr">#[derive(Clone)]
+</span><span class="doccomment">/// Wrapper for all marketplace config that needs to be passed when creating a new instance of HotShot
+</span><span class="kw">pub struct </span>MarketplaceConfig&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// auction results provider
+    </span><span class="kw">pub </span>auction_results_provider: Arc&lt;I::AuctionResultsProvider&gt;,
+    <span class="doccomment">/// generic builder
+    </span><span class="kw">pub </span>generic_builder_url: Url,
+}
 
 <span class="doccomment">/// Bundle of all the memberships a consensus instance uses
 </span><span class="attr">#[derive(Clone)]
@@ -1149,8 +1169,8 @@
     <span class="doccomment">/// a potential upgrade certificate that has been decided on by the consensus tasks.
     </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
 
-    <span class="doccomment">/// Reference to the AuctionResultsProvider type for acquiring solver results.
-    </span><span class="kw">pub </span>auction_results_provider: Arc&lt;I::AuctionResultsProvider&gt;,
+    <span class="doccomment">/// Marketplace config for this instance of HotShot
+    </span><span class="kw">pub </span>marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Clone <span class="kw">for </span>SystemContext&lt;TYPES, I&gt; {
     <span class="attr">#![allow(deprecated)]
@@ -1173,7 +1193,7 @@
             id: <span class="self">self</span>.id,
             storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
-            auction_results_provider: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.auction_results_provider),
+            marketplace_config: <span class="self">self</span>.marketplace_config.clone(),
         }
     }
 }
@@ -1197,7 +1217,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; Arc&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>interal_chan = broadcast(EVENT_CHANNEL_SIZE);
         <span class="kw">let </span>external_chan = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
@@ -1212,7 +1232,7 @@
             initializer,
             metrics,
             storage,
-            auction_results_provider,
+            marketplace_config,
             interal_chan,
             external_chan,
         )
@@ -1236,7 +1256,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
         internal_channel: (
             Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
             Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1334,7 +1354,7 @@
             anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
             decided_upgrade_certificate,
-            auction_results_provider: Arc::new(auction_results_provider),
+            marketplace_config,
         });
 
         inner
@@ -1573,7 +1593,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             SystemContextHandle&lt;TYPES, I&gt;,
@@ -1592,7 +1612,7 @@
             initializer,
             metrics,
             storage,
-            auction_results_provider,
+            marketplace_config,
         );
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span>hotshot).run_tasks().<span class="kw">await</span>;
         <span class="kw">let </span>(tx, rx) = hotshot.internal_event_stream.clone();
@@ -1733,7 +1753,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; (SystemContextHandle&lt;TYPES, I&gt;, SystemContextHandle&lt;TYPES, I&gt;) {
         <span class="kw">let </span>left_system_context = SystemContext::new(
             public_key.clone(),
@@ -1745,7 +1765,7 @@
             initializer.clone(),
             metrics.clone(),
             storage.clone(),
-            auction_results_provider.clone(),
+            marketplace_config.clone(),
         );
         <span class="kw">let </span>right_system_context = SystemContext::new(
             public_key,
@@ -1757,7 +1777,7 @@
             initializer,
             metrics,
             storage,
-            auction_results_provider,
+            marketplace_config,
         );
 
         <span class="comment">// create registries for both handles

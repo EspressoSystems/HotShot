@@ -496,8 +496,8 @@
 
 <span class="kw">use crate</span>::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer, Memberships,
-    NetworkTaskRegistry, SignatureKey, SystemContext,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext,
 };
 
 <span class="doccomment">/// event for global event stream
@@ -693,7 +693,7 @@
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
         <span class="kw">let </span>hotshot = SystemContext::new(
             public_key,
@@ -705,7 +705,7 @@
             initializer,
             metrics,
             storage,
-            auction_results_provider,
+            marketplace_config,
         );
         <span class="kw">let </span>consensus_registry = ConsensusTaskRegistry::new();
         <span class="kw">let </span>network_registry = NetworkTaskRegistry::new();

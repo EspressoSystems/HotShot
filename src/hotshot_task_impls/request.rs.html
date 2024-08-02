@@ -549,7 +549,7 @@
     </span><span class="kw">pub </span>quorum_membership: TYPES::Membership,
     <span class="doccomment">/// This nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
-    <span class="doccomment">/// This nodes private/signign key, used to sign requests.
+    <span class="doccomment">/// This nodes private/signing key, used to sign requests.
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
@@ -640,7 +640,7 @@
             .for_each(|r| <span class="self">self</span>.run_delay(r, sender.clone(), view));
     }
 
-    <span class="doccomment">/// Creates the srequest structures for all types that are needed.
+    <span class="doccomment">/// Creates the request structures for all types that are needed.
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"NetworkRequestState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>view))]
     </span><span class="kw">async fn </span>build_requests(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; Vec&lt;RequestKind&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>reqs = Vec::new();
@@ -667,7 +667,7 @@
         };
         <span class="prelude-val">Some</span>(signature)
     }
-    <span class="doccomment">/// run a delayed request task for a request.  The first response
+    <span class="doccomment">/// run a delayed request task for a request. The first response
     /// received will be sent over `sender`
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">"NetworkRequestState run_delay"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">fn </span>run_delay(

@@ -65,12 +65,14 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-<span class="kw">use </span>hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-<span class="kw">use </span>hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, storage_types::TestStorage,
+<span class="kw">use </span>hotshot::{
+    traits::{NodeImplementation, TestableNodeImplementation},
+    MarketplaceConfig,
 };
+<span class="kw">use </span>hotshot_example_types::storage_types::TestStorage;
 <span class="kw">use </span>hotshot_types::{
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
@@ -95,8 +97,8 @@
     </span><span class="kw">pub </span>storage: Generator&lt;TestStorage&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// generate a new auction results connector for each node
-    </span><span class="kw">pub </span>auction_results_provider: Generator&lt;TestAuctionResultsProvider&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// generate a new marketplace config for each node
+    </span><span class="kw">pub </span>marketplace_config: Generator&lt;MarketplaceConfig&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="doccomment">/// test launcher

@@ -451,7 +451,7 @@
 
     <span class="kw">let </span>network = (launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
-    <span class="kw">let </span>auction_results_provider = (launcher.resource_generator.auction_results_provider)(node_id);
+    <span class="kw">let </span>marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
@@ -501,7 +501,7 @@
         initializer,
         ConsensusMetricsValue::default(),
         storage,
-        auction_results_provider,
+        marketplace_config,
     )
     .<span class="kw">await
     </span>.expect(<span class="string">"Could not init hotshot"</span>)

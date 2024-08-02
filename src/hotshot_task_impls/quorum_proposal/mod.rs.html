@@ -569,7 +569,7 @@
     <span class="doccomment">/// Latest view number that has been proposed for.
     </span><span class="kw">pub </span>latest_proposed_view: TYPES::Time,
 
-    <span class="doccomment">/// Table for the in-progress proposal depdencey tasks.
+    <span class="doccomment">/// Table for the in-progress proposal dependency tasks.
     </span><span class="kw">pub </span>proposal_dependencies: HashMap&lt;TYPES::Time, JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// The underlying network
@@ -810,7 +810,7 @@
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) {
-        <span class="comment">// Don't even bother making the task if we are not entitled to propose anyay.
+        <span class="comment">// Don't even bother making the task if we are not entitled to propose anyway.
         </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view_number) != <span class="self">self</span>.public_key {
             <span class="macro">tracing::trace!</span>(<span class="string">"We are not the leader of the next view"</span>);
             <span class="kw">return</span>;
@@ -962,7 +962,7 @@
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
                 <span class="kw">let </span>view_number = proposal.data.view_number();
 
-                <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of olde.
+                <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view_number).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
                     <span class="kw">return</span>;

@@ -510,7 +510,7 @@
 </span><span class="attr">#[derive(Eq, PartialEq, Debug, Clone)]
 </span><span class="kw">pub struct </span>HotShotTaskCompleted;
 
-<span class="doccomment">/// All of the possible events that can be passed between Sequecning `HotShot` tasks
+<span class="doccomment">/// All of the possible events that can be passed between Sequencing `HotShot` tasks
 </span><span class="attr">#[derive(Eq, PartialEq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 </span><span class="kw">pub enum </span>HotShotEvent&lt;TYPES: NodeType&gt; {
@@ -520,7 +520,7 @@
     </span>QuorumProposalRecv(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// A quorum vote has been received from the network; handled by the consensus task
     </span>QuorumVoteRecv(QuorumVote&lt;TYPES&gt;),
-    <span class="doccomment">/// A timeout vote recevied from the network; handled by consensus task
+    <span class="doccomment">/// A timeout vote received from the network; handled by consensus task
     </span>TimeoutVoteRecv(TimeoutVote&lt;TYPES&gt;),
     <span class="doccomment">/// Send a timeout vote to the network; emitted by consensus task replicas
     </span>TimeoutVoteSend(TimeoutVote&lt;TYPES&gt;),
@@ -530,7 +530,7 @@
     </span>DaProposalValidated(Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// A DA vote has been received by the network; handled by the DA task
     </span>DaVoteRecv(DaVote&lt;TYPES&gt;),
-    <span class="doccomment">/// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
+    <span class="doccomment">/// A Data Availability Certificate (DAC) has been received by the network; handled by the consensus task
     </span>DaCertificateRecv(DaCertificate&lt;TYPES&gt;),
     <span class="doccomment">/// A DAC is validated.
     </span>DaCertificateValidated(DaCertificate&lt;TYPES&gt;),
@@ -547,7 +547,7 @@
     /// 3. The justify QC is valid
     /// 4. The proposal passes either liveness or safety check.
     </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;, Leaf&lt;TYPES&gt;),
-    <span class="doccomment">/// A quorum proposal is missing for a view that we meed
+    <span class="doccomment">/// A quorum proposal is missing for a view that we need
     </span>QuorumProposalRequest(ProposalMissing&lt;TYPES&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DaProposalSend(Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),

@@ -168,13 +168,6 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
@@ -186,7 +179,6 @@
     data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
-        election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
@@ -314,12 +306,6 @@
                     <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
-
-                <span class="comment">// If we are not the next leader, we should exit
-                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
-                    <span class="comment">// panic!("We are not the DA leader for view {}", *self.cur_view + 1);
-                    </span><span class="kw">return </span><span class="prelude-val">None</span>;
-                }
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }

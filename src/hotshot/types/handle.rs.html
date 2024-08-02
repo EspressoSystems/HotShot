@@ -248,6 +248,12 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
@@ -333,13 +339,19 @@
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
     }
 
+    <span class="doccomment">/// HACK so we can create dependency tasks when running tests
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>internal_event_stream_sender(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+        <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone()
+    }
+
     <span class="doccomment">/// HACK so we can know the types when running tests...
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>internal_event_stream_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>internal_event_stream_receiver_known_impl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned()
     }
 

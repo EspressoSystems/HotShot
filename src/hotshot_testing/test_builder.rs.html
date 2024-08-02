@@ -489,13 +489,17 @@
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
 <span class="kw">use </span>hotshot::{
     tasks::EventTransformerState,
     traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
     types::SystemContextHandle,
-    HotShotInitializer, Memberships, SystemContext, TwinsHandlerState,
+    HotShotInitializer, MarketplaceConfig, Memberships, SystemContext, TwinsHandlerState,
 };
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
@@ -596,7 +600,7 @@
     memberships: Memberships&lt;TYPES&gt;,
     config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
     storage: I::Storage,
-    auction_results_provider: I::AuctionResultsProvider,
+    marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
 ) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
         .<span class="kw">await
@@ -626,7 +630,7 @@
                     initializer,
                     ConsensusMetricsValue::default(),
                     storage,
-                    auction_results_provider,
+                    marketplace_config,
                 )
                 .<span class="kw">await</span>;
 
@@ -645,7 +649,7 @@
                     initializer,
                     ConsensusMetricsValue::default(),
                     storage,
-                    auction_results_provider,
+                    marketplace_config,
                 )
                 .<span class="kw">await
         </span>}
@@ -660,7 +664,7 @@
                 initializer,
                 ConsensusMetricsValue::default(),
                 storage,
-                auction_results_provider,
+                marketplace_config,
             );
 
             hotshot.run_tasks().<span class="kw">await
@@ -856,6 +860,8 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;, I: TestableNodeImplementation&lt;TYPES&gt;&gt;
     TestDescription&lt;TYPES, I&gt;
+<span class="kw">where
+    </span>I: NodeImplementation&lt;TYPES, AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;&gt;,
 {
     <span class="doccomment">/// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
@@ -969,8 +975,10 @@
                 ),
                 storage: Box::new(|<span class="kw">_</span>| TestStorage::&lt;TYPES&gt;::default()),
                 config,
-                auction_results_provider: Box::new(|<span class="kw">_</span>| {
-                    TestAuctionResultsProvider::&lt;TYPES&gt;::default()
+                marketplace_config: Box::new(|<span class="kw">_</span>| MarketplaceConfig::&lt;TYPES, I&gt; {
+                    auction_results_provider: TestAuctionResultsProvider::&lt;TYPES&gt;::default().into(),
+                    <span class="comment">// TODO: we need to pass a valid generic builder url here somehow
+                    </span>generic_builder_url: Url::parse(<span class="string">"http://localhost"</span>).unwrap(),
                 }),
             },
             metadata: <span class="self">self</span>,

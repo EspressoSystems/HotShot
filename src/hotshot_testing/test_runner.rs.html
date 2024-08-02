@@ -705,6 +705,11 @@
 <a href="#703" id="703">703</a>
 <a href="#704" id="704">704</a>
 <a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(clippy::panic)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -721,7 +726,7 @@
 <span class="kw">use </span>hotshot::{
     traits::TestableNodeImplementation,
     types::{Event, SystemContextHandle},
-    HotShotInitializer, Memberships, SystemContext,
+    HotShotInitializer, MarketplaceConfig, Memberships, SystemContext,
 };
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -823,7 +828,7 @@
             event_rxs.push(r);
         }
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.nodes {
-            <span class="kw">let </span>r = node.handle.internal_event_stream_known_impl();
+            <span class="kw">let </span>r = node.handle.internal_event_stream_receiver_known_impl();
             internal_event_rxs.push(r);
         }
 
@@ -1136,10 +1141,15 @@
 
             <span class="kw">let </span>network = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
             <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
-            <span class="kw">let </span><span class="kw-2">mut </span>auction_results_provider =
-                (<span class="self">self</span>.launcher.resource_generator.auction_results_provider)(node_id);
+            <span class="kw">let </span><span class="kw-2">mut </span>marketplace_config =
+                (<span class="self">self</span>.launcher.resource_generator.marketplace_config)(node_id);
             <span class="kw">if let </span><span class="prelude-val">Some</span>(solver_server) = <span class="kw-2">&amp;</span><span class="self">self</span>.solver_server {
-                auction_results_provider.broadcast_url = <span class="prelude-val">Some</span>(solver_server.<span class="number">0</span>.clone());
+                <span class="kw">let </span><span class="kw-2">mut </span>new_auction_results_provider =
+                    marketplace_config.auction_results_provider.as_ref().clone();
+
+                new_auction_results_provider.broadcast_url = <span class="prelude-val">Some</span>(solver_server.<span class="number">0</span>.clone());
+
+                marketplace_config.auction_results_provider = new_auction_results_provider.into();
             }
 
             <span class="kw">let </span>network_clone = network.clone();
@@ -1160,7 +1170,7 @@
                                     storage,
                                     memberships,
                                     config,
-                                    auction_results_provider,
+                                    marketplace_config,
                                 },
                             ),
                         },
@@ -1185,7 +1195,7 @@
                         config,
                         validator_config,
                         storage,
-                        auction_results_provider,
+                        marketplace_config,
                     )
                     .<span class="kw">await</span>;
                     <span class="self">self</span>.late_start.insert(
@@ -1203,7 +1213,7 @@
                     memberships,
                     config,
                     storage,
-                    auction_results_provider,
+                    marketplace_config,
                 ));
             }
 
@@ -1229,7 +1239,7 @@
         </span>join_all(networks_ready).<span class="kw">await</span>;
 
         <span class="comment">// Then start the necessary tasks
-        </span><span class="kw">for </span>(node_id, network, memberships, config, storage, auction_results_provider) <span class="kw">in
+        </span><span class="kw">for </span>(node_id, network, memberships, config, storage, marketplace_config) <span class="kw">in
             </span>uninitialized_nodes
         {
             <span class="kw">let </span>behaviour = (<span class="self">self</span>.launcher.metadata.behaviour)(node_id);
@@ -1240,7 +1250,7 @@
                 memberships,
                 config.clone(),
                 storage,
-                auction_results_provider,
+                marketplace_config,
             )
             .<span class="kw">await</span>;
 
@@ -1281,7 +1291,7 @@
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {
         <span class="comment">// Get key pair for certificate aggregation
         </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
@@ -1297,7 +1307,7 @@
             initializer,
             ConsensusMetricsValue::default(),
             storage,
-            auction_results_provider,
+            marketplace_config,
         )
     }
 
@@ -1313,7 +1323,7 @@
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
         internal_channel: (
             Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
             Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1334,7 +1344,7 @@
             initializer,
             ConsensusMetricsValue::default(),
             storage,
-            auction_results_provider,
+            marketplace_config,
             internal_channel,
             external_channel,
         )
@@ -1363,8 +1373,8 @@
     <span class="doccomment">/// The config associted with this node.
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
 
-    <span class="doccomment">/// The Auction Results handle for this node.
-    </span><span class="kw">pub </span>auction_results_provider: I::AuctionResultsProvider,
+    <span class="doccomment">/// The marketplace config for this node.
+    </span><span class="kw">pub </span>marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
 }
 
 <span class="doccomment">/// The late node context dictates how we're building a node that started late during the test.

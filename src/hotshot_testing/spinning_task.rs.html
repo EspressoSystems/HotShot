@@ -447,7 +447,7 @@
                                             storage,
                                             memberships,
                                             config,
-                                            auction_results_provider,
+                                            marketplace_config,
                                         } = late_context_params;
 
                                         <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
@@ -477,7 +477,7 @@
                                             config,
                                             validator_config,
                                             storage,
-                                            auction_results_provider,
+                                            marketplace_config,
                                         )
                                         .<span class="kw">await
                                     </span>}
@@ -524,8 +524,8 @@
                                 <span class="kw">let </span>storage = node.handle.storage().clone();
                                 <span class="kw">let </span>memberships = node.handle.memberships.clone();
                                 <span class="kw">let </span>config = node.handle.hotshot.config.clone();
-                                <span class="kw">let </span>auction_results_provider =
-                                    node.handle.hotshot.auction_results_provider.clone();
+                                <span class="kw">let </span>marketplace_config =
+                                    node.handle.hotshot.marketplace_config.clone();
                                 <span class="kw">let </span>read_storage = storage.read().<span class="kw">await</span>;
                                 <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
                                     <span class="self">self</span>.last_decided_leaf.clone(),
@@ -560,10 +560,10 @@
                                         config,
                                         validator_config,
                                         (<span class="kw-2">*</span>read_storage).clone(),
-                                        (<span class="kw-2">*</span>auction_results_provider).clone(),
+                                        marketplace_config.clone(),
                                         (
                                             node.handle.internal_channel_sender(),
-                                            node.handle.internal_event_stream_known_impl(),
+                                            node.handle.internal_event_stream_receiver_known_impl(),
                                         ),
                                         (
                                             node.handle.external_channel_sender(),

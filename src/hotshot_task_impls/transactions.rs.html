@@ -738,6 +738,12 @@
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -769,6 +775,7 @@
     vid::{VidCommitment, VidPrecomputeData},
 };
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>url::Url;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 <span class="kw">use </span>vec1::Vec1;
 
@@ -843,6 +850,8 @@
     </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// auction results provider
     </span><span class="kw">pub </span>auction_results_provider: Arc&lt;I::AuctionResultsProvider&gt;,
+    <span class="doccomment">/// generic builder url
+    </span><span class="kw">pub </span>generic_builder_url: Url,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TransactionTaskState&lt;TYPES, I&gt; {
@@ -1007,7 +1016,7 @@
         {
             <span class="kw">let </span>start = Instant::now();
 
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(urls)) = async_timeout(
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(auction_result)) = async_timeout(
                 <span class="self">self</span>.builder_timeout,
                 <span class="self">self</span>.auction_results_provider
                     .fetch_auction_result(block_view),
@@ -1016,7 +1025,10 @@
             </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>futures = Vec::new();
 
-                <span class="kw">for </span>url <span class="kw">in </span>urls.clone().urls() {
+                <span class="kw">let </span><span class="kw-2">mut </span>builder_urls = auction_result.clone().urls();
+                builder_urls.push(<span class="self">self</span>.generic_builder_url.clone());
+
+                <span class="kw">for </span>url <span class="kw">in </span>builder_urls {
                     futures.push(async_timeout(
                         <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
                         <span class="kw">async </span>{
@@ -1063,7 +1075,7 @@
                             block_view,
                             sequencing_fees,
                             <span class="prelude-val">None</span>,
-                            <span class="prelude-val">Some</span>(urls),
+                            <span class="prelude-val">Some</span>(auction_result),
                         ))),
                         event_stream,
                     )
@@ -1360,7 +1372,7 @@
 
         available_blocks.sort_by(|(l, <span class="kw">_</span>), (r, <span class="kw">_</span>)| {
             <span class="comment">// We want the block with the highest fee per byte of data we're going to have to
-            // process, thus our comparision function is:
+            // process, thus our comparison function is:
             //      (l.offered_fee / l.block_size) &lt; (r.offered_fee / r.block_size)
             // To avoid floating point math (which doesn't even have an `Ord` impl) we multiply
             // through by the denominators to get

@@ -550,8 +550,8 @@
             block_header,
             view_number: <span class="self">self</span>.view_number,
             justify_qc: <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone(),
-            proposal_certificate,
             upgrade_certificate,
+            proposal_certificate,
         };
 
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
@@ -605,11 +605,11 @@
             .contains_key(<span class="kw-2">&amp;</span>high_qc_view_number)
         {
             <span class="comment">// The proposal for the high qc view is missing, try to get it asynchronously
-            </span><span class="kw">let </span>memberhsip = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
+            </span><span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
             <span class="kw">let </span>sender = <span class="self">self</span>.sender.clone();
             <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
             async_spawn(<span class="kw">async move </span>{
-                fetch_proposal(high_qc_view_number, sender, memberhsip, consensus).<span class="kw">await
+                fetch_proposal(high_qc_view_number, sender, membership, consensus).<span class="kw">await
             </span>});
             <span class="comment">// Block on receiving the event from the event stream.
             </span>EventDependency::new(
