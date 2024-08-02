@@ -65,6 +65,9 @@ impl<T: Transport, S: SignatureKey, C: StreamMuxer + Unpin> StakeTableAuthentica
 
     /// Prove to the remote peer that we are in the stake table by sending
     /// them our authentication message.
+    ///
+    /// # Errors
+    /// - If we fail to write the message to the stream
     pub async fn authenticate_with_remote_peer(
         stream: &mut C::Substream,
         auth_message: Arc<Option<Vec<u8>>>,
@@ -84,6 +87,14 @@ impl<T: Transport, S: SignatureKey, C: StreamMuxer + Unpin> StakeTableAuthentica
 
     /// Verify that the remote peer is in the stake table by checking their
     /// authentication message.
+    ///
+    /// # Errors
+    /// If the peer fails verification. This can happen if:
+    /// - We fail to read the message from the stream
+    /// - The message is too large
+    /// - The message is invalid
+    /// - The peer is not in the stake table
+    /// - The signature is invalid
     pub async fn verify_peer_authentication(
         stream: &mut C::Substream,
         stake_table: Arc<Option<HashSet<S>>>,
@@ -118,7 +129,11 @@ impl<T: Transport, S: SignatureKey, C: StreamMuxer + Unpin> StakeTableAuthentica
 /// The deserialized form of an authentication message that is sent to the remote peer
 #[derive(Clone, Serialize, Deserialize)]
 struct AuthMessage<S: SignatureKey> {
+    /// The encoded public key of the sender. This is what gets signed, but
+    /// it is still encoded here so we can verify the signature.
     pub_key_bytes: Vec<u8>,
+
+    /// The signature on the public key
     signature: S::PureAssembledSignatureType,
 }
 
@@ -139,6 +154,10 @@ impl<S: SignatureKey> AuthMessage<S> {
 }
 
 /// Create an sign an authentication message to be sent to the remote peer
+///
+/// # Errors
+/// - If we fail to sign the public key
+/// - If we fail to serialize the authentication message
 pub fn construct_auth_message<S: SignatureKey + 'static>(
     public_key: &S,
     private_key: &S::PrivateKey,
@@ -157,24 +176,28 @@ pub fn construct_auth_message<S: SignatureKey + 'static>(
     };
 
     // Serialize the auth message
-    Ok(bincode::serialize(&auth_message).with_context(|| "Failed to serialize auth message")?)
+    bincode::serialize(&auth_message).with_context(|| "Failed to serialize auth message")
 }
 
 /// A helper function to read a length-delimited message from a stream. Takes into
 /// account the maximum message size.
+///
+/// # Errors
+/// - If the message is too big
+/// - If we fail to read from the stream
 pub async fn read_length_delimited<S: AsyncRead + Unpin>(
     stream: &mut S,
     max_size: usize,
 ) -> AnyhowResult<Vec<u8>> {
     // Receive the first 8 bytes of the message, which is the length
-    let mut len_bytes = [0u8; 8];
+    let mut len_bytes = [0u8; 4];
     stream
         .read_exact(&mut len_bytes)
         .await
         .with_context(|| "Failed to read message length")?;
 
-    // Parse the length of the message
-    let len = u64::from_be_bytes(len_bytes) as usize;
+    // Parse the length of the message as a `u32`
+    let len = usize::try_from(u32::from_be_bytes(len_bytes))?;
 
     // Quit if the message is too large
     if len > max_size {
@@ -192,13 +215,16 @@ pub async fn read_length_delimited<S: AsyncRead + Unpin>(
 }
 
 /// A helper function to write a length-delimited message to a stream.
+///
+/// # Errors
+/// - If we fail to write to the stream
 pub async fn write_length_delimited<S: AsyncWrite + Unpin>(
     stream: &mut S,
     message: &[u8],
 ) -> AnyhowResult<()> {
     // Write the length of the message
     stream
-        .write_all(&(message.len() as u64).to_be_bytes())
+        .write_all(&u32::try_from(message.len())?.to_be_bytes())
         .await
         .with_context(|| "Failed to write message length")?;
 
@@ -239,8 +265,8 @@ where
         let res = self.inner.dial(addr);
 
         // Clone the necessary fields
-        let auth_message = self.auth_message.clone();
-        let stake_table = self.stake_table.clone();
+        let auth_message = Arc::clone(&self.auth_message);
+        let stake_table = Arc::clone(&self.stake_table);
 
         // If the dial was successful, perform the authentication handshake on top
         match res {
@@ -294,8 +320,8 @@ where
         let res = self.inner.dial(addr);
 
         // Clone the necessary fields
-        let auth_message = self.auth_message.clone();
-        let stake_table = self.stake_table.clone();
+        let auth_message = Arc::clone(&self.auth_message);
+        let stake_table = Arc::clone(&self.stake_table);
 
         // If the dial was successful, perform the authentication handshake on top
         match res {
@@ -357,8 +383,8 @@ where
                     send_back_addr,
                 } => {
                     // Clone the necessary fields
-                    let auth_message = self.auth_message.clone();
-                    let stake_table = self.stake_table.clone();
+                    let auth_message = Arc::clone(&self.auth_message);
+                    let stake_table = Arc::clone(&self.stake_table);
 
                     // Create a new upgrade that performs the authentication handshake on top
                     let auth_upgrade = Box::pin(async move {
@@ -461,6 +487,7 @@ where
 
 /// A helper trait that allows us to access the underlying connection
 trait AsConnection<C: StreamMuxer + Unpin> {
+    /// Get a mutable reference to the underlying connection
     fn as_connection(&mut self) -> &mut C;
 }
 
