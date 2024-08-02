@@ -493,7 +493,7 @@ where
                     average_view_time += *avg;
                 }
                 average_view_time = average_view_time
-                    .checked_div(<u64 as TryInto<u32>>::try_into(self.nodes_post_results + 1).unwrap())
+                    .checked_div(<u64 as TryInto<u32>>::try_into(self.nodes_post_results).unwrap())
                     .unwrap();
 
                 self.view_averages.push(metrics.avg_latency_in_sec);
