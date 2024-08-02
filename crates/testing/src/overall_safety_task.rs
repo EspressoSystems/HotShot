@@ -106,7 +106,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TY
             match expected_view_to_fail.get(&view_number) {
                 Some(_) => {
                     expected_view_to_fail.insert(view_number, true);
-                    error!("{:?}", expected_view_to_fail);
                 }
                 None => {
                     let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
