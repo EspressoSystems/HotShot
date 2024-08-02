@@ -15,7 +15,7 @@ use std::{
 use async_broadcast::{broadcast, InactiveReceiver, Sender};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::UnboundedSendError,
+    channel::TrySendError,
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -27,8 +27,8 @@ use hotshot_types::traits::network::{
 use hotshot_types::{
     boxed_sync,
     constants::{
-        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_DELAY_DURATION,
+        COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
     },
     data::ViewNumber,
     traits::{
@@ -89,7 +89,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     pub fn new(
         primary_network: PushCdnNetwork<TYPES>,
         secondary_network: Libp2pNetwork<TYPES::SignatureKey>,
-        delay_duration: Duration,
+        delay_duration: Option<Duration>,
     ) -> Self {
         // Create networks from the ones passed in
         let networks = Arc::from(UnderlyingCombinedNetworks(
@@ -104,7 +104,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             ))),
             primary_fail_counter: Arc::new(AtomicU64::new(0)),
             primary_down: Arc::new(AtomicBool::new(false)),
-            delay_duration: Arc::new(RwLock::new(delay_duration)),
+            delay_duration: Arc::new(RwLock::new(
+                delay_duration.unwrap_or(Duration::from_millis(COMBINED_NETWORK_DELAY_DURATION)),
+            )),
             delayed_tasks_channels: Arc::default(),
             no_delay_counter: Arc::new(AtomicU64::new(0)),
         }
@@ -141,8 +143,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             // If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
             // we don't want to delay this message, and from now on we consider the primary as down
             warn!(
-                "Primary failed more than {} times and is considered down now",
-                COMBINED_NETWORK_MIN_PRIMARY_FAILURES
+                "View progression is slower than normally, stop delaying messages on the secondary"
             );
             self.primary_down.store(true, Ordering::Relaxed);
             primary_failed = true;
@@ -256,7 +257,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
-    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)> {
+    ) -> AsyncGenerator<Arc<Self>> {
         let generators = (
             <PushCdnNetwork<TYPES> as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
@@ -282,27 +283,27 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             let gen1 = generators.1(node_id);
 
             Box::pin(async move {
-                let (cdn, _) = gen0.await;
+                // Generate the CDN network
+                let cdn = gen0.await;
                 let cdn = Arc::<PushCdnNetwork<TYPES>>::into_inner(cdn).unwrap();
 
-                let (quorum_p2p, da_p2p) = gen1.await;
-                let da_networks = UnderlyingCombinedNetworks(
+                // Generate the p2p network
+                let p2p = gen1.await;
+
+                // Combine the two
+                let underlying_combined = UnderlyingCombinedNetworks(
                     cdn.clone(),
-                    Arc::<Libp2pNetwork<TYPES::SignatureKey>>::unwrap_or_clone(da_p2p),
-                );
-                let quorum_networks = UnderlyingCombinedNetworks(
-                    cdn,
-                    Arc::<Libp2pNetwork<TYPES::SignatureKey>>::unwrap_or_clone(quorum_p2p),
+                    Arc::<Libp2pNetwork<TYPES::SignatureKey>>::unwrap_or_clone(p2p),
                 );
 
-                // We want to  the message cache between the two networks
+                // We want to use the same message cache between the two networks
                 let message_cache = Arc::new(RwLock::new(LruCache::new(
                     NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                 )));
 
-                // Create the quorum and da networks
-                let quorum_net = Self {
-                    networks: Arc::new(quorum_networks),
+                // Combine the two networks with the same cache
+                let combined_network = Self {
+                    networks: Arc::new(underlying_combined),
                     primary_fail_counter: Arc::new(AtomicU64::new(0)),
                     primary_down: Arc::new(AtomicBool::new(false)),
                     message_cache: Arc::clone(&message_cache),
@@ -310,16 +311,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     delayed_tasks_channels: Arc::default(),
                     no_delay_counter: Arc::new(AtomicU64::new(0)),
                 };
-                let da_net = Self {
-                    networks: Arc::new(da_networks),
-                    message_cache,
-                    primary_fail_counter: Arc::new(AtomicU64::new(0)),
-                    primary_down: Arc::new(AtomicBool::new(false)),
-                    delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
-                    delayed_tasks_channels: Arc::default(),
-                    no_delay_counter: Arc::new(AtomicU64::new(0)),
-                };
-                (quorum_net.into(), da_net.into())
+
+                Arc::new(combined_network)
             })
         })
     }
@@ -497,15 +490,13 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         Ok(filtered_msgs)
     }
 
-    async fn queue_node_lookup(
+    fn queue_node_lookup(
         &self,
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
-        self.primary()
-            .queue_node_lookup(view_number, pk.clone())
-            .await?;
-        self.secondary().queue_node_lookup(view_number, pk).await
+    ) -> Result<(), TrySendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+        self.primary().queue_node_lookup(view_number, pk.clone())?;
+        self.secondary().queue_node_lookup(view_number, pk)
     }
 
     async fn update_view<'a, T>(&'a self, view: u64, membership: &T::Membership)

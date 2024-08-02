@@ -4,7 +4,7 @@ use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, time::Duration};
 
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::channel::TrySendError;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::{art::async_sleep, art::async_spawn};
 use async_trait::async_trait;
@@ -264,7 +264,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
         _is_da: bool,
         _reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
-    ) -> AsyncGenerator<(Arc<Self>, Arc<Self>)> {
+    ) -> AsyncGenerator<Arc<Self>> {
         // The configuration we are using for testing is 2 brokers & 1 marshal
 
         // A keypair shared between brokers
@@ -404,14 +404,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
                     };
 
                     // Create our client
-                    let client = Arc::new(PushCdnNetwork {
+                    Arc::new(PushCdnNetwork {
                         client: Client::new(client_config),
                         metrics: Arc::new(CdnMetricsValue::default()),
                         #[cfg(feature = "hotshot-testing")]
                         is_paused: Arc::from(AtomicBool::new(false)),
-                    });
-
-                    (Arc::clone(&client), client)
+                    })
                 })
             }
         })
@@ -559,11 +557,11 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<T
     }
 
     /// Do nothing here, as we don't need to look up nodes.
-    async fn queue_node_lookup(
+    fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
         _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+    ) -> Result<(), TrySendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
     }
 }

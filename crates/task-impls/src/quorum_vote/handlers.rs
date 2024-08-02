@@ -1,24 +1,27 @@
+#![cfg(feature = "dependency-tasks")]
+
 use std::sync::Arc;
 
 use anyhow::Result;
 use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::QuorumProposal,
     event::{Event, EventType},
     traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     vote::HasViewNumber,
 };
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use super::QuorumVoteTaskState;
 use crate::{
-    consensus::helpers::{decide_from_proposal, LeafChainTraversalOutcome},
     events::HotShotEvent,
-    helpers::broadcast_event,
+    helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
 };
 
 /// Handles the `QuorumProposalValidated` event.
+#[instrument(skip_all)]
 pub(crate) async fn handle_quorum_proposal_validated<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -34,14 +37,23 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         leaves_decided,
         included_txns,
-        ..
+        decided_upgrade_cert,
     } = decide_from_proposal(
         proposal,
-        Arc::clone(&task_state.consensus),
-        &None,
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+        Arc::clone(&task_state.decided_upgrade_certificate),
         &task_state.public_key,
     )
     .await;
+
+    if let Some(cert) = decided_upgrade_cert.clone() {
+        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        *decided_certificate_lock = Some(cert.clone());
+        drop(decided_certificate_lock);
+        let _ = sender
+            .broadcast(Arc::new(HotShotEvent::UpgradeDecided(cert.clone())))
+            .await;
+    }
 
     let mut consensus_writer = task_state.consensus.write().await;
     if let Some(locked_view_number) = new_locked_view_number {
@@ -54,8 +66,6 @@ pub(crate) async fn handle_quorum_proposal_validated<
 
         consensus_writer.update_locked_view(locked_view_number)?;
     }
-
-    // TODO - update decided upgrade cert
 
     #[allow(clippy::cast_precision_loss)]
     if let Some(decided_view_number) = new_decided_view_number {

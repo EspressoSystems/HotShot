@@ -16,6 +16,7 @@ async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
+chrono = { version = "0.4", default-features = false, features = ["now"] }
 sha3 = "^0.10"
 committable = { workspace = true }
 either = { workspace = true }
@@ -34,6 +35,8 @@ bitvec = { workspace = true }
 ethereum-types = { workspace = true }
 hotshot-task = { path = "../task" }
 vbs = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

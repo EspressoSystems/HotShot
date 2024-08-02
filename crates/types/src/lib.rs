@@ -11,6 +11,7 @@ use url::Url;
 use vec1::Vec1;
 
 use crate::utils::bincode_opts;
+pub mod bundle;
 pub mod consensus;
 pub mod constants;
 pub mod data;
@@ -210,4 +211,12 @@ pub struct HotShotConfig<KEY: SignatureKey> {
     pub start_voting_view: u64,
     /// View to stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_view <= start_voting_view.
     pub stop_voting_view: u64,
+    /// Unix time in seconds at which we start proposing an upgrade
+    pub start_proposing_time: u64,
+    /// Unix time in seconds at which we stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_time <= start_proposing_time.
+    pub stop_proposing_time: u64,
+    /// Unix time in seconds at which we start voting on an upgrade
+    pub start_voting_time: u64,
+    /// Unix time in seconds at which we stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_time <= start_voting_time.
+    pub stop_voting_time: u64,
 }

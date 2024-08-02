@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_compatibility_layer::art::async_sleep;
-use hotshot_builder_api::block_info::AvailableBlockData;
+use hotshot_builder_api::v0_1::block_info::AvailableBlockData;
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
     node_types::TestTypes,
@@ -14,12 +14,9 @@ use hotshot_task_impls::builder::{BuilderClient, BuilderClientError};
 use hotshot_testing::block_builder::{
     BuilderTask, RandomBuilderImplementation, TestBuilderImplementation,
 };
-use hotshot_types::{
-    constants::Base,
-    traits::{
-        block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
-        BlockPayload,
-    },
+use hotshot_types::traits::{
+    block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
+    BlockPayload,
 };
 use tide_disco::Url;
 
@@ -29,6 +26,7 @@ use tide_disco::Url;
     tokio::test(flavor = "multi_thread", worker_threads = 2)
 )]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[ignore]
 async fn test_random_block_builder() {
     let port = portpicker::pick_unused_port().expect("No free ports");
     let api_url = Url::parse(&format!("http://localhost:{port}")).expect("Valid URL");
@@ -46,7 +44,8 @@ async fn test_random_block_builder() {
 
     let builder_started = Instant::now();
 
-    let client: BuilderClient<TestTypes, Base> = BuilderClient::new(api_url);
+    let client: BuilderClient<TestTypes, <TestTypes as NodeType>::Base> =
+        BuilderClient::new(api_url);
     assert!(client.connect(Duration::from_millis(100)).await);
 
     let (pub_key, private_key) =

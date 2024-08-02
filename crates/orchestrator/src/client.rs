@@ -3,9 +3,7 @@ use std::{net::SocketAddr, time::Duration};
 use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
-use hotshot_types::{
-    constants::Base, traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig,
-};
+use hotshot_types::{traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig};
 use libp2p::{Multiaddr, PeerId};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
@@ -25,7 +23,7 @@ pub struct BenchResults {
     /// Whether it's partial collected results
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: i64,
+    pub avg_latency_in_sec: f64,
     /// The number of transactions that were latency measured
     pub num_latency: i64,
     /// The minimum latency of the transactions
@@ -96,7 +94,7 @@ pub struct BenchResultsDownloadConfig {
     /// "Full" if the results are successfully collected from all nodes
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: i64,
+    pub avg_latency_in_sec: f64,
     /// The minimum latency of the transactions
     pub minimum_latency_in_sec: i64,
     /// The maximum latency of the transactions
@@ -223,8 +221,10 @@ impl OrchestratorClient {
         });
 
         // Serialize our (possible) libp2p-specific data
-        let request_body =
-            vbs::Serializer::<Base>::serialize(&(libp2p_address, libp2p_public_key))?;
+        let request_body = vbs::Serializer::<OrchestratorVersion>::serialize(&(
+            libp2p_address,
+            libp2p_public_key,
+        ))?;
 
         let identity = |client: Client<ClientError, OrchestratorVersion>| {
             // We need to clone here to move it into the closure
@@ -316,7 +316,7 @@ impl OrchestratorClient {
     /// if unable to serialize `address`
     pub async fn post_builder_addresses(&self, addresses: Vec<Url>) {
         let send_builder_f = |client: Client<ClientError, OrchestratorVersion>| {
-            let request_body = vbs::Serializer::<Base>::serialize(&addresses)
+            let request_body = vbs::Serializer::<OrchestratorVersion>::serialize(&addresses)
                 .expect("Failed to serialize request");
 
             async move {
@@ -382,9 +382,12 @@ impl OrchestratorClient {
         let da_requested: bool = validator_config.is_da;
 
         // Serialize our (possible) libp2p-specific data
-        let request_body =
-            vbs::Serializer::<Base>::serialize(&(pubkey, libp2p_address, libp2p_public_key))
-                .expect("failed to serialize request");
+        let request_body = vbs::Serializer::<OrchestratorVersion>::serialize(&(
+            pubkey,
+            libp2p_address,
+            libp2p_public_key,
+        ))
+        .expect("failed to serialize request");
 
         // register our public key with the orchestrator
         let (node_index, is_da): (u64, bool) = loop {

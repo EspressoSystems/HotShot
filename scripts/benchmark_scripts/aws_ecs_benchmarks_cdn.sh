@@ -9,6 +9,8 @@ AWS_METADATA_IP=`curl http://169.254.169.254/latest/meta-data/local-ipv4`
 orchestrator_url=http://"$AWS_METADATA_IP":4444
 cdn_marshal_address="$AWS_METADATA_IP":9000
 keydb_address=redis://"$AWS_METADATA_IP":6379
+current_commit=$(git rev-parse HEAD)
+commit_append=""
 
 # Check if at least two arguments are provided
 if [ $# -lt 1 ]; then
@@ -19,6 +21,8 @@ REMOTE_USER="$1"
 
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
+
+# TODO ED Make this just a build command
 # build to get the bin in advance, uncomment the following if built first time
 # just async_std example validator-push-cdn -- http://localhost:4444 &
 # # remember to sleep enough time if it's built first time
@@ -26,12 +30,12 @@ ulimit -n 65536
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
 
 # docker build and push
-docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
-docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
+docker build . -f ./docker/validator-cdn-local.Dockerfile -t ghcr.io/espressosystems/hotshot/validator-push-cdn:ed
+docker push ghcr.io/espressosystems/hotshot/validator-push-cdn:ed
 
 # ecs deploy
-ecs deploy --region us-east-2 hotshot hotshot_centralized -i centralized ghcr.io/espressosystems/hotshot/validator-push-cdn:main-tokio
-ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orchestrator_url}
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -i libp2p ghcr.io/espressosystems/hotshot/validator-push-cdn:ed
+ecs deploy --region us-east-2 hotshot hotshot_libp2p -c libp2p ${orchestrator_url}
 
 # runstart keydb
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
@@ -47,15 +51,15 @@ round_up() {
 
 # for a single run
 # total_nodes, da_committee_size, transactions_per_round, transaction_size = 100, 10, 1, 4096
-for total_nodes in 10 50 100 200 500 1000
+for total_nodes in 10 #50 100 200 500 1000
 do
     for da_committee_size in 10
     do
         if [ $da_committee_size -le $total_nodes ]
         then
-            for transactions_per_round in 1 10
+            for transactions_per_round in 1
             do
-                for transaction_size in 100000 1000000 10000000 20000000
+                for transaction_size in 10000000
                 do
                     for fixed_leader_for_gpuvid in 1
                     do
@@ -97,12 +101,12 @@ EOF
                                                                                 --rounds ${rounds} \
                                                                                 --fixed_leader_for_gpuvid ${fixed_leader_for_gpuvid} \
                                                                                 --cdn_marshal_address ${cdn_marshal_address} \
-                                                                                --commit_sha 0.5.56 &
+                                                                                --commit_sha ${current_commit}${commit_append} &
                                 sleep 30
 
                                 # start validators
                                 echo -e "\e[35mGoing to start validators on remote servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized ${total_nodes} --timeout -1
+                                ecs scale --region us-east-2 hotshot hotshot_libp2p ${total_nodes} --timeout -1
                                 base=100
                                 mul=$(echo "l($transaction_size * $transactions_per_round)/l($base)" | bc -l)
                                 mul=$(round_up $mul)
@@ -112,7 +116,7 @@ EOF
 
                                 # kill them
                                 echo -e "\e[35mGoing to stop validators on remote servers\e[0m"
-                                ecs scale --region us-east-2 hotshot hotshot_centralized 0 --timeout -1
+                                ecs scale --region us-east-2 hotshot hotshot_libp2p 0 --timeout -1
                                 for pid in $(ps -ef | grep "orchestrator" | awk '{print $2}'); do kill -9 $pid; done
                                 # shut down brokers
                                 echo -e "\e[35mGoing to stop cdn-broker\e[0m"

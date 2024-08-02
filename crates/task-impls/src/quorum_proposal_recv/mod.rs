@@ -1,9 +1,10 @@
 #![allow(unused_imports)]
+#![cfg(feature = "dependency-tasks")]
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use anyhow::Result;
-use async_broadcast::{Receiver, Sender};
+use anyhow::{bail, Result};
+use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -11,8 +12,8 @@ use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
-    consensus::Consensus,
-    data::ViewChangeEvidence,
+    consensus::{Consensus, OuterConsensus},
+    data::{Leaf, ViewChangeEvidence},
     event::Event,
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -23,14 +24,13 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use vbs::version::Version;
 
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
-    consensus::helpers::parent_leaf_and_state,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    events::{HotShotEvent, ProposalMissing},
+    helpers::{broadcast_event, cancel_task, parent_leaf_and_state},
     quorum_proposal_recv::handlers::QuorumProposalValidity,
 };
 
@@ -47,7 +47,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
 
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
@@ -55,8 +55,8 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// Timestamp this view starts at.
     pub cur_view_time: i64,
 
-    /// Network for all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -79,19 +79,8 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// The most recent upgrade certificate this node formed.
-    /// Note: this is ONLY for certificates that have been formed internally,
-    /// so that we can propose with them.
-    ///
-    /// Certificates received from other nodes will get reattached regardless of this fields,
-    /// since they will be present in the leaf we propose off of.
-    pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-
     /// last View Sync Certificate or Timeout Certificate this node formed.
     pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-
-    /// most recent decided upgrade certificate
-    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
@@ -103,8 +92,8 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// The node's id
     pub id: u64,
 
-    /// Current version of consensus
-    pub version: Version,
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {
@@ -140,7 +129,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         proposal.data.view_number() + 1,
                         Arc::clone(&self.quorum_membership),
                         self.public_key.clone(),
-                        Arc::clone(&self.consensus),
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                     )
                     .await
                     {

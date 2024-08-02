@@ -1,5 +1,8 @@
 use hotshot::traits::{implementations::PushCdnNetwork, NodeImplementation};
-use hotshot_example_types::{state_types::TestTypes, storage_types::TestStorage};
+use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestTypes,
+    storage_types::TestStorage,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::infra::PushCdnDaRun;
@@ -9,18 +12,12 @@ use crate::infra::PushCdnDaRun;
 pub struct NodeImpl {}
 
 /// Convenience type alias
-pub type DaNetwork = PushCdnNetwork<TestTypes>;
-/// Convenience type alias
-pub type VidNetwork = PushCdnNetwork<TestTypes>;
-/// Convenience type alias
-pub type QuorumNetwork = PushCdnNetwork<TestTypes>;
-/// Convenience type alias
-pub type ViewSyncNetwork = PushCdnNetwork<TestTypes>;
+pub type Network = PushCdnNetwork<TestTypes>;
 
 impl NodeImplementation<TestTypes> for NodeImpl {
-    type DaNetwork = DaNetwork;
-    type QuorumNetwork = QuorumNetwork;
+    type Network = Network;
     type Storage = TestStorage<TestTypes>;
+    type AuctionResultsProvider = TestAuctionResultsProvider;
 }
 
 /// Convenience type alias

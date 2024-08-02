@@ -17,7 +17,7 @@ use jf_vid::{precomputable::Precomputable, VidScheme};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
-use super::signature_key::BuilderSignatureKey;
+use super::{auction_results_provider::HasUrls, signature_key::BuilderSignatureKey};
 use crate::{
     data::Leaf,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
@@ -35,6 +35,7 @@ pub trait EncodeBytes {
 pub trait Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {
+    fn default (num_bytes: usize) -> Self; 
 }
 
 /// Abstraction over the full contents of a block
@@ -65,7 +66,7 @@ pub trait BlockPayload<TYPES: NodeType>:
     /// The type of the instance-level state this state is associated with
     type Instance: InstanceState;
     /// The type of the transitions we are applying
-    type Transaction: Transaction;
+    type Transaction: Transaction + Serialize + DeserializeOwned;
     /// Validated State
     type ValidatedState: ValidatedState<TYPES>;
     /// Data created during block building which feeds into the block header
@@ -181,11 +182,13 @@ pub trait BlockHeader<TYPES: NodeType>:
 {
     /// Error type for this type of block header
     type Error: Error + Debug + Send + Sync;
+    /// Type of Auction Results
+    type AuctionResult: HasUrls + Send;
 
     /// Build a header with the parent validate state, instance-level state, parent leaf, payload
-    /// commitment, and metadata.
+    /// commitment, and metadata. This is only used in pre-marketplace versions
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    fn new_legacy(
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
@@ -194,6 +197,21 @@ pub trait BlockHeader<TYPES: NodeType>:
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         builder_fee: BuilderFee<TYPES>,
         vid_common: VidCommon,
+        version: Version,
+    ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
+
+    /// Build a header with the parent validate state, instance-level state, parent leaf, payload
+    /// commitment, metadata, and auction results. This is only used in post-marketplace versions
+    #[allow(clippy::too_many_arguments)]
+    fn new_marketplace(
+        parent_state: &TYPES::ValidatedState,
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        parent_leaf: &Leaf<TYPES>,
+        payload_commitment: VidCommitment,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        builder_fee: Vec<BuilderFee<TYPES>>,
+        vid_common: VidCommon,
+        auction_results: Option<Self::AuctionResult>,
         version: Version,
     ) -> impl Future<Output = Result<Self, Self::Error>> + Send;
 
@@ -216,4 +234,7 @@ pub trait BlockHeader<TYPES: NodeType>:
 
     /// Get the builder commitment
     fn builder_commitment(&self) -> BuilderCommitment;
+
+    /// Get the results of the auction for this Header. Only used in post-marketplace versions
+    fn get_auction_results(&self) -> Option<Self::AuctionResult>;
 }

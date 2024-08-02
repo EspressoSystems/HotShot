@@ -21,8 +21,10 @@ use sha3::{Digest, Keccak256};
 use snafu::Snafu;
 use time::OffsetDateTime;
 use vbs::version::Version;
+use chrono::Utc;
 
 use crate::{
+    auction_results_provider_types::TestAuctionResult,
     node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
 };
@@ -110,7 +112,17 @@ impl Committable for TestTransaction {
     }
 }
 
-impl Transaction for TestTransaction {}
+impl Transaction for TestTransaction {
+    fn default (num_bytes: usize) -> Self {
+
+        let timestamp = Utc::now().timestamp_millis();
+        let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+        let mut tx = vec![0; num_bytes]; 
+        tx.append(&mut timestamp_vec);
+
+        TestTransaction(tx)
+    }
+}
 
 /// A [`BlockPayload`] that contains a list of `TestTransaction`.
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
@@ -176,7 +188,7 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
         _validated_state: &Self::ValidatedState,
         _instance_state: &Self::Instance,
     ) -> Result<(Self, Self::Metadata), Self::Error> {
-        let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect();
+        let txns_vec: Vec<TestTransaction> = transactions.into_iter().collect(); 
         Ok((
             Self {
                 transactions: txns_vec,
@@ -243,8 +255,9 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     for TestBlockHeader
 {
     type Error = std::convert::Infallible;
+    type AuctionResult = TestAuctionResult;
 
-    async fn new(
+    async fn new_legacy(
         _parent_state: &TYPES::ValidatedState,
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
@@ -269,6 +282,20 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
             builder_commitment,
             timestamp,
         })
+    }
+
+    async fn new_marketplace(
+        _parent_state: &TYPES::ValidatedState,
+        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        _parent_leaf: &Leaf<TYPES>,
+        _payload_commitment: VidCommitment,
+        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        _builder_fee: Vec<BuilderFee<TYPES>>,
+        _vid_common: VidCommon,
+        _auction_results: Option<Self::AuctionResult>,
+        _version: Version,
+    ) -> Result<Self, Self::Error> {
+        unimplemented!()
     }
 
     fn genesis(
@@ -299,6 +326,10 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
 
     fn builder_commitment(&self) -> BuilderCommitment {
         self.builder_commitment.clone()
+    }
+
+    fn get_auction_results(&self) -> Option<Self::AuctionResult> {
+        unimplemented!()
     }
 }
 

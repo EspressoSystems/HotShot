@@ -1,7 +1,9 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot_example_types::storage_types::TestStorage;
+use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, storage_types::TestStorage,
+};
 use hotshot_types::{
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
@@ -12,11 +14,8 @@ use hotshot_types::{
 
 use super::{test_builder::TestDescription, test_runner::TestRunner};
 
-/// convience type alias for the networks available
-pub type Networks<TYPES, I> = (
-    Arc<<I as NodeImplementation<TYPES>>::QuorumNetwork>,
-    Arc<<I as NodeImplementation<TYPES>>::QuorumNetwork>,
-);
+/// A type alias to help readability
+pub type Network<TYPES, I> = Arc<<I as NodeImplementation<TYPES>>::Network>;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
@@ -24,19 +23,21 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 /// generators for resources used by each node
 pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generate channels
-    pub channel_generator: AsyncGenerator<Networks<TYPES, I>>,
+    pub channel_generator: AsyncGenerator<Network<TYPES, I>>,
     /// generate new storage for each node
     pub storage: Generator<TestStorage<TYPES>>,
     /// configuration used to generate each hotshot node
     pub config: HotShotConfig<TYPES::SignatureKey>,
+    /// generate a new auction results connector for each node
+    pub auction_results_provider: Generator<TestAuctionResultsProvider>,
 }
 
 /// test launcher
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generator for resources
     pub resource_generator: ResourceGenerators<TYPES, I>,
-    /// metadasta used for tasks
-    pub metadata: TestDescription,
+    /// metadata used for tasks
+    pub metadata: TestDescription<TYPES, I>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
@@ -46,6 +47,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         TestRunner::<TYPES, I, N> {
             launcher: self,
             nodes: Vec::new(),
+            solver_server: None,
             late_start: HashMap::new(),
             next_node_id: 0,
             _pd: PhantomData,

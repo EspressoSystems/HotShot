@@ -15,7 +15,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{future::BoxFuture, Stream, StreamExt};
 use hotshot::types::{Event, EventType, SignatureKey};
-use hotshot_builder_api::{
+use hotshot_builder_api::v0_1::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::BuildError,
     data_source::BuilderDataSource,
@@ -76,6 +76,7 @@ where
     type Config = RandomBuilderConfig;
 
     async fn start(
+        transaction_size: usize, 
         num_storage_nodes: usize,
         url: Url,
         config: RandomBuilderConfig,

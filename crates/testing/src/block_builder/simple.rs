@@ -8,6 +8,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use hotshot_types::traits::block_contents::Transaction;
+
 use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
@@ -18,13 +20,13 @@ use hotshot::{
     traits::BlockPayload,
     types::{Event, EventType, SignatureKey},
 };
-use hotshot_builder_api::{
+use hotshot_builder_api::v0_1::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
+use hotshot_example_types::block_types::TestTransaction;
 use hotshot_types::{
-    constants::Base,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
@@ -34,6 +36,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use tide_disco::{method::ReadState, App, Url};
+use tracing::error;
 use vbs::version::StaticVersionType;
 
 use super::{build_block, run_builder_source, BlockEntry, BuilderTask, TestBuilderImplementation};
@@ -43,6 +46,7 @@ pub struct SimpleBuilderImplementation;
 
 impl SimpleBuilderImplementation {
     pub async fn create<TYPES: NodeType>(
+        transaction_size: usize,
         num_storage_nodes: usize,
         changes: HashMap<u64, BuilderChange>,
         change_sender: Sender<BuilderChange>,
@@ -61,6 +65,7 @@ impl SimpleBuilderImplementation {
             blocks: blocks.clone(),
             num_storage_nodes,
             should_fail_claims: Arc::clone(&should_fail_claims),
+            transaction_size: transaction_size,
         };
 
         let task = SimpleBuilderTask {
@@ -84,13 +89,16 @@ where
     type Config = ();
 
     async fn start(
+        transaction_size: usize,
         num_storage_nodes: usize,
         url: Url,
         _config: Self::Config,
         changes: HashMap<u64, BuilderChange>,
     ) -> Box<dyn BuilderTask<TYPES>> {
         let (change_sender, change_receiver) = broadcast(128);
-        let (source, task) = Self::create(num_storage_nodes, changes, change_sender).await;
+        let (mut source, task) =
+            Self::create(transaction_size, num_storage_nodes, changes, change_sender).await;
+
         run_builder_source(url, change_receiver, source);
 
         Box::new(task)
@@ -106,6 +114,7 @@ pub struct SimpleBuilderSource<TYPES: NodeType> {
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, SubmittedTransaction<TYPES>>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
     should_fail_claims: Arc<AtomicBool>,
+    transaction_size: usize,
 }
 
 #[async_trait]
@@ -132,25 +141,35 @@ where
         _sender: TYPES::SignatureKey,
         _signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError> {
-        let transactions = self
-            .transactions
-            .read(|txns| {
-                Box::pin(async {
-                    txns.values()
-                        .filter(|txn| {
-                            // We want transactions that are either unclaimed, or claimed long ago
-                            // and thus probably not included, or they would've been decided on
-                            // already and removed from the queue
-                            txn.claimed
-                                .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
-                                .unwrap_or(true)
-                        })
-                        .cloned()
-                        .map(|txn| txn.transaction)
-                        .collect::<Vec<TYPES::Transaction>>()
-                })
-            })
-            .await;
+        // TODO ED Get config value of tx size for below
+        let time = Instant::now();
+        let transaction = TYPES::Transaction::default(self.transaction_size);
+
+        // let timestamp = Utc::now().timestamp();
+        // let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
+        // let mut tx = transaction.into_bytes();
+        // tx.append(&mut timestamp_vec);
+        let transactions = vec![transaction];
+
+        // let transactions = self
+        //     .transactions
+        //     .read(|txns| {
+        //         Box::pin(async {
+        //             txns.values()
+        //                 .filter(|txn| {
+        //                     // We want transactions that are either unclaimed, or claimed long ago
+        //                     // and thus probably not included, or they would've been decided on
+        //                     // already and removed from the queue
+        //                     txn.claimed
+        //                         .map(|claim_time| claim_time.elapsed() > Duration::from_secs(30))
+        //                         .unwrap_or(true)
+        //                 })
+        //                 .cloned()
+        //                 .map(|txn| txn.transaction)
+        //                 .collect::<Vec<TYPES::Transaction>>()
+        //         })
+        //     })
+        //     .await;
 
         if transactions.is_empty() {
             // We don't want to return an empty block if we have no trasnactions, as we would end up
@@ -175,6 +194,8 @@ where
             .write()
             .await
             .insert(block_entry.metadata.block_hash.clone(), block_entry);
+
+        error!("Time elapse building block: {:?}", time.elapsed());
 
         Ok(vec![metadata])
     }
@@ -238,16 +259,16 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
     where
         <TYPES as NodeType>::InstanceState: Default,
     {
-        let builder_api =
-            hotshot_builder_api::builder::define_api::<SimpleBuilderSource<TYPES>, TYPES, Base>(
-                &Options::default(),
-            )
-            .expect("Failed to construct the builder API");
+        let builder_api = hotshot_builder_api::v0_1::builder::define_api::<
+            SimpleBuilderSource<TYPES>,
+            TYPES,
+        >(&Options::default())
+        .expect("Failed to construct the builder API");
         let mut app: App<SimpleBuilderSource<TYPES>, Error> = App::with_state(self);
-        app.register_module::<Error, Base>("block_info", builder_api)
+        app.register_module::<Error, _>("block_info", builder_api)
             .expect("Failed to register the builder API");
 
-        async_spawn(app.serve(url, Base::instance()));
+        async_spawn(app.serve(url, TYPES::Base::instance()));
     }
 }
 

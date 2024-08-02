@@ -4,12 +4,15 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
     marker::PhantomData,
+    sync::Arc,
 };
 
-use anyhow::{ensure, Result};
+use anyhow::{bail, ensure, Result};
+use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
+use vbs::version::{StaticVersionType, Version};
 
 use crate::{
     data::serialize_signature2,
@@ -152,12 +155,14 @@ impl<TYPES: NodeType> Display for QuorumCertificate<TYPES> {
 }
 
 impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
+    // TODO: Replace this function with `is_relevant` after the following issue is done:
+    // https://github.com/EspressoSystems/HotShot/issues/3357.
     /// Determines whether or not a certificate is relevant (i.e. we still have time to reach a
     /// decide)
     ///
     /// # Errors
     /// Returns an error when the certificate is no longer relevant
-    pub fn is_relevant(
+    pub fn temp_is_relevant(
         &self,
         view_number: TYPES::Time,
         decided_upgrade_certificate: Option<Self>,
@@ -165,6 +170,28 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
         ensure!(
             self.data.decide_by >= view_number
                 || decided_upgrade_certificate.is_some_and(|cert| cert == *self),
+            "Upgrade certificate is no longer relevant."
+        );
+
+        Ok(())
+    }
+
+    /// Determines whether or not a certificate is relevant (i.e. we still have time to reach a
+    /// decide)
+    ///
+    /// # Errors
+    /// Returns an error when the certificate is no longer relevant
+    pub async fn is_relevant(
+        &self,
+        view_number: TYPES::Time,
+        decided_upgrade_certificate: Arc<RwLock<Option<Self>>>,
+    ) -> Result<()> {
+        let decided_upgrade_certificate_read = decided_upgrade_certificate.read().await;
+        ensure!(
+            self.data.decide_by >= view_number
+                || decided_upgrade_certificate_read
+                    .clone()
+                    .is_some_and(|cert| cert == *self),
             "Upgrade certificate is no longer relevant."
         );
 
@@ -214,3 +241,29 @@ pub type ViewSyncFinalizeCertificate2<TYPES> =
 /// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeProposalData`
 pub type UpgradeCertificate<TYPES> =
     SimpleCertificate<TYPES, UpgradeProposalData<TYPES>, UpgradeThreshold>;
+
+/// Calculate the version applied in a view, based on the provided upgrade certificate.
+///
+/// # Errors
+/// Returns an error if we do not support the version required by the upgrade certificate.
+pub fn version<TYPES: NodeType>(
+    view: TYPES::Time,
+    upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
+) -> Result<Version> {
+    let version = match upgrade_certificate {
+        Some(ref cert) => {
+            if view >= cert.data.new_version_first_view {
+                if cert.data.new_version == TYPES::Upgrade::VERSION {
+                    TYPES::Upgrade::VERSION
+                } else {
+                    bail!("The network has upgraded to a new version that we do not support!");
+                }
+            } else {
+                TYPES::Base::VERSION
+            }
+        }
+        None => TYPES::Base::VERSION,
+    };
+
+    Ok(version)
+}

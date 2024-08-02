@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::SystemTime};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -7,7 +7,10 @@ use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    constants::{Base, Upgrade, UPGRADE_HASH},
+    constants::{
+        UPGRADE_BEGIN_OFFSET, UPGRADE_DECIDE_BY_OFFSET, UPGRADE_FINISH_OFFSET,
+        UPGRADE_PROPOSE_OFFSET,
+    },
     data::UpgradeProposal,
     event::{Event, EventType},
     message::Proposal,
@@ -44,8 +47,8 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
-    /// Network for all nodes
-    pub quorum_network: Arc<I::QuorumNetwork>,
+    /// The underlying network
+    pub network: Arc<I::Network>,
 
     /// The current vote collection task, if there is one.
     pub vote_collector:
@@ -71,9 +74,29 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// View to stop voting on an upgrade
     pub stop_voting_view: u64,
+
+    /// Unix time in seconds at which we start proposing an upgrade
+    pub start_proposing_time: u64,
+
+    /// Unix time in seconds at which we stop proposing an upgrade
+    pub stop_proposing_time: u64,
+
+    /// Unix time in seconds at which we start voting on an upgrade
+    pub start_voting_time: u64,
+
+    /// Unix time in seconds at which we stop voting on an upgrade
+    pub stop_voting_time: u64,
+
+    /// Upgrade certificate that has been decided on, if any
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
+    /// Check if we have decided on an upgrade certificate
+    async fn upgraded(&self) -> bool {
+        self.decided_upgrade_certificate.read().await.is_some()
+    }
+
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
     pub async fn handle(
@@ -85,16 +108,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) => {
                 info!("Received upgrade proposal: {:?}", proposal);
 
-                if *proposal.data.view_number() < self.start_voting_view
-                    || *proposal.data.view_number() >= self.stop_voting_view
-                {
+                let view = *proposal.data.view_number();
+
+                // Skip voting if the version has already been upgraded.
+                if self.upgraded().await {
+                    info!(
+                        "Already upgraded to {:?}, skip voting.",
+                        TYPES::Upgrade::VERSION
+                    );
+                    return None;
+                }
+
+                let time = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_secs();
+
+                if time < self.start_voting_time || time >= self.stop_voting_time {
+                    return None;
+                }
+
+                if view < self.start_voting_view || view >= self.stop_voting_view {
                     return None;
                 }
 
                 // If the proposal does not match our upgrade target, we immediately exit.
-                if proposal.data.upgrade_proposal.new_version_hash != UPGRADE_HASH
-                    || proposal.data.upgrade_proposal.old_version != Base::VERSION
-                    || proposal.data.upgrade_proposal.new_version != Upgrade::VERSION
+                if proposal.data.upgrade_proposal.new_version_hash != TYPES::UPGRADE_HASH
+                    || proposal.data.upgrade_proposal.old_version != TYPES::Base::VERSION
+                    || proposal.data.upgrade_proposal.new_version != TYPES::Upgrade::VERSION
                 {
                     return None;
                 }
@@ -212,35 +253,44 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                     }
                 }
             }
-            HotShotEvent::ViewChange(view) => {
-                let view = *view;
-                if *self.cur_view >= *view {
+            HotShotEvent::ViewChange(new_view) => {
+                if self.cur_view >= *new_view {
                     return None;
                 }
 
-                if *view - *self.cur_view > 1 {
-                    warn!("View changed by more than 1 going to view {:?}", view);
-                }
-                self.cur_view = view;
+                self.cur_view = *new_view;
+
+                let view: u64 = *self.cur_view;
+                let time = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?
+                    .as_secs();
+
                 // We try to form a certificate 5 views before we're leader.
-                if *view >= self.start_proposing_view
-                    && *view < self.stop_proposing_view
-                    && self.quorum_membership.leader(view + 5) == self.public_key
+                if view >= self.start_proposing_view
+                    && view < self.stop_proposing_view
+                    && time >= self.start_proposing_time
+                    && time < self.stop_proposing_time
+                    && !self.upgraded().await
+                    && self
+                        .quorum_membership
+                        .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
+                        == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {
-                        old_version: Base::VERSION,
-                        new_version: Upgrade::VERSION,
-                        new_version_hash: UPGRADE_HASH.to_vec(),
+                        old_version: TYPES::Base::VERSION,
+                        new_version: TYPES::Upgrade::VERSION,
+                        new_version_hash: TYPES::UPGRADE_HASH.to_vec(),
                         // We schedule the upgrade to begin 15 views in the future
-                        old_version_last_view: TYPES::Time::new(*view + 15),
+                        old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
                         // and end 20 views in the future
-                        new_version_first_view: TYPES::Time::new(*view + 20),
-                        decide_by: TYPES::Time::new(*view + 10),
+                        new_version_first_view: TYPES::Time::new(view + UPGRADE_FINISH_OFFSET),
+                        decide_by: TYPES::Time::new(view + UPGRADE_DECIDE_BY_OFFSET),
                     };
 
                     let upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
-                        view_number: view + 5,
+                        view_number: TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET),
                     };
 
                     let signature = TYPES::SignatureKey::sign(
@@ -248,6 +298,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         upgrade_proposal_data.commit().as_ref(),
                     )
                     .expect("Failed to sign upgrade proposal commitment!");
+
+                    warn!("Sending upgrade proposal:\n\n {:?}", upgrade_proposal);
 
                     let message = Proposal {
                         data: upgrade_proposal,

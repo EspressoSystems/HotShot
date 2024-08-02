@@ -34,12 +34,13 @@ async fn test_network_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let builder = TestDescription::default_multiple_rounds();
+    let builder: TestDescription<TestTypes, MemoryImpl> =
+        TestDescription::default_multiple_rounds();
     let node_id = 1;
 
-    let launcher = builder.gen_launcher::<TestTypes, MemoryImpl>(node_id);
+    let launcher = builder.gen_launcher(node_id);
 
-    let networks = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generator.channel_generator)(node_id).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
     let config = launcher.resource_generator.config.clone();
@@ -51,10 +52,9 @@ async fn test_network_task() {
         known_nodes_with_stake,
         config.fixed_leader_for_gpuvid,
     );
-    let channel = networks.0.clone();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_>, _> =
         NetworkEventTaskState {
-            channel: channel.clone(),
+            channel: network.clone(),
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
@@ -70,8 +70,14 @@ async fn test_network_task() {
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().await.unwrap();
 
-    let (out_tx, mut out_rx) = async_broadcast::broadcast(10);
-    add_network_message_test_task(out_tx.clone(), channel.clone()).await;
+    let (out_tx_internal, mut out_rx_internal) = async_broadcast::broadcast(10);
+    let (out_tx_external, _) = async_broadcast::broadcast(10);
+    add_network_message_test_task(
+        out_tx_internal.clone(),
+        out_tx_external.clone(),
+        network.clone(),
+    )
+    .await;
 
     tx.broadcast_direct(Arc::new(HotShotEvent::QuorumProposalSend(
         view.quorum_proposal,
@@ -79,10 +85,11 @@ async fn test_network_task() {
     )))
     .await
     .unwrap();
-    let res: Arc<HotShotEvent<TestTypes>> = async_timeout(Duration::from_millis(100), out_rx.recv_direct())
-        .await
-        .expect("timed out waiting for response")
-        .expect("channel closed");
+    let res: Arc<HotShotEvent<TestTypes>> =
+        async_timeout(Duration::from_millis(100), out_rx_internal.recv_direct())
+            .await
+            .expect("timed out waiting for response")
+            .expect("channel closed");
     assert!(matches!(
         res.as_ref(),
         HotShotEvent::QuorumProposalRecv(_, _)
@@ -98,12 +105,13 @@ async fn test_network_storage_fail() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let builder = TestDescription::default_multiple_rounds();
+    let builder: TestDescription<TestTypes, MemoryImpl> =
+        TestDescription::default_multiple_rounds();
     let node_id = 1;
 
-    let launcher = builder.gen_launcher::<TestTypes, MemoryImpl>(node_id);
+    let launcher = builder.gen_launcher(node_id);
 
-    let networks = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generator.channel_generator)(node_id).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
     storage.write().await.should_return_err = true;
@@ -116,10 +124,9 @@ async fn test_network_storage_fail() {
         known_nodes_with_stake,
         config.fixed_leader_for_gpuvid,
     );
-    let channel = networks.0.clone();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_>, _> =
         NetworkEventTaskState {
-            channel: channel.clone(),
+            channel: network.clone(),
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
@@ -135,8 +142,15 @@ async fn test_network_storage_fail() {
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
     let view = generator.next().await.unwrap();
 
-    let (out_tx, mut out_rx): (Sender<Arc<HotShotEvent<TestTypes>>>, _) = async_broadcast::broadcast(10);
-    add_network_message_test_task(out_tx.clone(), channel.clone()).await;
+    let (out_tx_internal, mut out_rx_internal): (Sender<Arc<HotShotEvent<TestTypes>>>, _) =
+        async_broadcast::broadcast(10);
+    let (out_tx_external, _) = async_broadcast::broadcast(10);
+    add_network_message_test_task(
+        out_tx_internal.clone(),
+        out_tx_external.clone(),
+        network.clone(),
+    )
+    .await;
 
     tx.broadcast_direct(Arc::new(HotShotEvent::QuorumProposalSend(
         view.quorum_proposal,
@@ -144,6 +158,6 @@ async fn test_network_storage_fail() {
     )))
     .await
     .unwrap();
-    let res = async_timeout(Duration::from_millis(100), out_rx.recv_direct()).await;
+    let res = async_timeout(Duration::from_millis(100), out_rx_internal.recv_direct()).await;
     assert!(res.is_err());
 }
