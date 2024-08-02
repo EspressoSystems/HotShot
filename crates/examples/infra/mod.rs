@@ -479,7 +479,7 @@ pub trait RunDa<
                             qc: _,
                             block_size,
                         } => {
-                            let current_timestamp = Utc::now().timestamp();
+                            let current_timestamp = Utc::now().timestamp_millis();
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
@@ -573,7 +573,7 @@ pub trait RunDa<
             // ED HERE
                 * (transaction_size_in_bytes + 8)
                 / total_time_elapsed_sec;
-            let avg_latency_in_sec = total_latency / num_latency;
+            let avg_latency_in_sec = (total_latency / num_latency) as f64 / 1000.0;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
             BenchResults {
                 partial_results: "Unset".to_string(),

@@ -115,7 +115,7 @@ impl Committable for TestTransaction {
 impl Transaction for TestTransaction {
     fn default (num_bytes: usize) -> Self {
 
-        let timestamp = Utc::now().timestamp();
+        let timestamp = Utc::now().timestamp_millis();
         let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
         let mut tx = vec![0; num_bytes]; 
         tx.append(&mut timestamp_vec);
