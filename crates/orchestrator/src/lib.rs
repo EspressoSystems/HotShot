@@ -481,7 +481,7 @@ where
     // Aggregates results of the run from all nodes
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
 
-        self.nodes_post_results += 1;
+        
 
         if metrics.total_transactions_committed != 0 {
 
@@ -489,9 +489,12 @@ where
             if self.bench_results.total_transactions_committed == 0 {
                 self.bench_results = metrics;
             } else {
+                self.view_averages.push(metrics.avg_latency_in_sec);
+                println!("{:?}", self.view_averages);
+
                 // Deal with the bench results from different nodes
                 let cur_metrics = self.bench_results.clone();
-                let mut average_view_time = Duration::default();
+                let mut average_view_time = Duration::new(0, 0);
                 for avg in &self.view_averages {
                     average_view_time += *avg;
                 }
@@ -499,8 +502,7 @@ where
                     .checked_div(<u64 as TryInto<u32>>::try_into(self.nodes_post_results).unwrap())
                     .unwrap();
 
-                self.view_averages.push(metrics.avg_latency_in_sec);
-                self.bench_results.avg_latency_in_sec = average_view_time;
+                    self.bench_results.avg_latency_in_sec = average_view_time;
                 self.bench_results.num_latency += metrics.num_latency;
                 self.bench_results.minimum_latency_in_sec = metrics
                     .minimum_latency_in_sec
@@ -523,6 +525,7 @@ where
                     metrics.failed_num_views.max(cur_metrics.failed_num_views);
             }
         }
+        self.nodes_post_results += 1;
 
         if self.bench_results.partial_results == "Unset" {
             self.bench_results.partial_results = "One".to_string();
