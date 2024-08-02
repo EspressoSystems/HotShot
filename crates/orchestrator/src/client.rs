@@ -94,7 +94,7 @@ pub struct BenchResultsDownloadConfig {
     /// "Full" if the results are successfully collected from all nodes
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: Duration,
+    pub avg_latency_in_sec: u128,
     /// The minimum latency of the transactions
     pub minimum_latency_in_sec: i64,
     /// The maximum latency of the transactions

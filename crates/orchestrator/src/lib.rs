@@ -151,7 +151,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             rounds: self.config.rounds,
             leader_election_type: OrchestratorState::<KEY>::election_type(),
             partial_results: self.bench_results.partial_results.clone(),
-            avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
+            avg_latency_in_sec: self.bench_results.avg_latency_in_sec.as_millis(),
             minimum_latency_in_sec: self.bench_results.minimum_latency_in_sec,
             maximum_latency_in_sec: self.bench_results.maximum_latency_in_sec,
             throughput_bytes_per_sec: self.bench_results.throughput_bytes_per_sec,
@@ -168,8 +168,13 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             .unwrap();
         // Open a file for writing
         let mut wtr = Writer::from_writer(results_csv_file);
-        let _ = wtr.serialize(output_csv);
-        let _ = wtr.flush();
+        let error = wtr.serialize(output_csv);
+        if error.is_ok() {
+            let _ = wtr.flush();
+        }
+        else {
+            println!("{:?}", error);
+        }
         println!("Results successfully saved in scripts/benchmarks_results/results.csv");
     }
 }
@@ -481,7 +486,8 @@ where
             } else {
                 // Deal with the bench results from different nodes
                 let cur_metrics = self.bench_results.clone();
-                self.bench_results.avg_latency_in_sec = (cur_metrics.avg_latency_in_sec + metrics.avg_latency_in_sec) / 2;
+                self.bench_results.avg_latency_in_sec =
+                    (cur_metrics.avg_latency_in_sec + metrics.avg_latency_in_sec) / 2;
                 self.bench_results.num_latency += metrics.num_latency;
                 self.bench_results.minimum_latency_in_sec = metrics
                     .minimum_latency_in_sec
@@ -540,9 +546,7 @@ where
     }
 
     fn get_builders(&self) -> Result<Vec<Url>, ServerError> {
-        if !matches!(self.config.builder, BuilderType::External)
-            && self.builders.len() < 1
-        {
+        if !matches!(self.config.builder, BuilderType::External) && self.builders.len() < 1 {
             return Err(ServerError {
                 status: tide_disco::StatusCode::NOT_FOUND,
                 message: "Not all builders are registered yet".to_string(),
