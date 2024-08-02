@@ -13,7 +13,7 @@ use hotshot_testing::{
 };
 use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::ConsensusTime;
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 use std::collections::HashSet;
 
 #[cfg(async_executor_impl = "async-std")]
@@ -94,8 +94,11 @@ cross_tests!(
 
         metadata.overall_safety_properties.num_failed_views = 2;
         metadata.num_nodes_with_stake = 5;
-        metadata.overall_safety_properties.expected_views_to_fail = 
-            HashSet::from([ViewNumber::new(7), ViewNumber::new(12)]);
+        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
+            (ViewNumber::new(7), false),
+            (ViewNumber::new(12), false),
+            (ViewNumber::new(20), false)
+        ]);
         metadata
     },
 );

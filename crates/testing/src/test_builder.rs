@@ -1,10 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    num::NonZeroUsize,
-    rc::Rc,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
 use hotshot::{
     tasks::EventTransformerState,
@@ -243,7 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
                 num_failed_views: 15,
                 transaction_threshold: 0,
                 threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
-                expected_views_to_fail: HashSet::new(),
+                expected_views_to_fail: HashMap::new(),
             },
             timing_data: TimingData {
                 next_view_timeout: 2000,
@@ -277,7 +271,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
                 num_failed_views: 8,
                 transaction_threshold: 0,
                 threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
-                expected_views_to_fail: HashSet::new(),
+                expected_views_to_fail: HashMap::new(),
             },
             timing_data: TimingData {
                 start_delay: 120_000,

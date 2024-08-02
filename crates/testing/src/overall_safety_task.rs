@@ -93,28 +93,31 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TYPES, I> {
-    async fn handle_view_failure(
-        &mut self,
-        num_failed_views: usize,
-        expected_views_to_fail: HashSet<TYPES::Time>,
-        view_number: TYPES::Time,
-    ) {
+    async fn handle_view_failure(&mut self, num_failed_views: usize, view_number: TYPES::Time) {
+        let expected_view_to_fail = &mut self.properties.expected_views_to_fail;
+
         self.ctx.failed_views.insert(view_number);
         if self.ctx.failed_views.len() > num_failed_views {
             let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
             self.error = Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                 failed_views: self.ctx.failed_views.clone(),
             }));
-        } else if !expected_views_to_fail.is_empty()
-            && !expected_views_to_fail.contains(&view_number)
-        {
-            let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
-            self.error = Some(Box::new(
-                OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
-                    expected_failed_views: expected_views_to_fail.clone(),
-                    actual_failed_views: self.ctx.failed_views.clone(),
-                },
-            ));
+        } else if !expected_view_to_fail.is_empty() {
+            match expected_view_to_fail.get(&view_number) {
+                Some(_) => {
+                    expected_view_to_fail.insert(view_number, true);
+                    error!("{:?}", expected_view_to_fail);
+                }
+                None => {
+                    let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+                    self.error = Some(Box::new(
+                        OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
+                            expected_failed_views: expected_view_to_fail.keys().cloned().collect(),
+                            actual_failed_views: self.ctx.failed_views.clone(),
+                        },
+                    ));
+                }
+            }
         }
     }
 }
@@ -134,7 +137,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             num_successful_views,
             threshold_calculator,
             transaction_threshold,
-            expected_views_to_fail,
+            ..
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
         let Event { view_number, event } = message;
         let key = match event {
@@ -201,7 +204,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
                     return Ok(());
                 }
                 ViewStatus::Failed => {
-                    self.handle_view_failure(num_failed_views, expected_views_to_fail, view_number)
+                    self.handle_view_failure(num_failed_views, view_number)
                         .await;
 
                     return Ok(());
@@ -217,7 +220,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             }
         } else if view.check_if_failed(threshold, len) {
             view.status = ViewStatus::Failed;
-            self.handle_view_failure(num_failed_views, expected_views_to_fail, view_number)
+            self.handle_view_failure(num_failed_views, view_number)
                 .await;
             return Ok(());
         }
@@ -236,7 +239,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             num_successful_views,
             threshold_calculator: _,
             transaction_threshold: _,
-            expected_views_to_fail: _,
+            expected_views_to_fail,
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
 
         let num_incomplete_views = self.ctx.round_results.len()
@@ -254,6 +257,18 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                 failed_views: self.ctx.failed_views.clone(),
             }));
+        }
+
+        if !expected_views_to_fail
+            .values()
+            .all(|&view_failed| view_failed)
+        {
+            return TestResult::Fail(Box::new(
+                OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
+                    actual_failed_views: self.ctx.failed_views.clone(),
+                    expected_failed_views: expected_views_to_fail.keys().cloned().collect(),
+                },
+            ));
         }
 
         // We should really be able to include a check like this:
@@ -537,7 +552,7 @@ pub struct OverallSafetyPropertiesDescription<TYPES: NodeType> {
     /// required to mark view as successful
     pub threshold_calculator: Arc<dyn Fn(usize, usize) -> usize + Send + Sync>,
     /// pass in the views that we expect to fail
-    pub expected_views_to_fail: HashSet<TYPES::Time>,
+    pub expected_views_to_fail: HashMap<TYPES::Time, bool>,
 }
 
 impl<TYPES: NodeType> std::fmt::Debug for OverallSafetyPropertiesDescription<TYPES> {
@@ -563,7 +578,7 @@ impl<TYPES: NodeType> Default for OverallSafetyPropertiesDescription<TYPES> {
             transaction_threshold: 0,
             // very strict
             threshold_calculator: Arc::new(|_num_live, num_total| 2 * num_total / 3 + 1),
-            expected_views_to_fail: HashSet::new(),
+            expected_views_to_fail: HashMap::new(),
         }
     }
 }
