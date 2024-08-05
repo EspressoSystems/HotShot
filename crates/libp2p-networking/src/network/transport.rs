@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::future::Future;
+use std::hash::BuildHasher;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
@@ -82,9 +83,13 @@ pub async fn authenticate_with_remote_peer<W: AsyncWrite + Unpin>(
 /// - The message is invalid
 /// - The peer is not in the stake table
 /// - The signature is invalid
-pub async fn verify_peer_authentication<R: AsyncReadExt + Unpin, S: SignatureKey>(
+pub async fn verify_peer_authentication<
+    R: AsyncReadExt + Unpin,
+    S: SignatureKey,
+    H: BuildHasher,
+>(
     stream: &mut R,
-    stake_table: Arc<Option<HashSet<S>>>,
+    stake_table: Arc<Option<HashSet<S, H>>>,
     required_peer_id: &PeerId,
 ) -> AnyhowResult<()> {
     // If we have a stake table, check if the remote peer is in it
@@ -683,8 +688,7 @@ mod test {
         // Make sure it errored for the right reason
         assert!(
             result
-                .err()
-                .expect("Should have failed authentication but did not")
+                .expect_err("Should have failed authentication but did not")
                 .to_string()
                 .contains("Peer not in stake table"),
             "Did not fail with the correct error"
@@ -718,8 +722,7 @@ mod test {
         // Make sure it errored for the right reason
         assert!(
             result
-                .err()
-                .expect("Should have failed authentication but did not")
+                .expect_err("Should have failed authentication but did not")
                 .to_string()
                 .contains("Peer ID mismatch"),
             "Did not fail with the correct error"
