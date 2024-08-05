@@ -421,6 +421,7 @@ pub trait RunDa<
 
     /// Starts HotShot consensus, returns when consensus has finished
     #[allow(clippy::too_many_lines)]
+    #[allow(clippy::cast_precision_loss)]
     async fn run_hotshot(
         &self,
         context: SystemContextHandle<TYPES, NODE>,
