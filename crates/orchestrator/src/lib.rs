@@ -470,6 +470,7 @@ where
     }
 
     // Aggregates results of the run from all nodes
+    #[allow(clippy::cast_precision_loss)]
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
         if metrics.total_transactions_committed != 0 {
             // Deal with the bench results
