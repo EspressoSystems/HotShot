@@ -876,14 +876,14 @@ pub struct PackedBundle<TYPES: NodeType> {
     /// The view number that this block is associated with.
     pub view_number: TYPES::Time,
 
-    /// The bid fees for submitting the block.
-    pub bid_fees: Vec1<BuilderFee<TYPES>>,
-
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
 
     /// The Vid precompute for the block.
     pub vid_precompute: Option<VidPrecomputeData>,
+
+    /// The auction results for the block, if it was produced as the result of an auction
+    pub auction_result: Option<TYPES::AuctionResult>,
 }
 
 impl<TYPES: NodeType> PackedBundle<TYPES> {
@@ -892,17 +892,17 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
         encoded_transactions: Arc<[u8]>,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         view_number: TYPES::Time,
-        bid_fees: Vec1<BuilderFee<TYPES>>,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
         vid_precompute: Option<VidPrecomputeData>,
+        auction_result: Option<TYPES::AuctionResult>,
     ) -> Self {
         Self {
             encoded_transactions,
             metadata,
             view_number,
-            bid_fees,
             sequencing_fees,
             vid_precompute,
+            auction_result,
         }
     }
 }

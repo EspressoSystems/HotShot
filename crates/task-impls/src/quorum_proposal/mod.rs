@@ -1,5 +1,3 @@
-#![cfg(feature = "dependency-tasks")]
-
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
@@ -43,7 +41,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Latest view number that has been proposed for.
     pub latest_proposed_view: TYPES::Time,
 
-    /// Table for the in-progress proposal depdencey tasks.
+    /// Table for the in-progress proposal dependency tasks.
     pub proposal_dependencies: HashMap<TYPES::Time, JoinHandle<()>>,
 
     /// The underlying network
@@ -135,7 +133,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         }
                     }
                     ProposalDependency::Proposal => {
-                        if let HotShotEvent::QuorumProposalRecv(proposal, _) = event {
+                        if let HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) = event
+                        {
                             proposal.data.view_number() + 1
                         } else {
                             return false;
@@ -148,6 +147,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                             _metadata,
                             view_number,
                             _fee,
+                            _auction_result,
                         ) = event
                         {
                             *view_number
@@ -219,7 +219,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
                 payload_commitment_dependency.mark_as_completed(Arc::clone(&event));
             }
-            HotShotEvent::QuorumProposalRecv(..) => {
+            HotShotEvent::QuorumProposalPreliminarilyValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
@@ -282,7 +282,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
     ) {
-        // Don't even bother making the task if we are not entitled to propose anyay.
+        // Don't even bother making the task if we are not entitled to propose anyway.
         if self.quorum_membership.leader(view_number) != self.public_key {
             tracing::trace!("We are not the leader of the next view");
             return;
@@ -402,6 +402,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 _metadata,
                 view_number,
                 _fee,
+                _auction_result,
             ) => {
                 let view_number = *view_number;
 
@@ -430,10 +431,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     event,
                 );
             }
-            HotShotEvent::QuorumProposalRecv(proposal, _) => {
+            HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
 
-                // All nodes get the latest proposed view as a proxy of `cur_view` of olde.
+                // All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
                     return;

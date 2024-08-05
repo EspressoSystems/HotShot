@@ -45,6 +45,7 @@ use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 pub use self::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+        DEFAULT_REPLICATION_FACTOR,
     },
     handle::{
         network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
@@ -207,16 +208,15 @@ impl NetworkNode {
 
             // Create a custom gossipsub
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .opportunistic_graft_ticks(3)
                 .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
-                .history_gossip(50)
+                .history_gossip(10)
                 .mesh_n_high(params.mesh_n_high)
                 .mesh_n_low(params.mesh_n_low)
                 .mesh_outbound_min(params.mesh_outbound_min)
                 .mesh_n(params.mesh_n)
-                .history_length(500)
+                .history_length(10)
                 .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
@@ -351,11 +351,17 @@ impl NetworkNode {
     /// Once replicated upon all nodes, the caller is notified over
     /// `chan`. If there is an error, a [`super::error::DHTError`] is
     /// sent instead.
+    ///
+    /// # Panics
+    /// If the default replication factor is `None`
     pub fn put_record(&mut self, mut query: KadPutQuery) {
         let record = Record::new(query.key.clone(), query.value.clone());
         match self.swarm.behaviour_mut().dht.put_record(
             record,
-            libp2p::kad::Quorum::N(self.dht_handler.replication_factor()),
+            libp2p::kad::Quorum::N(
+                NonZeroUsize::try_from(self.dht_handler.replication_factor().get() / 2)
+                    .expect("replication factor should be bigger than 0"),
+            ),
         ) {
             Err(e) => {
                 // failed try again later
@@ -762,7 +768,7 @@ impl NetworkNode {
                         event = self.swarm.next() => {
                             debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
-                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },

@@ -64,7 +64,7 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_membership: TYPES::Membership,
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
-    /// This nodes private/signign key, used to sign requests.
+    /// This nodes private/signing key, used to sign requests.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// The node's id
     pub id: u64,
@@ -155,7 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             .for_each(|r| self.run_delay(r, sender.clone(), view));
     }
 
-    /// Creates the srequest structures for all types that are needed.
+    /// Creates the request structures for all types that are needed.
     #[instrument(skip_all, target = "NetworkRequestState", fields(id = self.id, view = *view))]
     async fn build_requests(&self, view: TYPES::Time) -> Vec<RequestKind<TYPES>> {
         let mut reqs = Vec::new();
@@ -182,7 +182,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         };
         Some(signature)
     }
-    /// run a delayed request task for a request.  The first response
+    /// run a delayed request task for a request. The first response
     /// received will be sent over `sender`
     #[instrument(skip_all, fields(id = self.id, view = *self.view), name = "NetworkRequestState run_delay", level = "error")]
     fn run_delay(
@@ -306,19 +306,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
                 return;
             }
         };
-        if let Ok(Ok(serialized_response)) = response {
-            if let Ok(ResponseMessage::Found(msg)) = bincode::deserialize(&serialized_response) {
-                let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
-                else {
-                    error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
-                    broadcast_event(None, &self.sender).await;
+        match response {
+            Ok(Ok(serialized_response)) => {
+                if let Ok(ResponseMessage::Found(msg)) = bincode::deserialize(&serialized_response)
+                {
+                    let SequencingMessage::General(GeneralConsensusMessage::Proposal(prop)) = msg
+                    else {
+                        error!("Requested Proposal but received a non-proposal in response.  Response was {:?}", msg);
+                        broadcast_event(None, &self.sender).await;
+                        return;
+                    };
+                    debug!("proposal found {:?}", prop);
+                    broadcast_event(Some(prop), &self.sender).await;
                     return;
-                };
-                broadcast_event(Some(prop), &self.sender).await;
+                }
+                debug!("Proposal not found");
+                broadcast_event(None, &self.sender).await;
             }
-            broadcast_event(None, &self.sender).await;
-        } else {
-            broadcast_event(None, &self.sender).await;
+            Ok(Err(e)) => {
+                debug!("request for proposal failed with error {:?}", e);
+                broadcast_event(None, &self.sender).await;
+            }
+            Err(e) => {
+                debug!("request for proposal timed out with error {:?}", e);
+                broadcast_event(None, &self.sender).await;
+            }
         }
     }
 }
