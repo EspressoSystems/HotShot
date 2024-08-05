@@ -188,26 +188,26 @@ clippy:
 
 lint:
   echo linting
-  cargo fmt --check
+  rustfmt crates/**/*.rs --check
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
 lint_release:
   echo linting
-  cargo fmt --check
+  rustfmt crates/**/*.rs --check
   cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
-  echo Running cargo fmt
-  cargo fmt
+  echo Running rustfmt crates/**/*.rs
+  rustfmt crates/**/*.rs
 
 fmt_lint:
   echo Formatting and linting
-  cargo fmt
+  rustfmt crates/**/*.rs
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
 fmt_lint_dependency_tasks:
   echo Formatting and linting
-  cargo fmt
+  rustfmt crates/**/*.rs
   cargo clippy --workspace --examples --bins --tests --features "dependency-tasks" -- -D warnings
 
 careful:
@@ -236,7 +236,7 @@ doc_test:
 
 lint_imports:
   echo Linting imports
-  cargo fmt --all -- --config unstable_features=true,imports_granularity=Crate
+  rustfmt crates/**/*.rs --config unstable_features=true,imports_granularity=Crate
 
 gen_key_pair:
   echo Generating key pair from config file in config/
