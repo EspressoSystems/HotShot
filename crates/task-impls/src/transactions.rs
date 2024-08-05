@@ -29,6 +29,7 @@ use hotshot_types::{
     vid::{VidCommitment, VidPrecomputeData},
 };
 use tracing::{debug, error, instrument, warn};
+use url::Url;
 use vbs::version::StaticVersionType;
 use vec1::Vec1;
 
@@ -91,9 +92,6 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Builder 0.1 API clients
     pub builder_clients: Vec<BuilderClientBase<TYPES>>,
 
-    /// Builder 0.3 API clients
-    pub builder_clients_marketplace: Vec<BuilderClientMarketplace<TYPES>>,
-
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
     /// Our Private Key
@@ -106,6 +104,8 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     /// auction results provider
     pub auction_results_provider: Arc<I::AuctionResultsProvider>,
+    /// generic builder url
+    pub generic_builder_url: Url,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
@@ -270,7 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         {
             let start = Instant::now();
 
-            if let Ok(Ok(urls)) = async_timeout(
+            if let Ok(Ok(auction_result)) = async_timeout(
                 self.builder_timeout,
                 self.auction_results_provider
                     .fetch_auction_result(block_view),
@@ -279,11 +279,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
             {
                 let mut futures = Vec::new();
 
-                for url in urls.clone().urls() {
+                let mut builder_urls = auction_result.clone().urls();
+                builder_urls.push(self.generic_builder_url.clone());
+
+                for url in builder_urls {
                     futures.push(async_timeout(
                         self.builder_timeout.saturating_sub(start.elapsed()),
                         async {
-                            let client = crate::builder::v0_3::BuilderClient::new(url);
+                            let client = BuilderClientMarketplace::new(url);
                             client.bundle(*block_view).await
                         },
                     ));
@@ -326,7 +329,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                             block_view,
                             sequencing_fees,
                             None,
-                            Some(urls),
+                            Some(auction_result),
                         ))),
                         event_stream,
                     )
@@ -448,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         let consensus = self.consensus.read().await;
         let mut target_view = TYPES::Time::new(block_view.saturating_sub(1));
 
-        while target_view != TYPES::Time::genesis() {
+        loop {
             let Some(view_data) = consensus.validated_state_map().get(&target_view) else {
                 tracing::warn!(?target_view, "Missing record for view in validated state");
                 return None;
@@ -469,13 +472,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 }
                 ViewInner::Failed => {
                     // For failed views, backtrack
-                    target_view = target_view - 1;
+                    target_view = TYPES::Time::new(target_view.checked_sub(1)?);
                     continue;
                 }
             }
         }
-
-        None
     }
 
     #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
@@ -625,7 +626,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
         available_blocks.sort_by(|(l, _), (r, _)| {
             // We want the block with the highest fee per byte of data we're going to have to
-            // process, thus our comparision function is:
+            // process, thus our comparison function is:
             //      (l.offered_fee / l.block_size) < (r.offered_fee / r.block_size)
             // To avoid floating point math (which doesn't even have an `Ord` impl) we multiply
             // through by the denominators to get

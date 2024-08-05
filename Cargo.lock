@@ -1452,9 +1452,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.11"
+version = "4.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35723e6a11662c2afb578bcf0b88bf6ea8e21282a953428f240574fcc3a2b5b3"
+checksum = "0fbb260a053428790f3de475e304ff84cdbc4face759ea7a3e64c1edd938a7fc"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1462,9 +1462,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.11"
+version = "4.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49eb96cbfa7cfa35017b7cd548c75b14c3118c98b423041d70562665e07fb0fa"
+checksum = "64b17d7ea74e9f833c7dbf2cbe4fb12ff26783eda4782a8975b72f895c9b4d99"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1474,9 +1474,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.11"
+version = "4.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d029b67f89d30bbb547c89fd5161293c0aec155fc691d7924b64550662db93e"
+checksum = "501d359d5f3dcaf6ecdeee48833ae73ec6e42723a1e52419c79abf9507eec0a0"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -3046,7 +3046,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3088,6 +3088,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "url",
  "vbs",
 ]
 
@@ -3111,7 +3112,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3143,7 +3144,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3186,13 +3187,14 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber 0.3.18",
+ "url",
  "vbs",
  "vec1",
 ]
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
@@ -3210,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3220,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3249,7 +3251,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3270,7 +3272,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3284,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3313,13 +3315,14 @@ dependencies = [
  "time 0.3.36",
  "tokio",
  "tracing",
+ "url",
  "vbs",
  "vec1",
 ]
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3342,6 +3345,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
+ "itertools 0.13.0",
  "jf-signature",
  "jf-vid",
  "lru 0.12.4",
@@ -3905,6 +3909,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4185,7 +4198,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -4468,7 +4481,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.67"
+version = "0.5.68"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -6651,9 +6664,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.121"
+version = "1.0.122"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ab380d7d9f22ef3f21ad3e6c1ebe8e4fc7a2000ccba2e4d71fc96f15b2cb609"
+checksum = "784b6203951c57ff748476b126ccb5e8e2959a5c19e5c617ab1956be3dbc68da"
 dependencies = [
  "itoa",
  "memchr",
@@ -6934,7 +6947,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d1e02fca405f6280643174a50c942219f0bbf4dbf7d480f1dd864d6f211ae5"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
