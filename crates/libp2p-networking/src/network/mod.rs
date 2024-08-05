@@ -7,7 +7,7 @@ pub mod error;
 /// functionality of a libp2p network node
 mod node;
 /// Alternative Libp2p transport implementations
-pub mod transport;
+pub mod stake_table_transport;
 
 use std::{collections::HashSet, fmt::Debug, str::FromStr};
 
@@ -33,8 +33,8 @@ use quic::async_std::Transport as QuicTransport;
 #[cfg(async_executor_impl = "tokio")]
 use quic::tokio::Transport as QuicTransport;
 use serde::{Deserialize, Serialize};
+use stake_table_transport::StakeTableAuthentication;
 use tracing::instrument;
-use transport::StakeTableAuthentication;
 
 use self::behaviours::request_response::{Request, Response};
 pub use self::{
