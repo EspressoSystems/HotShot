@@ -679,7 +679,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; OverallSafetyTask&lt;TYPES, I&gt; {
     <span class="kw">async fn </span>handle_view_failure(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_failed_views: usize, view_number: TYPES::Time) {
-        <span class="kw">let </span>expected_view_to_fail = <span class="kw-2">&amp;mut </span><span class="self">self</span>.properties.expected_views_to_fail;
+        <span class="kw">let </span>expected_views_to_fail = <span class="kw-2">&amp;mut </span><span class="self">self</span>.properties.expected_views_to_fail;
 
         <span class="self">self</span>.ctx.failed_views.insert(view_number);
         <span class="kw">if </span><span class="self">self</span>.ctx.failed_views.len() &gt; num_failed_views {
@@ -687,16 +687,16 @@
             <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
                 failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
             }));
-        } <span class="kw">else if </span>!expected_view_to_fail.is_empty() {
-            <span class="kw">match </span>expected_view_to_fail.get(<span class="kw-2">&amp;</span>view_number) {
-                <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
-                    expected_view_to_fail.insert(view_number, <span class="bool-val">true</span>);
+        } <span class="kw">else if </span>!expected_views_to_fail.is_empty() {
+            <span class="kw">match </span>expected_views_to_fail.entry(view_number) {
+                Entry::Occupied(<span class="kw-2">mut </span>view_seen) =&gt; {
+                    <span class="kw-2">*</span>view_seen.get_mut() = <span class="bool-val">true</span>;
                 }
-                <span class="prelude-val">None </span>=&gt; {
+                Entry::Vacant(_v) =&gt; {
                     <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
                     <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(
                         OverallSafetyTaskErr::&lt;TYPES&gt;::InconsistentFailedViews {
-                            expected_failed_views: expected_view_to_fail.keys().cloned().collect(),
+                            expected_failed_views: expected_views_to_fail.keys().cloned().collect(),
                             actual_failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
                         },
                     ));
