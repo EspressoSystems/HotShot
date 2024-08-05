@@ -27,9 +27,9 @@ pub struct BenchResults {
     /// The number of transactions that were latency measured
     pub num_latency: i64,
     /// The minimum latency of the transactions
-    pub minimum_latency_in_sec: i64,
+    pub minimum_latency_in_sec: f64,
     /// The maximum latency of the transactions
-    pub maximum_latency_in_sec: i64,
+    pub maximum_latency_in_sec: f64,
     /// The throughput of the consensus protocol = number of transactions committed per second * transaction size in bytes
     pub throughput_bytes_per_sec: u64,
     /// The number of transactions committed during benchmarking
@@ -96,9 +96,9 @@ pub struct BenchResultsDownloadConfig {
     /// The average latency of the transactions
     pub avg_latency_in_sec: f64,
     /// The minimum latency of the transactions
-    pub minimum_latency_in_sec: i64,
+    pub minimum_latency_in_sec: f64,
     /// The maximum latency of the transactions
-    pub maximum_latency_in_sec: i64,
+    pub maximum_latency_in_sec: f64,
     /// The throughput of the consensus protocol = number of transactions committed per second * transaction size in bytes
     pub throughput_bytes_per_sec: u64,
     /// The number of transactions committed during benchmarking

@@ -558,8 +558,8 @@ pub trait RunDa<
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,
                 num_latency,
-                minimum_latency_in_sec: minimum_latency,
-                maximum_latency_in_sec: maximum_latency,
+                minimum_latency_in_sec: minimum_latency as f64 / 1000.0,
+                maximum_latency_in_sec: maximum_latency as f64 / 1000.0,
                 throughput_bytes_per_sec,
                 total_transactions_committed,
                 transaction_size_in_bytes: transaction_size_in_bytes + 8, // extra 8 bytes for timestamp
