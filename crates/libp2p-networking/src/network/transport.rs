@@ -101,11 +101,11 @@ impl<T: Transport, S: SignatureKey, C: StreamMuxer + Unpin> StakeTableAuthentica
     where
         C::Substream: Unpin,
     {
-        // Read the length-delimited message from the remote peer
-        let message = read_length_delimited(stream, MAX_AUTH_MESSAGE_SIZE).await?;
-
         // If we have a stake table, check if the remote peer is in it
         if let Some(stake_table) = stake_table.as_ref() {
+            // Read the length-delimited message from the remote peer
+            let message = read_length_delimited(stream, MAX_AUTH_MESSAGE_SIZE).await?;
+
             // Deserialize the authentication message
             let auth_message: AuthMessage<S> = bincode::deserialize(&message)
                 .with_context(|| "Failed to deserialize auth message")?;
