@@ -134,14 +134,14 @@ cross_tests!(
         metadata.overall_safety_properties.num_failed_views = 2;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
             // next views after turning node off
-            (ViewNumber::new(view_spin_node_down+1), false),
-            (ViewNumber::new(view_spin_node_down+2), false)
+            (ViewNumber::new(view_spin_node_down + 1), false),
+            (ViewNumber::new(view_spin_node_down + 2), false)
         ]);
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 13;
 
         // only turning off 1 node, so expected should be num_nodes_with_stake - 1
-        let expected_nodes_in_view_sync = metadata.num_nodes_with_stake-1;
+        let expected_nodes_in_view_sync = metadata.num_nodes_with_stake - 1;
         metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(expected_nodes_in_view_sync, expected_nodes_in_view_sync);
 
         metadata
