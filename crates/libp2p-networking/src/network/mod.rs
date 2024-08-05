@@ -232,9 +232,18 @@ pub async fn gen_transport<K: SignatureKey + 'static>(
     let transport = StakeTableAuthentication::new(transport, stake_table, auth_message);
 
     // Support DNS resolution
-    let transport = DnsTransport::system(transport)
-        .await
-        .map_err(|e| NetworkError::TransportLaunch { source: e })?;
+    let transport = {
+        #[cfg(async_executor_impl = "async-std")]
+        {
+            DnsTransport::system(transport).await
+        }
+
+        #[cfg(async_executor_impl = "tokio")]
+        {
+            DnsTransport::system(transport)
+        }
+    }
+    .map_err(|e| NetworkError::TransportLaunch { source: e })?;
 
     Ok(transport
         .map(|(peer_id, connection), _| (peer_id, StreamMuxerBox::new(connection)))
