@@ -12,8 +12,8 @@ use std::sync::Arc;
 use std::task::Poll;
 use tracing::warn;
 
-use futures::{AsyncReadExt, AsyncWriteExt};
 use futures::future::poll_fn;
+use futures::{AsyncReadExt, AsyncWriteExt};
 use hotshot_types::traits::signature_key::SignatureKey;
 use libp2p::core::muxing::StreamMuxerExt;
 use libp2p::core::transport::TransportEvent;
