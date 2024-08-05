@@ -13,8 +13,8 @@ use hotshot_testing::{
 };
 use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::ConsensusTime;
-use std::{collections::HashMap, time::Duration};
 use std::collections::HashSet;
+use std::{collections::HashMap, time::Duration};
 
 #[cfg(async_executor_impl = "async-std")]
 use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
