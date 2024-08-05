@@ -199,9 +199,7 @@ pub async fn read_length_delimited<S: AsyncRead + Unpin>(
     let len = usize::try_from(u32::from_be_bytes(len_bytes))?;
 
     // Quit if the message is too large
-    if len > max_size {
-        return Err(anyhow::anyhow!("Message too large"));
-    }
+    ensure!(len <= max_size, "Message too large");
 
     // Read the actual message
     let mut message = vec![0u8; len];
