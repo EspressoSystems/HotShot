@@ -413,8 +413,9 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             .map(|node| K::public_key(&node.stake_table_entry))
             .collect();
 
-        let auth_message = construct_auth_message(pub_key, priv_key)
-            .with_context(|| "Failed to construct auth message")?;
+        let auth_message =
+            construct_auth_message(pub_key, &keypair.public().to_peer_id(), priv_key)
+                .with_context(|| "Failed to construct auth message")?;
 
         // Set the auth message and stake table
         config_builder
