@@ -35,6 +35,7 @@ use hotshot_types::{
 };
 use sha2::Digest;
 use vbs::version::{StaticVersionType, Version};
+use vec1::vec1;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
@@ -146,7 +147,8 @@ async fn test_upgrade_task_with_proposal() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                builder_fee.clone(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -155,14 +157,15 @@ async fn test_upgrade_task_with_proposal() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalPreliminarilyValidated(proposals[0].clone()),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                builder_fee.clone(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -172,14 +175,15 @@ async fn test_upgrade_task_with_proposal() {
         ],
         InputOrder::Random(upgrade_vote_recvs),
         random![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalPreliminarilyValidated(proposals[1].clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                builder_fee.clone(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(

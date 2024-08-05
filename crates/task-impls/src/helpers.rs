@@ -22,7 +22,6 @@ use hotshot_types::{
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
-        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
@@ -282,6 +281,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 #[instrument(skip_all)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     next_proposal_view_number: TYPES::Time,
+    event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     consensus: OuterConsensus<TYPES>,
@@ -290,7 +290,22 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-
+    let parent_view_number = consensus.read().await.high_qc().view_number();
+    if !consensus
+        .read()
+        .await
+        .validated_state_map()
+        .contains_key(&parent_view_number)
+    {
+        let _ = fetch_proposal(
+            parent_view_number,
+            event_stream.clone(),
+            quorum_membership,
+            consensus.clone(),
+        )
+        .await
+        .context("Failed to fetch proposal")?;
+    }
     let consensus_reader = consensus.read().await;
     let parent_view_number = consensus_reader.high_qc().view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
@@ -353,7 +368,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     consensus: OuterConsensus<TYPES>,
     decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     quorum_membership: Arc<TYPES::Membership>,
-    view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
@@ -396,18 +410,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         &event_stream,
     )
     .await;
-
-    // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    //
-    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
-    //
-    //    proposal.validate_signature(&quorum_membership)?;
-    //
-    // in a future PR.
-    ensure!(
-        view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()),
-        "Could not verify proposal."
-    );
 
     UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
@@ -487,7 +489,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// If any validation or view number check fails.
 pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    sender: &TYPES::SignatureKey,
     cur_view: TYPES::Time,
     quorum_membership: &Arc<TYPES::Membership>,
     timeout_membership: &Arc<TYPES::Membership>,
@@ -499,11 +500,8 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         proposal.data.clone()
     );
 
-    let view_leader_key = quorum_membership.leader(view);
-    ensure!(
-        view_leader_key == *sender,
-        "Leader key does not match key in proposal"
-    );
+    // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+    proposal.validate_signature(quorum_membership)?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view - 1 {

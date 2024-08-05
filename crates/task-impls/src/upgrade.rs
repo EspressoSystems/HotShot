@@ -150,7 +150,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
 
                 // At this point, we could choose to validate
                 // that the proposal was issued by the correct leader
-                // for the indiciated view.
+                // for the indicated view.
                 //
                 // We choose not to, because we don't gain that much from it.
                 // The certificate itself is only useful to the leader for that view anyway,
@@ -237,7 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         TYPES,
                         UpgradeVote<TYPES>,
                         UpgradeCertificate<TYPES>,
-                    >(&info, vote.clone(), event, &tx)
+                    >(&info, event, &tx)
                     .await;
                 } else {
                     let result = collector

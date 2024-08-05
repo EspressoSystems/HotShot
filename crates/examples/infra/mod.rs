@@ -27,7 +27,7 @@ use hotshot::{
         BlockPayload, NodeImplementation,
     },
     types::SystemContextHandle,
-    Memberships, SystemContext,
+    MarketplaceConfig, Memberships, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -339,7 +339,7 @@ pub trait RunDa<
         TYPES,
         Network = NETWORK,
         Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
@@ -396,6 +396,12 @@ pub trait RunDa<
             view_sync_membership: quorum_membership,
         };
 
+        let marketplace_config = MarketplaceConfig {
+            auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
+            // TODO: we need to pass a valid generic builder url here somehow
+            generic_builder_url: url::Url::parse("http://localhost").unwrap(),
+        };
+
         SystemContext::init(
             pk,
             sk,
@@ -406,7 +412,7 @@ pub trait RunDa<
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::<TYPES>::default(),
-            TestAuctionResultsProvider::default(),
+            marketplace_config,
         )
         .await
         .expect("Could not init hotshot")
@@ -604,7 +610,7 @@ impl<
             TYPES,
             Network = PushCdnNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
     > RunDa<TYPES, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
 where
@@ -681,7 +687,7 @@ impl<
             TYPES,
             Network = Libp2pNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
     > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE> for Libp2pDaRun<TYPES>
 where
@@ -767,7 +773,7 @@ impl<
             TYPES,
             Network = CombinedNetworks<TYPES>,
             Storage = TestStorage<TYPES>,
-            AuctionResultsProvider = TestAuctionResultsProvider,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
     > RunDa<TYPES, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
 where
@@ -837,7 +843,7 @@ pub async fn main_entry_point<
         TYPES,
         Network = NETWORK,
         Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
     RUNDA: RunDa<TYPES, NETWORK, NODE>,
 >(

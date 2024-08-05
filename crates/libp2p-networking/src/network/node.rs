@@ -778,7 +778,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                         event = self.swarm.next() => {
                             debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
-                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
