@@ -1,12 +1,19 @@
 //! Provides an event-streaming handle for a [`SystemContext`] running in the background
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use event_listener::Event as OtherEvent;
 use futures::Stream;
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
@@ -21,6 +28,65 @@ use tokio::task::JoinHandle;
 use tracing::instrument;
 
 use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext};
+
+/// A signal for coordinating shutdown across multiple tasks.
+///
+/// This struct provides methods to initiate a shutdown, check the shutdown status,
+/// and wait for a shutdown signal.
+pub struct ShutdownSignal {
+    event: Arc<OtherEvent>,
+    is_shutdown: Arc<AtomicBool>,
+}
+
+impl ShutdownSignal {
+    /// Creates a new `ShutdownSignal` instance.
+    ///
+    /// The signal is initialized in a non-shutdown state.
+    pub fn new() -> Self {
+        Self {
+            event: Arc::new(OtherEvent::new()),
+            is_shutdown: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Signals a shutdown to all listeners.
+    ///
+    /// This method sets the shutdown flag and notifies all waiting tasks.
+    pub fn signal(&self) {
+        self.is_shutdown.store(true, Ordering::SeqCst);
+        self.event.notify(usize::MAX); // Notify all listeners
+    }
+
+    /// Checks if a shutdown has been signaled.
+    ///
+    /// Returns `true` if a shutdown has been signaled, `false` otherwise.
+    pub fn is_shutdown(&self) -> bool {
+        self.is_shutdown.load(Ordering::SeqCst)
+    }
+
+    /// Waits for a shutdown signal.
+    ///
+    /// This method returns immediately if a shutdown has already been signaled.
+    /// Otherwise, it waits asynchronously for a shutdown signal.
+    pub async fn wait_for_shutdown(&self) {
+        if !self.is_shutdown() {
+            let listener = self.event.listen();
+            if !self.is_shutdown() {
+                listener.await;
+            }
+        }
+    }
+
+    /// Creates a new `ShutdownSignal` instance that shares the same underlying state.
+    ///
+    /// This allows multiple holders to interact with the same shutdown signal.
+    pub fn subscribe(&self) -> Self {
+        Self {
+            event: Arc::clone(&self.event),
+            is_shutdown: Arc::clone(&self.is_shutdown),
+        }
+    }
+}
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -55,6 +121,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Memberships used by consensus
     pub memberships: Arc<Memberships<TYPES>>,
+
+    /// Shutdown Signal
+    pub(crate) shutdown_signal: Arc<ShutdownSignal>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
@@ -161,6 +230,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(&mut self) {
+        tracing::error!("=== Shutting down node :: {} ===", self.hotshot.id);
+
+        self.shutdown_signal.signal();
+
         // this is required because `SystemContextHandle` holds an inactive receiver and
         // `broadcast_direct` below can wait indefinitely
         self.internal_event_stream.0.set_await_active(false);
@@ -170,14 +243,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
             .broadcast_direct(Arc::new(HotShotEvent::Shutdown))
             .await
             .inspect_err(|err| tracing::error!("Failed to send shutdown event: {err}"));
-        tracing::error!("Shutting down network tasks!");
-        self.network_registry.shutdown().await;
 
         tracing::error!("Shutting down the network!");
         self.hotshot.network.shut_down().await;
+    
+        tracing::error!("Shutting down network tasks!");
+        self.network_registry.shutdown().await;
 
         tracing::error!("Shutting down consensus!");
         self.consensus_registry.shutdown().await;
+
+        tracing::error!("=== Shutting down node :: {} done!!! ===", self.hotshot.id);
     }
 
     /// return the timeout for a view of the underlying `SystemContext`

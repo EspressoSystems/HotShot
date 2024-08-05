@@ -3068,6 +3068,7 @@ dependencies = [
  "derive_more",
  "either",
  "ethereum-types",
+ "event-listener 2.5.3",
  "futures",
  "hotshot-orchestrator",
  "hotshot-task",

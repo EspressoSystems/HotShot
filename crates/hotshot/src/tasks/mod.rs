@@ -8,6 +8,7 @@ use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
+use futures::FutureExt;
 use hotshot_task::task::Task;
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
@@ -26,8 +27,7 @@ use hotshot_task_impls::{
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     data::QuorumProposal,
-    message::Proposal,
-    message::{Messages, VersionedMessage},
+    message::{Messages, Proposal, VersionedMessage},
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -36,9 +36,10 @@ use hotshot_types::{
 use vbs::version::StaticVersionType;
 
 use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext,
+    tasks::task_state::CreateTaskState,
+    types::{ShutdownSignal, SystemContextHandle},
+    ConsensusApi, ConsensusMetricsValue, ConsensusTaskRegistry, NetworkTaskRegistry, HotShotConfig,
+    HotShotInitializer, MarketplaceConfig, Memberships, SignatureKey, SystemContext,
 };
 
 /// event for global event stream
@@ -101,42 +102,57 @@ pub fn add_network_message_task<
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
+    let shutdown_signal = Arc::clone(&handle.shutdown_signal);
     let task_handle = async_spawn(async move {
+        let mut shutdown = Box::pin(shutdown_signal.wait_for_shutdown().fuse());
         loop {
-            let decided_upgrade_certificate_lock = decided_upgrade_certificate.read().await.clone();
-            let msgs = match network.recv_msgs().await {
-                Ok(msgs) => {
-                    let mut deserialized_messages = Vec::new();
-
-                    for msg in msgs {
-                        let deserialized_message = match VersionedMessage::deserialize(
-                            &msg,
-                            &decided_upgrade_certificate_lock,
-                        ) {
-                            Ok(deserialized) => deserialized,
-                            Err(e) => {
-                                tracing::error!("Failed to deserialize message: {}", e);
-                                continue;
-                            }
-                        };
-
-                        deserialized_messages.push(deserialized_message);
+            if shutdown_signal.is_shutdown() {
+                tracing::error!("Shutting down network message task !!!");
+                break;
+            }
+            futures::select! {
+                    _ = shutdown => {
+                        tracing::error!("Shutting down network message task !!!");
+                        return;
                     }
+                    _ = async {
+                    let decided_upgrade_certificate_lock = decided_upgrade_certificate.read().await.clone();
+                    let msgs = match network.recv_msgs().await {
+                        Ok(msgs) => {
+                            let mut deserialized_messages = Vec::new();
 
-                    Messages(deserialized_messages)
-                }
-                Err(err) => {
-                    tracing::error!("failed to receive messages: {err}");
+                            for msg in msgs {
+                                let deserialized_message = match VersionedMessage::deserialize(
+                                    &msg,
+                                    &decided_upgrade_certificate_lock,
+                                ) {
+                                    Ok(deserialized) => deserialized,
+                                    Err(e) => {
+                                        tracing::error!("Failed to deserialize message: {}", e);
+                                        continue;
+                                    }
+                                };
 
-                    // return zero messages so we sleep and try again
-                    Messages(vec![])
-                }
-            };
-            if msgs.0.is_empty() {
-                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                async_sleep(Duration::from_millis(100)).await;
-            } else {
-                state.handle_messages(msgs.0).await;
+                                deserialized_messages.push(deserialized_message);
+                            }
+
+                            Messages(deserialized_messages)
+                        }
+                        Err(err) => {
+                            tracing::error!("failed to receive messages: {err}");
+
+                            // return zero messages so we sleep and try again
+                            Messages(vec![])
+                        }
+                    };
+
+                    if msgs.0.is_empty() {
+                        // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
+                        async_sleep(Duration::from_millis(100)).await;
+                    } else {
+                        state.handle_messages(msgs.0).await;
+                    }
+                }.fuse() => {}
             }
         }
     });
@@ -263,6 +279,7 @@ where
             storage: Arc::clone(&hotshot.storage),
             network: Arc::clone(&hotshot.network),
             memberships: Arc::clone(&hotshot.memberships),
+            shutdown_signal: Arc::new(ShutdownSignal::new()),
         };
 
         add_consensus_tasks::<TYPES, I>(&mut handle).await;
@@ -309,36 +326,57 @@ where
 
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
+        let shutdown_signal = Arc::clone(&handle.shutdown_signal);
         let send_handle = async_spawn(async move {
+            let mut shutdown = Box::pin(shutdown_signal.wait_for_shutdown().fuse());
             loop {
-                if let Ok(msg) = original_receiver.recv().await {
-                    let mut state = state_out.write().await;
-
-                    let mut results = state.send_handler(&msg).await;
-
-                    results.reverse();
-
-                    while let Some(event) = results.pop() {
-                        let _ = sender_to_network.broadcast(event.into()).await;
+                futures::select! {
+                    _ = shutdown => {
+                        tracing::error!("Shutting down relay send task !!!");
+                        let _ = sender_to_network.broadcast(HotShotEvent::<TYPES>::Shutdown.into()).await;
+                        return;
                     }
+                    _ = async {
+                        if let Ok(msg) = original_receiver.recv().await {
+                            let mut state = state_out.write().await;
+
+                            let mut results = state.send_handler(&msg).await;
+
+                            results.reverse();
+
+                            while let Some(event) = results.pop() {
+                                let _ = sender_to_network.broadcast(event.into()).await;
+                            }
+                        }
+                    }.fuse() => {}
                 }
             }
         });
 
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
+        let shutdown_signal = Arc::clone(&handle.shutdown_signal);
         let recv_handle = async_spawn(async move {
+            let mut shutdown = Box::pin(shutdown_signal.wait_for_shutdown().fuse());
             loop {
-                if let Ok(msg) = receiver_from_network.recv().await {
-                    let mut state = state_in.write().await;
-
-                    let mut results = state.recv_handler(&msg).await;
-
-                    results.reverse();
-
-                    while let Some(event) = results.pop() {
-                        let _ = original_sender.broadcast(event.into()).await;
+                futures::select! {
+                    _ = shutdown => {
+                        tracing::error!("Shutting down relay send task !!!");
+                        return;
                     }
+                    _ = async {
+                        if let Ok(msg) = receiver_from_network.recv().await {
+                            let mut state = state_in.write().await;
+
+                            let mut results = state.recv_handler(&msg).await;
+
+                            results.reverse();
+
+                            while let Some(event) = results.pop() {
+                                let _ = original_sender.broadcast(event.into()).await;
+                            }
+                        }
+                    }.fuse() => {}
                 }
             }
         });

@@ -117,6 +117,7 @@ tokio = { version = "1", default-features = false, features = [
   "tracing",
 ] }
 anyhow = "1"
+event-listener = "2.5"
 
 
 # Push CDN imports
