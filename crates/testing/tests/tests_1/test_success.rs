@@ -10,7 +10,6 @@ use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     test_builder::TestDescription,
 };
-#[cfg(async_executor_impl = "async-std")]
 use {
     hotshot::tasks::{BadProposalViewDos, DoubleProposeVote},
     hotshot_testing::test_builder::Behaviour,
@@ -35,7 +34,6 @@ cross_tests!(
     },
 );
 
-#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: double_propose_vote,
     Impls: [MemoryImpl],
@@ -61,7 +59,6 @@ cross_tests!(
 );
 
 // Test where node 4 sends out the correct quorum proposal and additionally spams the network with an extra 99 malformed proposals
-#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: multiple_bad_proposals,
     Impls: [MemoryImpl],
