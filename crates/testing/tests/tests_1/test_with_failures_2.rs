@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
-    state_types::TestTypes
+    state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -10,12 +10,12 @@ use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
     test_builder::TestDescription,
-    view_sync_task::ViewSyncTaskDescription
+    view_sync_task::ViewSyncTaskDescription,
 };
 use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::node_implementation::ConsensusTime;
-use std::{collections::HashMap, time::Duration};
 use std::collections::HashSet;
+use std::{collections::HashMap, time::Duration};
 
 #[cfg(async_executor_impl = "async-std")]
 use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
@@ -139,7 +139,7 @@ cross_tests!(
         ]);
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 13;
-        
+
         // only turning off 1 node, so expected should be num_nodes_with_stake - 1
         let expected_nodes_in_view_sync = metadata.num_nodes_with_stake-1;
         metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(expected_nodes_in_view_sync, expected_nodes_in_view_sync);
