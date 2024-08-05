@@ -51,79 +51,6 @@ pub struct StakeTableAuthentication<T: Transport, S: SignatureKey, C: StreamMuxe
     pd: std::marker::PhantomData<C>,
 }
 
-/// Prove to the remote peer that we are in the stake table by sending
-/// them our authentication message.
-///
-/// # Errors
-/// - If we fail to write the message to the stream
-pub async fn authenticate_with_remote_peer<W: AsyncWrite + Unpin>(
-    stream: &mut W,
-    auth_message: Arc<Option<Vec<u8>>>,
-) -> AnyhowResult<()> {
-    // If we have an auth message, send it to the remote peer, prefixed with
-    // the message length
-    if let Some(auth_message) = auth_message.as_ref() {
-        // Write the length-delimited message
-        write_length_delimited(stream, auth_message).await?;
-    }
-
-    Ok(())
-}
-
-/// Verify that the remote peer is:
-/// - In the stake table
-/// - Sending us a valid authentication message
-/// - Sending us a valid signature
-/// - Matching the peer ID we expect
-///
-/// # Errors
-/// If the peer fails verification. This can happen if:
-/// - We fail to read the message from the stream
-/// - The message is too large
-/// - The message is invalid
-/// - The peer is not in the stake table
-/// - The signature is invalid
-pub async fn verify_peer_authentication<
-    R: AsyncReadExt + Unpin,
-    S: SignatureKey,
-    H: BuildHasher,
->(
-    stream: &mut R,
-    stake_table: Arc<Option<HashSet<S, H>>>,
-    required_peer_id: &PeerId,
-) -> AnyhowResult<()> {
-    // If we have a stake table, check if the remote peer is in it
-    if let Some(stake_table) = stake_table.as_ref() {
-        // Read the length-delimited message from the remote peer
-        let message = read_length_delimited(stream, MAX_AUTH_MESSAGE_SIZE).await?;
-
-        // Deserialize the authentication message
-        let auth_message: AuthMessage<S> =
-            bincode::deserialize(&message).with_context(|| "Failed to deserialize auth message")?;
-
-        // Verify the signature on the public keys
-        let public_key = auth_message
-            .validate()
-            .with_context(|| "Failed to verify authentication message")?;
-
-        // Deserialize the `PeerId`
-        let peer_id = PeerId::from_bytes(&auth_message.peer_id_bytes)
-            .with_context(|| "Failed to deserialize peer ID")?;
-
-        // Verify that the peer ID is the same as the remote peer
-        if peer_id != *required_peer_id {
-            return Err(anyhow::anyhow!("Peer ID mismatch"));
-        }
-
-        // Check if the public key is in the stake table
-        if !stake_table.contains(&public_key) {
-            return Err(anyhow::anyhow!("Peer not in stake table"));
-        }
-    }
-
-    Ok(())
-}
-
 impl<T: Transport, S: SignatureKey, C: StreamMuxer + Unpin> StakeTableAuthentication<T, S, C> {
     /// Create a new `StakeTableAuthentication` transport that wraps the given transport
     /// and authenticates connections against the stake table.
@@ -204,58 +131,75 @@ pub fn construct_auth_message<S: SignatureKey + 'static>(
     bincode::serialize(&auth_message).with_context(|| "Failed to serialize auth message")
 }
 
-/// A helper function to read a length-delimited message from a stream. Takes into
-/// account the maximum message size.
+/// Prove to the remote peer that we are in the stake table by sending
+/// them our authentication message.
 ///
 /// # Errors
-/// - If the message is too big
-/// - If we fail to read from the stream
-pub async fn read_length_delimited<S: AsyncRead + Unpin>(
-    stream: &mut S,
-    max_size: usize,
-) -> AnyhowResult<Vec<u8>> {
-    // Receive the first 8 bytes of the message, which is the length
-    let mut len_bytes = [0u8; 4];
-    stream
-        .read_exact(&mut len_bytes)
-        .await
-        .with_context(|| "Failed to read message length")?;
+/// - If we fail to write the message to the stream
+pub async fn authenticate_with_remote_peer<W: AsyncWrite + Unpin>(
+    stream: &mut W,
+    auth_message: Arc<Option<Vec<u8>>>,
+) -> AnyhowResult<()> {
+    // If we have an auth message, send it to the remote peer, prefixed with
+    // the message length
+    if let Some(auth_message) = auth_message.as_ref() {
+        // Write the length-delimited message
+        write_length_delimited(stream, auth_message).await?;
+    }
 
-    // Parse the length of the message as a `u32`
-    let len = usize::try_from(u32::from_be_bytes(len_bytes))?;
-
-    // Quit if the message is too large
-    ensure!(len <= max_size, "Message too large");
-
-    // Read the actual message
-    let mut message = vec![0u8; len];
-    stream
-        .read_exact(&mut message)
-        .await
-        .with_context(|| "Failed to read message")?;
-
-    Ok(message)
+    Ok(())
 }
 
-/// A helper function to write a length-delimited message to a stream.
+/// Verify that the remote peer is:
+/// - In the stake table
+/// - Sending us a valid authentication message
+/// - Sending us a valid signature
+/// - Matching the peer ID we expect
 ///
 /// # Errors
-/// - If we fail to write to the stream
-pub async fn write_length_delimited<S: AsyncWrite + Unpin>(
-    stream: &mut S,
-    message: &[u8],
+/// If the peer fails verification. This can happen if:
+/// - We fail to read the message from the stream
+/// - The message is too large
+/// - The message is invalid
+/// - The peer is not in the stake table
+/// - The signature is invalid
+pub async fn verify_peer_authentication<
+    R: AsyncReadExt + Unpin,
+    S: SignatureKey,
+    H: BuildHasher,
+>(
+    stream: &mut R,
+    stake_table: Arc<Option<HashSet<S, H>>>,
+    required_peer_id: &PeerId,
 ) -> AnyhowResult<()> {
-    // Write the length of the message
-    stream
-        .write_all(&u32::try_from(message.len())?.to_be_bytes())
-        .await
-        .with_context(|| "Failed to write message length")?;
+    // If we have a stake table, check if the remote peer is in it
+    if let Some(stake_table) = stake_table.as_ref() {
+        // Read the length-delimited message from the remote peer
+        let message = read_length_delimited(stream, MAX_AUTH_MESSAGE_SIZE).await?;
 
-    // Write the actual message
-    stream
-        .write_all(message)
-        .await
-        .with_context(|| "Failed to write message")?;
+        // Deserialize the authentication message
+        let auth_message: AuthMessage<S> =
+            bincode::deserialize(&message).with_context(|| "Failed to deserialize auth message")?;
+
+        // Verify the signature on the public keys
+        let public_key = auth_message
+            .validate()
+            .with_context(|| "Failed to verify authentication message")?;
+
+        // Deserialize the `PeerId`
+        let peer_id = PeerId::from_bytes(&auth_message.peer_id_bytes)
+            .with_context(|| "Failed to deserialize peer ID")?;
+
+        // Verify that the peer ID is the same as the remote peer
+        if peer_id != *required_peer_id {
+            return Err(anyhow::anyhow!("Peer ID mismatch"));
+        }
+
+        // Check if the public key is in the stake table
+        if !stake_table.contains(&public_key) {
+            return Err(anyhow::anyhow!("Peer not in stake table"));
+        }
+    }
 
     Ok(())
 }
@@ -265,7 +209,7 @@ impl<T: Transport, S: SignatureKey + 'static, C: StreamMuxer + Unpin> Transport
 where
     T::Dial: Future<Output = Result<T::Output, T::Error>> + Send + 'static,
     T::ListenerUpgrade: Send + 'static,
-    T::Output: AsConnection<C> + AsPeerId<C> + Send,
+    T::Output: AsOutput<C> + Send,
     T::Error: From<<C as StreamMuxer>::Error> + From<std::io::Error>,
 
     C::Substream: Unpin + Send,
@@ -334,7 +278,8 @@ where
     }
 
     /// Dial a remote peer as a listener. This function is changed to perform an authentication
-    /// handshake on top. The flow should be the same as the `dial` function.
+    /// handshake on top. The flow should be the reverse of the `dial` function and the
+    /// same as the `poll` function.
     fn dial_as_listener(
         &mut self,
         addr: libp2p::Multiaddr,
@@ -513,31 +458,83 @@ where
 }
 
 /// A helper trait that allows us to access the underlying connection
-trait AsConnection<C: StreamMuxer + Unpin> {
+/// and `PeerId` from a transport output
+trait AsOutput<C: StreamMuxer + Unpin> {
     /// Get a mutable reference to the underlying connection
     fn as_connection(&mut self) -> &mut C;
-}
 
-/// The implementation of the `AsConnection` trait for a tuple of a `PeerId`
-/// and a connection.
-impl<C: StreamMuxer + Unpin> AsConnection<C> for (PeerId, C) {
-    fn as_connection(&mut self) -> &mut C {
-        &mut self.1
-    }
-}
-
-/// A helper trait that allows us to access the underlying `PeerId`
-trait AsPeerId<C: StreamMuxer + Unpin> {
     /// Get a mutable reference to the underlying `PeerId`
     fn as_peer_id(&mut self) -> &mut PeerId;
 }
 
-/// The implementation of the `AsPeerId` trait for a tuple of a `PeerId`
+/// The implementation of the `AsConnection` trait for a tuple of a `PeerId`
 /// and a connection.
-impl<C: StreamMuxer + Unpin> AsPeerId<C> for (PeerId, C) {
+impl<C: StreamMuxer + Unpin> AsOutput<C> for (PeerId, C) {
+    /// Get a mutable reference to the underlying connection
+    fn as_connection(&mut self) -> &mut C {
+        &mut self.1
+    }
+
+    /// Get a mutable reference to the underlying `PeerId`
     fn as_peer_id(&mut self) -> &mut PeerId {
         &mut self.0
     }
+}
+
+/// A helper function to read a length-delimited message from a stream. Takes into
+/// account the maximum message size.
+///
+/// # Errors
+/// - If the message is too big
+/// - If we fail to read from the stream
+pub async fn read_length_delimited<S: AsyncRead + Unpin>(
+    stream: &mut S,
+    max_size: usize,
+) -> AnyhowResult<Vec<u8>> {
+    // Receive the first 8 bytes of the message, which is the length
+    let mut len_bytes = [0u8; 4];
+    stream
+        .read_exact(&mut len_bytes)
+        .await
+        .with_context(|| "Failed to read message length")?;
+
+    // Parse the length of the message as a `u32`
+    let len = usize::try_from(u32::from_be_bytes(len_bytes))?;
+
+    // Quit if the message is too large
+    ensure!(len <= max_size, "Message too large");
+
+    // Read the actual message
+    let mut message = vec![0u8; len];
+    stream
+        .read_exact(&mut message)
+        .await
+        .with_context(|| "Failed to read message")?;
+
+    Ok(message)
+}
+
+/// A helper function to write a length-delimited message to a stream.
+///
+/// # Errors
+/// - If we fail to write to the stream
+pub async fn write_length_delimited<S: AsyncWrite + Unpin>(
+    stream: &mut S,
+    message: &[u8],
+) -> AnyhowResult<()> {
+    // Write the length of the message
+    stream
+        .write_all(&u32::try_from(message.len())?.to_be_bytes())
+        .await
+        .with_context(|| "Failed to write message length")?;
+
+    // Write the actual message
+    stream
+        .write_all(message)
+        .await
+        .with_context(|| "Failed to write message")?;
+
+    Ok(())
 }
 
 #[cfg(test)]
