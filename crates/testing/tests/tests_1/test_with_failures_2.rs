@@ -19,8 +19,8 @@ use std::{collections::HashMap, time::Duration};
 
 #[cfg(async_executor_impl = "async-std")]
 use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
+
 // Test that a good leader can succeed in the view directly after view sync
-#[cfg(not(feature = "dependency-tasks"))]
 cross_tests!(
     TestName: test_with_failures_2,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
@@ -103,7 +103,6 @@ cross_tests!(
     },
 );
 
-#[cfg(not(feature = "dependency-tasks"))]
 cross_tests!(
     TestName: test_with_double_leader_failures,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
