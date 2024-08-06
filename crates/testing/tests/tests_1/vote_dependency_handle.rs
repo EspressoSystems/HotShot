@@ -7,18 +7,13 @@ use async_compatibility_layer::art::async_timeout;
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{
     events::HotShotEvent::*,
     quorum_vote::{QuorumVoteTaskState, VoteDependencyHandle},
 };
 use hotshot_testing::{
-    all_predicates,
-    helpers::{build_fake_view_with_leaf, build_system_handle, vid_share},
+    helpers::{build_fake_view_with_leaf, build_system_handle},
     predicates::{event::*, Predicate, PredicateResult},
-    random,
-    script::{Expectations, InputOrder, TaskScript},
-    serial,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -99,6 +94,7 @@ async fn test_vote_dependency_handle() {
         let mut event_receiver = handle.internal_event_stream_receiver_known_impl();
         let view_number = ViewNumber::new(node_id);
 
+        #[allow(unused)]
         let vote_dependency_handle_state = VoteDependencyHandle::<TestTypes, MemoryImpl> {
             public_key: qv.public_key.clone(),
             private_key: qv.private_key.clone(),

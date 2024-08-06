@@ -161,14 +161,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<
                         );
                         return;
                     };
+
+                    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+
                     broadcast_event(
                         Arc::new(HotShotEvent::VoteNow(
                             view_number,
                             VoteDependencyData {
-                                quorum_proposal: proposal.data.clone(),
-                                parent_leaf,
+                                leaf,
                                 vid_share: vid_share.clone(),
-                                da_cert: da_cert.clone(),
                             },
                         )),
                         &event_stream,

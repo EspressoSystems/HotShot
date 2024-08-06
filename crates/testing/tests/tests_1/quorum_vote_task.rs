@@ -114,10 +114,8 @@ async fn test_quorum_vote_task_vote_now() {
     let view = generator.current_view.clone().unwrap();
 
     let vote_dependency_data = VoteDependencyData {
-        quorum_proposal: view.quorum_proposal.data.clone(),
-        parent_leaf: view.leaf.clone(),
+        leaf: view.leaf.clone(),
         vid_share: view.vid_proposal.0[0].clone(),
-        da_cert: view.da_certificate.clone(),
     };
 
     // Submit an event with just the `VoteNow` event which should successfully send a vote.
