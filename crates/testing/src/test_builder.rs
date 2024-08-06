@@ -7,12 +7,12 @@ use hotshot::{
     HotShotInitializer, Memberships, SystemContext, TwinsHandlerState,
 };
 use hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    storage_types::TestStorage,
+    auction_results_provider_types::TestAuctionResultsProvider, node_types::version_0_1,
+    state_types::TestInstanceState, storage_types::TestStorage,
 };
 use hotshot_types::{
-    consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
-    HotShotConfig, ValidatorConfig,
+    consensus::ConsensusMetricsValue, message::Versions, traits::node_implementation::NodeType,
+    ExecutionType, HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
 use vec1::Vec1;
@@ -86,6 +86,8 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
     pub behaviour: Rc<dyn Fn(u64) -> Behaviour<TYPES, I>>,
+    /// version information for all nodes
+    pub versions: Versions<TYPES>,
 }
 
 #[derive(Debug)]
@@ -105,6 +107,7 @@ pub async fn create_test_handle<
     memberships: Memberships<TYPES>,
     config: HotShotConfig<TYPES::SignatureKey>,
     storage: I::Storage,
+    versions: Versions<TYPES>,
     auction_results_provider: I::AuctionResultsProvider,
 ) -> SystemContextHandle<TYPES, I> {
     let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
@@ -135,6 +138,7 @@ pub async fn create_test_handle<
                     initializer,
                     ConsensusMetricsValue::default(),
                     storage,
+                    versions,
                     auction_results_provider,
                 )
                 .await;
@@ -154,6 +158,7 @@ pub async fn create_test_handle<
                     initializer,
                     ConsensusMetricsValue::default(),
                     storage,
+                    versions,
                     auction_results_provider,
                 )
                 .await
@@ -169,6 +174,7 @@ pub async fn create_test_handle<
                 initializer,
                 ConsensusMetricsValue::default(),
                 storage,
+                versions,
                 auction_results_provider,
             );
 
@@ -359,6 +365,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 error_pct: 0.1,
             },
             behaviour: Rc::new(|_| Behaviour::Standard),
+            versions: version_0_1(),
         }
     }
 }

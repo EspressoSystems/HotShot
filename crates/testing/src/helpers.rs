@@ -21,7 +21,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
-    message::{GeneralConsensusMessage, Proposal},
+    message::{GeneralConsensusMessage, Proposal, Versions},
     simple_certificate::DaCertificate,
     simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
@@ -52,6 +52,7 @@ pub async fn build_system_handle<
         > + TestableNodeImplementation<TYPES>,
 >(
     node_id: u64,
+    versions: Versions<TYPES>,
 ) -> (
     SystemContextHandle<TYPES, I>,
     Sender<Arc<HotShotEvent<TYPES>>>,
@@ -113,6 +114,7 @@ pub async fn build_system_handle<
         initializer,
         ConsensusMetricsValue::default(),
         storage,
+        versions,
         auction_results_provider,
     )
     .await

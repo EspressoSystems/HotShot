@@ -6,7 +6,7 @@
 pub mod documentation;
 
 use futures::future::{select, Either};
-use hotshot_types::traits::network::BroadcastDelay;
+use hotshot_types::{message::Versions, traits::network::BroadcastDelay};
 use rand::Rng;
 use vbs::version::StaticVersionType;
 
@@ -141,6 +141,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// a potential upgrade certificate that has been decided on by the consensus tasks.
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 
+    /// versioning information for this instance of HotShot
+    pub versions: Versions<TYPES>,
+
     /// Reference to the AuctionResultsProvider type for acquiring solver results.
     pub auction_results_provider: Arc<I::AuctionResultsProvider>,
 }
@@ -165,6 +168,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Clone for SystemContext<TYPE
             id: self.id,
             storage: Arc::clone(&self.storage),
             decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+            versions: self.versions.clone(),
             auction_results_provider: Arc::clone(&self.auction_results_provider),
         }
     }
@@ -190,6 +194,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
+        versions: Versions<TYPES>,
         auction_results_provider: I::AuctionResultsProvider,
     ) -> Arc<Self> {
         debug!("Creating a new hotshot");
@@ -283,6 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             anchored_leaf: anchored_leaf.clone(),
             storage: Arc::new(RwLock::new(storage)),
             decided_upgrade_certificate,
+            versions,
             auction_results_provider: Arc::new(auction_results_provider),
         });
 
@@ -522,6 +528,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
+        versions: Versions<TYPES>,
         auction_results_provider: I::AuctionResultsProvider,
     ) -> Result<
         (
@@ -541,6 +548,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             initializer,
             metrics,
             storage,
+            versions,
             auction_results_provider,
         );
         let handle = Arc::clone(&hotshot).run_tasks().await;
@@ -682,8 +690,12 @@ where
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
+        versions: Versions<TYPES>,
         auction_results_provider: I::AuctionResultsProvider,
     ) -> (SystemContextHandle<TYPES, I>, SystemContextHandle<TYPES, I>) {
+        let mut left_versions = versions.clone();
+        left_versions.decided_upgrade_certificate = Arc::new(RwLock::new(None));
+
         let left_system_context = SystemContext::new(
             public_key.clone(),
             private_key.clone(),
@@ -694,6 +706,7 @@ where
             initializer.clone(),
             metrics.clone(),
             storage.clone(),
+            left_versions,
             auction_results_provider.clone(),
         );
         let right_system_context = SystemContext::new(
@@ -706,6 +719,7 @@ where
             initializer,
             metrics,
             storage,
+            versions,
             auction_results_provider,
         );
 

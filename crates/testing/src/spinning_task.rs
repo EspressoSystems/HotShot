@@ -114,6 +114,7 @@ where
                                             storage,
                                             memberships,
                                             config,
+                                            versions,
                                             auction_results_provider,
                                         } = late_context_params;
 
@@ -144,6 +145,7 @@ where
                                             config,
                                             validator_config,
                                             storage,
+                                            versions,
                                             auction_results_provider,
                                         )
                                         .await

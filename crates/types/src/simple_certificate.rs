@@ -242,41 +242,6 @@ pub type ViewSyncFinalizeCertificate2<TYPES> =
 pub type UpgradeCertificate<TYPES> =
     SimpleCertificate<TYPES, UpgradeProposalData<TYPES>, UpgradeThreshold>;
 
-pub struct Versions<TYPES: NodeType> {
-    pub base_version: Version,
-    pub upgrade_version: Version,
-    pub marketplace_version: Version,
-    pub upgrade_hash: [u8; 32],
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
-}
-
-impl<TYPES: NodeType> Versions<TYPES> {
-    /// Calculate the version applied in a view, based on the decided upgrade certificate.
-    ///
-    /// # Errors
-    /// Returns an error if we do not support the version required by the upgrade certificate.
-    pub async fn version(&self, view: TYPES::Time) -> Result<Version> {
-        let upgrade_certificate = self.decided_upgrade_certificate.read().await;
-
-        let version = match *upgrade_certificate {
-            Some(ref cert) => {
-                if view >= cert.data.new_version_first_view {
-                    if cert.data.new_version == self.upgrade_version {
-                        self.upgrade_version
-                    } else {
-                        bail!("The network has upgraded to a new version that we do not support!");
-                    }
-                } else {
-                    self.base_version
-                }
-            }
-            None => self.base_version,
-        };
-
-        Ok(version)
-    }
-}
-
 /// Calculate the version applied in a view, based on the provided upgrade certificate.
 ///
 /// # Errors

@@ -25,6 +25,7 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
     data::Leaf,
+    message::Versions,
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
@@ -434,6 +435,8 @@ where
 
             networks_ready.push(networks_ready_future);
 
+            let versions = self.launcher.metadata.versions.clone();
+
             if late_start.contains(&node_id) {
                 if self.launcher.metadata.skip_late {
                     self.late_start.insert(
@@ -445,6 +448,7 @@ where
                                     storage,
                                     memberships,
                                     config,
+                                    versions,
                                     auction_results_provider,
                                 },
                             ),
@@ -470,6 +474,7 @@ where
                         config,
                         validator_config,
                         storage,
+                        versions,
                         auction_results_provider,
                     )
                     .await;
@@ -503,6 +508,8 @@ where
             uninitialized_nodes
         {
             let behaviour = (self.launcher.metadata.behaviour)(node_id);
+            let versions = self.launcher.metadata.versions.clone();
+
             let handle = create_test_handle(
                 behaviour,
                 node_id,
@@ -510,6 +517,7 @@ where
                 memberships,
                 config.clone(),
                 storage,
+                versions,
                 auction_results_provider,
             )
             .await;
@@ -551,6 +559,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
         storage: I::Storage,
+        versions: Versions<TYPES>,
         auction_results_provider: I::AuctionResultsProvider,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
@@ -567,6 +576,7 @@ where
             initializer,
             ConsensusMetricsValue::default(),
             storage,
+            versions,
             auction_results_provider,
         )
     }
@@ -593,6 +603,9 @@ pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementat
 
     /// The config associted with this node.
     pub config: HotShotConfig<TYPES::SignatureKey>,
+
+    /// Version information for this node
+    pub versions: Versions<TYPES>,
 
     /// The Auction Results handle for this node.
     pub auction_results_provider: I::AuctionResultsProvider,

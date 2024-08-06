@@ -3,9 +3,10 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use std::{fmt, fmt::Debug, marker::PhantomData};
+use std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
+use async_lock::RwLock;
 use cdn_proto::util::mnemonic;
 use committable::Committable;
 use derivative::Derivative;
@@ -412,5 +413,97 @@ where
         );
 
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+/// Version information used by HotShot
+pub struct Versions<TYPES: NodeType> {
+    /// The version HotShot will be started with
+    pub base_version: Version,
+    /// The version HotShot will upgrade to
+    pub upgrade_version: Version,
+    /// The marketplace version, used by HotShot to gate marketplace logic
+    pub marketplace_version: Version,
+    /// The hash to perform an upgrade
+    pub upgrade_hash: [u8; 32],
+    /// A shared reference to an `UpgradeCertificate` decided on by consensus
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+}
+
+impl<TYPES: NodeType> Versions<TYPES> {
+    /// Calculate the version applied in a view, based on the decided upgrade certificate.
+    ///
+    /// # Errors
+    /// Returns an error if we do not support the version required by the upgrade certificate.
+    pub async fn version(&self, view: TYPES::Time) -> Result<Version> {
+        let upgrade_certificate = self.decided_upgrade_certificate.read().await;
+
+        let version = match *upgrade_certificate {
+            Some(ref cert) => {
+                if view >= cert.data.new_version_first_view {
+                    if cert.data.new_version == self.upgrade_version {
+                        self.upgrade_version
+                    } else {
+                        bail!("The network has upgraded to a new version that we do not support!");
+                    }
+                } else {
+                    self.base_version
+                }
+            }
+            None => self.base_version,
+        };
+
+        Ok(version)
+    }
+
+    /// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.
+    ///
+    /// # Errors
+    ///
+    /// Errors if serialization fails.
+    pub async fn serialize<M: SerializableMessage + HasViewNumber<TYPES>>(
+        &self,
+        message: M,
+    ) -> Result<Vec<u8>> {
+        let version = self.version(message.view_number()).await?;
+
+        let serialized_message = match version {
+            // Associated constants cannot be used in pattern matches, so we do this trick instead.
+            v if v == self.base_version => SerializableMessage::serialize(&message, v),
+            v if v == self.upgrade_version => SerializableMessage::serialize(&message, v),
+            _ => {
+                bail!("Attempted to serialize with an incompatible version. This should be impossible.");
+            }
+        };
+
+        serialized_message.context("Failed to serialize message!")
+    }
+}
+
+/// Messages that can be serialized
+pub trait SerializableMessage: Serialize + for<'a> Deserialize<'a> {
+    /// Serialize a message with the given version number
+    fn serialize(&self, version: Version) -> Result<Vec<u8>> {
+        let mut vec = version.serialize();
+
+        bincode::serialize_into(&mut vec, self)?;
+
+        Ok(vec)
+    }
+
+    /// Deserialize a message for the given version
+    fn deserialize<'a>(bytes: &'a [u8], version: Version) -> Result<Self> {
+        let (deserialized_version, rest) = Version::deserialize(bytes)?;
+
+        if deserialized_version != version {
+            return Err(anyhow!(
+                "Version Mismatch! Expected {}, got {}",
+                version,
+                deserialized_version
+            ));
+        }
+
+        Ok(bincode::deserialize(rest)?)
     }
 }

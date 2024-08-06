@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use async_lock::RwLock;
 use hotshot::traits::{
     election::{
         static_committee::{GeneralStaticCommittee, StaticCommittee},
@@ -8,11 +11,12 @@ use hotshot::traits::{
 };
 use hotshot_types::{
     data::ViewNumber,
+    message::Versions,
     signature_key::{BLSPubKey, BuilderKey},
     traits::node_implementation::NodeType,
 };
 use serde::{Deserialize, Serialize};
-use vbs::version::StaticVersion;
+use vbs::version::{StaticVersion, Version};
 
 use crate::{
     auction_results_provider_types::{TestAuctionResult, TestAuctionResultsProvider},
@@ -137,4 +141,18 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type Network = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
+}
+
+/// A `Versions` struct for HotShot version 0.1, with no upgrade configured.
+pub fn version_0_1<TYPES: NodeType>() -> Versions<TYPES> {
+    Versions {
+        base_version: Version { major: 0, minor: 1 },
+        upgrade_version: Version { major: 0, minor: 1 },
+        marketplace_version: Version { major: 0, minor: 3 },
+        upgrade_hash: [
+            1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+            0, 0, 0,
+        ],
+        decided_upgrade_certificate: Arc::new(RwLock::new(None)),
+    }
 }
