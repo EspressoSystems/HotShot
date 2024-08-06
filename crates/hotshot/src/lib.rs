@@ -64,7 +64,7 @@ use vbs::version::Version;
 use crate::{
     tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
-    types::{Event, ShutdownSignal, SystemContextHandle},
+    types::{Event, SystemContextHandle},
 };
 
 /// Length, in bytes, of a 512 bit hash
@@ -628,7 +628,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SystemContext<TYPES, I> {
             storage: Arc::clone(&self.storage),
             network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
-            shutdown_signal: Arc::new(ShutdownSignal::new()),
         };
 
         add_network_tasks::<TYPES, I>(&mut handle).await;
@@ -770,8 +769,6 @@ where
         let right_consensus_registry = ConsensusTaskRegistry::new();
         let right_network_registry = NetworkTaskRegistry::new();
 
-        let shutdown_signal = Arc::new(ShutdownSignal::new());
-
         // create external channels for both handles
         let (left_external_sender, left_external_receiver) = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
         let left_external_event_stream =
@@ -805,7 +802,6 @@ where
             storage: Arc::clone(&left_system_context.storage),
             network: Arc::clone(&left_system_context.network),
             memberships: Arc::clone(&left_system_context.memberships),
-            shutdown_signal: Arc::clone(&shutdown_signal),
         };
 
         let mut right_handle = SystemContextHandle {
@@ -817,7 +813,6 @@ where
             storage: Arc::clone(&right_system_context.storage),
             network: Arc::clone(&right_system_context.network),
             memberships: Arc::clone(&right_system_context.memberships),
-            shutdown_signal: Arc::clone(&shutdown_signal),
         };
 
         // add consensus tasks to each handle, using their individual internal event streams

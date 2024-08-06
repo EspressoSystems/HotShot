@@ -8,8 +8,11 @@ use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use futures::FutureExt;
-use hotshot_task::task::Task;
+use futures::future::{BoxFuture, FutureExt};
+use hotshot_task::{
+    dependency::{Dependency, EventDependency},
+    task::Task,
+};
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
@@ -36,10 +39,9 @@ use hotshot_types::{
 use vbs::version::StaticVersionType;
 
 use crate::{
-    tasks::task_state::CreateTaskState,
-    types::{ShutdownSignal, SystemContextHandle},
-    ConsensusApi, ConsensusMetricsValue, ConsensusTaskRegistry, NetworkTaskRegistry, HotShotConfig,
-    HotShotInitializer, MarketplaceConfig, Memberships, SignatureKey, SystemContext,
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext,
 };
 
 /// event for global event stream
@@ -102,17 +104,13 @@ pub fn add_network_message_task<
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
-    let shutdown_signal = Arc::clone(&handle.shutdown_signal);
+    let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
     let task_handle = async_spawn(async move {
-        let mut shutdown = Box::pin(shutdown_signal.wait_for_shutdown().fuse());
+        futures::pin_mut!(shutdown_signal);
         loop {
-            if shutdown_signal.is_shutdown() {
-                tracing::error!("Shutting down network message task !!!");
-                break;
-            }
             futures::select! {
-                    _ = shutdown => {
-                        tracing::error!("Shutting down network message task !!!");
+                    _ = shutdown_signal => {
+                        tracing::error!("Shutting down network message task");
                         return;
                     }
                     _ = async {
@@ -223,6 +221,42 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }
 
+/// Creates a monitor for shutdown events.
+///
+/// # Returns
+/// A `BoxFuture<'static, ()>` that resolves when a `HotShotEvent::Shutdown` is detected.
+///
+/// # Usage
+/// Use in `select!` macros or similar constructs for graceful shutdowns:
+///
+/// ```
+/// let shutdown_signal = handle.create_shutdown_event_monitor();
+/// futures::select! {
+///     _ = shutdown_signal => {
+///         // Perform shutdown logic
+///     },
+///     // ... other branches
+/// }
+/// `
+pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    handle: &SystemContextHandle<TYPES, I>,
+) -> BoxFuture<'static, ()> {
+    // Activate the cloned internal event stream
+    let event_stream = handle.internal_event_stream.1.activate_cloned();
+
+    // Create an EventDependency that triggers on HotShotEvent::Shutdown
+    let event_dep = EventDependency::new(
+        event_stream,
+        Box::new(|e| matches!(e.as_ref(), HotShotEvent::Shutdown)),
+    );
+
+    // Create a future that completes when the EventDependency is satisfied
+    async move {
+        let _ = event_dep.completed().await;
+    }
+    .boxed()
+}
+
 #[async_trait]
 /// Trait for intercepting and modifying messages between the network and consensus layers.
 ///
@@ -279,7 +313,6 @@ where
             storage: Arc::clone(&hotshot.storage),
             network: Arc::clone(&hotshot.network),
             memberships: Arc::clone(&hotshot.memberships),
-            shutdown_signal: Arc::new(ShutdownSignal::new()),
         };
 
         add_consensus_tasks::<TYPES, I>(&mut handle).await;
@@ -326,13 +359,13 @@ where
 
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
-        let shutdown_signal = Arc::clone(&handle.shutdown_signal);
+        let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let send_handle = async_spawn(async move {
-            let mut shutdown = Box::pin(shutdown_signal.wait_for_shutdown().fuse());
+            futures::pin_mut!(shutdown_signal);
             loop {
                 futures::select! {
-                    _ = shutdown => {
-                        tracing::error!("Shutting down relay send task !!!");
+                    _ = shutdown_signal => {
+                        tracing::error!("Shutting down relay send task");
                         let _ = sender_to_network.broadcast(HotShotEvent::<TYPES>::Shutdown.into()).await;
                         return;
                     }
@@ -355,13 +388,13 @@ where
 
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
-        let shutdown_signal = Arc::clone(&handle.shutdown_signal);
+        let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let recv_handle = async_spawn(async move {
-            let mut shutdown = Box::pin(shutdown_signal.wait_for_shutdown().fuse());
+            futures::pin_mut!(shutdown_signal);
             loop {
                 futures::select! {
-                    _ = shutdown => {
-                        tracing::error!("Shutting down relay send task !!!");
+                    _ = shutdown_signal => {
+                        tracing::error!("Shutting down relay send task");
                         return;
                     }
                     _ = async {
