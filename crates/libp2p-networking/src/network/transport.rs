@@ -521,10 +521,8 @@ mod test {
 
     use std::{collections::HashSet, sync::Arc};
 
-    use super::write_length_delimited;
+    use super::*;
     use hotshot_types::{signature_key::BLSPubKey, traits::signature_key::SignatureKey};
-
-    use super::StakeTableAuthentication;
 
     /// A mock type to help with readability
     type MockStakeTableAuth = StakeTableAuthentication<DummyTransport, BLSPubKey, Connection>;
@@ -723,12 +721,10 @@ mod test {
 
         // Write the message to a buffer
         let mut buffer = Vec::new();
-        super::write_length_delimited(&mut buffer, message)
-            .await
-            .unwrap();
+        write_length_delimited(&mut buffer, message).await.unwrap();
 
         // Read the message from the buffer
-        let read_message = super::read_length_delimited(&mut buffer.as_slice(), 1024)
+        let read_message = read_length_delimited(&mut buffer.as_slice(), 1024)
             .await
             .unwrap();
 

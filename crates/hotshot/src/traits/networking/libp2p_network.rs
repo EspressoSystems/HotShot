@@ -59,7 +59,7 @@ use libp2p_networking::{
     network::{
         behaviours::request_response::{Request, Response},
         spawn_network_node,
-        stake_table_transport::construct_auth_message,
+        transport::construct_auth_message,
         MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
