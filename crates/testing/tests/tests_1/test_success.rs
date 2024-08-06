@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
+use hotshot::tasks::{BadProposalViewDos, DoubleProposeVote};
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
     state_types::TestTypes,
@@ -8,12 +9,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    test_builder::TestDescription,
-};
-use {
-    hotshot::tasks::{BadProposalViewDos, DoubleProposeVote},
-    hotshot_testing::test_builder::Behaviour,
-    std::rc::Rc,
+    test_builder::{Behaviour, TestDescription},
 };
 
 cross_tests!(

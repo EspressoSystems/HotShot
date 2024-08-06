@@ -168,13 +168,22 @@ impl NetworkTaskRegistry {
     }
 
     #[allow(clippy::unused_async)]
-    /// Shuts down all tasks in the registry, performing any associated cleanup.
+    /// Shuts down all tasks managed by this instance.
+    ///
+    /// This function waits for all tasks to complete before returning.
+    ///
+    /// # Panics
+    ///
+    /// When using the tokio executor, this function will panic if any of the
+    /// tasks being joined return an error.
     pub async fn shutdown(&mut self) {
         let handles = std::mem::take(&mut self.handles);
         #[cfg(async_executor_impl = "async-std")]
         join_all(handles).await;
         #[cfg(async_executor_impl = "tokio")]
-        try_join_all(handles).await.unwrap();
+        try_join_all(handles)
+            .await
+            .expect("Failed to join all tasks during shutdown");
     }
 
     /// Add a task to the registry
