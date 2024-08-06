@@ -187,7 +187,7 @@ type VoteMap2<COMMITMENT, PK, SIG> = HashMap<COMMITMENT, (U256, BTreeMap<PK, (SI
 /// obtained via a `QuorumProposalValidated` event being processed.
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct VoteDependencyData<TYPES: NodeType> {
-    /// The quorum proposal (not necessarily valid).
+    /// The leaf of the quorum proposal that we're voting on.
     pub leaf: Leaf<TYPES>,
 
     /// The VID share proposal.
