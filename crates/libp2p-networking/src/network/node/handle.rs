@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{collections::HashSet, fmt::Debug, marker::PhantomData, time::Duration};
 
 use async_compatibility_layer::{
@@ -29,7 +35,7 @@ use crate::network::{
 #[derive(Debug, Clone)]
 pub struct NetworkNodeHandle<K: SignatureKey + 'static> {
     /// network configuration
-    network_config: NetworkNodeConfig,
+    network_config: NetworkNodeConfig<K>,
 
     /// send an action to the networkbehaviour
     send_network: UnboundedSender<ClientRequest>,
@@ -79,10 +85,10 @@ impl NetworkNodeReceiver {
 /// # Errors
 /// Errors if spawning the task fails
 pub async fn spawn_network_node<K: SignatureKey + 'static>(
-    config: NetworkNodeConfig,
+    config: NetworkNodeConfig<K>,
     id: usize,
 ) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<K>), NetworkNodeHandleError> {
-    let mut network: NetworkNode<K> = NetworkNode::new(config.clone())
+    let mut network = NetworkNode::new(config.clone())
         .await
         .context(NetworkSnafu)?;
     // randomly assigned port
@@ -523,7 +529,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Return a reference to the network config
     #[must_use]
-    pub fn config(&self) -> &NetworkNodeConfig {
+    pub fn config(&self) -> &NetworkNodeConfig<K> {
         &self.network_config
     }
 }

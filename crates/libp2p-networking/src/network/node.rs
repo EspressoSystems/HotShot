@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 /// configuration for the libp2p network (e.g. how it should be built)
 mod config;
 
@@ -88,7 +94,7 @@ pub struct NetworkNode<K: SignatureKey + 'static> {
     #[debug(skip)]
     swarm: Swarm<NetworkDef>,
     /// the configuration parameters of the netework
-    config: NetworkNodeConfig,
+    config: NetworkNodeConfig<K>,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
     /// Handler for requests and response behavior events.
@@ -164,17 +170,25 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
-        // Generate a random PeerId
+    pub async fn new(config: NetworkNodeConfig<K>) -> Result<Self, NetworkError> {
+        // Generate a random `KeyPair` if one is not specified
         let identity = if let Some(ref kp) = config.identity {
             kp.clone()
         } else {
             Keypair::generate_ed25519()
         };
+
+        // Get the `PeerId` from the `KeyPair`
         let peer_id = PeerId::from(identity.public());
-        debug!(?peer_id);
-        let transport: BoxedTransport = gen_transport(identity.clone()).await?;
-        debug!("Launched network transport");
+
+        // Generate the transport from the identity, stake table, and auth message
+        let transport: BoxedTransport = gen_transport::<K>(
+            identity.clone(),
+            config.stake_table.clone(),
+            config.auth_message.clone(),
+        )
+        .await?;
+
         // Generate the swarm
         let mut swarm: Swarm<NetworkDef> = {
             // Use the hash of the message's contents as the ID
