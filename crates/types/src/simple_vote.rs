@@ -259,13 +259,13 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     }
 }
 
-/// This implements commit for all the types which contain a view and relay public key.
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposalData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
         self.decide_by - UPGRADE_DECIDE_BY_OFFSET + UPGRADE_PROPOSE_OFFSET
     }
 }
 
+/// This implements commit for all the types which contain a view and relay public key.
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::Time,
     relay: u64,
