@@ -117,13 +117,17 @@ pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
     pub view_number: TYPES::Time,
 }
 
-impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNumber<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
     fn view_number(&self) -> <TYPES as NodeType>::Time {
         self.data().view_number()
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Vote<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
     type Data = DATA;
 
     fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {

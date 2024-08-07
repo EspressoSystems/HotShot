@@ -226,20 +226,16 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     /// Given an upgrade certificate and a view, tests whether the view is in the period
     /// where we are upgrading, which requires that we propose with null blocks.
     pub fn upgrading_in(&self, view: TYPES::Time) -> bool {
-        view > self.data().old_version_last_view
-            && view < self.data().new_version_first_view
+        view > self.data().old_version_last_view && view < self.data().new_version_first_view
     }
 }
 
 /// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
-pub type QuorumCertificate<TYPES> =
-    SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
+pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
 /// Type alias for a DA certificate over `DaData`
-pub type DaCertificate<TYPES> =
-    SimpleCertificate<TYPES, DaData, SuccessThreshold>;
+pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData, SuccessThreshold>;
 /// Type alias for a Timeout certificate over a view number
-pub type TimeoutCertificate<TYPES> =
-    SimpleCertificate<TYPES, TimeoutData<TYPES>, SuccessThreshold>;
+pub type TimeoutCertificate<TYPES> = SimpleCertificate<TYPES, TimeoutData<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncPreCommit` certificate over a view number
 pub type ViewSyncPreCommitCertificate2<TYPES> =
     SimpleCertificate<TYPES, ViewSyncPreCommitData<TYPES>, OneHonestThreshold>;
