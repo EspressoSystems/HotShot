@@ -7,6 +7,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
 use crate::{
+    constants::{UPGRADE_DECIDE_BY_OFFSET, UPGRADE_PROPOSE_OFFSET},
     data::Leaf,
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     vid::VidCommitment,
@@ -206,7 +207,7 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for TimeoutData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        todo!()
+        self.view
     }
 }
 
@@ -257,7 +258,7 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 /// This implements commit for all the types which contain a view and relay public key.
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposalData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        todo!()
+        self.decide_by - UPGRADE_DECIDE_BY_OFFSET + UPGRADE_PROPOSE_OFFSET
     }
 }
 
@@ -278,7 +279,7 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncPreCommitData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        todo!()
+        self.round
     }
 }
 
@@ -289,7 +290,7 @@ impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
 }
 impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncFinalizeData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        todo!()
+        self.round
     }
 }
 
@@ -301,7 +302,7 @@ impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncCommitData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        todo!()
+        self.round
     }
 }
 
