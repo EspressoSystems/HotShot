@@ -345,6 +345,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
             self.latest_proposed_view = new_view;
 
             return true;
+        } else if self.quorum_membership.leader(new_view) == self.public_key
+            && self.quorum_membership.leader(new_view + 1) == self.public_key
+        {
+            // this means we were the leader for the current view and for the next view we will be leader again
+            // there is no dependency task for the current view and we need to create one for the next view
+            // so we return true
+            debug!(
+                "Leader for connsecutive views, latest proposed view {}",
+                *self.latest_proposed_view,
+            );
+            return true;
         }
         false
     }
