@@ -16,6 +16,8 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 
+use crate::block_types::TestMetadata;
+
 type VidShares<TYPES> = HashMap<
     <TYPES as NodeType>::Time,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
@@ -44,14 +46,14 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
 pub struct TestStorage<TYPES: NodeType> {
     inner: Arc<RwLock<TestStorageState<TYPES>>>,
     /// `should_return_err` is a testing utility to validate negative cases.
-    pub should_return_err: bool,
+    pub metadata: TestMetadata,
 }
 
 impl<TYPES: NodeType> Default for TestStorage<TYPES> {
     fn default() -> Self {
         Self {
             inner: Arc::new(RwLock::new(TestStorageState::default())),
-            should_return_err: false,
+            metadata: TestMetadata::default(),
         }
     }
 }
@@ -70,8 +72,12 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
 #[async_trait]
 impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> Result<()> {
-        if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+        if let Err(e) = self
+            .metadata
+            .handle_options(Some("Failed to append VID proposal to storage".to_string()))
+            .await
+        {
+            bail!(e)
         }
         let mut inner = self.inner.write().await;
         inner
@@ -83,8 +89,12 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     }
 
     async fn append_da(&self, proposal: &Proposal<TYPES, DaProposal<TYPES>>) -> Result<()> {
-        if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+        if let Err(e) = self
+            .metadata
+            .handle_options(Some("Failed to append DA proposal to storage".to_string()))
+            .await
+        {
+            bail!(e)
         }
         let mut inner = self.inner.write().await;
         inner
@@ -96,8 +106,12 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         &self,
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     ) -> Result<()> {
-        if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+        if let Err(e) = self
+            .metadata
+            .handle_options(Some("Failed to append qc proposal to storage".to_string()))
+            .await
+        {
+            bail!(e)
         }
         let mut inner = self.inner.write().await;
         inner
@@ -111,18 +125,26 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _view: <TYPES as NodeType>::Time,
         _action: hotshot_types::event::HotShotAction,
     ) -> Result<()> {
-        if self.should_return_err {
-            bail!("Failed to append Action to storage");
+        match self
+            .metadata
+            .handle_options(Some("Failed to append Action to storage".to_string()))
+            .await
+        {
+            Err(e) => bail!(e),
+            Ok(_) => Ok(()),
         }
-        Ok(())
     }
 
     async fn update_high_qc(
         &self,
         new_high_qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
     ) -> Result<()> {
-        if self.should_return_err {
-            bail!("Failed to update high qc to storage");
+        if let Err(e) = self
+            .metadata
+            .handle_options(Some("Failed to update high qc to storage".to_string()))
+            .await
+        {
+            bail!(e)
         }
         let mut inner = self.inner.write().await;
         if let Some(ref current_high_qc) = inner.high_qc {
@@ -139,9 +161,15 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _leafs: CommitmentMap<Leaf<TYPES>>,
         _state: BTreeMap<TYPES::Time, View<TYPES>>,
     ) -> Result<()> {
-        if self.should_return_err {
-            bail!("Failed to update high qc to storage");
+        match self
+            .metadata
+            .handle_options(Some(
+                "Failed to update undecided state to storage".to_string(),
+            ))
+            .await
+        {
+            Err(e) => bail!(e),
+            Ok(_) => Ok(()),
         }
-        Ok(())
     }
 }

@@ -96,7 +96,7 @@ async fn test_consensus_task() {
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
-                TestMetadata,
+                TestMetadata::default(),
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee(
                     quorum_membership.total_nodes(),
@@ -288,7 +288,7 @@ async fn test_view_sync_finalize_propose() {
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
-                TestMetadata,
+                TestMetadata::default(),
                 ViewNumber::new(4),
                 vec1![null_block::builder_fee(4, BaseVersion::version()).unwrap()],
                 None,
@@ -525,13 +525,15 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_vid_disperse_storage_failure() {
+    use hotshot_example_types::block_types::TestMetadataOptions;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
-    handle.storage().write().await.should_return_err = true;
+    handle.storage().write().await.metadata.options = TestMetadataOptions::ReturnError;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 

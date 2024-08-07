@@ -2,8 +2,10 @@ use std::{
     fmt::{Debug, Display},
     mem::size_of,
     sync::Arc,
+    time::Duration,
 };
 
+use async_compatibility_layer::art::async_sleep;
 use async_trait::async_trait;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
@@ -149,11 +151,48 @@ impl<TYPES: NodeType> TestableBlock<TYPES> for TestBlockPayload {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TestMetadata;
+pub enum TestMetadataOptions {
+    ReturnError,
+    AddDelay,
+    NoAction,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TestMetadata {
+    pub options: TestMetadataOptions,
+}
+
+impl Default for TestMetadata {
+    fn default() -> Self {
+        TestMetadata {
+            options: TestMetadataOptions::NoAction,
+        }
+    }
+}
 
 impl EncodeBytes for TestMetadata {
     fn encode(&self) -> Arc<[u8]> {
         Arc::new([])
+    }
+}
+
+impl TestMetadata {
+    pub async fn handle_options(&self, msg: Option<String>) -> Result<String, String> {
+        match self.options {
+            TestMetadataOptions::AddDelay => {
+                let sleep_in_millis = 100;
+                async_sleep(Duration::from_millis(sleep_in_millis)).await;
+                Ok(msg.unwrap_or_else(|| {
+                    format!("Successfully slept for {} milliseconds", sleep_in_millis)
+                }))
+            }
+            TestMetadataOptions::ReturnError => {
+                Err(msg.unwrap_or_else(|| "An error occurred.".to_string()))
+            }
+            TestMetadataOptions::NoAction => {
+                Ok(msg.unwrap_or_else(|| "Success. No action taken.".to_string()))
+            }
+        }
     }
 }
 
@@ -181,7 +220,7 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
             Self {
                 transactions: txns_vec,
             },
-            TestMetadata,
+            TestMetadata::default(),
         ))
     }
 
@@ -207,7 +246,7 @@ impl<TYPES: NodeType> BlockPayload<TYPES> for TestBlockPayload {
     }
 
     fn empty() -> (Self, Self::Metadata) {
-        (Self::genesis(), TestMetadata)
+        (Self::genesis(), TestMetadata::default())
     }
 
     fn builder_commitment(&self, _metadata: &Self::Metadata) -> BuilderCommitment {
@@ -237,6 +276,8 @@ pub struct TestBlockHeader {
     pub builder_commitment: BuilderCommitment,
     /// Timestamp when this header was created.
     pub timestamp: u64,
+    /// Add metadata
+    pub metadata: TestMetadata,
 }
 
 impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> BlockHeader<TYPES>
@@ -250,12 +291,14 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         _builder_fee: BuilderFee<TYPES>,
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<Self, Self::Error> {
         let parent = parent_leaf.block_header();
+        tracing::error!("metadata: {:?}", metadata);
+        let _ = metadata.handle_options(None).await;
 
         let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;
         if timestamp < parent.timestamp {
@@ -268,6 +311,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
             payload_commitment,
             builder_commitment,
             timestamp,
+            metadata,
         })
     }
 
@@ -289,13 +333,14 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
-        _metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+        metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     ) -> Self {
         Self {
             block_number: 0,
             payload_commitment,
             builder_commitment,
             timestamp: 0,
+            metadata,
         }
     }
 
@@ -308,7 +353,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
     }
 
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata {
-        &TestMetadata
+        &self.metadata
     }
 
     fn builder_commitment(&self) -> BuilderCommitment {

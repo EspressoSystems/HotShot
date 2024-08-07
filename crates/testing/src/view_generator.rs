@@ -107,11 +107,13 @@ impl TestView {
             &private_key,
         );
 
+        let metadata = TestMetadata::default();
         let block_header = TestBlockHeader {
             block_number: 1,
             timestamp: 1,
             payload_commitment,
             builder_commitment,
+            metadata,
         };
 
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
@@ -134,7 +136,7 @@ impl TestView {
 
         let da_proposal_inner = DaProposal::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: TestMetadata,
+            metadata,
             view_number: genesis_view,
         };
 
@@ -312,11 +314,13 @@ impl TestView {
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
         };
 
+        let metadata = TestMetadata::default();
         let block_header = TestBlockHeader {
             block_number: *next_view,
             timestamp: *next_view,
             payload_commitment,
             builder_commitment,
+            metadata,
         };
 
         let proposal = QuorumProposal::<TestTypes> {
@@ -349,7 +353,7 @@ impl TestView {
 
         let da_proposal_inner = DaProposal::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: TestMetadata,
+            metadata,
             view_number: next_view,
         };
 

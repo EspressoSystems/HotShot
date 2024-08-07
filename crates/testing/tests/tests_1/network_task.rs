@@ -103,6 +103,7 @@ async fn test_network_task() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_network_storage_fail() {
     use futures::StreamExt;
+    use hotshot_example_types::block_types::TestMetadataOptions;
     use hotshot_types::traits::network::Topic;
 
     async_compatibility_layer::logging::setup_logging();
@@ -117,7 +118,7 @@ async fn test_network_storage_fail() {
     let network = (launcher.resource_generator.channel_generator)(node_id).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
-    storage.write().await.should_return_err = true;
+    storage.write().await.metadata.options = TestMetadataOptions::ReturnError;
     let config = launcher.resource_generator.config.clone();
     let public_key = config.my_own_validator_config.public_key;
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();

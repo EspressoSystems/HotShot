@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
-    block_types::{TestMetadata, TestTransaction},
+    block_types::{TestMetadata, TestMetadataOptions, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -77,7 +77,7 @@ async fn test_da_task() {
             ViewChange(ViewNumber::new(2)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions,
-                TestMetadata,
+                TestMetadata::default(),
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee(
                     quorum_membership.total_nodes(),
@@ -119,7 +119,7 @@ async fn test_da_task_storage_failure() {
     let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
-    handle.storage().write().await.should_return_err = true;
+    handle.storage().write().await.metadata.options = TestMetadataOptions::ReturnError;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -164,7 +164,7 @@ async fn test_da_task_storage_failure() {
             ViewChange(ViewNumber::new(2)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions,
-                TestMetadata,
+                TestMetadata::default(),
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee(
                     quorum_membership.total_nodes(),

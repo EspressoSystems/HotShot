@@ -94,7 +94,7 @@ async fn test_random_block_builder() {
             &TestBlockPayload {
                 transactions: vec![TestTransaction::new(vec![0; 1])],
             },
-            &TestMetadata,
+            &TestMetadata::default(),
         );
 
     let result = client

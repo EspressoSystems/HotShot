@@ -43,7 +43,7 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     // current view
     let mut exp_packed_bundle = PackedBundle::new(
         vec![].into(),
-        TestMetadata,
+        TestMetadata::default(),
         current_view,
         vec1::vec1![null_block::builder_fee(
             quorum_membership.total_nodes(),
