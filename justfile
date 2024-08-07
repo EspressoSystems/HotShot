@@ -186,29 +186,31 @@ clippy:
   echo clippy
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
-lint:
-  echo linting
-  cargo fmt --check
-  cargo clippy --workspace --examples --bins --tests -- -D warnings
+clippy_dependency_tasks:
+  echo clippy release
+  cargo clippy --workspace --examples --bins --tests --features "dependency-tasks" -- -D warnings
 
-lint_release:
-  echo linting
-  cargo fmt --check
+clippy_release:
+  echo clippy release
   cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
 
 fmt:
   echo Running cargo fmt
-  cargo fmt
+  cargo fmt -- crates/**/*.rs
+  cargo fmt -- crates/**/tests/**/**.rs
 
-fmt_lint:
-  echo Formatting and linting
-  cargo fmt
-  cargo clippy --workspace --examples --bins --tests -- -D warnings
+fmt_check:
+  echo Running cargo fmt --check
+  cargo fmt --check -- crates/**/*.rs
+  cargo fmt --check -- crates/**/tests/**/**.rs
 
-fmt_lint_dependency_tasks:
-  echo Formatting and linting
-  cargo fmt
-  cargo clippy --workspace --examples --bins --tests --features "dependency-tasks" -- -D warnings
+lint: clippy fmt_check
+
+lint_release: clippy_release fmt_check
+
+fmt_clippy: fmt clippy
+
+fmt_clippy_dependency_tasks: fmt clippy_dependency_tasks
 
 careful:
   echo Careful-ing with tokio executor
