@@ -10,7 +10,7 @@ use futures::future::select_all;
 use hotshot::types::Event;
 use hotshot_task_impls::{events::HotShotEvent, network::NetworkMessageTaskState};
 use hotshot_types::{
-    message::{Messages, VersionedMessage},
+    message::{Messages, Versions},
     traits::{network::ConnectedNetwork, node_implementation::NodeType},
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -108,6 +108,7 @@ pub async fn add_network_message_test_task<
     internal_event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     external_event_stream: Sender<Event<TYPES>>,
     channel: Arc<NET>,
+    versions: Versions<TYPES>,
 ) -> JoinHandle<()> {
     let net = Arc::clone(&channel);
     let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
@@ -125,8 +126,7 @@ pub async fn add_network_message_test_task<
                     let mut deserialized_messages = Vec::new();
 
                     for msg in msgs {
-                        let deserialized_message = match VersionedMessage::deserialize(&msg, &None)
-                        {
+                        let deserialized_message = match versions.deserialize(&msg).await {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
                                 tracing::error!("Failed to deserialize message: {}", e);

@@ -11,9 +11,8 @@ use hotshot_types::{
     event::{Event, EventType, HotShotAction},
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage, VersionedMessage,
+        SequencingMessage, Versions,
     },
-    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
         network::{BroadcastDelay, ConnectedNetwork, TransmitType, ViewMessage},
@@ -218,8 +217,8 @@ pub struct NetworkEventTaskState<
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
-    /// Decided upgrade certificate
-    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 
 #[async_trait]
@@ -291,7 +290,7 @@ impl<
                     )
                 }
                 HotShotEvent::VidDisperseSend(proposal, sender) => {
-                    self.handle_vid_disperse_proposal(proposal, &sender);
+                    self.handle_vid_disperse_proposal(proposal, &sender).await;
                     return;
                 }
                 HotShotEvent::DaProposalSend(proposal, sender) => {
@@ -398,10 +397,6 @@ impl<
                         .await;
                     return;
                 }
-                HotShotEvent::UpgradeDecided(cert) => {
-                    self.decided_upgrade_certificate = Some(cert.clone());
-                    return;
-                }
                 _ => {
                     return;
                 }
@@ -422,7 +417,7 @@ impl<
         let committee_topic = membership.committee_topic();
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
-        let decided_upgrade_certificate = self.decided_upgrade_certificate.clone();
+        let versions = self.versions.clone();
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
@@ -443,7 +438,7 @@ impl<
                 }
             }
 
-            let serialized_message = match message.serialize(&decided_upgrade_certificate) {
+            let serialized_message = match versions.serialize(&message).await {
                 Ok(serialized) => serialized,
                 Err(e) => {
                     error!("Failed to serialize message: {}", e);
@@ -473,7 +468,7 @@ impl<
     }
 
     /// handle `VidDisperseSend`
-    fn handle_vid_disperse_proposal(
+    async fn handle_vid_disperse_proposal(
         &self,
         vid_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
         sender: &<TYPES as NodeType>::SignatureKey,
@@ -490,7 +485,7 @@ impl<
                     DaConsensusMessage::VidDisperseMsg(proposal),
                 )), // TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
             };
-            let serialized_message = match message.serialize(&self.decided_upgrade_certificate) {
+            let serialized_message = match self.versions.serialize(&message).await {
                 Ok(serialized) => serialized,
                 Err(e) => {
                     error!("Failed to serialize message: {}", e);

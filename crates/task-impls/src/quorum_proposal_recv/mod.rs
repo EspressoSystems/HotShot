@@ -14,6 +14,7 @@ use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{Leaf, ViewChangeEvidence},
     event::Event,
+    message::Versions,
     simple_certificate::UpgradeCertificate,
     traits::{
         node_implementation::{NodeImplementation, NodeType},
@@ -91,8 +92,8 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// The node's id
     pub id: u64,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalRecvTaskState<TYPES, I> {

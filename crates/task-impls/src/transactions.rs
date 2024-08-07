@@ -6,7 +6,6 @@ use std::{
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_timeout};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
@@ -16,7 +15,7 @@ use hotshot_types::{
     constants::MarketplaceVersion,
     data::{null_block, PackedBundle},
     event::{Event, EventType},
-    simple_certificate::{version, UpgradeCertificate},
+    message::Versions,
     traits::{
         auction_results_provider::AuctionResultsProvider,
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
@@ -99,8 +98,8 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub instance_state: Arc<TYPES::InstanceState>,
     /// This state's ID
     pub id: u64,
-    /// Decided upgrade certificate
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
     /// auction results provider
     pub auction_results_provider: Arc<I::AuctionResultsProvider>,
 }
@@ -112,10 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::Time,
     ) -> Option<HotShotTaskCompleted> {
-        let version = match version(
-            block_view,
-            &self.decided_upgrade_certificate.read().await.clone(),
-        ) {
+        let version = match self.versions.version(block_view).await {
             Ok(v) => v,
             Err(e) => {
                 tracing::error!("Failed to calculate version: {:?}", e);
@@ -139,15 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::Time,
     ) -> Option<HotShotTaskCompleted> {
-        let version = match hotshot_types::simple_certificate::version(
-            block_view,
-            &self
-                .decided_upgrade_certificate
-                .read()
-                .await
-                .as_ref()
-                .cloned(),
-        ) {
+        let version = match self.versions.version(block_view).await {
             Ok(v) => v,
             Err(err) => {
                 error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
@@ -157,13 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
         // Request a block from the builder unless we are between versions.
         let block = {
-            if self
-                .decided_upgrade_certificate
-                .read()
-                .await
-                .as_ref()
-                .is_some_and(|cert| cert.upgrading_in(block_view))
-            {
+            if self.versions.upgrading(block_view).await {
                 None
             } else {
                 self.wait_for_block(block_view).await
@@ -241,15 +223,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::Time,
     ) -> Option<HotShotTaskCompleted> {
-        let version = match hotshot_types::simple_certificate::version(
-            block_view,
-            &self
-                .decided_upgrade_certificate
-                .read()
-                .await
-                .as_ref()
-                .cloned(),
-        ) {
+        let version = match self.versions.version(block_view).await {
             Ok(v) => v,
             Err(err) => {
                 error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
@@ -258,13 +232,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         };
 
         // Only request bundles and propose with a nonempty block if we are not between versions.
-        if !self
-            .decided_upgrade_certificate
-            .read()
-            .await
-            .as_ref()
-            .is_some_and(|cert| cert.upgrading_in(block_view))
-        {
+        if !self.versions.upgrading(block_view).await {
             let start = Instant::now();
 
             if let Ok(Ok(urls)) = async_timeout(

@@ -16,8 +16,8 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     constants::MarketplaceVersion,
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
-    message::Proposal,
-    simple_certificate::{version, UpgradeCertificate},
+    message::{Proposal, Versions},
+    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
@@ -92,8 +92,8 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
     /// since they will be present in the leaf we propose off of.
     pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 
     /// The node's id
     pub id: u64,
@@ -158,10 +158,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             "Cannot propose because our VID payload commitment and metadata is for an older view."
         );
 
-        let version = version(
-            self.view_number,
-            &self.decided_upgrade_certificate.read().await.clone(),
-        )?;
+        let version = self.versions.version(self.view_number).await?;
 
         let block_header = if version < MarketplaceVersion::VERSION {
             TYPES::BlockHeader::new_legacy(
@@ -339,7 +336,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                 vid_share.unwrap(),
                 proposal_cert,
                 self.formed_upgrade_certificate.clone(),
-                Arc::clone(&self.decided_upgrade_certificate),
+                Arc::clone(&self.versions.decided_upgrade_certificate),
             )
             .await
         {

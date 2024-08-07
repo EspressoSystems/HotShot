@@ -13,7 +13,7 @@ use hotshot_types::{
     },
     data::UpgradeProposal,
     event::{Event, EventType},
-    message::Proposal,
+    message::{Proposal, Versions},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
@@ -24,7 +24,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use tracing::{debug, error, info, instrument, warn};
-use vbs::version::StaticVersionType;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -87,16 +86,11 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Unix time in seconds at which we stop voting on an upgrade
     pub stop_voting_time: u64,
 
-    /// Upgrade certificate that has been decided on, if any
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
-    /// Check if we have decided on an upgrade certificate
-    async fn upgraded(&self) -> bool {
-        self.decided_upgrade_certificate.read().await.is_some()
-    }
-
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
     pub async fn handle(
@@ -111,10 +105,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                 let view = *proposal.data.view_number();
 
                 // Skip voting if the version has already been upgraded.
-                if self.upgraded().await {
+                if self.versions.upgraded().await {
                     info!(
                         "Already upgraded to {:?}, skip voting.",
-                        TYPES::Upgrade::VERSION
+                        self.versions.upgrade_version,
                     );
                     return None;
                 }
@@ -133,9 +127,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                 }
 
                 // If the proposal does not match our upgrade target, we immediately exit.
-                if proposal.data.upgrade_proposal.new_version_hash != TYPES::UPGRADE_HASH
-                    || proposal.data.upgrade_proposal.old_version != TYPES::Base::VERSION
-                    || proposal.data.upgrade_proposal.new_version != TYPES::Upgrade::VERSION
+                if proposal.data.upgrade_proposal.new_version_hash != self.versions.upgrade_hash
+                    || proposal.data.upgrade_proposal.old_version != self.versions.base_version
+                    || proposal.data.upgrade_proposal.new_version != self.versions.upgrade_version
                 {
                     return None;
                 }
@@ -271,16 +265,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                     && view < self.stop_proposing_view
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
-                    && !self.upgraded().await
+                    && !self.versions.upgraded().await
                     && self
                         .quorum_membership
                         .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
                         == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {
-                        old_version: TYPES::Base::VERSION,
-                        new_version: TYPES::Upgrade::VERSION,
-                        new_version_hash: TYPES::UPGRADE_HASH.to_vec(),
+                        old_version: self.versions.base_version,
+                        new_version: self.versions.upgrade_version,
+                        new_version_hash: self.versions.upgrade_hash.to_vec(),
                         // We schedule the upgrade to begin 15 views in the future
                         old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
                         // and end 20 views in the future

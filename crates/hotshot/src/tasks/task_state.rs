@@ -5,19 +5,14 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::Utc;
-#[cfg(not(feature = "dependency-tasks"))]
-use hotshot_task_impls::consensus::ConsensusTaskState;
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
-    builder::BuilderClient, da::DaTaskState, request::NetworkRequestState,
-    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
-    view_sync::ViewSyncTaskState,
-};
-#[cfg(feature = "dependency-tasks")]
-use hotshot_task_impls::{
-    consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
+    da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
+    request::NetworkRequestState, transactions::TransactionTaskState, upgrade::UpgradeTaskState,
+    vid::VidTaskState, view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
     consensus::OuterConsensus,
@@ -84,7 +79,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             stop_proposing_time: handle.hotshot.config.stop_proposing_time,
             start_voting_time: handle.hotshot.config.start_voting_time,
             stop_voting_time: handle.hotshot.config.stop_voting_time,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         };
 
         #[cfg(feature = "example-upgrade")]
@@ -105,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             stop_proposing_time: u64::MAX,
             start_voting_time: 0,
             stop_voting_time: u64::MAX,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         };
     }
 }
@@ -203,13 +198,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
                 .cloned()
                 .map(BuilderClient::new)
                 .collect(),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
             auction_results_provider: Arc::clone(&handle.hotshot.auction_results_provider),
         }
     }
 }
 
-#[cfg(not(feature = "dependency-tasks"))]
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for ConsensusTaskState<TYPES, I>
@@ -242,12 +236,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: Arc::clone(&handle.storage),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         }
     }
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for QuorumVoteTaskState<TYPES, I>
@@ -268,12 +261,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         }
     }
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for QuorumProposalTaskState<TYPES, I>
@@ -301,12 +293,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         }
     }
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for QuorumProposalRecvTaskState<TYPES, I>
@@ -335,12 +326,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         }
     }
 }
 
-#[cfg(feature = "dependency-tasks")]
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
     for Consensus2TaskState<TYPES, I>
@@ -368,7 +358,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: OuterConsensus::new(consensus),
             last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            versions: handle.hotshot.versions.clone(),
         }
     }
 }

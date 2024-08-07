@@ -15,6 +15,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
+    message::Versions,
     simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
@@ -91,8 +92,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// since they will be present in the leaf we propose off of.
     pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
@@ -317,7 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
-                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+                versions: self.versions.clone(),
                 id: self.id,
             },
         );

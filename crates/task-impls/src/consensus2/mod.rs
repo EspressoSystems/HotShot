@@ -10,7 +10,8 @@ use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
+    message::Versions,
+    simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
     traits::{
         node_implementation::{NodeImplementation, NodeType},
@@ -90,8 +91,8 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The node's id
     pub id: u64,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Consensus2TaskState<TYPES, I> {
     /// Handles a consensus event received on the event stream

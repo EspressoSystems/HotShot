@@ -17,8 +17,8 @@ use hotshot_types::{
     constants::MarketplaceVersion,
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
-    message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{version, UpgradeCertificate},
+    message::{GeneralConsensusMessage, Proposal, Versions},
+    simple_certificate::UpgradeCertificate,
     simple_vote::QuorumData,
     traits::{
         block_contents::BlockHeader,
@@ -164,7 +164,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
     consensus: OuterConsensus<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-    decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    versions: Versions<TYPES>,
     commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
@@ -191,7 +191,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
 
     if let Some(cert) = proposal_upgrade_certificate.clone() {
         if cert
-            .is_relevant(view, Arc::clone(&decided_upgrade_certificate))
+            .is_relevant(view, Arc::clone(&versions.decided_upgrade_certificate))
             .await
             .is_err()
         {
@@ -216,7 +216,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType>(
         "Cannot propose because our VID payload commitment and metadata is for an older view."
     );
 
-    let version = version(view, &decided_upgrade_certificate.read().await.clone())?;
+    let version = versions.version(view).await?;
 
     let create_and_send_proposal_handle = async_spawn(async move {
         match create_and_send_proposal(
@@ -260,7 +260,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
     consensus: OuterConsensus<TYPES>,
     delay: u64,
     formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-    decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    versions: Versions<TYPES>,
     commitment_and_metadata: Option<CommitmentAndMetadata<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     instance_state: Arc<TYPES::InstanceState>,
@@ -275,7 +275,7 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
         consensus,
         delay,
         formed_upgrade_certificate,
-        decided_upgrade_certificate,
+        versions,
         commitment_and_metadata,
         proposal_cert,
         instance_state,
@@ -467,7 +467,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                     OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
                     task_state.round_start_delay,
                     task_state.formed_upgrade_certificate.clone(),
-                    Arc::clone(&task_state.decided_upgrade_certificate),
+                    task_state.versions.clone(),
                     task_state.payload_commitment_and_metadata.clone(),
                     task_state.proposal_cert.clone(),
                     Arc::clone(&task_state.instance_state),
@@ -497,7 +497,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                 proposal.clone(),
                 parent_leaf,
                 OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-                Arc::clone(&task_state.decided_upgrade_certificate),
+                Arc::clone(&task_state.versions.decided_upgrade_certificate),
                 Arc::clone(&task_state.quorum_membership),
                 event_stream.clone(),
                 sender,
@@ -523,13 +523,17 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let res = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.versions.decided_upgrade_certificate),
         &task_state.public_key,
     )
     .await;
 
     if let Some(cert) = res.decided_upgrade_cert {
-        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        let mut decided_certificate_lock = task_state
+            .versions
+            .decided_upgrade_certificate
+            .write()
+            .await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);
         let _ = event_stream
@@ -630,7 +634,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
 /// sending the vote.
 type VoteInfo<TYPES> = (
     <<TYPES as NodeType>::SignatureKey as SignatureKey>::PrivateKey,
-    Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    Versions<TYPES>,
     Arc<<TYPES as NodeType>::Membership>,
     Sender<Arc<HotShotEvent<TYPES>>>,
 );
@@ -673,7 +677,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         return false;
     };
 
-    if let Some(upgrade_cert) = &vote_info.1.read().await.clone() {
+    if let Some(upgrade_cert) = &vote_info.1.decided_upgrade_certificate.read().await.clone() {
         if upgrade_cert.upgrading_in(cur_view)
             && Some(proposal.block_header.payload_commitment())
                 != null_block::commitment(quorum_membership.total_nodes())
@@ -728,7 +732,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     };
     drop(read_consnesus);
 
-    let version = match version(view, &vote_info.1.read().await.clone()) {
+    let version = match vote_info.1.version(view).await {
         Ok(version) => version,
         Err(e) => {
             error!("Failed to calculate the version: {e:?}");

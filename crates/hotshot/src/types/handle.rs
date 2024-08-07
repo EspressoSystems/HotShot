@@ -143,7 +143,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         self.hotshot
-            .publish_transaction_async(tx, Arc::clone(&self.hotshot.decided_upgrade_certificate))
+            .publish_transaction_async(tx, self.hotshot.versions.clone())
             .await
     }
 

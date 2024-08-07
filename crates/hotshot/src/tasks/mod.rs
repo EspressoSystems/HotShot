@@ -25,13 +25,12 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    message::{Messages, VersionedMessage},
+    message::Messages,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use vbs::version::StaticVersionType;
 
 use crate::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
@@ -95,22 +94,17 @@ pub fn add_network_message_task<
         external_event_stream: handle.output_event_stream.0.clone(),
     };
 
-    let decided_upgrade_certificate = Arc::clone(&handle.hotshot.decided_upgrade_certificate);
-
     let network = Arc::clone(channel);
+    let versions = handle.hotshot.versions.clone();
     let mut state = network_state.clone();
     let task_handle = async_spawn(async move {
         loop {
-            let decided_upgrade_certificate_lock = decided_upgrade_certificate.read().await.clone();
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => {
                     let mut deserialized_messages = Vec::new();
 
                     for msg in msgs {
-                        let deserialized_message = match VersionedMessage::deserialize(
-                            &msg,
-                            &decided_upgrade_certificate_lock,
-                        ) {
+                        let deserialized_message = match versions.deserialize(&msg).await {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
                                 tracing::error!("Failed to deserialize message: {}", e);
@@ -158,7 +152,7 @@ pub fn add_network_event_task<
         membership,
         filter,
         storage: Arc::clone(&handle.storage()),
-        decided_upgrade_certificate: None,
+        versions: handle.hotshot.versions.clone(),
     };
     let task = Task::new(
         network_state,
@@ -178,7 +172,7 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     handle.add_task(TransactionTaskState::<TYPES, I>::create_from(handle).await);
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
-    if TYPES::Base::VERSION < TYPES::Upgrade::VERSION {
+    if handle.hotshot.versions.base_version < handle.hotshot.versions.upgrade_version {
         handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
     }
 

@@ -16,8 +16,7 @@ use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
-    message::Proposal,
-    simple_certificate::{version, UpgradeCertificate},
+    message::{Proposal, Versions},
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
@@ -79,8 +78,8 @@ struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
     receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
     /// The node's id
     id: u64,
 }
@@ -127,10 +126,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
 
         drop(consensus_reader);
 
-        let version = version(
-            self.view_number,
-            &self.decided_upgrade_certificate.read().await.clone(),
-        )?;
+        let version = self.versions.version(self.view_number).await?;
         let (validated_state, state_delta) = parent_state
             .validate_and_apply_header(
                 &self.instance_state,
@@ -390,8 +386,8 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
@@ -513,7 +509,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+                versions: self.versions.clone(),
                 id: self.id,
             },
         );

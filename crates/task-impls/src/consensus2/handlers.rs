@@ -129,8 +129,12 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     task_state.cur_view = new_view_number;
 
     // If we have a decided upgrade certificate, the protocol version may also have been upgraded.
-    let decided_upgrade_certificate_read =
-        task_state.decided_upgrade_certificate.read().await.clone();
+    let decided_upgrade_certificate_read = task_state
+        .versions
+        .decided_upgrade_certificate
+        .read()
+        .await
+        .clone();
     if let Some(cert) = decided_upgrade_certificate_read {
         if new_view_number == cert.data.new_version_first_view {
             error!(

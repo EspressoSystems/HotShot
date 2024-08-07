@@ -4,7 +4,7 @@ use async_broadcast::Sender;
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
 use hotshot::traits::implementations::MemoryNetwork;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::node_types::{version_0_1, MemoryImpl, TestTypes};
 use hotshot_task::task::{ConsensusTaskRegistry, Task};
 use hotshot_task_impls::{
     events::HotShotEvent,
@@ -54,13 +54,14 @@ async fn test_network_task() {
         Topic::Global,
         config.fixed_leader_for_gpuvid,
     );
+    let versions = version_0_1();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_>, _> =
         NetworkEventTaskState {
             channel: network.clone(),
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
-            decided_upgrade_certificate: None,
+            versions: versions.clone(),
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
@@ -78,6 +79,7 @@ async fn test_network_task() {
         out_tx_internal.clone(),
         out_tx_external.clone(),
         network.clone(),
+        versions,
     )
     .await;
 
@@ -128,13 +130,14 @@ async fn test_network_storage_fail() {
         Topic::Global,
         config.fixed_leader_for_gpuvid,
     );
+    let versions = version_0_1();
     let network_state: NetworkEventTaskState<TestTypes, MemoryNetwork<_>, _> =
         NetworkEventTaskState {
             channel: network.clone(),
             view: ViewNumber::new(0),
             membership: membership.clone(),
             filter: network::quorum_filter,
-            decided_upgrade_certificate: None,
+            versions: versions.clone(),
             storage,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
@@ -153,6 +156,7 @@ async fn test_network_storage_fail() {
         out_tx_internal.clone(),
         out_tx_external.clone(),
         network.clone(),
+        versions,
     )
     .await;
 

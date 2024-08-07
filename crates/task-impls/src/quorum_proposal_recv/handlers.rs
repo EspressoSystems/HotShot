@@ -233,7 +233,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.versions.decided_upgrade_certificate),
         Arc::clone(&task_state.quorum_membership),
         event_sender.clone(),
         sender,

@@ -39,13 +39,17 @@ pub(crate) async fn handle_quorum_proposal_validated<
     } = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.versions.decided_upgrade_certificate),
         &task_state.public_key,
     )
     .await;
 
     if let Some(cert) = decided_upgrade_cert.clone() {
-        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        let mut decided_certificate_lock = task_state
+            .versions
+            .decided_upgrade_certificate
+            .write()
+            .await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);
         let _ = sender

@@ -15,7 +15,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
-    message::Proposal,
+    message::{Proposal, Versions},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
@@ -126,8 +126,8 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// an upgrade certificate that has been decided on, if any
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Version information
+    pub versions: Versions<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I> {
@@ -204,7 +204,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
-            Arc::clone(&self.decided_upgrade_certificate),
+            self.versions.clone(),
             self.payload_commitment_and_metadata.clone(),
             self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
@@ -234,7 +234,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         if proposal.view_number() != view {
             return;
         }
-        let upgrade = Arc::clone(&self.decided_upgrade_certificate);
+        let upgrade = self.versions.clone();
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
@@ -483,7 +483,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
                 // If we have a decided upgrade certificate, the protocol version may also have
                 // been upgraded.
-                if let Some(cert) = self.decided_upgrade_certificate.read().await.clone() {
+                if let Some(cert) = self
+                    .versions
+                    .decided_upgrade_certificate
+                    .read()
+                    .await
+                    .clone()
+                {
                     if new_view == cert.data.new_version_first_view {
                         error!(
                             "Version upgraded based on a decided upgrade cert: {:?}",

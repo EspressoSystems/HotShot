@@ -11,15 +11,12 @@ use cdn_proto::util::mnemonic;
 use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use vbs::{
-    version::{StaticVersionType, Version},
-    BinarySerializer, Serializer,
-};
+use vbs::version::Version;
 
 use crate::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
-        version, DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -45,74 +42,6 @@ pub struct Message<TYPES: NodeType> {
     /// The message kind
     pub kind: MessageKind<TYPES>,
 }
-
-/// Trait for messages that have a versioned serialization.
-pub trait VersionedMessage<'a, TYPES>
-where
-    TYPES: NodeType,
-    Self: Serialize + Deserialize<'a> + HasViewNumber<TYPES> + Sized,
-{
-    /// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.
-    ///
-    /// # Errors
-    ///
-    /// Errors if serialization fails.
-    fn serialize(
-        &self,
-        upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
-    ) -> Result<Vec<u8>> {
-        let view = self.view_number();
-
-        let version = version(view, upgrade_certificate)?;
-
-        let serialized_message = match version {
-            // Associated constants cannot be used in pattern matches, so we do this trick instead.
-            v if v == TYPES::Base::VERSION => Serializer::<TYPES::Base>::serialize(&self),
-            v if v == TYPES::Upgrade::VERSION => Serializer::<TYPES::Upgrade>::serialize(&self),
-            _ => {
-                bail!("Attempted to serialize with an incompatible version. This should be impossible.");
-            }
-        };
-
-        serialized_message.context("Failed to serialize message!")
-    }
-
-    /// Deserialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version. This function will fail on improperly versioned messages.
-    ///
-    /// # Errors
-    ///
-    /// Errors if deserialization fails.
-    fn deserialize(
-        message: &'a [u8],
-        upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
-    ) -> Result<Self> {
-        let actual_version = Version::deserialize(message)
-            .context("Failed to read message version!")?
-            .0;
-
-        let deserialized_message: Self = match actual_version {
-            v if v == TYPES::Base::VERSION => Serializer::<TYPES::Base>::deserialize(message),
-            v if v == TYPES::Upgrade::VERSION => Serializer::<TYPES::Upgrade>::deserialize(message),
-            _ => {
-                bail!("Cannot deserialize message!");
-            }
-        }
-        .context("Failed to deserialize message!")?;
-
-        let view = deserialized_message.view_number();
-
-        let expected_version = version(view, upgrade_certificate)?;
-
-        ensure!(
-            actual_version == expected_version,
-            "Message has invalid version number for its view. Expected: {expected_version}, Actual: {actual_version}, View: {view:?}"
-        );
-
-        Ok(deserialized_message)
-    }
-}
-
-impl<'a, TYPES> VersionedMessage<'a, TYPES> for Message<TYPES> where TYPES: NodeType {}
 
 impl<TYPES: NodeType> fmt::Debug for Message<TYPES> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -416,7 +345,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Version information used by HotShot
 pub struct Versions<TYPES: NodeType> {
     /// The version HotShot will be started with
@@ -464,20 +393,70 @@ impl<TYPES: NodeType> Versions<TYPES> {
     /// Errors if serialization fails.
     pub async fn serialize<M: SerializableMessage + HasViewNumber<TYPES>>(
         &self,
-        message: M,
+        message: &M,
     ) -> Result<Vec<u8>> {
         let version = self.version(message.view_number()).await?;
 
         let serialized_message = match version {
             // Associated constants cannot be used in pattern matches, so we do this trick instead.
-            v if v == self.base_version => SerializableMessage::serialize(&message, v),
-            v if v == self.upgrade_version => SerializableMessage::serialize(&message, v),
+            v if v == self.base_version => SerializableMessage::serialize(message, v),
+            v if v == self.upgrade_version => SerializableMessage::serialize(message, v),
             _ => {
                 bail!("Attempted to serialize with an incompatible version. This should be impossible.");
             }
         };
 
         serialized_message.context("Failed to serialize message!")
+    }
+
+    /// Deserialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version. This function will fail on improperly versioned messages.
+    ///
+    /// # Errors
+    ///
+    /// Errors if deserialization fails.
+    pub async fn deserialize<M: SerializableMessage + HasViewNumber<TYPES>>(
+        &self,
+        message: &[u8],
+    ) -> Result<M> {
+        let actual_version = Version::deserialize(message)
+            .context("Failed to read message version!")?
+            .0;
+
+        let deserialized_message: M = match actual_version {
+            v if v == self.base_version => SerializableMessage::deserialize(message, v),
+            v if v == self.upgrade_version => SerializableMessage::deserialize(message, v),
+            _ => {
+                bail!("Cannot deserialize message!");
+            }
+        }
+        .context("Failed to deserialize message!")?;
+
+        let view = deserialized_message.view_number();
+
+        let expected_version = self.version(view).await?;
+
+        ensure!(
+            actual_version == expected_version,
+            "Message has invalid version number for its view. Expected: {expected_version}, Actual: {actual_version}, View: {view:?}"
+        );
+
+        Ok(deserialized_message)
+    }
+
+    /// Given an upgrade certificate and a view, tests whether the view is in the period
+    /// where we are upgrading, which requires that we propose with null blocks.
+    pub async fn upgrading(&self, view: TYPES::Time) -> bool {
+        if let Some(certificate) = self.decided_upgrade_certificate.read().await.as_ref() {
+            view > certificate.data.old_version_last_view
+                && view < certificate.data.new_version_first_view
+        } else {
+            false
+        }
+    }
+
+    /// Check if we have decided on an upgrade certificate
+    pub async fn upgraded(&self) -> bool {
+        self.decided_upgrade_certificate.read().await.is_some()
     }
 }
 
@@ -507,3 +486,5 @@ pub trait SerializableMessage: Serialize + for<'a> Deserialize<'a> {
         Ok(bincode::deserialize(rest)?)
     }
 }
+
+impl<TYPES: NodeType> SerializableMessage for Message<TYPES> {}
