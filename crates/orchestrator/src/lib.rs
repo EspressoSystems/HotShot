@@ -692,7 +692,7 @@ where
             } else {
                 Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
-                    message: "No reachable adddresses".to_string(),
+                    message: "No reachable addresses".to_string(),
                 })
             }
         }

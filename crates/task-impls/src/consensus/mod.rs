@@ -37,7 +37,6 @@ use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
-use vbs::version::Version;
 
 use crate::{
     consensus::handlers::{
@@ -118,12 +117,6 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// last View Sync Certificate or Timeout Certificate this node formed.
     pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-
-    /// most recent decided upgrade certificate
-    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
-
-    /// Globally shared reference to the current network version.
-    pub version: Arc<RwLock<Version>>,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -217,11 +210,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
-            self.decided_upgrade_cert.clone(),
+            Arc::clone(&self.decided_upgrade_certificate),
             self.payload_commitment_and_metadata.clone(),
             self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
-            *self.version.read().await,
             self.id,
         )
         .await?;
@@ -248,7 +240,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         if proposal.view_number() != view {
             return;
         }
-        let upgrade = self.decided_upgrade_cert.clone();
+        let upgrade = Arc::clone(&self.decided_upgrade_certificate);
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
@@ -256,7 +248,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         let quorum_mem = Arc::clone(&self.quorum_membership);
         let da_mem = Arc::clone(&self.da_membership);
         let instance_state = Arc::clone(&self.instance_state);
-        let version = *self.version.read().await;
         let id = self.id;
         let handle = async_spawn(async move {
             update_state_and_vote_if_able::<TYPES, I>(
@@ -268,7 +259,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 quorum_mem,
                 instance_state,
                 (priv_key, upgrade, da_mem, event_stream),
-                version,
                 id,
             )
             .await;
@@ -283,18 +273,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        let version = *self.version.read().await;
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!("proposal recv view: {:?}", proposal.data.view_number());
-                match handle_quorum_proposal_recv(
-                    proposal,
-                    sender,
-                    event_stream.clone(),
-                    self,
-                    version,
-                )
-                .await
+                match handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), self)
+                    .await
                 {
                     Ok(Some(current_proposal)) => {
                         let view = current_proposal.view_number();
@@ -337,7 +320,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         TYPES,
                         QuorumVote<TYPES>,
                         QuorumCertificate<TYPES>,
-                    >(&info, vote.clone(), event, &event_stream)
+                    >(&info, event, &event_stream)
                     .await;
                 } else {
                     let result = collector
@@ -376,7 +359,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         TYPES,
                         TimeoutVote<TYPES>,
                         TimeoutCertificate<TYPES>,
-                    >(&info, vote.clone(), event, &event_stream)
+                    >(&info, event, &event_stream)
                     .await;
                 } else {
                     let result = collector
@@ -504,22 +487,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
                 let old_view_number = self.cur_view;
 
-                // If we have a decided upgrade certificate,
-                // we may need to upgrade the protocol version on a view change.
-                if let Some(ref cert) = self.decided_upgrade_cert {
+                // If we have a decided upgrade certificate, the protocol version may also have
+                // been upgraded.
+                if let Some(cert) = self.decided_upgrade_certificate.read().await.clone() {
                     if new_view == cert.data.new_version_first_view {
-                        warn!(
-                            "Updating version based on a decided upgrade cert: {:?}",
+                        error!(
+                            "Version upgraded based on a decided upgrade cert: {:?}",
                             cert
                         );
-                        let mut version = self.version.write().await;
-                        *version = cert.data.new_version;
-
-                        broadcast_event(
-                            Arc::new(HotShotEvent::VersionUpgrade(cert.data.new_version)),
-                            &event_stream,
-                        )
-                        .await;
                     }
                 }
 
@@ -607,7 +582,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 builder_commitment,
                 metadata,
                 view,
-                fee,
+                fees,
+                auction_result,
             ) => {
                 let view = *view;
                 debug!(
@@ -618,8 +594,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     commitment: *payload_commitment,
                     builder_commitment: builder_commitment.clone(),
                     metadata: metadata.clone(),
-                    fee: fee.clone(),
+                    fees: fees.clone(),
                     block_view: view,
+                    auction_result: auction_result.clone(),
                 });
                 if self.quorum_membership.leader(view) == self.public_key
                     && self.consensus.read().await.high_qc().view_number() + 1 == view

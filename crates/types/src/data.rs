@@ -798,6 +798,7 @@ pub mod null_block {
 
     use jf_vid::VidScheme;
     use memoize::memoize;
+    use vbs::version::StaticVersionType;
 
     use crate::{
         traits::{
@@ -826,7 +827,10 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn builder_fee<TYPES: NodeType>(num_storage_nodes: usize) -> Option<BuilderFee<TYPES>> {
+    pub fn builder_fee<TYPES: NodeType>(
+        num_storage_nodes: usize,
+        version: vbs::version::Version,
+    ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
 
@@ -835,21 +839,33 @@ pub mod null_block {
                 [0_u8; 32], 0,
             );
 
-        let (_null_block, null_block_metadata) =
-            <TYPES::BlockPayload as BlockPayload<TYPES>>::empty();
+        if version >= crate::constants::MarketplaceVersion::version() {
+            match TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(&priv_key, FEE_AMOUNT)
+            {
+                Ok(sig) => Some(BuilderFee {
+                    fee_amount: FEE_AMOUNT,
+                    fee_account: pub_key,
+                    fee_signature: sig,
+                }),
+                Err(_) => None,
+            }
+        } else {
+            let (_null_block, null_block_metadata) =
+                <TYPES::BlockPayload as BlockPayload<TYPES>>::empty();
 
-        match TYPES::BuilderSignatureKey::sign_fee(
-            &priv_key,
-            FEE_AMOUNT,
-            &null_block_metadata,
-            &commitment(num_storage_nodes)?,
-        ) {
-            Ok(sig) => Some(BuilderFee {
-                fee_amount: FEE_AMOUNT,
-                fee_account: pub_key,
-                fee_signature: sig,
-            }),
-            Err(_) => None,
+            match TYPES::BuilderSignatureKey::sign_fee(
+                &priv_key,
+                FEE_AMOUNT,
+                &null_block_metadata,
+                &commitment(num_storage_nodes)?,
+            ) {
+                Ok(sig) => Some(BuilderFee {
+                    fee_amount: FEE_AMOUNT,
+                    fee_account: pub_key,
+                    fee_signature: sig,
+                }),
+                Err(_) => None,
+            }
         }
     }
 }
@@ -866,14 +882,14 @@ pub struct PackedBundle<TYPES: NodeType> {
     /// The view number that this block is associated with.
     pub view_number: TYPES::Time,
 
-    /// The bid fees for submitting the block.
-    pub bid_fees: Vec1<BuilderFee<TYPES>>,
-
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
 
     /// The Vid precompute for the block.
-    pub vid_precompute: VidPrecomputeData,
+    pub vid_precompute: Option<VidPrecomputeData>,
+
+    /// The auction results for the block, if it was produced as the result of an auction
+    pub auction_result: Option<TYPES::AuctionResult>,
 }
 
 impl<TYPES: NodeType> PackedBundle<TYPES> {
@@ -882,17 +898,17 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
         encoded_transactions: Arc<[u8]>,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         view_number: TYPES::Time,
-        bid_fees: Vec1<BuilderFee<TYPES>>,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
-        vid_precompute: VidPrecomputeData,
+        vid_precompute: Option<VidPrecomputeData>,
+        auction_result: Option<TYPES::AuctionResult>,
     ) -> Self {
         Self {
             encoded_transactions,
             metadata,
             view_number,
-            bid_fees,
             sequencing_fees,
             vid_precompute,
+            auction_result,
         }
     }
 }

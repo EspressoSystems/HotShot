@@ -4,8 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-#![cfg(feature = "dependency-tasks")]
-
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -36,7 +34,6 @@ pub(crate) async fn handle_quorum_proposal_validated<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumVoteTaskState<TYPES, I>,
 ) -> Result<()> {
-    let decided_upgrade_certificate_read = task_state.decided_upgrade_certificate.read().await;
     let LeafChainTraversalOutcome {
         new_locked_view_number,
         new_decided_view_number,
@@ -44,17 +41,16 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         leaves_decided,
         included_txns,
-        decided_upgrade_certificate,
+        decided_upgrade_cert,
     } = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        &decided_upgrade_certificate_read,
+        Arc::clone(&task_state.decided_upgrade_certificate),
         &task_state.public_key,
     )
     .await;
-    drop(decided_upgrade_certificate_read);
 
-    if let Some(cert) = decided_upgrade_certificate.clone() {
+    if let Some(cert) = decided_upgrade_cert.clone() {
         let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);

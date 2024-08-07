@@ -5,6 +5,10 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 //! Minimal compatibility over public key signatures
+
+// data is serialized as big-endian for signing purposes
+#![forbid(clippy::little_endian_bytes)]
+
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
@@ -196,7 +200,8 @@ pub trait BuilderSignatureKey:
     /// validate the message with the builder's public key
     fn validate_builder_signature(&self, signature: &Self::BuilderSignature, data: &[u8]) -> bool;
 
-    /// validate signature over fee information with the builder's public key
+    /// validate signature over sequencing fee information
+    /// with the builder's public key
     fn validate_fee_signature<Metadata: EncodeBytes>(
         &self,
         signature: &Self::BuilderSignature,
@@ -208,6 +213,16 @@ pub trait BuilderSignatureKey:
             signature,
             &aggregate_fee_data(fee_amount, metadata, vid_commitment),
         )
+    }
+
+    /// validate signature over sequencing fee information
+    /// with the builder's public key (marketplace version)
+    fn validate_sequencing_fee_signature_marketplace(
+        &self,
+        signature: &Self::BuilderSignature,
+        fee_amount: u64,
+    ) -> bool {
+        self.validate_builder_signature(signature, &fee_amount.to_be_bytes())
     }
 
     /// validate signature over block information with the builder's public key
@@ -232,7 +247,7 @@ pub trait BuilderSignatureKey:
         data: &[u8],
     ) -> Result<Self::BuilderSignature, Self::SignError>;
 
-    /// sign fee offer for proposed payload
+    /// sign sequencing fee offer for proposed payload
     /// # Errors
     /// If unable to sign the data with the key
     fn sign_fee<Metadata: EncodeBytes>(
@@ -245,6 +260,17 @@ pub trait BuilderSignatureKey:
             private_key,
             &aggregate_fee_data(fee_amount, metadata, vid_commitment),
         )
+    }
+
+    /// sign fee offer for proposed payload (marketplace version)
+    /// # Errors
+    /// If unable to sign the data with the key
+    // TODO: this should include view number
+    fn sign_sequencing_fee_marketplace(
+        private_key: &Self::BuilderPrivateKey,
+        fee_amount: u64,
+    ) -> Result<Self::BuilderSignature, Self::SignError> {
+        Self::sign_builder_message(private_key, &fee_amount.to_be_bytes())
     }
 
     /// sign information about offered block

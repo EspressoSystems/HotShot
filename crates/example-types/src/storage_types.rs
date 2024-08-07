@@ -16,8 +16,10 @@ use hotshot_types::{
     consensus::CommitmentMap,
     data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare},
     message::Proposal,
+    simple_certificate::QuorumCertificate,
     traits::{node_implementation::NodeType, storage::Storage},
     utils::View,
+    vote::HasViewNumber,
 };
 
 type VidShares<TYPES> = HashMap<
@@ -29,7 +31,8 @@ type VidShares<TYPES> = HashMap<
 pub struct TestStorageState<TYPES: NodeType> {
     vids: VidShares<TYPES>,
     das: HashMap<TYPES::Time, Proposal<TYPES, DaProposal<TYPES>>>,
-    proposals: HashMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
+    proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
+    high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
 }
 
 impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
@@ -37,7 +40,8 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
         Self {
             vids: HashMap::new(),
             das: HashMap::new(),
-            proposals: HashMap::new(),
+            proposals: BTreeMap::new(),
+            high_qc: None,
         }
     }
 }
@@ -55,6 +59,17 @@ impl<TYPES: NodeType> Default for TestStorage<TYPES> {
             inner: Arc::new(RwLock::new(TestStorageState::default())),
             should_return_err: false,
         }
+    }
+}
+
+impl<TYPES: NodeType> TestStorage<TYPES> {
+    pub async fn proposals_cloned(
+        &self,
+    ) -> BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>> {
+        self.inner.read().await.proposals.clone()
+    }
+    pub async fn high_qc_cloned(&self) -> Option<QuorumCertificate<TYPES>> {
+        self.inner.read().await.high_qc.clone()
     }
 }
 
@@ -110,10 +125,18 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
 
     async fn update_high_qc(
         &self,
-        _high_qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
+        new_high_qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
     ) -> Result<()> {
         if self.should_return_err {
             bail!("Failed to update high qc to storage");
+        }
+        let mut inner = self.inner.write().await;
+        if let Some(ref current_high_qc) = inner.high_qc {
+            if new_high_qc.view_number() > current_high_qc.view_number() {
+                inner.high_qc = Some(new_high_qc);
+            }
+        } else {
+            inner.high_qc = Some(new_high_qc);
         }
         Ok(())
     }

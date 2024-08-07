@@ -90,6 +90,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             stop_proposing_time: handle.hotshot.config.stop_proposing_time,
             start_voting_time: handle.hotshot.config.start_voting_time,
             stop_voting_time: handle.hotshot.config.stop_voting_time,
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         };
 
         #[cfg(feature = "example-upgrade")]
@@ -110,6 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             stop_proposing_time: u64::MAX,
             start_voting_time: 0,
             stop_voting_time: u64::MAX,
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         };
     }
 }
@@ -207,7 +209,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
                 .cloned()
                 .map(BuilderClient::new)
                 .collect(),
-            decided_upgrade_certificate: None,
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            auction_results_provider: Arc::clone(
+                &handle.hotshot.marketplace_config.auction_results_provider,
+            ),
+            generic_builder_url: handle
+                .hotshot
+                .marketplace_config
+                .generic_builder_url
+                .clone(),
         }
     }
 }
@@ -235,8 +245,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             spawned_tasks: BTreeMap::new(),
             formed_upgrade_certificate: None,
             proposal_cert: None,
-            decided_upgrade_cert: None,
-            version: Arc::clone(&handle.hotshot.version),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             current_proposal: None,
             id: handle.hotshot.id,
@@ -273,7 +281,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
-            version: Arc::clone(&handle.hotshot.version),
             decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
@@ -306,7 +313,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             timeout_task,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
-            version: Arc::clone(&handle.hotshot.version),
             formed_upgrade_certificate: None,
             decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
@@ -342,7 +348,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            version: Arc::clone(&handle.hotshot.version),
             decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }
@@ -376,7 +381,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: OuterConsensus::new(consensus),
             last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
-            version: Arc::clone(&handle.hotshot.version),
             decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
         }
     }

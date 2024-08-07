@@ -187,7 +187,7 @@ jobs:
           - async-std
           - tokio
       fail-fast: false
-    runs-on: [self-hosted, arm64]
+    runs-on: buildjet-4vcpu-ubuntu-2204-arm
     if: ${{ github.ref == 'refs/heads/main' }}
     container: ghcr.io/espressosystems/devops-rust:stable
     steps:

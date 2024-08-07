@@ -7,29 +7,20 @@
 #![cfg(feature = "dependency-tasks")]
 
 use std::time::Duration;
+
 use futures::StreamExt;
-use hotshot::tasks::task_state::CreateTaskState;
-use hotshot::traits::ValidatedState;
-use hotshot_example_types::state_types::TestValidatedState;
+use hotshot::{tasks::task_state::CreateTaskState, traits::ValidatedState};
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes},
-
+    state_types::TestValidatedState,
 };
 use hotshot_macros::{run_test, test_scripts};
-use hotshot_task_impls::{
-    events::HotShotEvent::*,
-    quorum_proposal::QuorumProposalTaskState,
-};
+use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
     all_predicates,
-    helpers::{
-        build_fake_view_with_leaf, build_system_handle,
-        build_payload_commitment
-    },
-    predicates::{
-        event::{all_predicates, exact, quorum_proposal_send},
-    },
+    helpers::{build_fake_view_with_leaf, build_payload_commitment, build_system_handle},
+    predicates::event::{all_predicates, exact, quorum_proposal_send},
     random,
     script::{Expectations, InputOrder, TaskScript},
     serial,
@@ -38,14 +29,12 @@ use hotshot_testing::{
 use hotshot_types::{
     data::{null_block, Leaf, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, ViewSyncFinalizeData},
-    traits::{
-        election::Membership,
-        node_implementation::{ConsensusTime},
-    },
+    traits::{election::Membership, node_implementation::ConsensusTime},
     utils::BuilderCommitment,
     vote::HasViewNumber,
 };
 use sha2::Digest;
+use vec1::vec1;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
@@ -54,12 +43,16 @@ const TIMEOUT: Duration = Duration::from_millis(35);
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     use hotshot_testing::script::{Expectations, TaskScript};
+    use hotshot_types::constants::BaseVersion;
+    use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let node_id = 1;
-    let handle = build_system_handle(node_id).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -90,10 +83,15 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     // We must send the genesis cert here to initialize hotshot successfully.
     let genesis_cert = proposals[0].data.justify_qc.clone();
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+    let builder_fee =
+        null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version()).unwrap();
     drop(consensus_writer);
 
     let inputs = vec![
-        serial![VidDisperseSend(vid_dispersals[0].clone(), handle.public_key())],
+        serial![VidDisperseSend(
+            vid_dispersals[0].clone(),
+            handle.public_key()
+        )],
         random![
             QcFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
@@ -101,7 +99,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
@@ -117,7 +116,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
             exact(HighQcUpdated(genesis_cert.clone())),
             quorum_proposal_send(),
         ]),
-
     ];
 
     let quorum_proposal_task_state =
@@ -135,11 +133,16 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
+    use hotshot_types::constants::BaseVersion;
+    use vbs::version::StaticVersionType;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let node_id = 3;
-    let handle = build_system_handle(node_id).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -168,7 +171,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
                 build_fake_view_with_leaf(view.leaf.clone()),
-            ).unwrap();
+            )
+            .unwrap();
     }
 
     // We need to handle the views where we aren't the leader to ensure that the states are
@@ -183,6 +187,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     drop(consensus_writer);
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+    let builder_fee =
+        null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version()).unwrap();
 
     let inputs = vec![
         random![
@@ -192,7 +198,8 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -201,14 +208,15 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalPreliminarilyValidated(proposals[0].clone()),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -217,14 +225,15 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalPreliminarilyValidated(proposals[1].clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -233,14 +242,15 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[2].clone(), leaders[2]),
+            QuorumProposalPreliminarilyValidated(proposals[2].clone()),
             QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(4)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -249,14 +259,15 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[3].clone(), leaders[3]),
+            QuorumProposalPreliminarilyValidated(proposals[3].clone()),
             QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(5)),
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -306,11 +317,16 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_qc_timeout() {
+    use hotshot_types::constants::BaseVersion;
+    use vbs::version::StaticVersionType;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let node_id = 3;
-    let handle = build_system_handle(node_id).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -356,7 +372,11 @@ async fn test_quorum_proposal_task_qc_timeout() {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(3),
-            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            vec1![
+                null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version())
+                    .unwrap()
+            ],
+            None,
         ),
         VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
         ValidatedStateUpdated(
@@ -383,13 +403,16 @@ async fn test_quorum_proposal_task_qc_timeout() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_view_sync() {
     use hotshot_example_types::block_types::TestMetadata;
-    use hotshot_types::data::null_block;
+    use hotshot_types::{constants::BaseVersion, data::null_block};
+    use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let node_id = 2;
-    let handle = build_system_handle(node_id).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -437,7 +460,11 @@ async fn test_quorum_proposal_task_view_sync() {
             builder_commitment,
             TestMetadata,
             ViewNumber::new(2),
-            null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+            vec1![
+                null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version())
+                    .unwrap()
+            ],
+            None,
         ),
         VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
         ValidatedStateUpdated(
@@ -463,11 +490,16 @@ async fn test_quorum_proposal_task_view_sync() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_quorum_proposal_task_liveness_check() {
+    use hotshot_types::constants::BaseVersion;
+    use vbs::version::StaticVersionType;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
     let node_id = 3;
-    let handle = build_system_handle(node_id).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -495,11 +527,14 @@ async fn test_quorum_proposal_task_liveness_check() {
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
                 build_fake_view_with_leaf(view.leaf.clone()),
-            ).unwrap();
+            )
+            .unwrap();
     }
     drop(consensus_writer);
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+    let builder_fee =
+        null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version()).unwrap();
 
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
@@ -518,7 +553,8 @@ async fn test_quorum_proposal_task_liveness_check() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -527,14 +563,15 @@ async fn test_quorum_proposal_task_liveness_check() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalPreliminarilyValidated(proposals[0].clone()),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -543,14 +580,15 @@ async fn test_quorum_proposal_task_liveness_check() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalPreliminarilyValidated(proposals[1].clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -558,16 +596,16 @@ async fn test_quorum_proposal_task_liveness_check() {
                 build_fake_view_with_leaf(leaves[1].clone()),
             ),
         ],
-
         random![
-            QuorumProposalRecv(proposals[2].clone(), leaders[2]),
+            QuorumProposalPreliminarilyValidated(proposals[2].clone()),
             QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(4)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -576,14 +614,15 @@ async fn test_quorum_proposal_task_liveness_check() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[3].clone(), leaders[3]),
+            QuorumProposalPreliminarilyValidated(proposals[3].clone()),
             QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(5)),
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(5),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -635,7 +674,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -653,7 +692,10 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     // We run the task here at view 2, but this time we ignore the crucial piece of evidence: the
     // payload commitment and metadata. Instead we send only one of the three "OR" required fields.
     // This should result in the proposal failing to be sent.
-    let inputs = vec![serial![QuorumProposalRecv(proposals[1].clone(), leaders[1])]];
+    let inputs = vec![serial![QuorumProposalRecv(
+        proposals[1].clone(),
+        leaders[1]
+    )]];
 
     let expectations = vec![Expectations::from_outputs(vec![])];
 
@@ -667,4 +709,3 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     };
     run_test![inputs, script].await;
 }
-

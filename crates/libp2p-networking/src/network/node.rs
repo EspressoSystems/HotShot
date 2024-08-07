@@ -46,11 +46,12 @@ use libp2p::{
 use libp2p_identity::PeerId;
 use rand::{prelude::SliceRandom, thread_rng};
 use snafu::ResultExt;
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 pub use self::{
     config::{
         MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+        DEFAULT_REPLICATION_FACTOR,
     },
     handle::{
         network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
@@ -130,7 +131,7 @@ impl NetworkNode {
                 break address;
             }
         };
-        info!("peerid {:?} started on addr: {:?}", self.peer_id, addr);
+        info!("Libp2p listening on {:?}", addr);
         Ok(addr)
     }
 
@@ -140,7 +141,7 @@ impl NetworkNode {
     /// will start connecting to peers
     #[instrument(skip(self))]
     pub fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
-        info!("Adding nodes {:?} to {:?}", known_peers, self.peer_id);
+        debug!("Adding {} known peers", known_peers.len());
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         let mut shuffled = known_peers.iter().collect::<Vec<_>>();
@@ -173,7 +174,7 @@ impl NetworkNode {
         let peer_id = PeerId::from(identity.public());
         debug!(?peer_id);
         let transport: BoxedTransport = gen_transport(identity.clone()).await?;
-        trace!("Launched network transport");
+        debug!("Launched network transport");
         // Generate the swarm
         let mut swarm: Swarm<NetworkDef> = {
             // Use the hash of the message's contents as the ID
@@ -213,16 +214,15 @@ impl NetworkNode {
 
             // Create a custom gossipsub
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .opportunistic_graft_ticks(3)
                 .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
-                .history_gossip(50)
+                .history_gossip(10)
                 .mesh_n_high(params.mesh_n_high)
                 .mesh_n_low(params.mesh_n_low)
                 .mesh_outbound_min(params.mesh_outbound_min)
                 .mesh_n(params.mesh_n)
-                .history_length(500)
+                .history_length(10)
                 .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
@@ -357,11 +357,17 @@ impl NetworkNode {
     /// Once replicated upon all nodes, the caller is notified over
     /// `chan`. If there is an error, a [`super::error::DHTError`] is
     /// sent instead.
+    ///
+    /// # Panics
+    /// If the default replication factor is `None`
     pub fn put_record(&mut self, mut query: KadPutQuery) {
         let record = Record::new(query.key.clone(), query.value.clone());
         match self.swarm.behaviour_mut().dht.put_record(
             record,
-            libp2p::kad::Quorum::N(self.dht_handler.replication_factor()),
+            libp2p::kad::Quorum::N(
+                NonZeroUsize::try_from(self.dht_handler.replication_factor().get() / 2)
+                    .expect("replication factor should be bigger than 0"),
+            ),
         ) {
             Err(e) => {
                 // failed try again later
@@ -370,7 +376,7 @@ impl NetworkNode {
                 error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
             }
             Ok(qid) => {
-                info!("Success publishing {:?} to DHT", qid);
+                debug!("Published record to DHT with qid {:?}", qid);
                 let query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query
@@ -398,7 +404,7 @@ impl NetworkNode {
             Ok(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
-                        debug!("begin bootstrap");
+                        debug!("Beginning Libp2p bootstrap");
                         let _ = self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
@@ -482,7 +488,7 @@ impl NetworkNode {
                         contents,
                         retry_count,
                     } => {
-                        info!("pid {:?} adding direct request", self.peer_id);
+                        debug!("Sending direct request to {:?}", pid);
                         let id = behaviour.add_direct_request(pid, contents.clone());
                         let req = DMRequest {
                             peer_id: pid,
@@ -509,7 +515,7 @@ impl NetworkNode {
                             .send_response(chan, response)
                             .is_err()
                         {
-                            info!("Data Response dropped because response peer disconnected");
+                            debug!("Data response dropped because client is no longer connected");
                         }
                     }
                     ClientRequest::AddKnownPeers(peers) => {
@@ -517,10 +523,7 @@ impl NetworkNode {
                     }
                     ClientRequest::Prune(pid) => {
                         if self.swarm.disconnect_peer_id(pid).is_err() {
-                            error!(
-                                "Peer {:?} could not disconnect from pid {:?}",
-                                self.peer_id, pid
-                            );
+                            warn!("Could not disconnect from {:?}", pid);
                         }
                     }
                 }
@@ -541,7 +544,7 @@ impl NetworkNode {
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
-        info!("event observed {:?}", event);
+        debug!("Swarm event observed {:?}", event);
 
         #[allow(deprecated)]
         match event {
@@ -559,7 +562,10 @@ impl NetworkNode {
                         ESTABLISHED_LIMIT, num_established
                     );
                 } else {
-                    info!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
+                    debug!(
+                        "Connection established with {:?} at {:?} with {:?} concurrent dial errors",
+                        peer_id, endpoint, concurrent_dial_errors
+                    );
                 }
 
                 // Send the number of connected peers to the client
@@ -581,7 +587,10 @@ impl NetworkNode {
                         ESTABLISHED_LIMIT, num_established
                     );
                 } else {
-                    info!("peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}", self.peer_id, peer_id, endpoint, num_established, cause);
+                    debug!(
+                        "Connection closed with {:?} at {:?} due to {:?}",
+                        peer_id, endpoint, cause
+                    );
                 }
 
                 // Send the number of connected peers to the client
@@ -594,7 +603,7 @@ impl NetworkNode {
                 peer_id,
                 connection_id: _,
             } => {
-                info!("{:?} is dialing {:?}", self.peer_id, peer_id);
+                debug!("Attempting to dial {:?}", peer_id);
             }
             SwarmEvent::ListenerClosed {
                 listener_id: _,
@@ -632,19 +641,12 @@ impl NetworkNode {
                                     public_key: _,
                                     protocol_version: _,
                                     agent_version: _,
-                                    observed_addr,
+                                    observed_addr: _,
                                 },
                         } = *e
                         {
                             let behaviour = self.swarm.behaviour_mut();
-                            // NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
-                            // NOTE I manually checked and peer_id corresponds to listen_addrs.
-                            // NOTE Once we've tested on DNS addresses, this should be swapped out to play nicely
-                            // with autonat
-                            info!(
-                                "local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} ",
-                                self.dht_handler.peer_id , peer_id, listen_addrs, observed_addr
-                                );
+
                             // into hashset to delete duplicates (I checked: there are duplicates)
                             for addr in listen_addrs.iter().collect::<HashSet<_>>() {
                                 behaviour.dht.add_address(&peer_id, addr.clone());
@@ -659,15 +661,15 @@ impl NetworkNode {
                             message,
                         } => Some(NetworkEvent::GossipMsg(message.data)),
                         GossipEvent::Subscribed { peer_id, topic } => {
-                            info!("Peer: {:?}, Subscribed to topic: {:?}", peer_id, topic);
+                            debug!("Peer {:?} subscribed to topic {:?}", peer_id, topic);
                             None
                         }
                         GossipEvent::Unsubscribed { peer_id, topic } => {
-                            info!("Peer: {:?}, Unsubscribed from topic: {:?}", peer_id, topic);
+                            debug!("Peer {:?} unsubscribed from topic {:?}", peer_id, topic);
                             None
                         }
                         GossipEvent::GossipsubNotSupported { peer_id } => {
-                            info!("Peer: {:?}, Does not support Gossip", peer_id);
+                            warn!("Peer {:?} does not support gossipsub", peer_id);
                             None
                         }
                     },
@@ -689,13 +691,13 @@ impl NetworkNode {
                                     error,
                                 } => {
                                     warn!(
-                                        "Autonat Probe failed to peer {:?}, with error: {:?}",
+                                        "AutoNAT Probe failed to peer {:?} with error: {:?}",
                                         peer, error
                                     );
                                 }
                             },
                             autonat::Event::StatusChanged { old, new } => {
-                                info!("autonat Status changed. Old: {:?}, New: {:?}", old, new);
+                                debug!("AutoNAT Status changed. Old: {:?}, New: {:?}", old, new);
                             }
                         };
                         None
@@ -712,24 +714,24 @@ impl NetworkNode {
             }
             SwarmEvent::OutgoingConnectionError {
                 connection_id: _,
-                peer_id: _,
+                peer_id,
                 error,
             } => {
-                info!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
+                warn!("Outgoing connection error to {:?}: {:?}", peer_id, error);
             }
             SwarmEvent::IncomingConnectionError {
                 connection_id: _,
-                local_addr,
-                send_back_addr,
+                local_addr: _,
+                send_back_addr: _,
                 error,
             } => {
-                info!(
-                    "INCOMING CONNECTION ERROR: {:?} {:?} {:?}",
-                    local_addr, send_back_addr, error
-                );
+                warn!("Incoming connection error: {:?}", error);
             }
-            SwarmEvent::ListenerError { listener_id, error } => {
-                info!("LISTENER ERROR {:?} {:?}", listener_id, error);
+            SwarmEvent::ListenerError {
+                listener_id: _,
+                error,
+            } => {
+                warn!("Listener error: {:?}", error);
             }
             SwarmEvent::ExternalAddrConfirmed { address } => {
                 let my_id = *self.swarm.local_peer_id();
@@ -739,10 +741,7 @@ impl NetworkNode {
                     .add_address(&my_id, address.clone());
             }
             _ => {
-                error!(
-                    "Unhandled swarm event {:?}. This should not be possible.",
-                    event
-                );
+                debug!("Unhandled swarm event {:?}", event);
             }
         }
         Ok(())
@@ -775,7 +774,7 @@ impl NetworkNode {
                         event = self.swarm.next() => {
                             debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
-                                info!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },

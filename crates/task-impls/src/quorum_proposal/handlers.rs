@@ -7,8 +7,6 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-#![cfg(feature = "dependency-tasks")]
-
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Context, Result};
@@ -22,15 +20,16 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
+    constants::MarketplaceVersion,
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{version, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
 use tracing::{debug, error, instrument};
-use vbs::version::Version;
+use vbs::version::StaticVersionType;
 
 use crate::{
     events::HotShotEvent,
@@ -91,9 +90,6 @@ pub struct ProposalDependencyHandle<TYPES: NodeType> {
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
 
-    /// Globally shared reference to the current network version.
-    pub version: Arc<RwLock<Version>>,
-
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -124,6 +120,7 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
             self.view_number,
+            &self.sender,
             Arc::clone(&self.quorum_membership),
             self.public_key.clone(),
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
@@ -168,26 +165,47 @@ impl<TYPES: NodeType> ProposalDependencyHandle<TYPES> {
             "Cannot propose because our VID payload commitment and metadata is for an older view."
         );
 
-        let block_header = TYPES::BlockHeader::new(
-            state.as_ref(),
-            self.instance_state.as_ref(),
-            &parent_leaf,
-            commitment_and_metadata.commitment,
-            commitment_and_metadata.builder_commitment,
-            commitment_and_metadata.metadata,
-            commitment_and_metadata.fee,
-            vid_share.data.common.clone(),
-            *self.version.read().await,
-        )
-        .await
-        .context("Failed to construct block header")?;
+        let version = version(
+            self.view_number,
+            &self.decided_upgrade_certificate.read().await.clone(),
+        )?;
+
+        let block_header = if version < MarketplaceVersion::VERSION {
+            TYPES::BlockHeader::new_legacy(
+                state.as_ref(),
+                self.instance_state.as_ref(),
+                &parent_leaf,
+                commitment_and_metadata.commitment,
+                commitment_and_metadata.builder_commitment,
+                commitment_and_metadata.metadata,
+                commitment_and_metadata.fees.first().clone(),
+                vid_share.data.common.clone(),
+                version,
+            )
+            .await
+            .context("Failed to construct legacy block header")?
+        } else {
+            TYPES::BlockHeader::new_marketplace(
+                state.as_ref(),
+                self.instance_state.as_ref(),
+                &parent_leaf,
+                commitment_and_metadata.commitment,
+                commitment_and_metadata.metadata,
+                commitment_and_metadata.fees.to_vec(),
+                vid_share.data.common.clone(),
+                commitment_and_metadata.auction_result,
+                version,
+            )
+            .await
+            .context("Failed to construct marketplace block header")?
+        };
 
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
             justify_qc: self.consensus.read().await.high_qc().clone(),
-            proposal_certificate,
             upgrade_certificate,
+            proposal_certificate,
         };
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
@@ -241,11 +259,11 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             .contains_key(&high_qc_view_number)
         {
             // The proposal for the high qc view is missing, try to get it asynchronously
-            let memberhsip = Arc::clone(&self.quorum_membership);
+            let membership = Arc::clone(&self.quorum_membership);
             let sender = self.sender.clone();
             let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
             async_spawn(async move {
-                fetch_proposal(high_qc_view_number, sender, memberhsip, consensus).await
+                fetch_proposal(high_qc_view_number, sender, membership, consensus).await
             });
             // Block on receiving the event from the event stream.
             EventDependency::new(
@@ -274,14 +292,16 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
                     builder_commitment,
                     metadata,
                     view,
-                    fee,
+                    fees,
+                    auction_result,
                 ) => {
                     commit_and_metadata = Some(CommitmentAndMetadata {
                         commitment: *payload_commitment,
                         builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
-                        fee: fee.clone(),
+                        fees: fees.clone(),
                         block_view: *view,
+                        auction_result: auction_result.clone(),
                     });
                 }
                 HotShotEvent::QcFormed(cert) => match cert {

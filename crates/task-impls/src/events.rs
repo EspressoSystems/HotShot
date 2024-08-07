@@ -28,7 +28,7 @@ use hotshot_types::{
     vid::VidCommitment,
     vote::{HasViewNumber, VoteDependencyData},
 };
-use vbs::version::Version;
+use vec1::Vec1;
 
 use crate::view_sync::ViewSyncPhase;
 
@@ -60,7 +60,7 @@ impl<TYPES: NodeType> Eq for ProposalMissing<TYPES> {}
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct HotShotTaskCompleted;
 
-/// All of the possible events that can be passed between Sequecning `HotShot` tasks
+/// All of the possible events that can be passed between Sequencing `HotShot` tasks
 #[derive(Eq, PartialEq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum HotShotEvent<TYPES: NodeType> {
@@ -70,7 +70,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalRecv(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// A quorum vote has been received from the network; handled by the consensus task
     QuorumVoteRecv(QuorumVote<TYPES>),
-    /// A timeout vote recevied from the network; handled by consensus task
+    /// A timeout vote received from the network; handled by consensus task
     TimeoutVoteRecv(TimeoutVote<TYPES>),
     /// Send a timeout vote to the network; emitted by consensus task replicas
     TimeoutVoteSend(TimeoutVote<TYPES>),
@@ -80,7 +80,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     DaProposalValidated(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
     /// A DA vote has been received by the network; handled by the DA task
     DaVoteRecv(DaVote<TYPES>),
-    /// A Data Availability Certificate (DAC) has been recieved by the network; handled by the consensus task
+    /// A Data Availability Certificate (DAC) has been received by the network; handled by the consensus task
     DaCertificateRecv(DaCertificate<TYPES>),
     /// A DAC is validated.
     DaCertificateValidated(DaCertificate<TYPES>),
@@ -91,8 +91,13 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// All dependencies for the quorum vote are validated.
     QuorumVoteDependenciesValidated(TYPES::Time),
     /// A quorum proposal with the given parent leaf is validated.
+    /// The full validation checks include:
+    /// 1. The proposal is not for an old view
+    /// 2. The proposal has been correctly signed by the leader of the current view
+    /// 3. The justify QC is valid
+    /// 4. The proposal passes either liveness or safety check.
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
-    /// A quorum proposal is missing for a view that we meed
+    /// A quorum proposal is missing for a view that we need
     QuorumProposalRequest(ProposalMissing<TYPES>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
@@ -149,7 +154,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
         BuilderCommitment,
         <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         TYPES::Time,
-        BuilderFee<TYPES>,
+        Vec1<BuilderFee<TYPES>>,
+        Option<TYPES::AuctionResult>,
     ),
     /// Event when the transactions task has sequenced transactions. Contains the encoded transactions, the metadata, and the view number
     BlockRecv(PackedBundle<TYPES>),
@@ -179,8 +185,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
     /// A HotShot upgrade was decided
     UpgradeDecided(UpgradeCertificate<TYPES>),
-    /// HotShot was upgraded, with a new network version.
-    VersionUpgrade(Version),
 
     /// Initiate a vote right now for the designated view.
     VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
@@ -200,6 +204,13 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// A new high_qc has been updated in `Consensus`.
     HighQcUpdated(QuorumCertificate<TYPES>),
+
+    /// A quorum proposal has been preliminarily validated.
+    /// The preliminary checks include:
+    /// 1. The proposal is not for an old view
+    /// 2. The proposal has been correctly signed by the leader of the current view
+    /// 3. The justify QC is valid
+    QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
@@ -360,7 +371,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::Timeout(view_number) => write!(f, "Timeout(view_number={view_number:?})"),
             HotShotEvent::TransactionsRecv(_) => write!(f, "TransactionsRecv"),
             HotShotEvent::TransactionSend(_, _) => write!(f, "TransactionSend"),
-            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _) => {
+            HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _, _) => {
                 write!(
                     f,
                     "SendPayloadCommitmentAndMetadata(view_number={view_number:?})"
@@ -413,7 +424,6 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 "UpgradeCertificateFormed(view_number={:?})",
                 cert.view_number()
             ),
-            HotShotEvent::VersionUpgrade(_) => write!(f, "VersionUpgrade"),
             HotShotEvent::UpgradeDecided(cert) => {
                 write!(f, "UpgradeDecided(view_number{:?})", cert.view_number())
             }
@@ -437,6 +447,13 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             }
             HotShotEvent::HighQcUpdated(cert) => {
                 write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
+            }
+            HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
+                write!(
+                    f,
+                    "QuorumProposalPreliminarilyValidated(view_number={:?}",
+                    proposal.data.view_number()
+                )
             }
         }
     }

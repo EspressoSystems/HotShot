@@ -89,13 +89,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         self.output_event_stream.1.activate_cloned()
     }
 
+    /// HACK so we can create dependency tasks when running tests
+    #[must_use]
+    pub fn internal_event_stream_sender(&self) -> Sender<Arc<HotShotEvent<TYPES>>> {
+        self.internal_event_stream.0.clone()
+    }
+
     /// HACK so we can know the types when running tests...
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
     /// NOTE: this is only used for sanity checks in our tests
     #[must_use]
-    pub fn internal_event_stream_known_impl(&self) -> Receiver<Arc<HotShotEvent<TYPES>>> {
+    pub fn internal_event_stream_receiver_known_impl(&self) -> Receiver<Arc<HotShotEvent<TYPES>>> {
         self.internal_event_stream.1.activate_cloned()
     }
 
@@ -201,6 +207,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
     #[must_use]
     pub fn public_key(&self) -> TYPES::SignatureKey {
         self.hotshot.public_key.clone()
+    }
+
+    /// Get the sender side of the external event stream for testing purpose
+    #[cfg(feature = "hotshot-testing")]
+    #[must_use]
+    pub fn external_channel_sender(&self) -> Sender<Event<TYPES>> {
+        self.output_event_stream.0.clone()
+    }
+
+    /// Get the sender side of the internal event stream for testing purpose
+    #[cfg(feature = "hotshot-testing")]
+    #[must_use]
+    pub fn internal_channel_sender(&self) -> Sender<Arc<HotShotEvent<TYPES>>> {
+        self.internal_event_stream.0.clone()
     }
 
     /// Wrapper to get the view number this node is on.

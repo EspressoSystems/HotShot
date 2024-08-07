@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 #![cfg(not(feature = "dependency-tasks"))]
-
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
@@ -23,12 +22,12 @@ use hotshot_task_impls::{consensus::ConsensusTaskState, events::HotShotEvent::*}
 use hotshot_testing::{
     all_predicates,
     helpers::{
-        build_system_handle, key_pair_for_id, permute_input_with_index_order,
-        vid_scheme_from_view_number, vid_share, build_fake_view_with_leaf
+        build_fake_view_with_leaf, build_system_handle, key_pair_for_id,
+        permute_input_with_index_order, vid_scheme_from_view_number, vid_share,
     },
     predicates::event::{
         all_predicates, exact, quorum_proposal_send, quorum_proposal_validated, quorum_vote_send,
-        timeout_vote_send, validated_state_updated
+        timeout_vote_send, validated_state_updated,
     },
     random,
     script::{Expectations, InputOrder, TaskScript},
@@ -44,6 +43,7 @@ use hotshot_types::{
 };
 use jf_vid::VidScheme;
 use sha2::Digest;
+use vec1::vec1;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
@@ -51,10 +51,13 @@ const TIMEOUT: Duration = Duration::from_millis(35);
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
+    use hotshot_types::constants::BaseVersion;
+    use vbs::version::StaticVersionType;
+
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -101,7 +104,12 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![null_block::builder_fee(
+                    quorum_membership.total_nodes(),
+                    BaseVersion::version()
+                )
+                .unwrap()],
+                None,
             ),
         ],
     ];
@@ -138,7 +146,7 @@ async fn test_consensus_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -190,12 +198,13 @@ async fn test_consensus_vote() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
     use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
-    use hotshot_types::data::null_block;
+    use hotshot_types::{constants::BaseVersion, data::null_block};
+    use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(4).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(4).await.0;
     let (priv_key, pub_key) = key_pair_for_id(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
@@ -287,7 +296,8 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                null_block::builder_fee(4).unwrap(),
+                vec1![null_block::builder_fee(4, BaseVersion::version()).unwrap()],
+                None,
             ),
         ],
     ];
@@ -329,7 +339,7 @@ async fn test_view_sync_finalize_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -424,7 +434,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -524,7 +534,7 @@ async fn test_vid_disperse_storage_failure() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;

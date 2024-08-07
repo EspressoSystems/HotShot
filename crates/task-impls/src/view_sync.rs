@@ -299,8 +299,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                     view: vote_view,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, vote.clone(), event, &event_stream).await;
+                let vote_collector = create_vote_accumulator(&info, event, &event_stream).await;
                 if let Some(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -337,8 +336,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                     view: vote_view,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, vote.clone(), event, &event_stream).await;
+                let vote_collector = create_vote_accumulator(&info, event, &event_stream).await;
                 if let Some(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -375,8 +373,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                     view: vote_view,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, vote.clone(), event, &event_stream).await;
+                let vote_collector = create_vote_accumulator(&info, event, &event_stream).await;
                 if let Some(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -430,7 +427,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> 
                 let leader = self.membership.leader(view_number);
                 error!(
                     %leader,
-                    leader_mnemonic = cdn_proto::mnemonic(&leader),
+                    leader_mnemonic = cdn_proto::util::mnemonic(&leader),
                     view_number = *view_number,
                     num_timeouts_tracked = self.num_timeouts_tracked,
                     "view timed out",
@@ -605,12 +602,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     "View sync protocol has received view sync evidence to update the view to {}",
                     *self.next_view
                 );
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view - 1)),
-                    &event_stream,
-                )
-                .await;
 
                 broadcast_event(
                     Arc::new(HotShotEvent::ViewChange(self.next_view)),

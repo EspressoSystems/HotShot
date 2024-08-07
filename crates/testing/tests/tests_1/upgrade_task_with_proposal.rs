@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 #![cfg(feature = "dependency-tasks")]
-
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
 
@@ -16,30 +15,33 @@ use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
-    state_types::TestInstanceState,
+    state_types::{TestInstanceState, TestValidatedState},
 };
-use sha2::Digest;
-use hotshot_macros::{test_scripts, run_test};
+use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{
-    quorum_proposal::QuorumProposalTaskState,
-    consensus2::Consensus2TaskState, events::HotShotEvent::*, upgrade::UpgradeTaskState
+    consensus2::Consensus2TaskState, events::HotShotEvent::*,
+    quorum_proposal::QuorumProposalTaskState, upgrade::UpgradeTaskState,
 };
 use hotshot_testing::{
-    helpers::{build_fake_view_with_leaf, vid_share,build_payload_commitment},
+    all_predicates,
+    helpers::{build_fake_view_with_leaf, build_payload_commitment, vid_share},
     predicates::{event::*, upgrade_with_proposal::*},
-    script::{Expectations, InputOrder,TaskScript},
+    random,
+    script::{Expectations, InputOrder, TaskScript},
+    serial,
     view_generator::TestViewGenerator,
-    all_predicates, random, serial
 };
 use hotshot_types::{
-    data::{null_block,Leaf, ViewNumber},
+    constants::BaseVersion,
+    data::{null_block, Leaf, ViewNumber},
     simple_vote::UpgradeProposalData,
-    traits::{election::Membership,ValidatedState, node_implementation::ConsensusTime},
+    traits::{election::Membership, node_implementation::ConsensusTime, ValidatedState},
+    utils::BuilderCommitment,
     vote::HasViewNumber,
-    utils::BuilderCommitment
 };
-use hotshot_example_types::state_types::TestValidatedState;
-use vbs::version::Version;
+use sha2::Digest;
+use vbs::version::{StaticVersionType, Version};
+use vec1::vec1;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
@@ -57,7 +59,7 @@ async fn test_upgrade_task_with_proposal() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle(3).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(3).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -100,7 +102,8 @@ async fn test_upgrade_task_with_proposal() {
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
                 build_fake_view_with_leaf(view.leaf.clone()),
-            ).unwrap();
+            )
+            .unwrap();
     }
 
     generator.add_upgrade(upgrade_data.clone());
@@ -119,19 +122,25 @@ async fn test_upgrade_task_with_proposal() {
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
                 build_fake_view_with_leaf(view.leaf.clone()),
-            ).unwrap();
+            )
+            .unwrap();
     }
     drop(consensus_writer);
 
-    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<TestTypes>>::genesis(&*handle.hotshot.instance_state());
+    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<
+        TestTypes,
+    >>::genesis(&*handle.hotshot.instance_state());
     let genesis_cert = proposals[0].data.justify_qc.clone();
     let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
+    let builder_fee =
+        null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version()).unwrap();
     let upgrade_votes = other_handles
         .iter()
         .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
-    let proposal_state = QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let proposal_state =
+        QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let upgrade_state = UpgradeTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
 
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
@@ -144,7 +153,8 @@ async fn test_upgrade_task_with_proposal() {
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -153,14 +163,15 @@ async fn test_upgrade_task_with_proposal() {
             ),
         ],
         random![
-            QuorumProposalRecv(proposals[0].clone(), leaders[0]),
+            QuorumProposalPreliminarilyValidated(proposals[0].clone()),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -170,14 +181,15 @@ async fn test_upgrade_task_with_proposal() {
         ],
         InputOrder::Random(upgrade_vote_recvs),
         random![
-            QuorumProposalRecv(proposals[1].clone(), leaders[1]),
+            QuorumProposalPreliminarilyValidated(proposals[1].clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                null_block::builder_fee(quorum_membership.total_nodes()).unwrap(),
+                vec1![builder_fee.clone()],
+                None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
@@ -193,17 +205,17 @@ async fn test_upgrade_task_with_proposal() {
         expectations: vec![
             Expectations::from_outputs(all_predicates![
                 exact(UpdateHighQc(genesis_cert.clone())),
-                exact(HighQcUpdated(genesis_cert.clone())),        
+                exact(HighQcUpdated(genesis_cert.clone())),
             ]),
             Expectations::from_outputs(all_predicates![
                 exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-                exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),   
+                exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
             ]),
             Expectations::from_outputs(vec![]),
             Expectations::from_outputs(all_predicates![
-                    exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-                    exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
-                    quorum_proposal_send_with_upgrade_certificate::<TestTypes>()
+                exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
+                exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
+                quorum_proposal_send_with_upgrade_certificate::<TestTypes>()
             ]),
         ],
     };

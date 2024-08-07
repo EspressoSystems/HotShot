@@ -6,7 +6,11 @@
 
 /// Task for doing bootstraps at a regular interval
 pub mod bootstrap;
-use std::{collections::HashMap, num::NonZeroUsize, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZeroUsize,
+    time::Duration,
+};
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
 /// a local caching layer for the DHT key value pairs
@@ -23,7 +27,7 @@ use libp2p::kad::{
     store::RecordStore, Behaviour as KademliaBehaviour, BootstrapError, Event as KademliaEvent,
 };
 use libp2p_identity::PeerId;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 /// the number of nodes required to get an answer from
 /// in order to trust that the answer is correct when retrieving from the DHT
@@ -49,6 +53,8 @@ pub struct DHTBehaviour {
     pub in_progress_get_closest_peers: HashMap<QueryId, Sender<()>>,
     /// List of in-progress get requests
     in_progress_record_queries: HashMap<QueryId, KadGetQuery>,
+    /// The lookup keys for all outstanding DHT queries
+    outstanding_dht_query_keys: HashSet<Vec<u8>>,
     /// List of in-progress put requests
     in_progress_put_record_queries: HashMap<QueryId, KadPutQuery>,
     /// State of bootstrapping
@@ -109,6 +115,7 @@ impl DHTBehaviour {
             peer_id: pid,
             in_progress_record_queries: HashMap::default(),
             in_progress_put_record_queries: HashMap::default(),
+            outstanding_dht_query_keys: HashSet::default(),
             bootstrap_state: Bootstrap {
                 state: State::NotStarted,
                 backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
@@ -167,26 +174,28 @@ impl DHTBehaviour {
             return;
         }
 
-        // check cache before making the request
+        // Check the cache before making the (expensive) query
         if let Some(entry) = kad.store_mut().get(&key.clone().into()) {
-            // exists in cache
+            // The key already exists in the cache
             if chan.send(entry.value.clone()).is_err() {
                 error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
-            tracing::debug!("DHT cache miss, key: {:?}", key);
-            // doesn't exist in cache, actually propagate request
-            let qid = kad.get_record(key.clone().into());
-            let query = KadGetQuery {
-                backoff,
-                progress: DHTProgress::InProgress(qid),
-                notify: chan,
-                num_replicas: factor,
-                key,
-                retry_count: retry_count - 1,
-                records: HashMap::default(),
-            };
-            self.in_progress_record_queries.insert(qid, query);
+            // Check if the key is already being queried
+            if self.outstanding_dht_query_keys.insert(key.clone()) {
+                // The key was not already being queried and was not in the cache. Start a new query.
+                let qid = kad.get_record(key.clone().into());
+                let query = KadGetQuery {
+                    backoff,
+                    progress: DHTProgress::InProgress(qid),
+                    notify: chan,
+                    num_replicas: factor,
+                    key,
+                    retry_count: retry_count - 1,
+                    records: HashMap::default(),
+                };
+                self.in_progress_record_queries.insert(qid, query);
+            }
         }
     }
 
@@ -281,6 +290,9 @@ impl DHTBehaviour {
                 records,
             }) = self.in_progress_record_queries.remove(&id)
             {
+                // Remove the key from the outstanding queries so we are in sync
+                self.outstanding_dht_query_keys.remove(&key);
+
                 // if channel has been dropped, cancel request
                 if notify.is_canceled() {
                     return;
@@ -367,7 +379,7 @@ impl DHTBehaviour {
     }
 
     /// Send that the bootsrap suceeded
-    fn finsish_bootstrap(&mut self) {
+    fn finish_bootstrap(&mut self) {
         if let Some(mut tx) = self.bootstrap_tx.clone() {
             art::async_spawn(
                 async move { tx.send(bootstrap::InputEvent::BootstrapFinished).await },
@@ -395,29 +407,23 @@ impl DHTBehaviour {
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetClosestPeers(r),
                 id: query_id,
-                stats,
+                stats: _,
                 step: ProgressStep { last: true, .. },
                 ..
             } => match r {
-                Ok(GetClosestPeersOk { key, peers }) => {
+                Ok(GetClosestPeersOk { key, peers: _ }) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                         if chan.send(()).is_err() {
-                            warn!("DHT: finished query but client no longer interested");
+                            warn!("DHT: finished query but client was no longer interested");
                         };
                     };
-                    info!(
-                        "peer {:?} successfully completed get closest peers for {:?} with peers {:?}",
-                        self.peer_id, key, peers
-                    );
+                    debug!("Successfully got closest peers for key {:?}", key);
                 }
                 Err(e) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                         let _: Result<_, _> = chan.send(());
                     };
-                    warn!(
-                        "peer {:?} failed to get closest peers with {:?} and stats {:?}",
-                        self.peer_id, e, stats
-                    );
+                    warn!("Failed to get closest peers: {:?}", e);
                 }
             },
             KademliaEvent::OutboundQueryProgressed {
@@ -438,13 +444,10 @@ impl DHTBehaviour {
                 ..
             } => {
                 if num_remaining == 0 {
-                    info!("Finished bootstrap for peer {:?}", self.peer_id);
-                    self.finsish_bootstrap();
+                    info!("Finished bootstrapping");
+                    self.finish_bootstrap();
                 } else {
-                    warn!(
-                        "Bootstrap in progress: num remaining nodes to ping {:?}",
-                        num_remaining
-                    );
+                    debug!("Bootstrap in progress, {} nodes remaining", num_remaining);
                 }
                 return Some(NetworkEvent::IsBootstrapped);
             }
@@ -454,24 +457,18 @@ impl DHTBehaviour {
             } => {
                 let BootstrapError::Timeout { num_remaining, .. } = e;
                 if num_remaining.is_none() {
-                    error!(
-                        "Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT.",
-                        self.peer_id, e,
-                    );
+                    error!("Failed to bootstrap: {:?}", e);
                 }
-                self.finsish_bootstrap();
+                self.finish_bootstrap();
             }
             KademliaEvent::RoutablePeer { peer, address: _ } => {
-                info!("on peer {:?} found routable peer {:?}", self.peer_id, peer);
+                debug!("Found routable peer {:?}", peer);
             }
             KademliaEvent::PendingRoutablePeer { peer, address: _ } => {
-                info!(
-                    "on peer {:?} have pending routable peer {:?}",
-                    self.peer_id, peer
-                );
+                debug!("Found pending routable peer {:?}", peer);
             }
             KademliaEvent::UnroutablePeer { peer } => {
-                info!("on peer {:?} have unroutable peer {:?}", self.peer_id, peer);
+                debug!("Found unroutable peer {:?}", peer);
             }
             KademliaEvent::InboundRequest { request: _r } => {}
             KademliaEvent::RoutingUpdated {
@@ -481,13 +478,13 @@ impl DHTBehaviour {
                 bucket_range: _,
                 old_peer: _,
             } => {
-                info!("Routing table update");
+                debug!("Routing table updated");
             }
             e @ KademliaEvent::OutboundQueryProgressed { .. } => {
-                info!("Not handling dht event {:?}", e);
+                debug!("Not handling dht event {:?}", e);
             }
             e => {
-                error!("UNHANDLED NEW SWARM VARIANT: {e:?}");
+                debug!("New unhandled swarm event: {e:?}");
             }
         }
         None

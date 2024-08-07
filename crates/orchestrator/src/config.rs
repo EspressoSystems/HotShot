@@ -16,7 +16,8 @@ use std::{
 
 use clap::ValueEnum;
 use hotshot_types::{
-    traits::signature_key::SignatureKey, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    constants::REQUEST_DATA_DELAY, traits::signature_key::SignatureKey, ExecutionType,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use libp2p::{Multiaddr, PeerId};
 use serde_inline_default::serde_inline_default;
@@ -504,7 +505,10 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
             builder_timeout: val.config.builder_timeout,
-            data_request_delay: val.config.data_request_delay,
+            data_request_delay: val
+                .config
+                .data_request_delay
+                .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             seed: val.seed,
             transaction_size: val.transaction_size,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
@@ -585,7 +589,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     /// The maximum amount of time a leader can wait to get a block from a builder
     pub builder_timeout: Duration,
     /// Time to wait until we request data associated with a proposal
-    pub data_request_delay: Duration,
+    pub data_request_delay: Option<Duration>,
     /// Builder API base URL
     #[serde(default = "default_builder_urls")]
     pub builder_urls: Vec1<Url>,
@@ -707,7 +711,9 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
             start_delay: val.start_delay,
             num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
-            data_request_delay: val.data_request_delay,
+            data_request_delay: val
+                .data_request_delay
+                .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             builder_urls: val.builder_urls,
             start_proposing_view: val.upgrade.start_proposing_view,
             stop_proposing_view: val.upgrade.stop_proposing_view,
@@ -784,7 +790,7 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
             start_delay: 1,
             num_bootstrap: 5,
             builder_timeout: Duration::from_secs(10),
-            data_request_delay: Duration::from_millis(200),
+            data_request_delay: Some(Duration::from_millis(REQUEST_DATA_DELAY)),
             builder_urls: default_builder_urls(),
             upgrade: UpgradeConfig::default(),
         }

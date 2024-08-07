@@ -28,7 +28,6 @@ use hotshot_types::{
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
-        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
@@ -44,13 +43,13 @@ use crate::{
 };
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
+#[instrument(skip_all)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     view: TYPES::Time,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
-    tracing::debug!("Fetching proposal for view {:?}", view);
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
         view,
@@ -118,7 +117,7 @@ pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     pub included_txns: Option<HashSet<Commitment<<TYPES as NodeType>::Transaction>>>,
 
     /// The most recent upgrade certificate from one of the leaves.
-    pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    pub decided_upgrade_cert: Option<UpgradeCertificate<TYPES>>,
 }
 
 /// We need Default to be implemented because the leaf ascension has very few failure branches,
@@ -134,7 +133,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
             leaf_views: Vec::new(),
             leaves_decided: Vec::new(),
             included_txns: None,
-            decided_upgrade_certificate: None,
+            decided_upgrade_cert: None,
         }
     }
 }
@@ -169,10 +168,11 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 pub async fn decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal<TYPES>,
     consensus: OuterConsensus<TYPES>,
-    existing_upgrade_cert: &Option<UpgradeCertificate<TYPES>>,
+    existing_upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     public_key: &TYPES::SignatureKey,
 ) -> LeafChainTraversalOutcome<TYPES> {
     let consensus_reader = consensus.read().await;
+    let existing_upgrade_cert_reader = existing_upgrade_cert.read().await;
     let view_number = proposal.view_number();
     let parent_view_number = proposal.justify_qc.view_number();
     let old_anchor_view = consensus_reader.last_decided_view();
@@ -227,12 +227,12 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 
                 // Check if there's a new upgrade certificate available.
                 if let Some(cert) = leaf.upgrade_certificate() {
-                    if leaf.upgrade_certificate() != *existing_upgrade_cert {
+                    if leaf.upgrade_certificate() != *existing_upgrade_cert_reader {
                         if cert.data.decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
                             info!("Reached decide on upgrade certificate: {:?}", cert);
-                            res.decided_upgrade_certificate = Some(cert.clone());
+                            res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
                 }
@@ -284,8 +284,10 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 }
 
 /// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
+#[instrument(skip_all)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     next_proposal_view_number: TYPES::Time,
+    event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     consensus: OuterConsensus<TYPES>,
@@ -294,7 +296,22 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-
+    let parent_view_number = consensus.read().await.high_qc().view_number();
+    if !consensus
+        .read()
+        .await
+        .validated_state_map()
+        .contains_key(&parent_view_number)
+    {
+        let _ = fetch_proposal(
+            parent_view_number,
+            event_stream.clone(),
+            quorum_membership,
+            consensus.clone(),
+        )
+        .await
+        .context("Failed to fetch proposal")?;
+    }
     let consensus_reader = consensus.read().await;
     let parent_view_number = consensus_reader.high_qc().view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
@@ -340,149 +357,6 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     Ok((parent_leaf, Arc::clone(state)))
 }
 
-// TODO: Replace this function with `validate_proposal_safety_and_liveness` after the following
-// issue is done:
-// https://github.com/EspressoSystems/HotShot/issues/3357.
-/// Validate the state and safety and liveness of a proposal then emit
-/// a `QuorumProposalValidated` event.
-///
-/// # Errors
-/// If any validation or state update fails.
-///
-/// TODO - This should just take the QuorumProposalRecv task state after
-/// we merge the dependency tasks.
-#[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_lines)]
-#[cfg(not(feature = "dependency-tasks"))]
-pub async fn temp_validate_proposal_safety_and_liveness<TYPES: NodeType>(
-    proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
-    parent_leaf: Leaf<TYPES>,
-    consensus: OuterConsensus<TYPES>,
-    decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
-    quorum_membership: Arc<TYPES::Membership>,
-    view_leader_key: TYPES::SignatureKey,
-    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    sender: TYPES::SignatureKey,
-    event_sender: Sender<Event<TYPES>>,
-) -> Result<()> {
-    let view_number = proposal.data.view_number();
-
-    let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-    ensure!(
-        proposed_leaf.parent_commitment() == parent_leaf.commit(),
-        "Proposed leaf does not extend the parent leaf."
-    );
-
-    let state = Arc::new(
-        <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
-    );
-    let view = View {
-        view_inner: ViewInner::Leaf {
-            leaf: proposed_leaf.commit(),
-            state,
-            delta: None, // May be updated to `Some` in the vote task.
-        },
-    };
-
-    if let Err(e) = consensus
-        .write()
-        .await
-        .update_validated_state_map(view_number, view.clone())
-    {
-        tracing::trace!("{e:?}");
-    }
-    consensus
-        .write()
-        .await
-        .update_saved_leaves(proposed_leaf.clone());
-
-    // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
-    broadcast_event(
-        Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
-        &event_stream,
-    )
-    .await;
-
-    // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    //
-    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
-    //
-    //    proposal.validate_signature(&quorum_membership)?;
-    //
-    // in a future PR.
-    ensure!(
-        view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()),
-        "Could not verify proposal."
-    );
-
-    UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
-
-    // Validate that the upgrade certificate is re-attached, if we saw one on the parent
-    proposed_leaf.temp_extends_upgrade(&parent_leaf, &decided_upgrade_certificate)?;
-
-    let justify_qc = proposal.data.justify_qc.clone();
-    // Create a positive vote if either liveness or safety check
-    // passes.
-
-    // Liveness check.
-    let read_consensus = consensus.read().await;
-    let liveness_check = justify_qc.view_number() > read_consensus.locked_view();
-
-    // Safety check.
-    // Check if proposal extends from the locked leaf.
-    let outcome = read_consensus.visit_leaf_ancestors(
-        justify_qc.view_number(),
-        Terminator::Inclusive(read_consensus.locked_view()),
-        false,
-        |leaf, _, _| {
-            // if leaf view no == locked view no then we're done, report success by
-            // returning true
-            leaf.view_number() != read_consensus.locked_view()
-        },
-    );
-    let safety_check = outcome.is_ok();
-
-    ensure!(safety_check || liveness_check, {
-        if let Err(e) = outcome {
-            broadcast_event(
-                Event {
-                    view_number,
-                    event: EventType::Error { error: Arc::new(e) },
-                },
-                &event_sender,
-            )
-            .await;
-        }
-
-        format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
-    });
-
-    // We accept the proposal, notify the application layer
-
-    broadcast_event(
-        Event {
-            view_number,
-            event: EventType::QuorumProposal {
-                proposal: proposal.clone(),
-                sender,
-            },
-        },
-        &event_sender,
-    )
-    .await;
-    // Notify other tasks
-    broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalValidated(
-            proposal.data.clone(),
-            parent_leaf,
-        )),
-        &event_stream,
-    )
-    .await;
-
-    Ok(())
-}
-
 /// Validate the state and safety and liveness of a proposal then emit
 /// a `QuorumProposalValidated` event.
 ///
@@ -500,7 +374,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
     consensus: OuterConsensus<TYPES>,
     decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     quorum_membership: Arc<TYPES::Membership>,
-    view_leader_key: TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
     event_sender: Sender<Event<TYPES>>,
@@ -543,18 +416,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
         &event_stream,
     )
     .await;
-
-    // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    //
-    // There is a mistake here originating in the genesis leaf/qc commit. This should be replaced by:
-    //
-    //    proposal.validate_signature(&quorum_membership)?;
-    //
-    // in a future PR.
-    ensure!(
-        view_leader_key.validate(&proposal.signature, proposed_leaf.commit().as_ref()),
-        "Could not verify proposal."
-    );
 
     UpgradeCertificate::validate(&proposal.data.upgrade_certificate, &quorum_membership)?;
 
@@ -634,7 +495,6 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 /// If any validation or view number check fails.
 pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    sender: &TYPES::SignatureKey,
     cur_view: TYPES::Time,
     quorum_membership: &Arc<TYPES::Membership>,
     timeout_membership: &Arc<TYPES::Membership>,
@@ -646,11 +506,8 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         proposal.data.clone()
     );
 
-    let view_leader_key = quorum_membership.leader(view);
-    ensure!(
-        view_leader_key == *sender,
-        "Leader key does not match key in proposal"
-    );
+    // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
+    proposal.validate_signature(quorum_membership)?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view - 1 {

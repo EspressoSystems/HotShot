@@ -70,7 +70,7 @@ impl<
         CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
     > VoteCollectionTaskState<TYPES, VOTE, CERT>
 {
-    /// Take one vote and accumultate it. Returns either the cert or the updated state
+    /// Take one vote and accumulate it. Returns either the cert or the updated state
     /// after the vote is accumulated
     #[allow(clippy::question_mark)]
     pub async fn accumulate_vote(
@@ -141,12 +141,11 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
     pub id: u64,
 }
 
-/// Generic function for spawnnig a vote task.  Returns the event stream id of the spawned task if created
+/// Generic function for spawning a vote task.  Returns the event stream id of the spawned task if created
 /// # Panics
 /// Calls unwrap but should never panic.
 pub async fn create_vote_accumulator<TYPES, VOTE, CERT>(
     info: &AccumulatorInfo<TYPES>,
-    vote: VOTE,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>
@@ -164,14 +163,6 @@ where
         + 'static,
     VoteCollectionTaskState<TYPES, VOTE, CERT>: HandleVoteEvent<TYPES, VOTE, CERT>,
 {
-    if vote.view_number() != info.view {
-        error!(
-            "Vote view does not match! vote view is {} current view is {}",
-            *vote.view_number(),
-            *info.view
-        );
-        return None;
-    }
     let new_accumulator = VoteAccumulator {
         vote_outcomes: HashMap::new(),
         signers: HashMap::new(),

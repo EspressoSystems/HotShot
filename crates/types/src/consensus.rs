@@ -16,7 +16,8 @@ use std::{
 use anyhow::{bail, ensure, Result};
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use committable::{Commitment, Committable};
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, trace};
+use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
@@ -66,31 +67,31 @@ impl<TYPES: NodeType> OuterConsensus<TYPES> {
     /// Locks inner consensus for reading and leaves debug traces
     #[instrument(skip_all, target = "OuterConsensus")]
     pub async fn read(&self) -> ConsensusReadLockGuard<'_, TYPES> {
-        debug!("Trying to acquire read lock on consensus");
+        trace!("Trying to acquire read lock on consensus");
         let ret = self.inner_consensus.read().await;
-        debug!("Acquired read lock on consensus");
+        trace!("Acquired read lock on consensus");
         ConsensusReadLockGuard::new(ret)
     }
 
     /// Locks inner consensus for writing and leaves debug traces
     #[instrument(skip_all, target = "OuterConsensus")]
     pub async fn write(&self) -> ConsensusWriteLockGuard<'_, TYPES> {
-        debug!("Trying to acquire write lock on consensus");
+        trace!("Trying to acquire write lock on consensus");
         let ret = self.inner_consensus.write().await;
-        debug!("Acquired write lock on consensus");
+        trace!("Acquired write lock on consensus");
         ConsensusWriteLockGuard::new(ret)
     }
 
     /// Tries to acquire write lock on inner consensus and leaves debug traces
     #[instrument(skip_all, target = "OuterConsensus")]
     pub fn try_write(&self) -> Option<ConsensusWriteLockGuard<'_, TYPES>> {
-        debug!("Trying to acquire write lock on consensus");
+        trace!("Trying to acquire write lock on consensus");
         let ret = self.inner_consensus.try_write();
         if let Some(guard) = ret {
-            debug!("Acquired write lock on consensus");
+            trace!("Acquired write lock on consensus");
             Some(ConsensusWriteLockGuard::new(guard))
         } else {
-            debug!("Failed to acquire write lock");
+            trace!("Failed to acquire write lock");
             None
         }
     }
@@ -98,22 +99,22 @@ impl<TYPES: NodeType> OuterConsensus<TYPES> {
     /// Acquires upgradable read lock on inner consensus and leaves debug traces
     #[instrument(skip_all, target = "OuterConsensus")]
     pub async fn upgradable_read(&self) -> ConsensusUpgradableReadLockGuard<'_, TYPES> {
-        debug!("Trying to acquire upgradable read lock on consensus");
+        trace!("Trying to acquire upgradable read lock on consensus");
         let ret = self.inner_consensus.upgradable_read().await;
-        debug!("Acquired upgradable read lock on consensus");
+        trace!("Acquired upgradable read lock on consensus");
         ConsensusUpgradableReadLockGuard::new(ret)
     }
 
     /// Tries to acquire read lock on inner consensus and leaves debug traces
     #[instrument(skip_all, target = "OuterConsensus")]
     pub fn try_read(&self) -> Option<ConsensusReadLockGuard<'_, TYPES>> {
-        debug!("Trying to acquire read lock on consensus");
+        trace!("Trying to acquire read lock on consensus");
         let ret = self.inner_consensus.try_read();
         if let Some(guard) = ret {
-            debug!("Acquired read lock on consensus");
+            trace!("Acquired read lock on consensus");
             Some(ConsensusReadLockGuard::new(guard))
         } else {
-            debug!("Failed to acquire read lock");
+            trace!("Failed to acquire read lock");
             None
         }
     }
@@ -143,7 +144,7 @@ impl<'a, TYPES: NodeType> Deref for ConsensusReadLockGuard<'a, TYPES> {
 impl<'a, TYPES: NodeType> Drop for ConsensusReadLockGuard<'a, TYPES> {
     #[instrument(skip_all, target = "ConsensusReadLockGuard")]
     fn drop(&mut self) {
-        debug!("Read lock on consensus dropped");
+        trace!("Read lock on consensus dropped");
     }
 }
 
@@ -582,7 +583,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             view.leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
-                        "Visited failed view {start_from:?} leaf. Expected successfuil leaf"
+                        "Visited failed view {start_from:?} leaf. Expected successful leaf"
                     ),
                 })?
         } else {
@@ -738,7 +739,9 @@ pub struct CommitmentAndMetadata<TYPES: NodeType> {
     /// Metadata for the block payload
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// Builder fee data
-    pub fee: BuilderFee<TYPES>,
+    pub fees: Vec1<BuilderFee<TYPES>>,
     /// View number this block is for
     pub block_view: TYPES::Time,
+    /// auction result that the block was produced from, if any
+    pub auction_result: Option<TYPES::AuctionResult>,
 }

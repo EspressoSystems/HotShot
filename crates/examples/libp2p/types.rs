@@ -26,7 +26,7 @@ pub type Network = Libp2pNetwork<<TestTypes as NodeType>::SignatureKey>;
 impl NodeImplementation<TestTypes> for NodeImpl {
     type Network = Network;
     type Storage = TestStorage<TestTypes>;
-    type AuctionResultsProvider = TestAuctionResultsProvider;
+    type AuctionResultsProvider = TestAuctionResultsProvider<TestTypes>;
 }
 /// convenience type alias
 pub type ThisRun = Libp2pDaRun<TestTypes>;

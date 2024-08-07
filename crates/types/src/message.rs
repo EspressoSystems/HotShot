@@ -12,7 +12,7 @@
 use std::{fmt, fmt::Debug, marker::PhantomData};
 
 use anyhow::{bail, ensure, Context, Result};
-use cdn_proto::mnemonic;
+use cdn_proto::util::mnemonic;
 use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -24,7 +24,7 @@ use vbs::{
 use crate::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
-        DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        version, DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -39,34 +39,6 @@ use crate::{
     },
     vote::HasViewNumber,
 };
-
-/// Calculate the version applied in a view, based on the provided upgrade certificate.
-///
-/// # Errors
-/// Returns an error if we do not support the version required by the upgrade certificate.
-pub fn version<TYPES: NodeType>(
-    view: TYPES::Time,
-    upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
-) -> Result<Version> {
-    let version = match upgrade_certificate {
-        Some(ref cert) => {
-            if view >= cert.data.new_version_first_view
-                && cert.data.new_version == TYPES::Upgrade::VERSION
-            {
-                TYPES::Upgrade::VERSION
-            } else if view >= cert.data.new_version_first_view
-                && cert.data.new_version != TYPES::Upgrade::VERSION
-            {
-                bail!("The network has upgraded to a new version that we do not support!");
-            } else {
-                TYPES::Base::VERSION
-            }
-        }
-        None => TYPES::Base::VERSION,
-    };
-
-    Ok(version)
-}
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Derivative, PartialEq, Eq, Hash)]
@@ -194,6 +166,8 @@ pub enum MessagePurpose {
     UpgradeProposal,
     /// Upgrade vote.
     UpgradeVote,
+    /// A message to be passed through to external listeners
+    External,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -206,6 +180,8 @@ pub enum MessageKind<TYPES: NodeType> {
     Consensus(SequencingMessage<TYPES>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<TYPES>),
+    /// A (still serialized) message to be passed through to external listeners
+    External(Vec<u8>),
 }
 
 impl<TYPES: NodeType> MessageKind<TYPES> {
@@ -233,6 +209,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
                 ResponseMessage::Found(m) => m.view_number(),
                 ResponseMessage::NotFound | ResponseMessage::Denied => TYPES::Time::new(1),
             },
+            MessageKind::External(_) => TYPES::Time::new(1),
         }
     }
 
@@ -240,6 +217,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
         match &self {
             MessageKind::Consensus(message) => message.purpose(),
             MessageKind::Data(_) => MessagePurpose::Data,
+            MessageKind::External(_) => MessagePurpose::External,
         }
     }
 }

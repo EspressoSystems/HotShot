@@ -5,7 +5,9 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 mod api;
-pub mod block_info;
-pub mod builder;
-pub mod data_source;
-pub mod query_data;
+pub mod v0_1;
+pub mod v0_2 {
+    pub use super::v0_1::*;
+    pub type Version = vbs::version::StaticVersion<0, 2>;
+}
+pub mod v0_3;

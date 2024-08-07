@@ -15,7 +15,6 @@ use hotshot_types::{
     data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
-        election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
@@ -62,8 +61,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     encoded_transactions,
                     metadata,
                     view_number,
-                    bid_fees,
+                    sequencing_fees,
                     vid_precompute,
+                    auction_result,
                     ..
                 } = packed_bundle;
                 let payload =
@@ -73,7 +73,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
-                    Some(vid_precompute.clone()),
+                    vid_precompute.clone(),
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
@@ -93,7 +93,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                         builder_commitment,
                         metadata.clone(),
                         *view_number,
-                        bid_fees.first().clone(),
+                        sequencing_fees.clone(),
+                        auction_result.clone(),
                     )),
                     &event_stream,
                 )
@@ -141,12 +142,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     warn!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-
-                // If we are not the next leader, we should exit
-                if self.membership.leader(self.cur_view + 1) != self.public_key {
-                    // panic!("We are not the DA leader for view {}", *self.cur_view + 1);
-                    return None;
-                }
 
                 return None;
             }

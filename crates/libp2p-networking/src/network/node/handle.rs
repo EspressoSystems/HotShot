@@ -103,8 +103,6 @@ pub async fn spawn_network_node(
         recv_kill: None,
     };
 
-    info!("LISTEN ADDRESS IS {:?}", listen_addr);
-
     let handle = NetworkNodeHandle {
         network_config: config,
         send_network: send_chan,
@@ -149,27 +147,33 @@ impl NetworkNodeHandle {
         self.send_request(req).await?;
         r.await.map_err(|_| NetworkNodeHandleError::RecvError)
     }
-    /// Wait until at least `num_peers` have connected, or until `timeout` time has passed.
+    /// Wait until at least `num_peers` have connected
     ///
     /// # Errors
-    ///
-    /// Will return any networking error encountered, or `ConnectTimeout` if the `timeout` has elapsed.
+    /// If the channel closes before the result can be sent back
     pub async fn wait_to_connect(
         &self,
-        num_peers: usize,
+        num_required_peers: usize,
         node_id: usize,
     ) -> Result<(), NetworkNodeHandleError> {
-        self.begin_bootstrap().await?;
-        let mut connected_ok = false;
-        while !connected_ok {
-            async_sleep(Duration::from_secs(1)).await;
+        // Wait for the required number of peers to connect
+        loop {
+            // Get the number of currently connected peers
             let num_connected = self.num_connected().await?;
+            if num_connected >= num_required_peers {
+                break;
+            }
+
+            // Log the number of connected peers
             info!(
-                "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
-                num_connected, num_peers, node_id
+                "Node {} connected to {}/{} peers",
+                node_id, num_connected, num_required_peers
             );
-            connected_ok = num_connected >= num_peers;
+
+            // Sleep for a second before checking again
+            async_sleep(Duration::from_secs(1)).await;
         }
+
         Ok(())
     }
 
@@ -430,7 +434,7 @@ impl NetworkNodeHandle {
         &self,
         known_peers: Vec<(PeerId, Multiaddr)>,
     ) -> Result<(), NetworkNodeHandleError> {
-        info!("ADDING KNOWN PEERS TO {:?}", self.peer_id);
+        debug!("Adding {} known peers", known_peers.len());
         let req = ClientRequest::AddKnownPeers(known_peers);
         self.send_request(req).await
     }
@@ -440,7 +444,6 @@ impl NetworkNodeHandle {
     /// # Errors
     /// - Will return [`NetworkNodeHandleError::SendError`] when underlying `NetworkNode` has been killed
     async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkNodeHandleError> {
-        debug!("peerid {:?}\t\tsending message {:?}", self.peer_id, req);
         self.send_network
             .send(req)
             .await

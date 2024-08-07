@@ -27,7 +27,7 @@ async fn test_combined_network() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription = TestDescription {
+    let metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -49,7 +49,7 @@ async fn test_combined_network() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>(0)
+        .gen_launcher(0)
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -62,7 +62,7 @@ async fn test_combined_network() {
 async fn test_combined_network_cdn_crash() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -95,7 +95,7 @@ async fn test_combined_network_cdn_crash() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>(0)
+        .gen_launcher(0)
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -109,7 +109,7 @@ async fn test_combined_network_cdn_crash() {
 async fn test_combined_network_reup() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -149,7 +149,7 @@ async fn test_combined_network_reup() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>(0)
+        .gen_launcher(0)
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -162,7 +162,7 @@ async fn test_combined_network_reup() {
 async fn test_combined_network_half_dc() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -197,7 +197,7 @@ async fn test_combined_network_half_dc() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>(0)
+        .gen_launcher(0)
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -238,7 +238,7 @@ fn generate_random_node_changes(
 async fn test_stress_combined_network_fuzzy() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
         num_bootstrap_nodes: 10,
         num_nodes_with_stake: 20,
         start_nodes: 20,
@@ -267,7 +267,7 @@ async fn test_stress_combined_network_fuzzy() {
     };
 
     metadata
-        .gen_launcher::<TestTypes, CombinedImpl>(0)
+        .gen_launcher(0)
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;

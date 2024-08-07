@@ -11,18 +11,24 @@ use std::{
     sync::Arc,
 };
 
-use async_broadcast::broadcast;
+use async_broadcast::{broadcast, Receiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use futures::future::join_all;
 use hotshot::{
-    traits::TestableNodeImplementation, types::SystemContextHandle, HotShotInitializer,
-    Memberships, SystemContext,
+    traits::TestableNodeImplementation,
+    types::{Event, SystemContextHandle},
+    HotShotInitializer, MarketplaceConfig, Memberships, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
+use hotshot_fakeapi::fake_solver::FakeSolverState;
+use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
@@ -30,12 +36,14 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
-        network::ConnectedNetwork,
+        network::{ConnectedNetwork, Topic},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
     HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 #[allow(deprecated)]
 use tracing::info;
 
@@ -46,9 +54,10 @@ use super::{
     txn_task::TxnTask,
 };
 use crate::{
-    block_builder::TestBuilderImplementation,
+    block_builder::{BuilderTask, TestBuilderImplementation},
     completion_task::CompletionTaskDescription,
     spinning_task::{ChangeNode, SpinningTask, UpDown},
+    test_builder::create_test_handle,
     test_launcher::{Network, TestLauncher},
     test_task::{TestResult, TestTask},
     txn_task::TxnTaskDescription,
@@ -69,7 +78,7 @@ where
         TYPES,
         Network = N,
         Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider,
+        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
 {
     /// execute test
@@ -87,10 +96,14 @@ where
             .clone();
 
         let mut late_start_nodes: HashSet<u64> = HashSet::new();
+        let mut restart_nodes: HashSet<u64> = HashSet::new();
         for (_, changes) in &spinning_changes {
             for change in changes {
                 if matches!(change.updown, UpDown::Up) {
                     late_start_nodes.insert(change.idx.try_into().unwrap());
+                }
+                if matches!(change.updown, UpDown::Restart) {
+                    restart_nodes.insert(change.idx.try_into().unwrap());
                 }
             }
         }
@@ -98,6 +111,7 @@ where
         self.add_nodes::<B>(
             self.launcher.metadata.num_nodes_with_stake,
             &late_start_nodes,
+            &restart_nodes,
         )
         .await;
         let mut event_rxs = vec![];
@@ -108,13 +122,14 @@ where
             event_rxs.push(r);
         }
         for node in &self.nodes {
-            let r = node.handle.internal_event_stream_known_impl();
+            let r = node.handle.internal_event_stream_receiver_known_impl();
             internal_event_rxs.push(r);
         }
 
         let TestRunner {
             ref launcher,
             nodes,
+            solver_server,
             late_start,
             next_node_id: _,
             _pd: _,
@@ -291,6 +306,15 @@ where
             node.handle.shut_down().await;
         }
 
+        // Shutdown all of the servers at the end
+        // Aborting here doesn't cause any problems because we don't maintain any state
+        if let Some(solver_server) = solver_server {
+            #[cfg(async_executor_impl = "async-std")]
+            solver_server.1.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            solver_server.1.abort();
+        }
+
         assert!(
             error_list.is_empty(),
             "{}",
@@ -302,19 +326,10 @@ where
         );
     }
 
-    /// Add nodes.
-    ///
-    /// # Panics
-    /// Panics if unable to create a [`HotShotInitializer`]
-    pub async fn add_nodes<B: TestBuilderImplementation<TYPES>>(
-        &mut self,
-        total: usize,
-        late_start: &HashSet<u64>,
-    ) -> Vec<u64> {
-        let mut results = vec![];
+    pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
+        &self,
+    ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>) {
         let config = self.launcher.resource_generator.config.clone();
-        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
-
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
@@ -332,6 +347,51 @@ where
             builder_urls.push(builder_url);
         }
 
+        (builder_tasks, builder_urls)
+    }
+
+    /// Add servers.
+    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) {
+        let solver_error_pct = self.launcher.metadata.solver.error_pct;
+        let solver_port = portpicker::pick_unused_port().expect("No available ports");
+
+        // This should basically never fail
+        let solver_url: Url = format!("http://localhost:{solver_port}")
+            .parse()
+            .expect("Failed to parse solver URL");
+
+        // Initialize the solver API state
+        let solver_state = FakeSolverState::new(Some(solver_error_pct), builder_urls);
+
+        // Then, fire it up as a background thread.
+        self.solver_server = Some((
+            solver_url.clone(),
+            async_spawn(async move {
+                solver_state
+                    .run::<TYPES>(solver_url)
+                    .await
+                    .expect("Unable to run solver api");
+            }),
+        ));
+    }
+
+    /// Add nodes.
+    ///
+    /// # Panics
+    /// Panics if unable to create a [`HotShotInitializer`]
+    pub async fn add_nodes<B: TestBuilderImplementation<TYPES>>(
+        &mut self,
+        total: usize,
+        late_start: &HashSet<u64>,
+        restart: &HashSet<u64>,
+    ) -> Vec<u64> {
+        let mut results = vec![];
+        let config = self.launcher.resource_generator.config.clone();
+        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+
+        let (mut builder_tasks, builder_urls) = self.init_builders::<B>().await;
+        self.add_servers(builder_urls.clone()).await;
+
         // Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
         let mut uninitialized_nodes = Vec::new();
         let mut networks_ready = Vec::new();
@@ -346,21 +406,25 @@ where
                 quorum_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     known_nodes_with_stake.clone(),
+                    Topic::Global,
                     config.fixed_leader_for_gpuvid,
                 ),
                 da_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     config.known_da_nodes.clone(),
+                    Topic::Da,
                     config.fixed_leader_for_gpuvid,
                 ),
                 vid_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     known_nodes_with_stake.clone(),
+                    Topic::Global,
                     config.fixed_leader_for_gpuvid,
                 ),
                 view_sync_membership: <TYPES as NodeType>::Membership::create_election(
                     known_nodes_with_stake.clone(),
                     known_nodes_with_stake.clone(),
+                    Topic::Global,
                     config.fixed_leader_for_gpuvid,
                 ),
             };
@@ -371,8 +435,16 @@ where
 
             let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
-            let auction_results_provider =
-                (self.launcher.resource_generator.auction_results_provider)(node_id);
+            let mut marketplace_config =
+                (self.launcher.resource_generator.marketplace_config)(node_id);
+            if let Some(solver_server) = &self.solver_server {
+                let mut new_auction_results_provider =
+                    marketplace_config.auction_results_provider.as_ref().clone();
+
+                new_auction_results_provider.broadcast_url = Some(solver_server.0.clone());
+
+                marketplace_config.auction_results_provider = new_auction_results_provider.into();
+            }
 
             let network_clone = network.clone();
             let networks_ready_future = async move {
@@ -381,42 +453,45 @@ where
 
             networks_ready.push(networks_ready_future);
 
-            if self.launcher.metadata.skip_late && late_start.contains(&node_id) {
-                self.late_start.insert(
-                    node_id,
-                    LateStartNode {
-                        network,
-                        context: LateNodeContext::UninitializedContext(LateNodeContextParameters {
-                            storage,
-                            memberships,
-                            config,
-                            auction_results_provider,
-                        }),
-                    },
-                );
-            } else {
-                let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
-                    .await
-                    .unwrap();
+            if late_start.contains(&node_id) {
+                if self.launcher.metadata.skip_late {
+                    self.late_start.insert(
+                        node_id,
+                        LateStartNode {
+                            network,
+                            context: LateNodeContext::UninitializedContext(
+                                LateNodeContextParameters {
+                                    storage,
+                                    memberships,
+                                    config,
+                                    marketplace_config,
+                                },
+                            ),
+                        },
+                    );
+                } else {
+                    let initializer =
+                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+                            .await
+                            .unwrap();
 
-                // See whether or not we should be DA
-                let is_da = node_id < config.da_staked_committee_size as u64;
+                    // See whether or not we should be DA
+                    let is_da = node_id < config.da_staked_committee_size as u64;
 
-                // We assign node's public key and stake value rather than read from config file since it's a test
-                let validator_config =
-                    ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
-                let hotshot = Self::add_node_with_config(
-                    node_id,
-                    network.clone(),
-                    memberships,
-                    initializer,
-                    config,
-                    validator_config,
-                    storage,
-                    auction_results_provider,
-                )
-                .await;
-                if late_start.contains(&node_id) {
+                    // We assign node's public key and stake value rather than read from config file since it's a test
+                    let validator_config =
+                        ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
+                    let hotshot = Self::add_node_with_config(
+                        node_id,
+                        network.clone(),
+                        memberships,
+                        initializer,
+                        config,
+                        validator_config,
+                        storage,
+                        marketplace_config,
+                    )
+                    .await;
                     self.late_start.insert(
                         node_id,
                         LateStartNode {
@@ -424,20 +499,54 @@ where
                             context: LateNodeContext::InitializedContext(hotshot),
                         },
                     );
-                } else {
-                    uninitialized_nodes.push((node_id, network, hotshot));
                 }
+            } else {
+                uninitialized_nodes.push((
+                    node_id,
+                    network,
+                    memberships,
+                    config,
+                    storage,
+                    marketplace_config,
+                ));
             }
 
             results.push(node_id);
+        }
+
+        // Add the restart nodes after the rest.  This must be done after all the original networks are
+        // created because this will reset the bootstrap info for the restarted nodes
+        for node_id in &results {
+            if restart.contains(node_id) {
+                self.late_start.insert(
+                    *node_id,
+                    LateStartNode {
+                        network: (self.launcher.resource_generator.channel_generator)(*node_id)
+                            .await,
+                        context: LateNodeContext::Restart,
+                    },
+                );
+            }
         }
 
         // Wait for all networks to be ready
         join_all(networks_ready).await;
 
         // Then start the necessary tasks
-        for (node_id, network, hotshot) in uninitialized_nodes {
-            let handle = hotshot.run_tasks().await;
+        for (node_id, network, memberships, config, storage, marketplace_config) in
+            uninitialized_nodes
+        {
+            let behaviour = (self.launcher.metadata.behaviour)(node_id);
+            let handle = create_test_handle(
+                behaviour,
+                node_id,
+                network.clone(),
+                memberships,
+                config.clone(),
+                storage,
+                marketplace_config,
+            )
+            .await;
 
             match node_id.cmp(&(config.da_staked_committee_size as u64 - 1)) {
                 std::cmp::Ordering::Less => {
@@ -476,7 +585,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
         storage: I::Storage,
-        auction_results_provider: I::AuctionResultsProvider,
+        marketplace_config: MarketplaceConfig<TYPES, I>,
     ) -> Arc<SystemContext<TYPES, I>> {
         // Get key pair for certificate aggregation
         let private_key = validator_config.private_key.clone();
@@ -492,7 +601,46 @@ where
             initializer,
             ConsensusMetricsValue::default(),
             storage,
-            auction_results_provider,
+            marketplace_config,
+        )
+    }
+
+    /// add a specific node with a config
+    /// # Panics
+    /// if unable to initialize the node's `SystemContext` based on the config
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    pub async fn add_node_with_config_and_channels(
+        node_id: u64,
+        network: Network<TYPES, I>,
+        memberships: Memberships<TYPES>,
+        initializer: HotShotInitializer<TYPES>,
+        config: HotShotConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
+        storage: I::Storage,
+        marketplace_config: MarketplaceConfig<TYPES, I>,
+        internal_channel: (
+            Sender<Arc<HotShotEvent<TYPES>>>,
+            Receiver<Arc<HotShotEvent<TYPES>>>,
+        ),
+        external_channel: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
+    ) -> Arc<SystemContext<TYPES, I>> {
+        // Get key pair for certificate aggregation
+        let private_key = validator_config.private_key.clone();
+        let public_key = validator_config.public_key.clone();
+
+        SystemContext::new_from_channels(
+            public_key,
+            private_key,
+            node_id,
+            config,
+            memberships,
+            network,
+            initializer,
+            ConsensusMetricsValue::default(),
+            storage,
+            marketplace_config,
+            internal_channel,
+            external_channel,
         )
     }
 }
@@ -519,8 +667,8 @@ pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementat
     /// The config associted with this node.
     pub config: HotShotConfig<TYPES::SignatureKey>,
 
-    /// The Auction Results handle for this node.
-    pub auction_results_provider: I::AuctionResultsProvider,
+    /// The marketplace config for this node.
+    pub marketplace_config: MarketplaceConfig<TYPES, I>,
 }
 
 /// The late node context dictates how we're building a node that started late during the test.
@@ -533,6 +681,8 @@ pub enum LateNodeContext<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> 
     /// The system context that we're passing to the node when it is not yet initialized, so we're
     /// initializing it based on the received leaf and init parameters.
     UninitializedContext(LateNodeContextParameters<TYPES, I>),
+    /// The node is to be restarted so we will build the context from the node that was already running.
+    Restart,
 }
 
 /// A yet-to-be-started node that participates in tests
@@ -555,6 +705,8 @@ pub struct TestRunner<
     pub(crate) launcher: TestLauncher<TYPES, I>,
     /// nodes in the test
     pub(crate) nodes: Vec<Node<TYPES, I>>,
+    /// the solver server running in the test
+    pub(crate) solver_server: Option<(Url, JoinHandle<()>)>,
     /// nodes with a late start
     pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
     /// the next node unique identifier

@@ -4,8 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-#![cfg(feature = "dependency-tasks")]
-
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{bail, ensure, Context, Result};
@@ -25,7 +23,7 @@ use hotshot_types::{
     data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{version, UpgradeCertificate},
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
@@ -43,7 +41,6 @@ use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, trace, warn};
-use vbs::version::Version;
 
 use crate::{
     events::HotShotEvent,
@@ -68,30 +65,29 @@ enum VoteDependency {
 }
 
 /// Handler for the vote dependency.
-#[allow(dead_code)]
-struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Public key.
     pub public_key: TYPES::SignatureKey,
     /// Private Key.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// Reference to consensus. The replica will require a write lock on this.
-    consensus: OuterConsensus<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Immutable instance state
-    instance_state: Arc<TYPES::InstanceState>,
+    pub instance_state: Arc<TYPES::InstanceState>,
     /// Membership for Quorum certs/votes.
-    quorum_membership: Arc<TYPES::Membership>,
+    pub quorum_membership: Arc<TYPES::Membership>,
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
     /// View number to vote on.
-    view_number: TYPES::Time,
+    pub view_number: TYPES::Time,
     /// Event sender.
-    sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    /// Globally shared reference to the current network version.
-    pub version: Arc<RwLock<Version>>,
+    pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+    /// An upgrade certificate that has been decided on, if any.
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     /// The node's id
-    id: u64,
+    pub id: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHandle<TYPES, I> {
@@ -136,13 +132,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
 
         drop(consensus_reader);
 
+        let version = version(
+            self.view_number,
+            &self.decided_upgrade_certificate.read().await.clone(),
+        )?;
         let (validated_state, state_delta) = parent_state
             .validate_and_apply_header(
                 &self.instance_state,
                 &parent,
                 &proposed_leaf.block_header().clone(),
                 vid_share.data.common.clone(),
-                *self.version.read().await,
+                version,
             )
             .await
             .context("Block header doesn't extend the proposal!")?;
@@ -395,9 +395,6 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// Globally shared reference to the current network version.
-    pub version: Arc<RwLock<Version>>,
-
     /// An upgrade certificate that has been decided on, if any.
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
@@ -503,7 +500,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 
         let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
         let dependency_chain = OrDependency::from_deps(vec![
-            // Either we fulfull the dependencies individiaully.
+            // Either we fulfill the dependencies individually.
             AndDependency::from_deps(deps),
             // Or we fulfill the single dependency that contains all the info that we need.
             AndDependency::from_deps(vec![vote_now_dependency]),
@@ -521,7 +518,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                version: Arc::clone(&self.version),
+                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
                 id: self.id,
             },
         );

@@ -21,7 +21,7 @@ use std::{
 use async_broadcast::{broadcast, InactiveReceiver, Sender};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
-    channel::UnboundedSendError,
+    channel::TrySendError,
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -33,12 +33,12 @@ use hotshot_types::traits::network::{
 use hotshot_types::{
     boxed_sync,
     constants::{
-        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_MIN_PRIMARY_FAILURES,
-        COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
+        COMBINED_NETWORK_CACHE_SIZE, COMBINED_NETWORK_DELAY_DURATION,
+        COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
     },
     data::ViewNumber,
     traits::{
-        network::{BroadcastDelay, ConnectedNetwork, ResponseChannel},
+        network::{BroadcastDelay, ConnectedNetwork, ResponseChannel, Topic},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -95,7 +95,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     pub fn new(
         primary_network: PushCdnNetwork<TYPES>,
         secondary_network: Libp2pNetwork<TYPES::SignatureKey>,
-        delay_duration: Duration,
+        delay_duration: Option<Duration>,
     ) -> Self {
         // Create networks from the ones passed in
         let networks = Arc::from(UnderlyingCombinedNetworks(
@@ -110,7 +110,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             ))),
             primary_fail_counter: Arc::new(AtomicU64::new(0)),
             primary_down: Arc::new(AtomicBool::new(false)),
-            delay_duration: Arc::new(RwLock::new(delay_duration)),
+            delay_duration: Arc::new(RwLock::new(
+                delay_duration.unwrap_or(Duration::from_millis(COMBINED_NETWORK_DELAY_DURATION)),
+            )),
             delayed_tasks_channels: Arc::default(),
             no_delay_counter: Arc::new(AtomicU64::new(0)),
         }
@@ -376,24 +378,24 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
-        recipients: BTreeSet<TYPES::SignatureKey>,
+        topic: Topic,
         broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
         let secondary = self.secondary().clone();
         let primary_message = message.clone();
         let secondary_message = message.clone();
-        let primary_recipients = recipients.clone();
+        let topic_clone = topic.clone();
         self.send_both_networks(
             message,
             async move {
                 primary
-                    .broadcast_message(primary_message, primary_recipients, BroadcastDelay::None)
+                    .broadcast_message(primary_message, topic_clone, BroadcastDelay::None)
                     .await
             },
             async move {
                 secondary
-                    .broadcast_message(secondary_message, recipients, BroadcastDelay::None)
+                    .broadcast_message(secondary_message, topic, BroadcastDelay::None)
                     .await
             },
             broadcast_delay,
@@ -494,15 +496,13 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         Ok(filtered_msgs)
     }
 
-    async fn queue_node_lookup(
+    fn queue_node_lookup(
         &self,
         view_number: ViewNumber,
         pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
-        self.primary()
-            .queue_node_lookup(view_number, pk.clone())
-            .await?;
-        self.secondary().queue_node_lookup(view_number, pk).await
+    ) -> Result<(), TrySendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+        self.primary().queue_node_lookup(view_number, pk.clone())?;
+        self.secondary().queue_node_lookup(view_number, pk)
     }
 
     async fn update_view<'a, T>(&'a self, view: u64, membership: &T::Membership)

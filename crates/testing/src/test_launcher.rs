@@ -6,10 +6,11 @@
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, storage_types::TestStorage,
+use hotshot::{
+    traits::{NodeImplementation, TestableNodeImplementation},
+    MarketplaceConfig,
 };
+use hotshot_example_types::storage_types::TestStorage;
 use hotshot_types::{
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
@@ -34,16 +35,16 @@ pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYP
     pub storage: Generator<TestStorage<TYPES>>,
     /// configuration used to generate each hotshot node
     pub config: HotShotConfig<TYPES::SignatureKey>,
-    /// generate a new auction results connector for each node
-    pub auction_results_provider: Generator<TestAuctionResultsProvider>,
+    /// generate a new marketplace config for each node
+    pub marketplace_config: Generator<MarketplaceConfig<TYPES, I>>,
 }
 
 /// test launcher
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generator for resources
     pub resource_generator: ResourceGenerators<TYPES, I>,
-    /// metadasta used for tasks
-    pub metadata: TestDescription,
+    /// metadata used for tasks
+    pub metadata: TestDescription<TYPES, I>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
@@ -53,6 +54,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         TestRunner::<TYPES, I, N> {
             launcher: self,
             nodes: Vec::new(),
+            solver_server: None,
             late_start: HashMap::new(),
             next_node_id: 0,
             _pd: PhantomData,

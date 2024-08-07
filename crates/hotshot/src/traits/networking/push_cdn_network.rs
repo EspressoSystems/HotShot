@@ -10,7 +10,7 @@ use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, time::Duration};
 
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::channel::TrySendError;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::{art::async_sleep, art::async_spawn};
 use async_trait::async_trait;
@@ -42,7 +42,7 @@ use hotshot_types::{
     data::ViewNumber,
     traits::{
         metrics::{Counter, Metrics, NoMetrics},
-        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError},
+        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError, Topic as HotShotTopic},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
@@ -463,10 +463,10 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<T
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
-        _recipients: BTreeSet<TYPES::SignatureKey>,
+        topic: HotShotTopic,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
-        self.broadcast_message(message, Topic::Global)
+        self.broadcast_message(message, topic.into())
             .await
             .map_err(|e| {
                 self.metrics.num_failed_messages.add(1);
@@ -563,11 +563,20 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<T
     }
 
     /// Do nothing here, as we don't need to look up nodes.
-    async fn queue_node_lookup(
+    fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
         _pk: TYPES::SignatureKey,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
+    ) -> Result<(), TrySendError<Option<(ViewNumber, TYPES::SignatureKey)>>> {
         Ok(())
+    }
+}
+
+impl From<HotShotTopic> for Topic {
+    fn from(topic: HotShotTopic) -> Self {
+        match topic {
+            HotShotTopic::Global => Topic::Global,
+            HotShotTopic::Da => Topic::Da,
+        }
     }
 }

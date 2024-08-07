@@ -24,14 +24,14 @@ use tokio::time::error::Elapsed as TimeoutError;
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use std::{
     collections::{BTreeSet, HashMap},
-    fmt::Debug,
+    fmt::{Debug, Display},
     hash::Hash,
     pin::Pin,
     sync::Arc,
     time::Duration,
 };
 
-use async_compatibility_layer::channel::UnboundedSendError;
+use async_compatibility_layer::channel::TrySendError;
 use async_trait::async_trait;
 use futures::future::join_all;
 use rand::{
@@ -171,6 +171,8 @@ pub enum NetworkError {
         /// vec of errors
         errors: Vec<Box<NetworkError>>,
     },
+    /// The network is not ready yet
+    NotReady,
 }
 
 /// common traits we would like our network messages to implement
@@ -278,7 +280,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
-        recipients: BTreeSet<K>,
+        topic: Topic,
         broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError>;
 
@@ -350,11 +352,14 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     }
 
     /// queues lookup of a node
-    async fn queue_node_lookup(
+    ///
+    /// # Errors
+    /// Does not error.
+    fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
         _pk: K,
-    ) -> Result<(), UnboundedSendError<Option<(ViewNumber, K)>>> {
+    ) -> Result<(), TrySendError<Option<(ViewNumber, K)>>> {
         Ok(())
     }
 
@@ -673,5 +678,24 @@ impl NetworkReliability for ChaosNetwork {
 
     fn sample_repeat(&self) -> usize {
         Uniform::new_inclusive(self.repeat_low, self.repeat_high).sample(&mut rand::thread_rng())
+    }
+}
+
+/// Used when broadcasting messages
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Topic {
+    /// The `Global` topic goes out to all nodes
+    Global,
+    /// The `Da` topic goes out to only the DA committee
+    Da,
+}
+
+/// Libp2p topics require a string, so we need to convert our enum to a string
+impl Display for Topic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Topic::Global => write!(f, "global"),
+            Topic::Da => write!(f, "DA"),
+        }
     }
 }

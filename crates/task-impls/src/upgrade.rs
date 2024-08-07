@@ -92,9 +92,17 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Unix time in seconds at which we stop voting on an upgrade
     pub stop_voting_time: u64,
+
+    /// Upgrade certificate that has been decided on, if any
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
+    /// Check if we have decided on an upgrade certificate
+    async fn upgraded(&self) -> bool {
+        self.decided_upgrade_certificate.read().await.is_some()
+    }
+
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
     pub async fn handle(
@@ -107,6 +115,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                 info!("Received upgrade proposal: {:?}", proposal);
 
                 let view = *proposal.data.view_number();
+
+                // Skip voting if the version has already been upgraded.
+                if self.upgraded().await {
+                    info!(
+                        "Already upgraded to {:?}, skip voting.",
+                        TYPES::Upgrade::VERSION
+                    );
+                    return None;
+                }
+
                 let time = SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .ok()?
@@ -138,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
 
                 // At this point, we could choose to validate
                 // that the proposal was issued by the correct leader
-                // for the indiciated view.
+                // for the indicated view.
                 //
                 // We choose not to, because we don't gain that much from it.
                 // The certificate itself is only useful to the leader for that view anyway,
@@ -225,7 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         TYPES,
                         UpgradeVote<TYPES>,
                         UpgradeCertificate<TYPES>,
-                    >(&info, vote.clone(), event, &tx)
+                    >(&info, event, &tx)
                     .await;
                 } else {
                     let result = collector
@@ -259,6 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                     && view < self.stop_proposing_view
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
+                    && !self.upgraded().await
                     && self
                         .quorum_membership
                         .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
@@ -285,6 +304,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
                         upgrade_proposal_data.commit().as_ref(),
                     )
                     .expect("Failed to sign upgrade proposal commitment!");
+
+                    warn!("Sending upgrade proposal:\n\n {:?}", upgrade_proposal);
 
                     let message = Proposal {
                         data: upgrade_proposal,

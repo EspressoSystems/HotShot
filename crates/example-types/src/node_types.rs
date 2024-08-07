@@ -5,7 +5,10 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use hotshot::traits::{
-    election::static_committee::{GeneralStaticCommittee, StaticCommittee},
+    election::{
+        static_committee::{GeneralStaticCommittee, StaticCommittee},
+        static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
+    },
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
     NodeImplementation,
 };
@@ -18,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use vbs::version::StaticVersion;
 
 use crate::{
-    auction_results_provider_types::TestAuctionResultsProvider,
+    auction_results_provider_types::{TestAuctionResult, TestAuctionResultsProvider},
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
@@ -41,6 +44,7 @@ use crate::{
 /// to select our traits
 pub struct TestTypes;
 impl NodeType for TestTypes {
+    type AuctionResult = TestAuctionResult;
     type Base = StaticVersion<0, 1>;
     type Upgrade = StaticVersion<0, 2>;
     const UPGRADE_HASH: [u8; 32] = [
@@ -55,6 +59,42 @@ impl NodeType for TestTypes {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = GeneralStaticCommittee<TestTypes, Self::SignatureKey>;
+    type BuilderSignatureKey = BuilderKey;
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+/// filler struct to implement node type and allow us
+/// to select our traits
+pub struct TestConsecutiveLeaderTypes;
+impl NodeType for TestConsecutiveLeaderTypes {
+    type AuctionResult = TestAuctionResult;
+    type Base = StaticVersion<0, 1>;
+    type Upgrade = StaticVersion<0, 2>;
+    const UPGRADE_HASH: [u8; 32] = [
+        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0,
+    ];
+    type Time = ViewNumber;
+    type BlockHeader = TestBlockHeader;
+    type BlockPayload = TestBlockPayload;
+    type SignatureKey = BLSPubKey;
+    type Transaction = TestTransaction;
+    type ValidatedState = TestValidatedState;
+    type InstanceState = TestInstanceState;
+    type Membership =
+        StaticCommitteeLeaderForTwoViews<TestConsecutiveLeaderTypes, Self::SignatureKey>;
     type BuilderSignatureKey = BuilderKey;
 }
 
@@ -84,23 +124,23 @@ pub type StaticMembership = StaticCommittee<TestTypes>;
 impl<TYPES: NodeType> NodeImplementation<TYPES> for PushCdnImpl {
     type Network = PushCdnNetwork<TYPES>;
     type Storage = TestStorage<TYPES>;
-    type AuctionResultsProvider = TestAuctionResultsProvider;
+    type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for MemoryImpl {
     type Network = MemoryNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
-    type AuctionResultsProvider = TestAuctionResultsProvider;
+    type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for CombinedImpl {
     type Network = CombinedNetworks<TYPES>;
     type Storage = TestStorage<TYPES>;
-    type AuctionResultsProvider = TestAuctionResultsProvider;
+    type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type Network = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
-    type AuctionResultsProvider = TestAuctionResultsProvider;
+    type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }

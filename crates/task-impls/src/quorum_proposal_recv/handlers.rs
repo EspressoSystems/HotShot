@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 #![allow(dead_code)]
-#![cfg(feature = "dependency-tasks")]
 
 use std::sync::Arc;
 
@@ -101,8 +100,26 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     )
     .await;
 
+    let cur_view = task_state.cur_view;
+    if let Err(e) = update_view::<TYPES>(
+        view_number,
+        event_sender,
+        task_state.timeout,
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+        &mut task_state.cur_view,
+        &mut task_state.cur_view_time,
+        &mut task_state.timeout_task,
+        &task_state.output_event_stream,
+        SEND_VIEW_CHANGE_EVENT,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
+    )
+    .await
+    {
+        debug!("Liveness Branch - Failed to update view; error = {e:#}");
+    }
+
     if !liveness_check {
-        bail!("Liveness invalid.");
+        bail!("Quorum Proposal failed the liveness check");
     }
 
     Ok(QuorumProposalValidity::Liveness)
@@ -128,7 +145,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
 
     validate_proposal_view_and_certs(
         proposal,
-        &sender,
         task_state.cur_view,
         &task_state.quorum_membership,
         &task_state.timeout_membership,
@@ -136,7 +152,6 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     .context("Failed to validate proposal view or attached certs")?;
 
     let view_number = proposal.data.view_number();
-    let view_leader_key = task_state.quorum_membership.leader(view_number);
     let justify_qc = proposal.data.justify_qc.clone();
 
     if !justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
@@ -145,23 +160,13 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
 
-    // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    if let Err(e) = update_view::<TYPES>(
-        view_number,
+    broadcast_event(
+        Arc::new(HotShotEvent::QuorumProposalPreliminarilyValidated(
+            proposal.clone(),
+        )),
         event_sender,
-        task_state.timeout,
-        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        &mut task_state.cur_view,
-        &mut task_state.cur_view_time,
-        &mut task_state.timeout_task,
-        &task_state.output_event_stream,
-        SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
-    .await
-    {
-        debug!("Failed to update view; error = {e:#}");
-    }
+    .await;
 
     // Get the parent leaf and state.
     let mut parent_leaf = task_state
@@ -216,7 +221,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     drop(consensus_write);
 
     broadcast_event(
-        HotShotEvent::UpdateHighQc(justify_qc.clone()).into(),
+        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
         event_sender,
     )
     .await;
@@ -236,13 +241,30 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         Arc::clone(&task_state.decided_upgrade_certificate),
         Arc::clone(&task_state.quorum_membership),
-        view_leader_key,
         event_sender.clone(),
         sender,
         task_state.output_event_stream.clone(),
         task_state.id,
     )
     .await?;
+
+    // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
+    if let Err(e) = update_view::<TYPES>(
+        view_number,
+        event_sender,
+        task_state.timeout,
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+        &mut task_state.cur_view,
+        &mut task_state.cur_view_time,
+        &mut task_state.timeout_task,
+        &task_state.output_event_stream,
+        SEND_VIEW_CHANGE_EVENT,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
+    )
+    .await
+    {
+        debug!("Full Branch - Failed to update view; error = {e:#}");
+    }
 
     Ok(QuorumProposalValidity::Fully)
 }
