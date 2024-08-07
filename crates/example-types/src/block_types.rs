@@ -18,6 +18,7 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::{VidCommitment, VidCommon},
 };
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use snafu::Snafu;
@@ -177,10 +178,14 @@ impl EncodeBytes for TestMetadata {
 }
 
 impl TestMetadata {
+    pub fn new(options: TestMetadataOptions) -> Self {
+        TestMetadata { options: options }
+    }
+
     pub async fn handle_options(&self, msg: Option<String>) -> Result<String, String> {
         match self.options {
             TestMetadataOptions::AddDelay => {
-                let sleep_in_millis = 100;
+                let sleep_in_millis = rand::thread_rng().gen_range(0..=1);
                 async_sleep(Duration::from_millis(sleep_in_millis)).await;
                 Ok(msg.unwrap_or_else(|| {
                     format!("Successfully slept for {} milliseconds", sleep_in_millis)
@@ -297,7 +302,6 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _version: Version,
     ) -> Result<Self, Self::Error> {
         let parent = parent_leaf.block_header();
-        tracing::error!("metadata: {:?}", metadata);
         let _ = metadata.handle_options(None).await;
 
         let mut timestamp = OffsetDateTime::now_utc().unix_timestamp() as u64;

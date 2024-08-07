@@ -12,7 +12,7 @@ use hotshot::{
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
-    block_types::TestTransaction,
+    block_types::{TestMetadata, TestMetadataOptions, TestTransaction},
     node_types::{MemoryImpl, TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
@@ -66,7 +66,7 @@ pub async fn build_system_handle<
     let marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {metadata: TestMetadata::new(TestMetadataOptions::AddDelay)})
         .await
         .unwrap();
 

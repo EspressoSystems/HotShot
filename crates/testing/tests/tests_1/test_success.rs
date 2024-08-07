@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl},
-    state_types::TestTypes,
+    block_types::TestMetadataOptions, node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl}, state_types::TestTypes
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -23,7 +22,7 @@ cross_tests!(
     Types: [TestTypes],
     Ignore: false,
     Metadata: {
-        TestDescription {
+        let mut metadata = TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
@@ -31,7 +30,9 @@ cross_tests!(
                                              },
                                          ),
             ..TestDescription::default()
-        }
+        };
+        metadata.metadata = hotshot_example_types::block_types::TestMetadata::new(TestMetadataOptions::AddDelay);
+        metadata
     },
 );
 

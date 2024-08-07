@@ -49,7 +49,7 @@ async fn test_vid_task() {
     let (payload, metadata) = <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
         transactions.clone(),
         &TestValidatedState::default(),
-        &TestInstanceState {},
+        &TestInstanceState::default(),
     )
     .await
     .unwrap();

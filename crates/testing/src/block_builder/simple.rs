@@ -23,6 +23,7 @@ use hotshot_builder_api::v0_1::{
     builder::{BuildError, Error, Options},
     data_source::BuilderDataSource,
 };
+use hotshot_example_types::block_types::{TestBlockPayload, TestMetadata};
 use hotshot_types::{
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType,
@@ -45,6 +46,7 @@ impl SimpleBuilderImplementation {
         num_storage_nodes: usize,
         changes: HashMap<u64, BuilderChange>,
         change_sender: Sender<BuilderChange>,
+        config: SimpleBuilderConfig<TYPES>,
     ) -> (SimpleBuilderSource<TYPES>, SimpleBuilderTask<TYPES>) {
         let (pub_key, priv_key) =
             TYPES::BuilderSignatureKey::generated_from_seed_indexed([1; 32], 0);
@@ -60,6 +62,7 @@ impl SimpleBuilderImplementation {
             blocks: blocks.clone(),
             num_storage_nodes,
             should_fail_claims: Arc::clone(&should_fail_claims),
+            metadata: TestMetadata::default(),
         };
 
         let task = SimpleBuilderTask {
@@ -75,21 +78,34 @@ impl SimpleBuilderImplementation {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct SimpleBuilderConfig<TYPES: NodeType> {
+    pub metadata: Option<<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata>,
+}
+
+impl<TYPES: NodeType> Default for SimpleBuilderConfig<TYPES> {
+    fn default() -> Self {
+        SimpleBuilderConfig {
+            metadata: None
+        }
+    }
+}
+
 #[async_trait]
 impl<TYPES: NodeType> TestBuilderImplementation<TYPES> for SimpleBuilderImplementation
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
-    type Config = ();
+    type Config = SimpleBuilderConfig<TYPES>;
 
     async fn start(
         num_storage_nodes: usize,
         url: Url,
-        _config: Self::Config,
+        config: Self::Config,
         changes: HashMap<u64, BuilderChange>,
     ) -> Box<dyn BuilderTask<TYPES>> {
         let (change_sender, change_receiver) = broadcast(128);
-        let (source, task) = Self::create(num_storage_nodes, changes, change_sender).await;
+        let (source, task) = Self::create(num_storage_nodes, changes, change_sender, config).await;
         run_builder_source(url, change_receiver, source);
 
         Box::new(task)
@@ -105,6 +121,7 @@ pub struct SimpleBuilderSource<TYPES: NodeType> {
     transactions: Arc<RwLock<HashMap<Commitment<TYPES::Transaction>, SubmittedTransaction<TYPES>>>>,
     blocks: Arc<RwLock<HashMap<BuilderCommitment, BlockEntry<TYPES>>>>,
     should_fail_claims: Arc<AtomicBool>,
+    metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
 }
 
 #[async_trait]
@@ -160,7 +177,7 @@ where
             return Ok(vec![]);
         }
 
-        let block_entry = build_block(
+        let mut block_entry = build_block(
             transactions,
             self.num_storage_nodes,
             self.pub_key.clone(),
@@ -168,12 +185,16 @@ where
         )
         .await;
 
-        let metadata = block_entry.metadata.clone();
+        if let Some(block) = &mut block_entry.payload {
+            block.metadata = self.metadata.clone();
+        }
+
+        let metadata = block_entry.clone().metadata.clone();
 
         self.blocks
             .write()
             .await
-            .insert(block_entry.metadata.block_hash.clone(), block_entry);
+            .insert(block_entry.metadata.block_hash.clone(), block_entry.clone());
 
         Ok(vec![metadata])
     }

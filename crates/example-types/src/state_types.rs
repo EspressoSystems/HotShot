@@ -79,6 +79,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
+        let _ = self.metadata.handle_options(None).await;
         Ok((
             TestValidatedState {
                 block_height: self.block_height + 1,

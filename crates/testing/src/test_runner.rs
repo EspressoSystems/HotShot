@@ -167,16 +167,18 @@ where
                 .append(&mut change);
         }
 
+        let mut state = TestValidatedState::default();
+        state.metadata = self.launcher.metadata.metadata.clone();
         let spinning_task_state = SpinningTask {
             handles: Arc::clone(&handles),
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf::genesis(&TestValidatedState::default(), &TestInstanceState {})
+            last_decided_leaf: Leaf::genesis(&state, &TestInstanceState{metadata: self.launcher.metadata.metadata.clone()})
                 .await,
             high_qc: QuorumCertificate::genesis(
-                &TestValidatedState::default(),
-                &TestInstanceState {},
+                &state,
+                &TestInstanceState{metadata: self.launcher.metadata.metadata.clone()},
             )
             .await,
         };
@@ -324,16 +326,18 @@ where
         &self,
     ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>) {
         let config = self.launcher.resource_generator.config.clone();
+        let metadata = self.launcher.metadata.metadata;
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
+            let builder_config = B::Config::default();
             let builder_port = portpicker::pick_unused_port().expect("No free ports");
             let builder_url =
                 Url::parse(&format!("http://localhost:{builder_port}")).expect("Valid URL");
             let builder_task = B::start(
                 config.num_nodes_with_stake.into(),
                 builder_url.clone(),
-                B::Config::default(),
+                builder_config,
                 metadata.changes.clone(),
             )
             .await;
@@ -465,7 +469,7 @@ where
                     );
                 } else {
                     let initializer =
-                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
                             .await
                             .unwrap();
 

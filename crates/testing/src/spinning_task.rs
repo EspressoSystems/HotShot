@@ -122,7 +122,7 @@ where
 
                                         let initializer = HotShotInitializer::<TYPES>::from_reload(
                                             self.last_decided_leaf.clone(),
-                                            TestInstanceState {},
+                                            TestInstanceState::default(),
                                             None,
                                             view_number,
                                             BTreeMap::new(),
@@ -199,14 +199,14 @@ where
                                 let read_storage = storage.read().await;
                                 let initializer = HotShotInitializer::<TYPES>::from_reload(
                                     self.last_decided_leaf.clone(),
-                                    TestInstanceState {},
+                                    TestInstanceState::default(),
                                     None,
                                     view_number,
                                     read_storage.proposals_cloned().await,
                                     read_storage.high_qc_cloned().await.unwrap_or(
                                         QuorumCertificate::genesis(
                                             &TestValidatedState::default(),
-                                            &TestInstanceState {},
+                                            &TestInstanceState::default(),
                                         )
                                         .await,
                                     ),

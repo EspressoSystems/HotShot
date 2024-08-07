@@ -7,8 +7,8 @@ use hotshot::{
     HotShotInitializer, MarketplaceConfig, Memberships, SystemContext, TwinsHandlerState,
 };
 use hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    storage_types::TestStorage,
+    auction_results_provider_types::TestAuctionResultsProvider, block_types::TestMetadata,
+    state_types::TestInstanceState, storage_types::TestStorage,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
@@ -86,6 +86,8 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
     pub behaviour: Rc<dyn Fn(u64) -> Behaviour<TYPES, I>>,
+    /// test metadata
+    pub metadata: TestMetadata,
 }
 
 #[derive(Debug)]
@@ -107,7 +109,7 @@ pub async fn create_test_handle<
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,
 ) -> SystemContextHandle<TYPES, I> {
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
         .await
         .unwrap();
 
@@ -361,6 +363,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 error_pct: 0.1,
             },
             behaviour: Rc::new(|_| Behaviour::Standard),
+            metadata: TestMetadata::default(),
         }
     }
 }
@@ -376,6 +379,7 @@ where
     /// if some of the the configuration values are zero
     #[must_use]
     pub fn gen_launcher(self, node_id: u64) -> TestLauncher<TYPES, I> {
+        tracing::error!("gen");
         let TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
@@ -480,7 +484,11 @@ where
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(|_| TestStorage::<TYPES>::default()),
+                storage: Box::new(move |_| {
+                    let mut storage = TestStorage::<TYPES>::default();
+                    storage.metadata = self.metadata.clone();
+                    storage
+                }),
                 config,
                 marketplace_config: Box::new(|_| MarketplaceConfig::<TYPES, I> {
                     auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
