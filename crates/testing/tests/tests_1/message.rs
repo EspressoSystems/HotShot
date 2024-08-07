@@ -1,5 +1,3 @@
-#[cfg(test)]
-use std::marker::PhantomData;
 use committable::Committable;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::{
@@ -9,6 +7,8 @@ use hotshot_types::{
     simple_vote::ViewSyncCommitData,
     traits::{node_implementation::ConsensusTime, signature_key::SignatureKey},
 };
+#[cfg(test)]
+use std::marker::PhantomData;
 use vbs::{
     version::{StaticVersion, Version},
     BinarySerializer, Serializer,
