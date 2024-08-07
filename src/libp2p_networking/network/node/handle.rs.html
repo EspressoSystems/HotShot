@@ -582,6 +582,8 @@
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -595,7 +597,9 @@
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 <span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>hotshot_types::traits::network::NetworkError <span class="kw">as </span>HotshotNetworkError;
+<span class="kw">use </span>hotshot_types::traits::{
+    network::NetworkError <span class="kw">as </span>HotshotNetworkError, signature_key::SignatureKey,
+};
 <span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
@@ -612,9 +616,9 @@
 /// - A reference to the state
 /// - Controls for the swarm
 </span><span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>NetworkNodeHandle {
+</span><span class="kw">pub struct </span>NetworkNodeHandle&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// network configuration
-    </span>network_config: NetworkNodeConfig,
+    </span>network_config: NetworkNodeConfig&lt;K&gt;,
 
     <span class="doccomment">/// send an action to the networkbehaviour
     </span>send_network: UnboundedSender&lt;ClientRequest&gt;,
@@ -660,10 +664,10 @@
 <span class="doccomment">/// Spawn a network node task task and return the handle and the receiver for it
 /// # Errors
 /// Errors if spawning the task fails
-</span><span class="kw">pub async fn </span>spawn_network_node(
-    config: NetworkNodeConfig,
+</span><span class="kw">pub async fn </span>spawn_network_node&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(
+    config: NetworkNodeConfig&lt;K&gt;,
     id: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(NetworkNodeReceiver, NetworkNodeHandle), NetworkNodeHandleError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(NetworkNodeReceiver, NetworkNodeHandle&lt;K&gt;), NetworkNodeHandleError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>network = NetworkNode::new(config.clone())
         .<span class="kw">await
         </span>.context(NetworkSnafu)<span class="question-mark">?</span>;
@@ -697,7 +701,7 @@
     <span class="prelude-val">Ok</span>((receiver, handle))
 }
 
-<span class="kw">impl </span>NetworkNodeHandle {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkNodeHandle&lt;K&gt; {
     <span class="doccomment">/// Cleanly shuts down a swarm node
     /// This is done by sending a message to
     /// the swarm itself to spin down
@@ -1077,7 +1081,7 @@
 
     <span class="doccomment">/// Return a reference to the network config
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>NetworkNodeConfig {
+    </span><span class="kw">pub fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>NetworkNodeConfig&lt;K&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.network_config
     }
 }

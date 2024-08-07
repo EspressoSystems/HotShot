@@ -1121,6 +1121,25 @@
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1187,7 +1206,9 @@
 <span class="kw">use </span>libp2p_networking::{
     network::{
         behaviours::request_response::{Request, Response},
-        spawn_network_node, MeshParams,
+        spawn_network_node,
+        transport::construct_auth_message,
+        MeshParams,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
         NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
@@ -1273,7 +1294,7 @@
     <span class="doccomment">/// this node's public key
     </span>pk: K,
     <span class="doccomment">/// handle to control the network
-    </span>handle: Arc&lt;NetworkNodeHandle&gt;,
+    </span>handle: Arc&lt;NetworkNodeHandle&lt;K&gt;&gt;,
     <span class="doccomment">/// Message Receiver
     </span>receiver: UnboundedReceiver&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Receiver for Requests for Data, includes the request and the response chan
@@ -1530,7 +1551,24 @@
         .parse()<span class="question-mark">?</span>;
 
         <span class="comment">// Build our libp2p configuration from our global, network configuration
-        </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder: NetworkNodeConfigBuilder = NetworkNodeConfigBuilder::default();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
+
+        <span class="comment">// Extrapolate the stake table from the known nodes
+        </span><span class="kw">let </span>stake_table: HashSet&lt;K&gt; = config
+            .config
+            .known_nodes_with_stake
+            .iter()
+            .map(|node| K::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry))
+            .collect();
+
+        <span class="kw">let </span>auth_message =
+            construct_auth_message(pub_key, <span class="kw-2">&amp;</span>keypair.public().to_peer_id(), priv_key)
+                .with_context(|| <span class="string">"Failed to construct auth message"</span>)<span class="question-mark">?</span>;
+
+        <span class="comment">// Set the auth message and stake table
+        </span>config_builder
+            .stake_table(<span class="prelude-val">Some</span>(stake_table))
+            .auth_message(<span class="prelude-val">Some</span>(auth_message));
 
         <span class="comment">// The replication factor is the minimum of [the default and 2/3 the number of nodes]
         </span><span class="kw">let </span><span class="prelude-val">Some</span>(default_replication_factor) = DEFAULT_REPLICATION_FACTOR <span class="kw">else </span>{
@@ -1623,7 +1661,7 @@
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>new(
         metrics: Libp2pMetricsValue,
-        config: NetworkNodeConfig,
+        config: NetworkNodeConfig&lt;K&gt;,
         pk: K,
         bootstrap_addrs: BootstrapAddrs,
         id: usize,

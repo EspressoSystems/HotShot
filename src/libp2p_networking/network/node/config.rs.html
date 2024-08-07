@@ -75,6 +75,17 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -83,6 +94,7 @@
 
 </span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
 
+<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
 
@@ -93,7 +105,7 @@
 
 <span class="doccomment">/// describe the configuration of the network
 </span><span class="attr">#[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
-</span><span class="kw">pub struct </span>NetworkNodeConfig {
+</span><span class="kw">pub struct </span>NetworkNodeConfig&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="attr">#[builder(default)]
     </span><span class="doccomment">/// The type of node (bootstrap etc)
     </span><span class="kw">pub </span>node_type: NetworkNodeType,
@@ -123,6 +135,16 @@
     <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
     </span><span class="attr">#[builder(default = <span class="string">"false"</span>)]
     </span><span class="kw">pub </span>server_mode: bool,
+
+    <span class="doccomment">/// The stake table. Used for authenticating other nodes. If not supplied
+    /// we will not check other nodes against the stake table
+    </span><span class="attr">#[builder(default)]
+    </span><span class="kw">pub </span>stake_table: <span class="prelude-ty">Option</span>&lt;HashSet&lt;K&gt;&gt;,
+
+    <span class="doccomment">/// The signed authentication message sent to the remote peer
+    /// If not supplied we will not send an authentication message during the handshake
+    </span><span class="attr">#[builder(default)]
+    </span><span class="kw">pub </span>auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 }
 
 <span class="doccomment">/// NOTE: `mesh_outbound_min &lt;= mesh_n_low &lt;= mesh_n &lt;= mesh_n_high`
