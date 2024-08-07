@@ -8,6 +8,7 @@ mod handle;
 use std::{
     collections::{HashMap, HashSet},
     iter,
+    marker::PhantomData,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
@@ -17,7 +18,9 @@ use async_compatibility_layer::{
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
-use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
+use hotshot_types::{
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::signature_key::SignatureKey,
+};
 use libp2p::{
     autonat,
     core::transport::ListenerId,
@@ -76,7 +79,7 @@ pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
 #[derive(custom_debug::Debug)]
-pub struct NetworkNode {
+pub struct NetworkNode<K: SignatureKey + 'static> {
     /// pub/private key from with peer_id is derived
     identity: Keypair,
     /// peer id of network node
@@ -98,9 +101,12 @@ pub struct NetworkNode {
     resend_tx: Option<UnboundedSender<ClientRequest>>,
     /// Send to the bootstrap task to tell it to start a bootstrap
     bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
+
+    /// Phantom data to hold the key type
+    pd: PhantomData<K>,
 }
 
-impl NetworkNode {
+impl<K: SignatureKey + 'static> NetworkNode<K> {
     /// Returns number of peers this node is connected to
     pub fn num_connected(&self) -> usize {
         self.swarm.connected_peers().count()
@@ -257,6 +263,7 @@ impl NetworkNode {
             kconfig
                 .set_parallelism(NonZeroUsize::new(5).unwrap())
                 .set_provider_publication_interval(Some(record_republication_interval))
+                .set_record_filtering(libp2p::kad::StoreInserts::FilterBoth)
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);
 
@@ -344,6 +351,7 @@ impl NetworkNode {
             ),
             resend_tx: None,
             bootstrap_tx: None,
+            pd: PhantomData,
         })
     }
 
@@ -439,7 +447,7 @@ impl NetworkNode {
                         notify,
                         retry_count,
                     } => {
-                        self.dht_handler.record(
+                        self.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
@@ -623,7 +631,7 @@ impl NetworkNode {
                 let maybe_event = match b {
                     NetworkEventInternal::DHTEvent(e) => self
                         .dht_handler
-                        .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut()),
+                        .dht_handle_event::<K>(e, self.swarm.behaviour_mut().dht.store_mut()),
                     NetworkEventInternal::IdentifyEvent(e) => {
                         // NOTE feed identified peers into kademlia's routing table for peer discovery.
                         if let IdentifyEvent::Received {
