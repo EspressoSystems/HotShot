@@ -9,7 +9,7 @@ use futures::StreamExt;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{version_0_1, MemoryImpl, TestTypes},
     state_types::TestInstanceState,
 };
 use hotshot_macros::test_scripts;
@@ -41,7 +41,9 @@ async fn test_upgrade_task_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(1).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(1, version_0_1())
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -198,11 +200,14 @@ async fn test_upgrade_task_propose() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(3).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(3, version_0_1())
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let other_handles = futures::future::join_all((0..=9).map(build_system_handle)).await;
+    let other_handles =
+        futures::future::join_all((0..=9).map(|id| build_system_handle(id, version_0_1()))).await;
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -360,7 +365,9 @@ async fn test_upgrade_task_blank_blocks() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(6).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl>(6, version_0_1())
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 

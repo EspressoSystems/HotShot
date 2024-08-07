@@ -32,7 +32,7 @@ use hotshot::{
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    node_types::{Libp2pImpl, PushCdnImpl},
+    node_types::{version_0_1, Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
     storage_types::TestStorage,
 };
@@ -406,6 +406,7 @@ pub trait RunDa<
             initializer,
             ConsensusMetricsValue::default(),
             TestStorage::<TYPES>::default(),
+            version_0_1(),
             TestAuctionResultsProvider::<TYPES>::default(),
         )
         .await

@@ -143,11 +143,11 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }
 
-/// A `Versions` struct for HotShot version 0.1, with no upgrade configured.
+/// A `Versions` struct for HotShot version 0.1, configured with an upgrade to 0.2
 pub fn version_0_1<TYPES: NodeType>() -> Versions<TYPES> {
     Versions {
         base_version: Version { major: 0, minor: 1 },
-        upgrade_version: Version { major: 0, minor: 1 },
+        upgrade_version: Version { major: 0, minor: 2 },
         marketplace_version: Version { major: 0, minor: 3 },
         upgrade_hash: [
             1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0,
