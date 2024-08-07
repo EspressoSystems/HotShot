@@ -7,7 +7,6 @@ use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
     data::ViewNumber, simple_vote::ViewSyncPreCommitData,
     traits::node_implementation::ConsensusTime,
-    vote::Vote,
 };
 
 #[cfg(test)]

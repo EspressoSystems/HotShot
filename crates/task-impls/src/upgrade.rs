@@ -21,7 +21,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
-    vote::{HasViewNumber, Vote},
+    vote::HasViewNumber,
 };
 use tracing::{debug, error, info, instrument, warn};
 use vbs::version::StaticVersionType;

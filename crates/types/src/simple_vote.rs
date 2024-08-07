@@ -105,33 +105,32 @@ mod sealed {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
     /// The signature share associated with this vote
-    pub signature: Option<(
+    pub signature: (
         TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    )>,
+    ),
     /// The leaf commitment being voted on.
     pub data: DATA,
+    /// DO NOT USE, it is not signed!
     /// The view this vote was cast for
     pub view_number: TYPES::Time,
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
     fn view_number(&self) -> <TYPES as NodeType>::Time {
-        self.view_number
+        self.data().view_number()
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
     type Data = DATA;
 
-    fn signing_key(&self) -> Option<<TYPES as NodeType>::SignatureKey> {
-        self.signature.as_ref().map(|sig| sig.0.clone())
+    fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
+        self.signature.0.clone()
     }
 
-    fn signature(
-        &self,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType> {
-        self.signature.as_ref().map(|sig| sig.1.clone())
+    fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType {
+        self.signature.1.clone()
     }
 
     fn data(&self) -> &DATA {
@@ -142,25 +141,31 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
         self.commit()
     }
 
-    fn create_signed_vote(
+    fn data_commitment(&self) -> Commitment<Self::Data> {
+        self.data.commit()
+    }
+}
+
+impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
+    /// Creates and signs a simple vote
+    /// # Errors
+    /// If we are unable to sign the data
+    pub fn create_signed_vote(
         data: DATA,
         view: TYPES::Time,
         pub_key: &TYPES::SignatureKey,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError> {
-        match TYPES::SignatureKey::sign(private_key, Self::commit(&data, view).as_ref()) {
+        match TYPES::SignatureKey::sign(private_key, data.commit().as_ref()) {
             Ok(signature) => Ok(Self {
-                signature: Some((pub_key.clone(), signature)),
+                signature: (pub_key.clone(), signature),
                 data,
                 view_number: view,
             }),
             Err(e) => Err(e),
         }
     }
-}
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
-    /// Creates and signs a simple vote
     /// A private associated function that calculates a commitment based on the provided data and view.
     /// Used to calculate the vote's commitment including the data and the view number.
     fn commit(data: &DATA, view: TYPES::Time) -> Commitment<Self> {
@@ -168,15 +173,6 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
             .u64(*view)
             .var_size_bytes(data.commit().as_ref())
             .finalize()
-    }
-
-    /// Creates a genesis `SimpleVote`
-    pub fn genesis(data: DATA, view: TYPES::Time) -> Self {
-        Self {
-            signature: None,
-            data,
-            view_number: view,
-        }
     }
 }
 
@@ -194,11 +190,23 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        unimplemented!()
+    }
+}
+
 impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
             .finalize()
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for TimeoutData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        todo!()
     }
 }
 
@@ -210,11 +218,23 @@ impl Committable for DaData {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for DaData {
+    fn view_number(&self) -> TYPES::Time {
+        unimplemented!()
+    }
+}
+
 impl Committable for VidData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("VID data")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for VidData {
+    fn view_number(&self) -> TYPES::Time {
+        unimplemented!()
     }
 }
 
@@ -235,6 +255,12 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 }
 
 /// This implements commit for all the types which contain a view and relay public key.
+impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposalData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        todo!()
+    }
+}
+
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::Time,
     relay: u64,
@@ -250,14 +276,32 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncPreCommitData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        todo!()
+    }
+}
+
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
     }
 }
+impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncFinalizeData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        todo!()
+    }
+}
+
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncCommitData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        todo!()
     }
 }
 

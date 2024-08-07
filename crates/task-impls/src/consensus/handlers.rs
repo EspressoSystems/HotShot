@@ -29,7 +29,7 @@ use hotshot_types::{
         storage::Storage,
     },
     utils::ViewInner,
-    vote::{Certificate, HasViewNumber, Vote},
+    vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -344,7 +344,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.vote().data().leaf_commit)
+        .get(&justify_qc.data().leaf_commit)
         .cloned();
 
     parent_leaf = match parent_leaf {
@@ -395,7 +395,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
-            justify_qc.vote().data().leaf_commit
+            justify_qc.data().leaf_commit
         );
         let leaf = Leaf::from_quorum_proposal(&proposal.data);
 
@@ -698,7 +698,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.vote().data().leaf_commit)
+        .get(&justify_qc.data().leaf_commit)
         .cloned();
     parent = match parent {
         Some(p) => Some(p),
@@ -718,7 +718,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(parent) = parent else {
         error!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-            justify_qc.vote().data().leaf_commit,
+            justify_qc.data().leaf_commit,
             proposal.view_number,
         );
         return false;
@@ -762,7 +762,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     // Validate the DAC.
     let message = if cert.is_valid_cert(vote_info.2.as_ref()) {
         // Validate the block payload commitment for non-genesis DAC.
-        if cert.vote().data().payload_commit != proposal.block_header.payload_commitment() {
+        if cert.data().payload_commit != proposal.block_header.payload_commitment() {
             warn!(
                 "Block payload commitment does not equal da cert payload commitment. View = {}",
                 *view

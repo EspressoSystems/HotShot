@@ -33,7 +33,7 @@ use crate::{
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    simple_vote::{QuorumData, SimpleVote, UpgradeProposalData},
+    simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
@@ -47,7 +47,7 @@ use crate::{
     },
     utils::bincode_opts,
     vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
-    vote::{Certificate, HasViewNumber, Vote},
+    vote::{Certificate, HasViewNumber},
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -230,7 +230,7 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
     pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
         match self {
             ViewChangeEvidence::Timeout(timeout_cert) => {
-                timeout_cert.vote().data().view == *view - 1
+                timeout_cert.data().view == *view - 1
             }
             ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number() == *view,
         }
@@ -482,10 +482,11 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
                 .await
                 .commit(),
         };
-        let view = <TYPES::Time as ConsensusTime>::genesis();
-        let vote = SimpleVote::genesis(data, view);
+        let commit = data.commit();
         Self {
-            vote,
+            data,
+            vote_commitment: commit,
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: None,
             _pd: PhantomData,
         }
@@ -520,14 +521,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             metadata,
         );
 
-        let view = <TYPES::Time as ConsensusTime>::genesis();
         let null_quorum_data = QuorumData {
             leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
         };
-        let vote = SimpleVote::genesis(null_quorum_data.clone(), view);
 
         let justify_qc = QuorumCertificate {
-            vote,
+            data: null_quorum_data.clone(),
+            vote_commitment: null_quorum_data.commit(),
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: None,
             _pd: PhantomData,
         };
@@ -632,8 +633,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             //    - no longer care because we have passed new_version_first_view, or
             //    - no longer care because we have passed `decide_by` without deciding the certificate.
             (None, Some(parent_cert)) => {
-                ensure!(self.view_number() > parent_cert.vote().data().new_version_first_view
-                    || (self.view_number() > parent_cert.vote().data().decide_by && decided_upgrade_certificate.is_none()),
+                ensure!(self.view_number() > parent_cert.data().new_version_first_view
+                    || (self.view_number() > parent_cert.data().decide_by && decided_upgrade_certificate.is_none()),
                        "The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
                 );
             }
@@ -673,8 +674,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             //    - no longer care because we have passed `decide_by` without deciding the certificate.
             (None, Some(parent_cert)) => {
                 let decided_upgrade_certificate_read = decided_upgrade_certificate.read().await;
-                ensure!(self.view_number() > parent_cert.vote().data().new_version_first_view
-                    || (self.view_number() > parent_cert.vote().data().decide_by && decided_upgrade_certificate_read.is_none()),
+                ensure!(self.view_number() > parent_cert.data().new_version_first_view
+                    || (self.view_number() > parent_cert.data().decide_by && decided_upgrade_certificate_read.is_none()),
                        "The new leaf is missing an upgrade certificate that was present in its parent, and should still be live."
                 );
             }
@@ -780,7 +781,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         Leaf {
             view_number: *view_number,
             justify_qc: justify_qc.clone(),
-            parent_commitment: justify_qc.vote().data().leaf_commit,
+            parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
