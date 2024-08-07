@@ -129,7 +129,19 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+</pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
+
+</span><span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="kw">use </span>futures::Future;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]

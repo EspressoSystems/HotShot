@@ -168,7 +168,19 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+</pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
+
+</span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
