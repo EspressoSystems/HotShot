@@ -72,7 +72,7 @@ pub async fn build_system_handle<
     let marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
         .await
         .unwrap();
 

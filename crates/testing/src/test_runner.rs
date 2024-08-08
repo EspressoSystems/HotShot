@@ -178,11 +178,14 @@ where
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf::genesis(&TestValidatedState::default(), &TestInstanceState {})
-                .await,
+            last_decided_leaf: Leaf::genesis(
+                &TestValidatedState::default(),
+                &TestInstanceState::default(),
+            )
+            .await,
             high_qc: QuorumCertificate::genesis(
                 &TestValidatedState::default(),
-                &TestInstanceState {},
+                &TestInstanceState::default(),
             )
             .await,
         };
@@ -471,7 +474,7 @@ where
                     );
                 } else {
                     let initializer =
-                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
                             .await
                             .unwrap();
 

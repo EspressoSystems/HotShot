@@ -4,6 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use async_trait::async_trait;
 use hotshot::traits::{
     election::{
         static_committee::{GeneralStaticCommittee, StaticCommittee},
@@ -23,7 +24,7 @@ use vbs::version::StaticVersion;
 use crate::{
     auction_results_provider_types::{TestAuctionResult, TestAuctionResultsProvider},
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::{TestInstanceState, TestValidatedState},
+    state_types::{DelayOptions, TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
 
@@ -143,4 +144,9 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type Network = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
+}
+
+#[async_trait]
+pub trait TestableDelayImpl {
+    async fn add_delay(delay_option: DelayOptions);
 }

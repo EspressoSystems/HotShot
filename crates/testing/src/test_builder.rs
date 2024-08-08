@@ -113,7 +113,7 @@ pub async fn create_test_handle<
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,
 ) -> SystemContextHandle<TYPES, I> {
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
         .await
         .unwrap();
 
