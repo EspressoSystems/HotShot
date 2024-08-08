@@ -4499,6 +4499,7 @@ dependencies = [
  "libp2p",
  "libp2p-identity",
  "libp2p-swarm-derive",
+ "pin-project",
  "rand 0.8.5",
  "serde",
  "serde_bytes",

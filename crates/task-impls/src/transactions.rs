@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -373,7 +379,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
                 block_view,
                 vec1::vec1![null_fee],
                 Some(precompute_data),
-                None,
+                Some(TYPES::AuctionResult::default()),
             ))),
             event_stream,
         )

@@ -1,5 +1,16 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 // TODO: Remove this after integration
 #![allow(unused_imports)]
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
+
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
     state_types::TestTypes,
@@ -12,11 +23,7 @@ use hotshot_testing::{
     test_builder::TestDescription,
     view_sync_task::ViewSyncTaskDescription,
 };
-use hotshot_types::data::ViewNumber;
-use hotshot_types::traits::node_implementation::ConsensusTime;
-use std::collections::HashSet;
-use std::{collections::HashMap, time::Duration};
-
+use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 #[cfg(async_executor_impl = "async-std")]
 use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
 // Test that a good leader can succeed in the view directly after view sync
