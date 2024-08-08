@@ -260,6 +260,19 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 let privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
+
+                // Derive the Libp2p keypair from the private key
+                let libp2p_keypair = derive_libp2p_keypair::<TYPES::SignatureKey>(&privkey)
+                    .expect("Failed to derive libp2p keypair");
+
+                // Sign the lookup record
+                let lookup_record_value = RecordValue::new_signed(
+                    &RecordKey::new(Namespace::Lookup, pubkey.to_bytes()),
+                    libp2p_keypair.public().to_peer_id().to_bytes(),
+                    &privkey,
+                )
+                .expect("Failed to sign DHT lookup record");
+
                 // we want the majority of peers to have this lying around.
                 let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
@@ -274,6 +287,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             mesh_n: (expected_node_count / 2 + 3),
                         }))
                         .server_mode(true)
+                        .identity(libp2p_keypair)
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
@@ -295,6 +309,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             mesh_n: 8,
                         }))
                         .server_mode(true)
+                        .identity(libp2p_keypair)
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
@@ -310,10 +325,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
 
-                // Derive the Libp2p PeerID from the private key
-                let libp2p_key = derive_libp2p_peer_id::<TYPES::SignatureKey>(&privkey)
-                    .expect("Failed to derive libp2p key");
-
                 Box::pin(async move {
                     // If it's the second time we are starting this network, clear the bootstrap info
                     let mut write_ids = node_ids_ref.write().await;
@@ -328,12 +339,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             Libp2pMetricsValue::default(),
                             config,
                             pubkey.clone(),
-                            RecordValue::new_signed(
-                                &RecordKey::new(Namespace::Lookup, pubkey.to_bytes()),
-                                libp2p_key.to_bytes(),
-                                &privkey,
-                            )
-                            .expect("Failed to create signed record"),
+                            lookup_record_value,
                             bootstrap_addrs_ref,
                             usize::try_from(node_id).unwrap(),
                             #[cfg(feature = "hotshot-testing")]
