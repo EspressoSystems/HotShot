@@ -774,23 +774,19 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get a quorum vote's view number
-    /// # Panics
-    /// Panics if there is no leaf corresponding the vote
-    pub fn quorum_vote_view_number(&self, vote: &QuorumVote<TYPES>) -> TYPES::Time {
+    pub fn quorum_vote_view_number(&self, vote: &QuorumVote<TYPES>) -> Option<TYPES::Time> {
         self.saved_leaves
-            .get(&vote.data().leaf_commit)
-            .expect("Consensus::quorum_vote_view_number: we haven't seen this leaf yet!")
+            .get(&vote.data().leaf_commit)?
             .view_number()
+            .into()
     }
 
     /// Get DA vote's view number
-    /// # Panics
-    /// Panics if there is no view number corresponding to the DA vote.
-    pub fn da_vote_view_number(&self, vote: &DaVote<TYPES>) -> TYPES::Time {
-        *self
+    pub fn da_vote_view_number(&self, vote: &DaVote<TYPES>) -> Option<TYPES::Time> {
+        self
             .vid_commit_view()
             .get(&vote.data().payload_commit)
-            .expect("Consensus::da_vote_view_number: we haven't seen this vid commitment yet!")
+            .copied()
     }
 }
 

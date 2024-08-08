@@ -6,7 +6,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use chrono::Utc;
@@ -20,7 +20,7 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 use super::Consensus2TaskState;
 use crate::{
@@ -36,11 +36,14 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I>,
 ) -> Result<()> {
-    let vote_view_number = task_state
+    let Some(vote_view_number) = task_state
         .consensus
         .read()
         .await
-        .quorum_vote_view_number(vote);
+        .quorum_vote_view_number(vote) else {
+        warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+        bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
+    };
     // Are we the leader for this view?
     ensure!(
         task_state.quorum_membership.leader(vote_view_number + 1) == task_state.public_key,

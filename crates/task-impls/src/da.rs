@@ -254,7 +254,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
-                let vote_view_number = self.consensus.read().await.da_vote_view_number(vote);
+                let Some(vote_view_number) = self.consensus.read().await.da_vote_view_number(vote) else {
+                    warn!("We have received a DA vote but we haven't seen this VID commitment yet!");
+                    return None;
+                };
                 debug!("DA vote recv, Main Task {:?}", vote_view_number);
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote_view_number;
