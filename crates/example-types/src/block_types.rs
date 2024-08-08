@@ -29,8 +29,8 @@ use time::OffsetDateTime;
 use vbs::version::Version;
 
 use crate::{
-    node_types::TestTypes,
-    state_types::{TestInstanceState, TestValidatedState},
+    node_types::{TestTypes, TestableDelayImpl},
+    state_types::{DelayOptions, TestInstanceState, TestValidatedState},
 };
 
 /// The transaction in a [`TestBlockPayload`].

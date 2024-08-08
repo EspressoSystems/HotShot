@@ -5,8 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 //! Implementations for examples and tests only
-use std::fmt::Debug;
-
+use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
@@ -20,16 +19,37 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use vbs::version::Version;
 
-use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;
+use crate::{
+    block_types::{TestBlockPayload, TestTransaction},
+    node_types::TestableDelayImpl,
+};
+
+#[derive(Clone, Copy, Debug)]
+pub enum DelayOptions {
+    None,
+    Random,
+    Fixed,
+}
 
 /// Instance-level state implementation for testing purposes.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct TestInstanceState {}
+#[derive(Clone, Copy, Debug)]
+pub struct TestInstanceState {
+    delay_option: DelayOptions,
+}
 
 impl InstanceState for TestInstanceState {}
+
+impl Default for TestInstanceState {
+    fn default() -> Self {
+        TestInstanceState {
+            delay_option: DelayOptions::None,
+        }
+    }
+}
 
 /// Application-specific state delta implementation for testing purposes.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -68,6 +88,23 @@ impl Default for TestValidatedState {
     }
 }
 
+#[async_trait]
+impl TestableDelayImpl for TestValidatedState {
+    async fn add_delay(delay_option: DelayOptions) {
+        match delay_option {
+            DelayOptions::None => {
+                tracing::error!("no delay");
+            }
+            DelayOptions::Fixed => {
+                tracing::error!("fixed delay");
+            }
+            DelayOptions::Random => {
+                tracing::error!("random delay");
+            }
+        }
+    }
+}
+
 impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
     type Error = BlockError;
 
@@ -79,12 +116,13 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
 
     async fn validate_and_apply_header(
         &self,
-        _instance: &Self::Instance,
+        instance: &Self::Instance,
         _parent_leaf: &Leaf<TYPES>,
         _proposed_header: &TYPES::BlockHeader,
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
+        Self::add_delay(instance.delay_option).await;
         Ok((
             TestValidatedState {
                 block_height: self.block_height + 1,

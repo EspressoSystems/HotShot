@@ -22,6 +22,8 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 
+use crate::{node_types::TestableDelayImpl, state_types::DelayOptions};
+
 type VidShares<TYPES> = HashMap<
     <TYPES as NodeType>::Time,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
@@ -51,6 +53,7 @@ pub struct TestStorage<TYPES: NodeType> {
     inner: Arc<RwLock<TestStorageState<TYPES>>>,
     /// `should_return_err` is a testing utility to validate negative cases.
     pub should_return_err: bool,
+    pub delay_options: DelayOptions,
 }
 
 impl<TYPES: NodeType> Default for TestStorage<TYPES> {
@@ -58,6 +61,24 @@ impl<TYPES: NodeType> Default for TestStorage<TYPES> {
         Self {
             inner: Arc::new(RwLock::new(TestStorageState::default())),
             should_return_err: false,
+            delay_options: DelayOptions::None,
+        }
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType> TestableDelayImpl for TestStorage<TYPES> {
+    async fn add_delay(delay_option: DelayOptions) {
+        match delay_option {
+            DelayOptions::None => {
+                tracing::error!("no delay");
+            }
+            DelayOptions::Fixed => {
+                tracing::error!("fixed delay");
+            }
+            DelayOptions::Random => {
+                tracing::error!("random delay");
+            }
         }
     }
 }
@@ -79,6 +100,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
+        Self::add_delay(self.delay_options).await;
         let mut inner = self.inner.write().await;
         inner
             .vids
@@ -92,6 +114,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
+        Self::add_delay(self.delay_options).await;
         let mut inner = self.inner.write().await;
         inner
             .das
@@ -105,6 +128,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
+        Self::add_delay(self.delay_options).await;
         let mut inner = self.inner.write().await;
         inner
             .proposals
@@ -120,6 +144,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append Action to storage");
         }
+        Self::add_delay(self.delay_options).await;
         Ok(())
     }
 
@@ -130,6 +155,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to update high qc to storage");
         }
+        Self::add_delay(self.delay_options).await;
         let mut inner = self.inner.write().await;
         if let Some(ref current_high_qc) = inner.high_qc {
             if new_high_qc.view_number() > current_high_qc.view_number() {
@@ -148,6 +174,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to update high qc to storage");
         }
+        Self::add_delay(self.delay_options).await;
         Ok(())
     }
 }
