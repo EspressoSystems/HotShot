@@ -9,7 +9,6 @@ use std::{
     sync::Arc,
 };
 
-use hotshot_types::traits::node_implementation::Versions;
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -20,7 +19,7 @@ use hotshot_types::{
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
-    traits::node_implementation::{ConsensusTime, NodeType},
+    traits::node_implementation::{ConsensusTime, NodeType, Versions},
     vid::VidCommitment,
 };
 use snafu::Snafu;
@@ -99,7 +98,9 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub test_sender: Sender<TestEvent>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> OverallSafetyTask<TYPES, I, V> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions>
+    OverallSafetyTask<TYPES, I, V>
+{
     async fn handle_view_failure(&mut self, num_failed_views: usize, view_number: TYPES::Time) {
         let expected_views_to_fail = &mut self.properties.expected_views_to_fail;
 

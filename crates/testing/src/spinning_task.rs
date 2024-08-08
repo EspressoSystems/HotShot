@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use hotshot_types::traits::node_implementation::Versions;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -26,7 +25,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         network::ConnectedNetwork,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
     },
     vote::HasViewNumber,
     ValidatorConfig,

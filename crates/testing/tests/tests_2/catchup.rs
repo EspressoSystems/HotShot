@@ -25,7 +25,8 @@ async fn test_catchup() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> =
+        TestDescription::default();
     let catchup_node = vec![ChangeNode {
         idx: 19,
         updown: UpDown::Up,
@@ -84,7 +85,8 @@ async fn test_catchup_cdn() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> =
+        TestDescription::default();
     let catchup_nodes = vec![ChangeNode {
         idx: 18,
         updown: UpDown::Up,
@@ -137,7 +139,8 @@ async fn test_catchup_one_node() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> =
+        TestDescription::default();
     let catchup_nodes = vec![ChangeNode {
         idx: 18,
         updown: UpDown::Up,
@@ -192,7 +195,8 @@ async fn test_catchup_in_view_sync() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> =
+        TestDescription::default();
     let catchup_nodes = vec![
         ChangeNode {
             idx: 18,
@@ -255,7 +259,8 @@ async fn test_catchup_reload() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> =
+        TestDescription::default();
     let catchup_node = vec![ChangeNode {
         idx: 19,
         updown: UpDown::Up,
@@ -314,7 +319,8 @@ async fn test_all_restart() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
+        TestDescription::default();
     let mut catchup_nodes = vec![];
     for i in 1..20 {
         catchup_nodes.push(ChangeNode {

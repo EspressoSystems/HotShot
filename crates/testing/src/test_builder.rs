@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
-use hotshot_types::traits::node_implementation::Versions;
 
 use hotshot::{
     tasks::EventTransformerState,
@@ -18,8 +17,9 @@ use hotshot_example_types::{
     storage_types::TestStorage,
 };
 use hotshot_types::{
-    consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
-    HotShotConfig, ValidatorConfig,
+    consensus::ConsensusMetricsValue,
+    traits::node_implementation::{NodeType, Versions},
+    ExecutionType, HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
 use vec1::Vec1;
@@ -327,7 +327,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default for TestDescription<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
+    for TestDescription<TYPES, I, V>
+{
     /// by default, just a single round
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
@@ -373,8 +375,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default for Tes
     }
 }
 
-impl<TYPES: NodeType<InstanceState = TestInstanceState>, I: TestableNodeImplementation<TYPES>, V: Versions>
-    TestDescription<TYPES, I, V>
+impl<
+        TYPES: NodeType<InstanceState = TestInstanceState>,
+        I: TestableNodeImplementation<TYPES>,
+        V: Versions,
+    > TestDescription<TYPES, I, V>
 where
     I: NodeImplementation<TYPES, AuctionResultsProvider = TestAuctionResultsProvider<TYPES>>,
 {

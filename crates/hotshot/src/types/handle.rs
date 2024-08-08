@@ -8,7 +8,6 @@
 
 use std::{sync::Arc, time::Duration};
 
-use crate::Versions;
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -27,7 +26,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
-use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext};
+use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext, Versions};
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -64,7 +63,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub memberships: Arc<Memberships<TYPES>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> SystemContextHandle<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
+    SystemContextHandle<TYPES, I, V>
+{
     /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
     pub fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(&mut self, task_state: S) {
         let task = Task::new(
@@ -156,7 +157,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Syste
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         self.hotshot
-            .publish_transaction_async(tx, Arc::clone(&self.hotshot.upgrade_lock.decided_upgrade_certificate))
+            .publish_transaction_async(
+                tx,
+                Arc::clone(&self.hotshot.upgrade_lock.decided_upgrade_certificate),
+            )
             .await
     }
 

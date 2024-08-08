@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use hotshot_types::traits::node_implementation::Versions;
 use hotshot::traits::{
     election::{
         static_committee::{GeneralStaticCommittee, StaticCommittee},
@@ -16,7 +15,7 @@ use hotshot::traits::{
 use hotshot_types::{
     data::ViewNumber,
     signature_key::{BLSPubKey, BuilderKey},
-    traits::node_implementation::NodeType,
+    traits::node_implementation::{NodeType, Versions},
 };
 use serde::{Deserialize, Serialize};
 use vbs::version::StaticVersion;

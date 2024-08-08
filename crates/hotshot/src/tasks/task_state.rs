@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use crate::Versions;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -34,7 +33,7 @@ use hotshot_types::{
     },
 };
 
-use crate::types::SystemContextHandle;
+use crate::{types::SystemContextHandle, Versions};
 
 /// Trait for creating task states.
 #[async_trait]
@@ -52,7 +51,9 @@ where
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for NetworkRequestState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> NetworkRequestState<TYPES, I> {
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I, V>,
+    ) -> NetworkRequestState<TYPES, I> {
         NetworkRequestState {
             network: Arc::clone(&handle.hotshot.network),
             state: OuterConsensus::new(handle.hotshot.consensus()),
@@ -92,7 +93,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             stop_proposing_time: handle.hotshot.config.stop_proposing_time,
             start_voting_time: handle.hotshot.config.start_voting_time,
             stop_voting_time: handle.hotshot.config.stop_voting_time,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         };
 
         #[cfg(feature = "example-upgrade")]
@@ -113,7 +116,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             stop_proposing_time: u64::MAX,
             start_voting_time: 0,
             stop_voting_time: u64::MAX,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         };
     }
 }
@@ -191,7 +196,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for TransactionTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> TransactionTaskState<TYPES, I> {
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I, V>,
+    ) -> TransactionTaskState<TYPES, I> {
         TransactionTaskState {
             builder_timeout: handle.builder_timeout(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
@@ -211,7 +218,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
                 .cloned()
                 .map(BuilderClient::new)
                 .collect(),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
             auction_results_provider: Arc::clone(
                 &handle.hotshot.marketplace_config.auction_results_provider,
             ),
@@ -229,7 +238,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for ConsensusTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> ConsensusTaskState<TYPES, I> {
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I, V>,
+    ) -> ConsensusTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -257,7 +268,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: Arc::clone(&handle.storage),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         }
     }
 }
@@ -267,7 +280,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumVoteTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> QuorumVoteTaskState<TYPES, I> {
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I, V>,
+    ) -> QuorumVoteTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
 
         QuorumVoteTaskState {
@@ -283,7 +298,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         }
     }
 }
@@ -316,7 +333,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         }
     }
 }
@@ -350,7 +369,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         }
     }
 }
@@ -360,7 +381,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for Consensus2TaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Consensus2TaskState<TYPES, I> {
+    async fn create_from(
+        handle: &SystemContextHandle<TYPES, I, V>,
+    ) -> Consensus2TaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -383,7 +406,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             consensus: OuterConsensus::new(consensus),
             last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(
+                &handle.hotshot.upgrade_lock.decided_upgrade_certificate,
+            ),
         }
     }
 }

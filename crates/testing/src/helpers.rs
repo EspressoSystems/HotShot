@@ -7,7 +7,6 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use hotshot_types::traits::node_implementation::Versions;
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -36,7 +35,7 @@ use hotshot_types::{
         consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
     },
     utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},

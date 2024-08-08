@@ -102,7 +102,8 @@ async fn libp2p_network_failures_2() {
 async fn test_stress_libp2p_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription::default_stress();
+    let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> =
+        TestDescription::default_stress();
     metadata
         .gen_launcher(0)
         .launch()

@@ -9,8 +9,6 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
-
-
 use std::{
     fmt::Debug,
     hash::Hash,
@@ -266,14 +264,7 @@ pub trait NodeType:
 }
 
 /// Version information for HotShot
-pub trait Versions:
-    Clone
-    + Copy
-    + Debug
-    + Send
-    + Sync
-    + 'static
-{
+pub trait Versions: Clone + Copy + Debug + Send + Sync + 'static {
     /// The base version of HotShot this node is instantiated with.
     type Base: StaticVersionType;
 

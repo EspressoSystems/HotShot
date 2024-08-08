@@ -103,7 +103,8 @@ async fn libp2p_network_async() {
         timing_data: TimingData {
             timeout_ratio: (1, 1),
             next_view_timeout: 25000,
-            ..TestDescription::<TestTypes, Libp2pImpl, TestVersions>::default_multiple_rounds().timing_data
+            ..TestDescription::<TestTypes, Libp2pImpl, TestVersions>::default_multiple_rounds()
+                .timing_data
         },
         unreliable_network: Some(Box::new(AsynchronousNetwork {
             keep_numerator: 9,
@@ -151,7 +152,8 @@ async fn test_memory_network_async() {
         timing_data: TimingData {
             timeout_ratio: (1, 1),
             next_view_timeout: 1000,
-            ..TestDescription::<TestTypes, MemoryImpl, TestVersions>::default_multiple_rounds().timing_data
+            ..TestDescription::<TestTypes, MemoryImpl, TestVersions>::default_multiple_rounds()
+                .timing_data
         },
         unreliable_network: Some(Box::new(AsynchronousNetwork {
             keep_numerator: 95,

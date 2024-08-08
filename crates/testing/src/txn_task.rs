@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use hotshot_types::traits::node_implementation::Versions;
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Receiver;
@@ -13,7 +12,7 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::{NodeType, Versions};
 use rand::thread_rng;
 use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]

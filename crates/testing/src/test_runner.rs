@@ -11,7 +11,6 @@ use std::{
     sync::Arc,
 };
 
-use hotshot_types::traits::node_implementation::Versions;
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
@@ -38,7 +37,7 @@ use hotshot_types::{
     traits::{
         election::Membership,
         network::{ConnectedNetwork, Topic},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
     HotShotConfig, ValidatorConfig,
 };

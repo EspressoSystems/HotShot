@@ -11,10 +11,11 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
-use hotshot_types::traits::node_implementation::Versions;
-use hotshot_types::message::UpgradeLock;
 use futures::future::{select, Either};
-use hotshot_types::traits::network::BroadcastDelay;
+use hotshot_types::{
+    message::UpgradeLock,
+    traits::{network::BroadcastDelay, node_implementation::Versions},
+};
 use rand::Rng;
 use url::Url;
 use vbs::version::StaticVersionType;
@@ -162,7 +163,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     /// Marketplace config for this instance of HotShot
     pub marketplace_config: MarketplaceConfig<TYPES, I>,
 }
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Clone for SystemContext<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Clone
+    for SystemContext<TYPES, I, V>
+{
     #![allow(deprecated)]
     fn clone(&self) -> Self {
         Self {
@@ -745,7 +748,10 @@ where
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
         marketplace_config: MarketplaceConfig<TYPES, I>,
-    ) -> (SystemContextHandle<TYPES, I, V>, SystemContextHandle<TYPES, I, V>) {
+    ) -> (
+        SystemContextHandle<TYPES, I, V>,
+        SystemContextHandle<TYPES, I, V>,
+    ) {
         let left_system_context = SystemContext::new(
             public_key.clone(),
             private_key.clone(),

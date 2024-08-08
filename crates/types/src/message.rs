@@ -11,10 +11,8 @@
 
 use std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use async_lock::RwLock;
-use crate::traits::node_implementation::Versions;
-
 use anyhow::{bail, ensure, Context, Result};
+use async_lock::RwLock;
 use cdn_proto::util::mnemonic;
 use committable::Committable;
 use derivative::Derivative;
@@ -37,7 +35,7 @@ use crate::{
     traits::{
         election::Membership,
         network::{DataRequest, ResponseMessage, ViewMessage},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
@@ -426,16 +424,16 @@ where
 
 #[derive(Clone)]
 pub struct UpgradeLock<TYPES: NodeType, V: Versions> {
-  pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 
-  pub _pd: PhantomData<V>,
-  }
+    pub _pd: PhantomData<V>,
+}
 
 impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
-  pub fn new() -> Self {
-    Self {
-      decided_upgrade_certificate: Arc::new(RwLock::new(None)),
-      _pd: PhantomData::<V>,
+    pub fn new() -> Self {
+        Self {
+            decided_upgrade_certificate: Arc::new(RwLock::new(None)),
+            _pd: PhantomData::<V>,
+        }
     }
-  }
 }

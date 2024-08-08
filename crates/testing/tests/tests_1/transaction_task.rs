@@ -26,9 +26,10 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
 
     // Build the API for node 2.
     let node_id = 2;
-    let handle = build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl, TestVersions>(node_id)
-        .await
-        .0;
+    let handle =
+        build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl, TestVersions>(node_id)
+            .await
+            .0;
 
     let mut input = Vec::new();
     let mut output = Vec::new();

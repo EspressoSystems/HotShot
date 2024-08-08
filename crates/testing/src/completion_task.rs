@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{sync::Arc, time::Duration};
-use hotshot_types::traits::node_implementation::Versions;
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_spawn, async_timeout};
@@ -14,7 +13,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;
 use hotshot_task_impls::helpers::broadcast_event;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::{NodeType, Versions};
 use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -38,7 +37,9 @@ pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>,
     pub duration: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> CompletionTask<TYPES, I, V> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions>
+    CompletionTask<TYPES, I, V>
+{
     pub fn run(mut self) -> JoinHandle<()> {
         async_spawn(async move {
             if async_timeout(self.duration, self.wait_for_shutdown())

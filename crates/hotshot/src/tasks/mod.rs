@@ -9,7 +9,6 @@
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
 use std::{collections::HashSet, sync::Arc, time::Duration};
-use crate::Versions;
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -44,7 +43,7 @@ use vbs::version::StaticVersionType;
 use crate::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
     ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
 };
 
 /// event for global event stream
@@ -57,7 +56,11 @@ pub enum GlobalEvent {
 }
 
 /// Add tasks for network requests and responses
-pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+pub async fn add_request_network_task<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     let state = NetworkRequestState::<TYPES, I>::create_from(handle).await;
@@ -104,7 +107,8 @@ pub fn add_network_message_task<
         external_event_stream: handle.output_event_stream.0.clone(),
     };
 
-    let decided_upgrade_certificate = Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate);
+    let decided_upgrade_certificate =
+        Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate);
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();

@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
-use hotshot_types::traits::node_implementation::Versions;
 
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
@@ -15,7 +14,7 @@ use hotshot_example_types::storage_types::TestStorage;
 use hotshot_types::{
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
-        node_implementation::NodeType,
+        node_implementation::{NodeType, Versions},
     },
     HotShotConfig,
 };
