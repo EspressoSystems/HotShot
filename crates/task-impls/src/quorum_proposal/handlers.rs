@@ -264,9 +264,9 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             let membership = Arc::clone(&self.quorum_membership);
             let sender = self.sender.clone();
             let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
-            async_spawn(async move {
-                fetch_proposal(&high_qc, sender, membership, consensus).await
-            });
+            async_spawn(
+                async move { fetch_proposal(&high_qc, sender, membership, consensus).await },
+            );
             // Block on receiving the event from the event stream.
             EventDependency::new(
                 self.receiver.clone(),

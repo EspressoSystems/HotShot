@@ -66,7 +66,10 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
-    if let Ok(_) = proposal.validate_signature(quorum_membership.as_ref()) {
+    if proposal
+        .validate_signature(quorum_membership.as_ref())
+        .is_err()
+    {
         bail!("Proposal is not properly signed by the leader of the view")
     };
     let view_number = proposal.data.view_number();
@@ -310,10 +313,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-    let parent_view_number = consensus
-        .read()
-        .await
-        .high_qc_view_number();
+    let parent_view_number = consensus.read().await.high_qc_view_number();
     if !consensus
         .read()
         .await
@@ -330,8 +330,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         .context("Failed to fetch proposal")?;
     }
     let consensus_reader = consensus.read().await;
-    let parent_view_number = consensus_reader
-        .high_qc_view_number();
+    let parent_view_number = consensus_reader.high_qc_view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
         format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
     )?;

@@ -164,9 +164,9 @@ impl<
     > HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     fn view_number(&self) -> TYPES::Time {
-        if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<QuorumData<TYPES>>() {
-            return self.view_number;
-        } else if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<DaData>() {
+        if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<QuorumData<TYPES>>()
+            || std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<DaData>()
+        {
             return self.view_number;
         }
         self.data().view_number()
