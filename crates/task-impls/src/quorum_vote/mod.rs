@@ -35,7 +35,7 @@ use hotshot_types::{
     },
     utils::{View, ViewInner},
     vid::vid_scheme,
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
@@ -106,7 +106,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
             .read()
             .await
             .saved_leaves()
-            .get(&justify_qc.date().leaf_commit)
+            .get(&justify_qc.vote().data().leaf_commit)
             .cloned();
         maybe_parent = match maybe_parent {
             Some(p) => Some(p),
@@ -121,7 +121,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         };
         let parent = maybe_parent.context(format!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-            justify_qc.date().leaf_commit,
+            justify_qc.vote().data().leaf_commit,
             proposed_leaf.view_number(),
         ))?;
         let consensus_reader = self.consensus.read().await;
@@ -239,7 +239,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
+        let high_qc_view_number = self.consensus.read().await.high_qc().view_number();
         // The validated state of a non-genesis high QC should exist in the state map.
         if *high_qc_view_number != *ViewNumber::genesis()
             && !self
@@ -290,7 +290,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
-                    let cert_payload_comm = cert.date().payload_commit;
+                    let cert_payload_comm = cert.vote().data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
@@ -422,7 +422,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     }
                     VoteDependency::Dac => {
                         if let HotShotEvent::DaCertificateValidated(cert) = event {
-                            cert.view_number
+                            cert.view_number()
                         } else {
                             return false;
                         }
@@ -586,7 +586,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let view = cert.view_number;
+                let view = cert.view_number();
                 trace!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;

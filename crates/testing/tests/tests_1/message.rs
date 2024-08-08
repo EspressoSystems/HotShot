@@ -7,7 +7,6 @@
 #[cfg(test)]
 use std::marker::PhantomData;
 
-use committable::Committable;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::{
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
@@ -20,6 +19,7 @@ use vbs::{
     version::{StaticVersion, Version},
     BinarySerializer, Serializer,
 };
+use hotshot_types::simple_vote::SimpleVote;
 
 #[test]
 // Checks that the current program protocol version
@@ -41,10 +41,13 @@ fn version_number_at_start_of_serialization() {
         relay: 37,
         round: view_number,
     };
+    let vote = SimpleVote {
+        signature: None,
+        data,
+        view_number
+    };
     let simple_certificate = SimpleCertificate {
-        data: data.clone(),
-        vote_commitment: data.commit(),
-        view_number,
+        vote: vote.clone(),
         signatures: None,
         _pd: PhantomData,
     };

@@ -20,6 +20,7 @@ use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 use vbs::version::{StaticVersionType, Version};
 
+use crate::simple_vote::SimpleVote;
 use crate::{
     data::serialize_signature2,
     simple_vote::{
@@ -31,7 +32,7 @@ use crate::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 
 /// Trait which allows use to inject different threshold calculations into a Certificate type
@@ -74,11 +75,7 @@ impl<TYPES: NodeType> Threshold<TYPES> for UpgradeThreshold {
 #[derive(Serialize, Deserialize, Eq, Hash, PartialEq, Debug, Clone)]
 pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Threshold<TYPES>> {
     /// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
-    pub data: VOTEABLE,
-    /// commitment of all the votes this cert should be signed over
-    pub vote_commitment: Commitment<VOTEABLE>,
-    /// Which view this QC relates to
-    pub view_number: TYPES::Time,
+    pub vote: VOTEABLE,
     /// assembled signature for certificate aggregation
     pub signatures: Option<<TYPES::SignatureKey as SignatureKey>::QcType>,
     /// phantom data for `THRESHOLD` and `TYPES`
@@ -94,36 +91,33 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYP
             None => vec![],
         };
         committable::RawCommitmentBuilder::new("Certificate")
-            .field("data", self.data.commit())
-            .field("vote_commitment", self.vote_commitment)
-            .field("view number", self.view_number.commit())
+            .field("vote", self.vote.commit())
             .var_size_field("signatures", &signature_bytes)
             .finalize()
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>> Certificate<TYPES>
-    for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<
+        TYPES: NodeType,
+        VOTEABLE: Voteable + HasViewNumber<TYPES> + 'static,
+        THRESHOLD: Threshold<TYPES>,
+    > Certificate<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     type Voteable = VOTEABLE;
     type Threshold = THRESHOLD;
 
     fn create_signed_certificate(
-        vote_commitment: Commitment<VOTEABLE>,
-        data: Self::Voteable,
+        vote: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
-        view: TYPES::Time,
     ) -> Self {
         SimpleCertificate {
-            data,
-            vote_commitment,
-            view_number: view,
+            vote,
             signatures: Some(sig),
             _pd: PhantomData,
         }
     }
     fn is_valid_cert<MEMBERSHIP: Membership<TYPES>>(&self, membership: &MEMBERSHIP) -> bool {
-        if self.view_number == TYPES::Time::genesis() {
+        if self.view_number() == TYPES::Time::genesis() {
             return true;
         }
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
@@ -132,31 +126,34 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         );
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
-            self.vote_commitment.as_ref(),
+            self.vote_commitment().as_ref(),
             self.signatures.as_ref().unwrap(),
         )
     }
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
         THRESHOLD::threshold(membership)
     }
-    fn date(&self) -> &Self::Voteable {
-        &self.data
+    fn vote(&self) -> &Self::Voteable {
+        &self.vote
     }
-    fn date_commitment(&self) -> Commitment<Self::Voteable> {
-        self.vote_commitment
+    fn vote_commitment(&self) -> Commitment<Self::Voteable> {
+        self.vote.commit()
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
-    HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<
+        TYPES: NodeType,
+        VOTEABLE: Voteable + HasViewNumber<TYPES> + 'static,
+        THRESHOLD: Threshold<TYPES>,
+    > HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     fn view_number(&self) -> TYPES::Time {
-        self.view_number
+        self.vote.view_number()
     }
 }
 impl<TYPES: NodeType> Display for QuorumCertificate<TYPES> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "view: {:?}", self.view_number)
+        write!(f, "view: {:?}", self.view_number())
     }
 }
 
@@ -174,7 +171,7 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
         decided_upgrade_certificate: Option<Self>,
     ) -> Result<()> {
         ensure!(
-            self.data.decide_by >= view_number
+            self.vote().data().decide_by >= view_number
                 || decided_upgrade_certificate.is_some_and(|cert| cert == *self),
             "Upgrade certificate is no longer relevant."
         );
@@ -194,7 +191,7 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     ) -> Result<()> {
         let decided_upgrade_certificate_read = decided_upgrade_certificate.read().await;
         ensure!(
-            self.data.decide_by >= view_number
+            self.vote().data().decide_by >= view_number
                 || decided_upgrade_certificate_read
                     .clone()
                     .is_some_and(|cert| cert == *self),
@@ -225,28 +222,32 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     /// Given an upgrade certificate and a view, tests whether the view is in the period
     /// where we are upgrading, which requires that we propose with null blocks.
     pub fn upgrading_in(&self, view: TYPES::Time) -> bool {
-        view > self.data.old_version_last_view && view < self.data.new_version_first_view
+        view > self.vote().data().old_version_last_view
+            && view < self.vote().data().new_version_first_view
     }
 }
 
 /// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
-pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
+pub type QuorumCertificate<TYPES> =
+    SimpleCertificate<TYPES, SimpleVote<TYPES, QuorumData<TYPES>>, SuccessThreshold>;
 /// Type alias for a DA certificate over `DaData`
-pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData, SuccessThreshold>;
+pub type DaCertificate<TYPES> =
+    SimpleCertificate<TYPES, SimpleVote<TYPES, DaData>, SuccessThreshold>;
 /// Type alias for a Timeout certificate over a view number
-pub type TimeoutCertificate<TYPES> = SimpleCertificate<TYPES, TimeoutData<TYPES>, SuccessThreshold>;
+pub type TimeoutCertificate<TYPES> =
+    SimpleCertificate<TYPES, SimpleVote<TYPES, TimeoutData<TYPES>>, SuccessThreshold>;
 /// Type alias for a `ViewSyncPreCommit` certificate over a view number
 pub type ViewSyncPreCommitCertificate2<TYPES> =
-    SimpleCertificate<TYPES, ViewSyncPreCommitData<TYPES>, OneHonestThreshold>;
+    SimpleCertificate<TYPES, SimpleVote<TYPES, ViewSyncPreCommitData<TYPES>>, OneHonestThreshold>;
 /// Type alias for a `ViewSyncCommit` certificate over a view number
 pub type ViewSyncCommitCertificate2<TYPES> =
-    SimpleCertificate<TYPES, ViewSyncCommitData<TYPES>, SuccessThreshold>;
+    SimpleCertificate<TYPES, SimpleVote<TYPES, ViewSyncCommitData<TYPES>>, SuccessThreshold>;
 /// Type alias for a `ViewSyncFinalize` certificate over a view number
 pub type ViewSyncFinalizeCertificate2<TYPES> =
-    SimpleCertificate<TYPES, ViewSyncFinalizeData<TYPES>, SuccessThreshold>;
+    SimpleCertificate<TYPES, SimpleVote<TYPES, ViewSyncFinalizeData<TYPES>>, SuccessThreshold>;
 /// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeProposalData`
 pub type UpgradeCertificate<TYPES> =
-    SimpleCertificate<TYPES, UpgradeProposalData<TYPES>, UpgradeThreshold>;
+    SimpleCertificate<TYPES, SimpleVote<TYPES, UpgradeProposalData<TYPES>>, UpgradeThreshold>;
 
 /// Calculate the version applied in a view, based on the provided upgrade certificate.
 ///
@@ -258,8 +259,8 @@ pub fn version<TYPES: NodeType>(
 ) -> Result<Version> {
     let version = match upgrade_certificate {
         Some(ref cert) => {
-            if view >= cert.data.new_version_first_view {
-                if cert.data.new_version == TYPES::Upgrade::VERSION {
+            if view >= cert.vote().data().new_version_first_view {
+                if cert.vote().data().new_version == TYPES::Upgrade::VERSION {
                     TYPES::Upgrade::VERSION
                 } else {
                     bail!("The network has upgraded to a new version that we do not support!");

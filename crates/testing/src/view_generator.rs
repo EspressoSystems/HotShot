@@ -39,6 +39,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
     },
+    vote::Vote,
 };
 use sha2::{Digest, Sha256};
 

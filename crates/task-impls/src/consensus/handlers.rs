@@ -35,7 +35,7 @@ use hotshot_types::{
         storage::Storage,
     },
     utils::ViewInner,
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -351,7 +351,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.date().leaf_commit)
+        .get(&justify_qc.vote().data().leaf_commit)
         .cloned();
 
     parent_leaf = match parent_leaf {
@@ -379,7 +379,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+    if justify_qc.view_number() > consensus_read.high_qc().view_number() {
         if let Err(e) = task_state
             .storage
             .write()
@@ -402,7 +402,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
-            justify_qc.date().leaf_commit
+            justify_qc.vote().data().leaf_commit
         );
         let leaf = Leaf::from_quorum_proposal(&proposal.data);
 
@@ -458,7 +458,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
             let should_propose = task_state.quorum_membership.leader(new_view)
                 == task_state.public_key
-                && high_qc.view_number == current_proposal.clone().unwrap().view_number;
+                && high_qc.view_number() == current_proposal.clone().unwrap().view_number;
 
             let qc = high_qc.clone();
             if should_propose {
@@ -467,7 +467,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                     *new_view
                 );
                 let create_and_send_proposal_handle = publish_proposal_if_able(
-                    qc.view_number + 1,
+                    qc.view_number() + 1,
                     event_stream,
                     Arc::clone(&task_state.quorum_membership),
                     task_state.public_key.clone(),
@@ -558,7 +558,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
     // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
     let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
-        && task_state.consensus.read().await.high_qc().view_number
+        && task_state.consensus.read().await.high_qc().view_number()
             == task_state.current_proposal.clone().unwrap().view_number;
 
     if let Some(new_decided_view) = res.new_decided_view_number {
@@ -698,14 +698,14 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     };
     drop(read_consnesus);
 
-    let view = cert.view_number;
+    let view = cert.view_number();
     // TODO: do some of this logic without the vote token check, only do that when voting.
     let justify_qc = proposal.justify_qc.clone();
     let mut parent = consensus
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.date().leaf_commit)
+        .get(&justify_qc.vote().data().leaf_commit)
         .cloned();
     parent = match parent {
         Some(p) => Some(p),
@@ -725,7 +725,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(parent) = parent else {
         error!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-            justify_qc.date().leaf_commit,
+            justify_qc.vote().data().leaf_commit,
             proposal.view_number,
         );
         return false;
@@ -769,7 +769,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     // Validate the DAC.
     let message = if cert.is_valid_cert(vote_info.2.as_ref()) {
         // Validate the block payload commitment for non-genesis DAC.
-        if cert.date().payload_commit != proposal.block_header.payload_commitment() {
+        if cert.vote().data().payload_commit != proposal.block_header.payload_commitment() {
             warn!(
                 "Block payload commitment does not equal da cert payload commitment. View = {}",
                 *view
