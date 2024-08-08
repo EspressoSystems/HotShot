@@ -4,10 +4,9 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-#![cfg(not(feature = "dependency-tasks"))]
-
 use core::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
+use crate::consensus::Versions;
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
@@ -297,11 +296,11 @@ pub async fn publish_proposal_if_able<TYPES: NodeType>(
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut ConsensusTaskState<TYPES, I>,
+    task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
     debug!(
@@ -475,7 +474,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                     OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
                     task_state.round_start_delay,
                     task_state.formed_upgrade_certificate.clone(),
-                    Arc::clone(&task_state.decided_upgrade_certificate),
+                    Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
                     task_state.payload_commitment_and_metadata.clone(),
                     task_state.proposal_cert.clone(),
                     Arc::clone(&task_state.instance_state),
@@ -505,7 +504,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
                 proposal.clone(),
                 parent_leaf,
                 OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-                Arc::clone(&task_state.decided_upgrade_certificate),
+                Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
                 Arc::clone(&task_state.quorum_membership),
                 event_stream.clone(),
                 sender,
@@ -520,10 +519,10 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
 /// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &QuorumProposal<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut ConsensusTaskState<TYPES, I>,
+    task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let view = proposal.view_number();
     task_state.current_proposal = Some(proposal.clone());
@@ -531,13 +530,13 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let res = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
         &task_state.public_key,
     )
     .await;
 
     if let Some(cert) = res.decided_upgrade_cert {
-        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        let mut decided_certificate_lock = task_state.upgrade_lock.decided_upgrade_certificate.write().await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);
         let _ = event_stream

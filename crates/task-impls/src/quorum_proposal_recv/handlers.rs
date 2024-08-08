@@ -6,7 +6,7 @@
 
 #![allow(dead_code)]
 
-use std::sync::Arc;
+use std::sync::Arc;use crate::quorum_proposal_recv::{Versions, UpgradeLock};
 
 use anyhow::{bail, Context, Result};
 use async_broadcast::{broadcast, Sender};
@@ -49,10 +49,10 @@ pub(crate) enum QuorumProposalValidity {
 
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
-async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<QuorumProposalValidity> {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
@@ -134,11 +134,11 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The sequencer storage update fails.
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<QuorumProposalValidity> {
     let sender = sender.clone();
     let cur_view = task_state.cur_view;
@@ -239,7 +239,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
         Arc::clone(&task_state.quorum_membership),
         event_sender.clone(),
         sender,

@@ -5,7 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{marker::PhantomData, sync::Arc, time::SystemTime};
-
+use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -44,7 +44,7 @@ use crate::{
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
 /// Tracks state of a DA task
-pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
@@ -93,14 +93,14 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Unix time in seconds at which we stop voting on an upgrade
     pub stop_voting_time: u64,
 
-    /// Upgrade certificate that has been decided on, if any
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskState<TYPES, I, V> {
     /// Check if we have decided on an upgrade certificate
     async fn upgraded(&self) -> bool {
-        self.decided_upgrade_certificate.read().await.is_some()
+        self.upgrade_lock.decided_upgrade_certificate.read().await.is_some()
     }
 
     /// main task event handler
@@ -337,7 +337,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> UpgradeTaskState<TYPES, I> {
 
 #[async_trait]
 /// task state implementation for the upgrade task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for UpgradeTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for UpgradeTaskState<TYPES, I, V> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

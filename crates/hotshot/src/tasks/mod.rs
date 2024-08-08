@@ -189,18 +189,18 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
     handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(TransactionTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
-    if TYPES::Base::VERSION < TYPES::Upgrade::VERSION {
-        handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+    if V::Base::VERSION < V::Upgrade::VERSION {
+        handle.add_task(UpgradeTaskState::<TYPES, I, V>::create_from(handle).await);
     }
 
     {
         #![cfg(not(feature = "dependency-tasks"))]
         use hotshot_task_impls::consensus::ConsensusTaskState;
 
-        handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(ConsensusTaskState::<TYPES, I, V>::create_from(handle).await);
     }
     {
         #![cfg(feature = "dependency-tasks")]
@@ -209,10 +209,10 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
             quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
         };
 
-        handle.add_task(QuorumProposalTaskState::<TYPES, I>::create_from(handle).await);
-        handle.add_task(QuorumVoteTaskState::<TYPES, I>::create_from(handle).await);
-        handle.add_task(QuorumProposalRecvTaskState::<TYPES, I>::create_from(handle).await);
-        handle.add_task(Consensus2TaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(QuorumProposalTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(QuorumVoteTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(Consensus2TaskState::<TYPES, I, V>::create_from(handle).await);
     }
 
     #[cfg(feature = "rewind")]

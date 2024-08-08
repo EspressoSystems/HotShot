@@ -9,6 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_timeout};
@@ -76,7 +77,7 @@ pub struct BuilderResponse<TYPES: NodeType> {
 }
 
 /// Tracks state of a Transaction task
-pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// The state's api
     pub builder_timeout: Duration,
 
@@ -106,15 +107,15 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub instance_state: Arc<TYPES::InstanceState>,
     /// This state's ID
     pub id: u64,
-    /// Decided upgrade certificate
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// auction results provider
     pub auction_results_provider: Arc<I::AuctionResultsProvider>,
     /// generic builder url
     pub generic_builder_url: Url,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTaskState<TYPES, I, V> {
     /// handle view change decide legacy or not
     pub async fn handle_view_change(
         &mut self,
@@ -123,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
     ) -> Option<HotShotTaskCompleted> {
         let version = match version(
             block_view,
-            &self.decided_upgrade_certificate.read().await.clone(),
+            &self.upgrade_lock.decided_upgrade_certificate.read().await.clone(),
         ) {
             Ok(v) => v,
             Err(e) => {
@@ -151,7 +152,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         let version = match hotshot_types::simple_certificate::version(
             block_view,
             &self
-                .decided_upgrade_certificate
+                .upgrade_lock.decided_upgrade_certificate
                 .read()
                 .await
                 .as_ref()
@@ -167,7 +168,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         // Request a block from the builder unless we are between versions.
         let block = {
             if self
-                .decided_upgrade_certificate
+                .upgrade_lock.decided_upgrade_certificate
                 .read()
                 .await
                 .as_ref()
@@ -253,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
         let version = match hotshot_types::simple_certificate::version(
             block_view,
             &self
-                .decided_upgrade_certificate
+                .upgrade_lock.decided_upgrade_certificate
                 .read()
                 .await
                 .as_ref()
@@ -268,7 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
         // Only request bundles and propose with a nonempty block if we are not between versions.
         if !self
-            .decided_upgrade_certificate
+            .upgrade_lock.decided_upgrade_certificate
             .read()
             .await
             .as_ref()
@@ -732,7 +733,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TransactionTaskState<TYPES, 
 
 #[async_trait]
 /// task state implementation for Transactions Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for TransactionTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for TransactionTaskState<TYPES, I, V> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

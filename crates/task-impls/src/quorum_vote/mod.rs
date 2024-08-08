@@ -6,6 +6,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -358,7 +359,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 /// The state for the quorum vote task.
 ///
 /// Contains all of the information for the quorum vote.
-pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Public key.
     pub public_key: TYPES::SignatureKey,
 
@@ -395,11 +396,11 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskState<TYPES, I, V> {
     /// Create an event dependency.
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote create event dependency", level = "error")]
     fn create_event_dependency(
@@ -518,7 +519,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+                decided_upgrade_certificate: Arc::clone(&self.upgrade_lock.decided_upgrade_certificate),
                 id: self.id,
             },
         );
@@ -684,7 +685,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for QuorumVoteTaskState<TYPES, I, V> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
