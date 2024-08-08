@@ -205,6 +205,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
                 let mut consensus = self.consensus.write().await;
 
+                consensus.update_vid_commit_view(payload_commitment, view_number);
                 // Ensure this view is in the view map for garbage collection.
                 let view = View {
                     view_inner: ViewInner::Da { payload_commitment },
