@@ -38,23 +38,13 @@ use crate::{
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
 
-/// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
-/// is checked.
-pub(crate) enum QuorumProposalValidity {
-    /// Fully validated.
-    Fully,
-    /// Not fully validated due to the parent information missing in the internal state, but the
-    /// liveness is validated.
-    Liveness,
-}
-
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
-) -> Result<QuorumProposalValidity> {
+) -> Result<()> {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
 
@@ -123,7 +113,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         bail!("Quorum Proposal failed the liveness check");
     }
 
-    Ok(QuorumProposalValidity::Liveness)
+    Ok(())
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
@@ -144,7 +134,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
-) -> Result<QuorumProposalValidity> {
+) -> Result<()> {
     let sender = sender.clone();
     let cur_view = task_state.cur_view;
 
@@ -271,5 +261,5 @@ pub(crate) async fn handle_quorum_proposal_recv<
         debug!("Full Branch - Failed to update view; error = {e:#}");
     }
 
-    Ok(QuorumProposalValidity::Fully)
+    Ok(())
 }

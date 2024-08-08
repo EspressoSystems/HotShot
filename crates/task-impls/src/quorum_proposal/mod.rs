@@ -446,7 +446,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 // All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
-                    return;
                 }
 
                 self.create_dependency_task_if_new(
