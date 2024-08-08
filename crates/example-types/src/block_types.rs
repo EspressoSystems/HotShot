@@ -4,10 +4,12 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use async_compatibility_layer::art::async_sleep;
 use std::{
     fmt::{Debug, Display},
     mem::size_of,
     sync::Arc,
+    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -22,6 +24,7 @@ use hotshot_types::{
     utils::BuilderCommitment,
     vid::{VidCommitment, VidCommon},
 };
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use snafu::Snafu;
@@ -29,8 +32,9 @@ use time::OffsetDateTime;
 use vbs::version::Version;
 
 use crate::{
-    node_types::{TestTypes, TestableDelayImpl},
-    state_types::{DelayOptions, TestInstanceState, TestValidatedState},
+    node_types::TestTypes,
+    state_types::{TestInstanceState, TestValidatedState},
+    testable_delay::{DelayOptions, TestableDelay},
 };
 
 /// The transaction in a [`TestBlockPayload`].
@@ -268,14 +272,19 @@ impl TestBlockHeader {
     }
 }
 
-impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> BlockHeader<TYPES>
-    for TestBlockHeader
+impl<
+        TYPES: NodeType<
+            BlockHeader = Self,
+            BlockPayload = TestBlockPayload,
+            InstanceState = TestInstanceState,
+        >,
+    > BlockHeader<TYPES> for TestBlockHeader
 {
     type Error = std::convert::Infallible;
 
     async fn new_legacy(
         _parent_state: &TYPES::ValidatedState,
-        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
@@ -284,6 +293,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<Self, Self::Error> {
+        Self::handle_delay_option(instance_state.delay_option).await;
         Ok(Self::new(
             parent_leaf,
             payload_commitment,
@@ -293,7 +303,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
 
     async fn new_marketplace(
         _parent_state: &TYPES::ValidatedState,
-        _instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
+        instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
@@ -303,6 +313,7 @@ impl<TYPES: NodeType<BlockHeader = Self, BlockPayload = TestBlockPayload>> Block
         _auction_results: Option<TYPES::AuctionResult>,
         _version: Version,
     ) -> Result<Self, Self::Error> {
+        Self::handle_delay_option(instance_state.delay_option).await;
         Ok(Self::new(
             parent_leaf,
             payload_commitment,
@@ -363,5 +374,21 @@ impl Committable for TestBlockHeader {
 
     fn tag() -> String {
         "TEST_HEADER".to_string()
+    }
+}
+
+#[async_trait]
+impl TestableDelay for TestBlockHeader {
+    async fn handle_delay_option(delay_option: DelayOptions) {
+        match delay_option {
+            DelayOptions::None => {}
+            DelayOptions::Fixed => {
+                async_sleep(Duration::from_millis(50)).await;
+            }
+            DelayOptions::Random => {
+                let sleep_in_millis = rand::thread_rng().gen_range(25..=150);
+                async_sleep(Duration::from_millis(sleep_in_millis)).await;
+            }
+        }
     }
 }

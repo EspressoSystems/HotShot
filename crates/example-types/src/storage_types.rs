@@ -7,9 +7,11 @@
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::{bail, Result};
+use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
@@ -21,8 +23,9 @@ use hotshot_types::{
     utils::View,
     vote::HasViewNumber,
 };
+use rand::Rng;
 
-use crate::{node_types::TestableDelayImpl, state_types::DelayOptions};
+use crate::testable_delay::{DelayOptions, TestableDelay};
 
 type VidShares<TYPES> = HashMap<
     <TYPES as NodeType>::Time,
@@ -53,7 +56,7 @@ pub struct TestStorage<TYPES: NodeType> {
     inner: Arc<RwLock<TestStorageState<TYPES>>>,
     /// `should_return_err` is a testing utility to validate negative cases.
     pub should_return_err: bool,
-    pub delay_options: DelayOptions,
+    pub delay_option: DelayOptions,
 }
 
 impl<TYPES: NodeType> Default for TestStorage<TYPES> {
@@ -61,23 +64,22 @@ impl<TYPES: NodeType> Default for TestStorage<TYPES> {
         Self {
             inner: Arc::new(RwLock::new(TestStorageState::default())),
             should_return_err: false,
-            delay_options: DelayOptions::None,
+            delay_option: DelayOptions::None,
         }
     }
 }
 
 #[async_trait]
-impl<TYPES: NodeType> TestableDelayImpl for TestStorage<TYPES> {
-    async fn add_delay(delay_option: DelayOptions) {
+impl<TYPES: NodeType> TestableDelay for TestStorage<TYPES> {
+    async fn handle_delay_option(delay_option: DelayOptions) {
         match delay_option {
-            DelayOptions::None => {
-                tracing::error!("no delay");
-            }
+            DelayOptions::None => {}
             DelayOptions::Fixed => {
-                tracing::error!("fixed delay");
+                async_sleep(Duration::from_millis(50)).await;
             }
             DelayOptions::Random => {
-                tracing::error!("random delay");
+                let sleep_in_millis = rand::thread_rng().gen_range(25..=150);
+                async_sleep(Duration::from_millis(sleep_in_millis)).await;
             }
         }
     }
@@ -100,7 +102,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
-        Self::add_delay(self.delay_options).await;
+        Self::handle_delay_option(self.delay_option).await;
         let mut inner = self.inner.write().await;
         inner
             .vids
@@ -114,7 +116,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
-        Self::add_delay(self.delay_options).await;
+        Self::handle_delay_option(self.delay_option).await;
         let mut inner = self.inner.write().await;
         inner
             .das
@@ -128,7 +130,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
-        Self::add_delay(self.delay_options).await;
+        Self::handle_delay_option(self.delay_option).await;
         let mut inner = self.inner.write().await;
         inner
             .proposals
@@ -144,7 +146,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to append Action to storage");
         }
-        Self::add_delay(self.delay_options).await;
+        Self::handle_delay_option(self.delay_option).await;
         Ok(())
     }
 
@@ -155,7 +157,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to update high qc to storage");
         }
-        Self::add_delay(self.delay_options).await;
+        Self::handle_delay_option(self.delay_option).await;
         let mut inner = self.inner.write().await;
         if let Some(ref current_high_qc) = inner.high_qc {
             if new_high_qc.view_number() > current_high_qc.view_number() {
@@ -174,7 +176,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         if self.should_return_err {
             bail!("Failed to update high qc to storage");
         }
-        Self::add_delay(self.delay_options).await;
+        Self::handle_delay_option(self.delay_option).await;
         Ok(())
     }
 }
