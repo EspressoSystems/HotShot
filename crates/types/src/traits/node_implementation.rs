@@ -17,7 +17,6 @@ use std::{
     time::Duration,
 };
 
-use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

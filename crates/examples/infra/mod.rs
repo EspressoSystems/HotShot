@@ -38,7 +38,7 @@ use hotshot::{
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    node_types::{Libp2pImpl, PushCdnImpl, TestVersions},
+    node_types::{Libp2pImpl, PushCdnImpl},
     state_types::TestInstanceState,
     storage_types::TestStorage,
 };
