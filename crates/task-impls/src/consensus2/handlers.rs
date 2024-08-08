@@ -40,7 +40,8 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
         .consensus
         .read()
         .await
-        .quorum_vote_view_number(vote) else {
+        .quorum_vote_view_number(vote)
+    else {
         warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
         bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
     };

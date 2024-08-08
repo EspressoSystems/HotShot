@@ -783,8 +783,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
     /// Get DA vote's view number
     pub fn da_vote_view_number(&self, vote: &DaVote<TYPES>) -> Option<TYPES::Time> {
-        self
-            .vid_commit_view()
+        self.vid_commit_view()
             .get(&vote.data().payload_commit)
             .copied()
     }
