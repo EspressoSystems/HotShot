@@ -9,7 +9,7 @@ use std::{marker::PhantomData, sync::Arc};
 use hotshot::{tasks::task_state::CreateTaskState, types::SignatureKey};
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -43,7 +43,7 @@ async fn test_vid_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2).await.0;
     let pub_key = handle.public_key();
 
     // quorum membership for VID share distribution

@@ -7,6 +7,7 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
+use hotshot_types::traits::node_implementation::Versions;
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -19,7 +20,7 @@ use hotshot::{
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestTransaction,
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -56,14 +57,15 @@ pub async fn build_system_handle<
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         > + TestableNodeImplementation<TYPES>,
+    V: Versions,
 >(
     node_id: u64,
 ) -> (
-    SystemContextHandle<TYPES, I>,
+    SystemContextHandle<TYPES, I, V>,
     Sender<Arc<HotShotEvent<TYPES>>>,
     Receiver<Arc<HotShotEvent<TYPES>>>,
 ) {
-    let builder: TestDescription<TYPES, I> = TestDescription::default_multiple_rounds();
+    let builder: TestDescription<TYPES, I, V> = TestDescription::default_multiple_rounds();
 
     let launcher = builder.gen_launcher(node_id);
 
@@ -337,7 +339,7 @@ pub fn build_da_certificate(
 }
 
 pub async fn build_vote(
-    handle: &SystemContextHandle<TestTypes, MemoryImpl>,
+    handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     proposal: QuorumProposal<TestTypes>,
 ) -> GeneralConsensusMessage<TestTypes> {
     let view = ViewNumber::new(*proposal.view_number);

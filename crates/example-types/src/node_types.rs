@@ -4,6 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use hotshot_types::traits::node_implementation::Versions;
 use hotshot::traits::{
     election::{
         static_committee::{GeneralStaticCommittee, StaticCommittee},
@@ -143,4 +144,18 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type Network = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct TestVersions {}
+
+impl Versions for TestVersions {
+    type Base = StaticVersion<0, 1>;
+    type Upgrade = StaticVersion<0, 2>;
+    const UPGRADE_HASH: [u8; 32] = [
+        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0,
+    ];
+
+    type Marketplace = StaticVersion<0, 3>;
 }

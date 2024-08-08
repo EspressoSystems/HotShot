@@ -4,6 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use crate::Versions;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::{atomic::AtomicBool, Arc},
@@ -37,20 +38,21 @@ use crate::types::SystemContextHandle;
 
 /// Trait for creating task states.
 #[async_trait]
-pub trait CreateTaskState<TYPES, I>
+pub trait CreateTaskState<TYPES, I, V>
 where
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
+    V: Versions,
 {
     /// Function to create the task state from a given `SystemContextHandle`.
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Self;
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self;
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for NetworkRequestState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> NetworkRequestState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> NetworkRequestState<TYPES, I> {
         NetworkRequestState {
             network: Arc::clone(&handle.hotshot.network),
             state: OuterConsensus::new(handle.hotshot.consensus()),
@@ -68,10 +70,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for UpgradeTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> UpgradeTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> UpgradeTaskState<TYPES, I> {
         #[cfg(not(feature = "example-upgrade"))]
         return UpgradeTaskState {
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
@@ -90,7 +92,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             stop_proposing_time: handle.hotshot.config.stop_proposing_time,
             start_voting_time: handle.hotshot.config.start_voting_time,
             stop_voting_time: handle.hotshot.config.stop_voting_time,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         };
 
         #[cfg(feature = "example-upgrade")]
@@ -111,16 +113,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             stop_proposing_time: u64::MAX,
             start_voting_time: 0,
             stop_voting_time: u64::MAX,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         };
     }
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for VidTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> VidTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> VidTaskState<TYPES, I> {
         VidTaskState {
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             cur_view: handle.cur_view().await,
@@ -135,10 +137,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for DaTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> DaTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> DaTaskState<TYPES, I> {
         DaTaskState {
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
@@ -156,10 +158,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for ViewSyncTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> ViewSyncTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> ViewSyncTaskState<TYPES, I> {
         let cur_view = handle.cur_view().await;
         ViewSyncTaskState {
             current_view: cur_view,
@@ -186,10 +188,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for TransactionTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> TransactionTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> TransactionTaskState<TYPES, I> {
         TransactionTaskState {
             builder_timeout: handle.builder_timeout(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
@@ -209,7 +211,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
                 .cloned()
                 .map(BuilderClient::new)
                 .collect(),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
             auction_results_provider: Arc::clone(
                 &handle.hotshot.marketplace_config.auction_results_provider,
             ),
@@ -224,10 +226,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
 
 #[cfg(not(feature = "dependency-tasks"))]
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for ConsensusTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> ConsensusTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> ConsensusTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -255,17 +257,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),
             storage: Arc::clone(&handle.storage),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         }
     }
 }
 
 #[cfg(feature = "dependency-tasks")]
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumVoteTaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> QuorumVoteTaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> QuorumVoteTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
 
         QuorumVoteTaskState {
@@ -281,18 +283,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         }
     }
 }
 
 #[cfg(feature = "dependency-tasks")]
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumProposalTaskState<TYPES, I>
 {
     async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
+        handle: &SystemContextHandle<TYPES, I, V>,
     ) -> QuorumProposalTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
@@ -314,18 +316,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         }
     }
 }
 
 #[cfg(feature = "dependency-tasks")]
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumProposalRecvTaskState<TYPES, I>
 {
     async fn create_from(
-        handle: &SystemContextHandle<TYPES, I>,
+        handle: &SystemContextHandle<TYPES, I, V>,
     ) -> QuorumProposalRecvTaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
@@ -348,17 +350,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             spawned_tasks: BTreeMap::new(),
             instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         }
     }
 }
 
 #[cfg(feature = "dependency-tasks")]
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for Consensus2TaskState<TYPES, I>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> Consensus2TaskState<TYPES, I> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Consensus2TaskState<TYPES, I> {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -381,17 +383,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
             consensus: OuterConsensus::new(consensus),
             last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
-            decided_upgrade_certificate: Arc::clone(&handle.hotshot.decided_upgrade_certificate),
+            decided_upgrade_certificate: Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate),
         }
     }
 }
 
 #[cfg(feature = "rewind")]
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> CreateTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for RewindTaskState<TYPES>
 {
-    async fn create_from(handle: &SystemContextHandle<TYPES, I>) -> RewindTaskState<TYPES> {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> RewindTaskState<TYPES> {
         RewindTaskState {
             events: Vec::new(),
             id: handle.hotshot.id,

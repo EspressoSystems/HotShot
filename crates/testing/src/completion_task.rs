@@ -5,6 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{sync::Arc, time::Duration};
+use hotshot_types::traits::node_implementation::Versions;
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_spawn, async_timeout};
@@ -27,17 +28,17 @@ use crate::{test_runner::Node, test_task::TestEvent};
 pub struct CompletionTaskErr {}
 
 /// Completion task state
-pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     pub tx: Sender<TestEvent>,
 
     pub rx: Receiver<TestEvent>,
     /// handles to the nodes in the test
-    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// Duration of the task.
     pub duration: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> CompletionTask<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> CompletionTask<TYPES, I, V> {
     pub fn run(mut self) -> JoinHandle<()> {
         async_spawn(async move {
             if async_timeout(self.duration, self.wait_for_shutdown())

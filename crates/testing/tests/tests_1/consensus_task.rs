@@ -14,7 +14,7 @@ use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::TestInstanceState,
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -57,7 +57,7 @@ async fn test_consensus_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -146,7 +146,7 @@ async fn test_consensus_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -204,7 +204,7 @@ async fn test_view_sync_finalize_propose() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(4).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4).await.0;
     let (priv_key, pub_key) = key_pair_for_id(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
@@ -339,7 +339,7 @@ async fn test_view_sync_finalize_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -434,7 +434,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -534,7 +534,7 @@ async fn test_vid_disperse_storage_failure() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;

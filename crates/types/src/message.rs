@@ -9,7 +9,10 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use std::{fmt, fmt::Debug, marker::PhantomData};
+use std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
+
+use async_lock::RwLock;
+use crate::traits::node_implementation::Versions;
 
 use anyhow::{bail, ensure, Context, Result};
 use cdn_proto::util::mnemonic;
@@ -419,4 +422,20 @@ where
 
         Ok(())
     }
+}
+
+#[derive(Clone)]
+pub struct UpgradeLock<TYPES: NodeType, V: Versions> {
+  pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+
+  pub _pd: PhantomData<V>,
+  }
+
+impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
+  pub fn new() -> Self {
+    Self {
+      decided_upgrade_certificate: Arc::new(RwLock::new(None)),
+      _pd: PhantomData::<V>,
+    }
+  }
 }

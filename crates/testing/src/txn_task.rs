@@ -4,6 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use hotshot_types::traits::node_implementation::Versions;
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Receiver;
@@ -28,10 +29,10 @@ use crate::{test_runner::Node, test_task::TestEvent};
 pub struct TxnTaskErr {}
 
 /// state of task that decides when things are completed
-pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     // TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
     /// Handles for all nodes.
-    pub handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// Optional index of the next node.
     pub next_node_idx: Option<usize>,
     /// time to wait between txns
@@ -40,7 +41,7 @@ pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub shutdown_chan: Receiver<TestEvent>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TxnTask<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TxnTask<TYPES, I, V> {
     pub fn run(mut self) -> JoinHandle<()> {
         async_spawn(async move {
             async_sleep(Duration::from_millis(100)).await;

@@ -10,7 +10,7 @@ use async_broadcast::Sender;
 use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
 use hotshot::traits::implementations::MemoryNetwork;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
 use hotshot_task::task::{ConsensusTaskRegistry, Task};
 use hotshot_task_impls::{
     events::HotShotEvent,
@@ -41,7 +41,7 @@ async fn test_network_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let builder: TestDescription<TestTypes, MemoryImpl> =
+    let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();
     let node_id = 1;
 
@@ -114,7 +114,7 @@ async fn test_network_storage_fail() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let builder: TestDescription<TestTypes, MemoryImpl> =
+    let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();
     let node_id = 1;
 

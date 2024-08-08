@@ -9,6 +9,8 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
+
+
 use std::{
     fmt::Debug,
     hash::Hash,
@@ -17,6 +19,7 @@ use std::{
     time::Duration,
 };
 
+use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -260,4 +263,26 @@ pub trait NodeType:
 
     /// The type builder uses to sign its messages
     type BuilderSignatureKey: BuilderSignatureKey;
+}
+
+/// Version information for HotShot
+pub trait Versions:
+    Clone
+    + Copy
+    + Debug
+    + Send
+    + Sync
+    + 'static
+{
+    /// The base version of HotShot this node is instantiated with.
+    type Base: StaticVersionType;
+
+    /// The version of HotShot this node may be upgraded to. Set equal to `Base` to disable upgrades.
+    type Upgrade: StaticVersionType;
+
+    /// The hash for the upgrade.
+    const UPGRADE_HASH: [u8; 32];
+
+    /// The version at which to switch over to marketplace logic
+    type Marketplace: StaticVersionType;
 }

@@ -10,7 +10,7 @@ use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
 };
 use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{da::DaTaskState, events::HotShotEvent::*};
@@ -38,7 +38,7 @@ async fn test_da_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2).await.0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -122,7 +122,7 @@ async fn test_da_task_storage_failure() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2).await.0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;

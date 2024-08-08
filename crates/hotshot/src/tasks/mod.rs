@@ -9,6 +9,7 @@
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
 use std::{collections::HashSet, sync::Arc, time::Duration};
+use crate::Versions;
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -56,8 +57,8 @@ pub enum GlobalEvent {
 }
 
 /// Add tasks for network requests and responses
-pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     let state = NetworkRequestState::<TYPES, I>::create_from(handle).await;
 
@@ -70,8 +71,8 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
 }
 
 /// Add a task which responds to requests on the network.
-pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
     request_receiver: RequestReceiver,
 ) {
     let state = NetworkResponseState::<TYPES>::new(
@@ -93,8 +94,9 @@ pub fn add_network_message_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     NET: ConnectedNetwork<TYPES::SignatureKey>,
+    V: Versions,
 >(
-    handle: &mut SystemContextHandle<TYPES, I>,
+    handle: &mut SystemContextHandle<TYPES, I, V>,
     channel: &Arc<NET>,
 ) {
     let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
@@ -102,7 +104,7 @@ pub fn add_network_message_task<
         external_event_stream: handle.output_event_stream.0.clone(),
     };
 
-    let decided_upgrade_certificate = Arc::clone(&handle.hotshot.decided_upgrade_certificate);
+    let decided_upgrade_certificate = Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate);
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
@@ -153,8 +155,9 @@ pub fn add_network_event_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     NET: ConnectedNetwork<TYPES::SignatureKey>,
+    V: Versions,
 >(
-    handle: &mut SystemContextHandle<TYPES, I>,
+    handle: &mut SystemContextHandle<TYPES, I, V>,
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
@@ -176,8 +179,8 @@ pub fn add_network_event_task<
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
-pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
@@ -216,7 +219,7 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 /// Trait for intercepting and modifying messages between the network and consensus layers.
 ///
 /// Consensus <-> [Byzantine logic layer] <-> Network
-pub trait EventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>>
+pub trait EventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 where
     Self: std::fmt::Debug + Send + Sync + 'static,
 {
@@ -240,7 +243,7 @@ where
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
         marketplace_config: MarketplaceConfig<TYPES, I>,
-    ) -> SystemContextHandle<TYPES, I> {
+    ) -> SystemContextHandle<TYPES, I, V> {
         let hotshot = SystemContext::new(
             public_key,
             private_key,
@@ -270,14 +273,14 @@ where
             memberships: Arc::clone(&hotshot.memberships),
         };
 
-        add_consensus_tasks::<TYPES, I>(&mut handle).await;
+        add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
         self.add_network_tasks(&mut handle).await;
 
         handle
     }
 
     /// Add byzantine network tasks with the trait
-    async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I>) {
+    async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I, V>) {
         let state_in = Arc::new(RwLock::new(self));
         let state_out = Arc::clone(&state_in);
         // channels between the task spawned in this function and the network tasks.
@@ -305,7 +308,7 @@ where
         );
 
         // spawn the network tasks with our newly-created channel
-        add_network_tasks::<TYPES, I>(handle).await;
+        add_network_tasks::<TYPES, I, V>(handle).await;
 
         std::mem::swap(
             &mut internal_event_stream,
@@ -363,7 +366,7 @@ pub struct BadProposalViewDos {
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransformerState<TYPES, I, V>
     for BadProposalViewDos
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
@@ -398,7 +401,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES,
 pub struct DoubleProposeVote;
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransformerState<TYPES, I, V>
     for DoubleProposeVote
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
@@ -469,8 +472,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestLeader<TYPES, I> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug>
-    EventTransformerState<TYPES, I> for DishonestLeader<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
+    EventTransformerState<TYPES, I, V> for DishonestLeader<TYPES, I>
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
         vec![event.clone()]
@@ -492,8 +495,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug>
 }
 
 /// adds tasks for sending/receiving messages to/from the network.
-pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     let network = Arc::clone(&handle.network);
     let quorum_membership = handle.memberships.quorum_membership.clone();

@@ -8,6 +8,7 @@
 
 use std::{sync::Arc, time::Duration};
 
+use crate::Versions;
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -33,7 +34,7 @@ use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext
 /// This type provides the means to message and interact with a background [`SystemContext`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// The [sender](Sender) and [receiver](Receiver),
     /// to allow the application to communicate with HotShot.
     pub(crate) output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
@@ -51,7 +52,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub(crate) network_registry: NetworkTaskRegistry,
 
     /// Internal reference to the underlying [`SystemContext`]
-    pub hotshot: Arc<SystemContext<TYPES, I>>,
+    pub hotshot: Arc<SystemContext<TYPES, I, V>>,
 
     /// Reference to the internal storage for consensus datum.
     pub(crate) storage: Arc<RwLock<I::Storage>>,
@@ -63,7 +64,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub memberships: Arc<Memberships<TYPES>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandle<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> SystemContextHandle<TYPES, I, V> {
     /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
     pub fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(&mut self, task_state: S) {
         let task = Task::new(
@@ -155,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> SystemContextHandl
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
         self.hotshot
-            .publish_transaction_async(tx, Arc::clone(&self.hotshot.decided_upgrade_certificate))
+            .publish_transaction_async(tx, Arc::clone(&self.hotshot.upgrade_lock.decided_upgrade_certificate))
             .await
     }
 

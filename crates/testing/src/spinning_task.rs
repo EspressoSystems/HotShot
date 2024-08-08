@@ -4,6 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use hotshot_types::traits::node_implementation::Versions;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -45,11 +46,11 @@ pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 pub struct SpinningTaskErr {}
 
 /// Spinning task state
-pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     /// handle to the nodes
-    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// late start nodes
-    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I, V>>,
     /// time based changes
     pub(crate) changes: BTreeMap<TYPES::Time, Vec<ChangeNode>>,
     /// most recent view seen by spinning task
@@ -65,7 +66,8 @@ impl<
         TYPES: NodeType<InstanceState = TestInstanceState, ValidatedState = TestValidatedState>,
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<TYPES::SignatureKey>,
-    > TestTaskState for SpinningTask<TYPES, I>
+        V: Versions,
+    > TestTaskState for SpinningTask<TYPES, I, V>
 where
     I: TestableNodeImplementation<TYPES>,
     I: NodeImplementation<
@@ -228,7 +230,7 @@ where
                                     node_id < config.da_staked_committee_size as u64,
                                 );
                                 let context =
-                                    TestRunner::<TYPES, I, N>::add_node_with_config_and_channels(
+                                    TestRunner::<TYPES, I, V, N>::add_node_with_config_and_channels(
                                         node_id,
                                         network.clone(),
                                         (*memberships).clone(),

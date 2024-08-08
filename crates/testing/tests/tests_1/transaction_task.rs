@@ -1,7 +1,7 @@
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
-    node_types::{MemoryImpl, TestConsecutiveLeaderTypes},
+    node_types::{MemoryImpl, TestConsecutiveLeaderTypes, TestVersions},
 };
 use hotshot_task_impls::{
     events::HotShotEvent, harness::run_harness, transactions::TransactionTaskState,
@@ -26,7 +26,7 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
 
     // Build the API for node 2.
     let node_id = 2;
-    let handle = build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl>(node_id)
+    let handle = build_system_handle::<TestConsecutiveLeaderTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
 

@@ -9,6 +9,7 @@ use std::{
     sync::Arc,
 };
 
+use hotshot_types::traits::node_implementation::Versions;
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -85,9 +86,9 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
 }
 
 /// Data availability task state
-pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     /// handles
-    pub handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// ctx
     pub ctx: RoundCtx<TYPES>,
     /// configure properties
@@ -98,7 +99,7 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub test_sender: Sender<TestEvent>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> OverallSafetyTask<TYPES, I, V> {
     async fn handle_view_failure(&mut self, num_failed_views: usize, view_number: TYPES::Time) {
         let expected_views_to_fail = &mut self.properties.expected_views_to_fail;
 
@@ -128,8 +129,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TY
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
-    for OverallSafetyTask<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTaskState
+    for OverallSafetyTask<TYPES, I, V>
 {
     type Event = Event<TYPES>;
 
