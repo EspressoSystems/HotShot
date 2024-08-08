@@ -348,6 +348,25 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -595,6 +614,29 @@
     </span><span class="kw">pub </span>timestamp: u64,
 }
 
+<span class="kw">impl </span>TestBlockHeader {
+    <span class="kw">fn </span>new&lt;TYPES: NodeType&lt;BlockHeader = <span class="self">Self</span>&gt;&gt;(
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>parent = parent_leaf.block_header();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>timestamp = OffsetDateTime::now_utc().unix_timestamp() <span class="kw">as </span>u64;
+        <span class="kw">if </span>timestamp &lt; parent.timestamp {
+            <span class="comment">// Prevent decreasing timestamps.
+            </span>timestamp = parent.timestamp;
+        }
+
+        <span class="self">Self </span>{
+            block_number: parent.block_number + <span class="number">1</span>,
+            payload_commitment,
+            builder_commitment,
+            timestamp,
+        }
+    }
+}
+
 <span class="kw">impl</span>&lt;TYPES: NodeType&lt;BlockHeader = <span class="self">Self</span>, BlockPayload = TestBlockPayload&gt;&gt; BlockHeader&lt;TYPES&gt;
     <span class="kw">for </span>TestBlockHeader
 {
@@ -611,34 +653,30 @@
         _vid_common: VidCommon,
         _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">let </span>parent = parent_leaf.block_header();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>timestamp = OffsetDateTime::now_utc().unix_timestamp() <span class="kw">as </span>u64;
-        <span class="kw">if </span>timestamp &lt; parent.timestamp {
-            <span class="comment">// Prevent decreasing timestamps.
-            </span>timestamp = parent.timestamp;
-        }
-
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            block_number: parent.block_number + <span class="number">1</span>,
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new(
+            parent_leaf,
             payload_commitment,
             builder_commitment,
-            timestamp,
-        })
+        ))
     }
 
     <span class="kw">async fn </span>new_marketplace(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
-        _parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
-        _payload_commitment: VidCommitment,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        payload_commitment: VidCommitment,
+        builder_commitment: BuilderCommitment,
         _metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         _builder_fee: Vec&lt;BuilderFee&lt;TYPES&gt;&gt;,
         _vid_common: VidCommon,
         _auction_results: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
         _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="macro">unimplemented!</span>()
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new(
+            parent_leaf,
+            payload_commitment,
+            builder_commitment,
+        ))
     }
 
     <span class="kw">fn </span>genesis(

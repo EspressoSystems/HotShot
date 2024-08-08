@@ -731,34 +731,28 @@
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result <span class="kw">as </span>AnyhowResult;
-<span class="kw">use </span>anyhow::{ensure, Context};
-<span class="kw">use </span>async_compatibility_layer::art::async_timeout;
-<span class="kw">use </span>futures::AsyncRead;
-<span class="kw">use </span>futures::AsyncWrite;
-<span class="kw">use </span>serde::Deserialize;
-<span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>std::collections::HashSet;
-<span class="kw">use </span>std::future::Future;
-<span class="kw">use </span>std::hash::BuildHasher;
-<span class="kw">use </span>std::pin::Pin;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::task::Poll;
-<span class="kw">use </span>tracing::warn;
-<span class="kw">use </span>{std::io::Error <span class="kw">as </span>IoError, std::io::ErrorKind <span class="kw">as </span>IoErrorKind};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashSet,
+    future::Future,
+    hash::BuildHasher,
+    io::{Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind},
+    pin::Pin,
+    sync::Arc,
+    task::Poll,
+};
 
-<span class="kw">use </span>futures::future::poll_fn;
-<span class="kw">use </span>futures::{AsyncReadExt, AsyncWriteExt};
+<span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result </span><span class="kw">as </span>AnyhowResult};
+<span class="kw">use </span>async_compatibility_layer::art::async_timeout;
+<span class="kw">use </span>futures::{future::poll_fn, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 <span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
-<span class="kw">use </span>libp2p::core::muxing::StreamMuxerExt;
-<span class="kw">use </span>libp2p::core::transport::TransportEvent;
-<span class="kw">use </span>libp2p::core::StreamMuxer;
-<span class="kw">use </span>libp2p::identity::PeerId;
-<span class="kw">use </span>libp2p::Transport;
+<span class="kw">use </span>libp2p::{
+    core::{muxing::StreamMuxerExt, transport::TransportEvent, StreamMuxer},
+    identity::PeerId,
+    Transport,
+};
 <span class="kw">use </span>pin_project::pin_project;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>tracing::warn;
 
 <span class="doccomment">/// The maximum size of an authentication message. This is used to prevent
 /// DoS attacks by sending large messages.
@@ -1252,13 +1246,13 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
+    <span class="kw">use </span>std::{collections::HashSet, sync::Arc};
+
+    <span class="kw">use </span>hotshot_types::{signature_key::BLSPubKey, traits::signature_key::SignatureKey};
     <span class="kw">use </span>libp2p::{core::transport::dummy::DummyTransport, quic::Connection};
     <span class="kw">use </span>rand::Rng;
 
-    <span class="kw">use </span>std::{collections::HashSet, sync::Arc};
-
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>hotshot_types::{signature_key::BLSPubKey, traits::signature_key::SignatureKey};
 
     <span class="doccomment">/// A mock type to help with readability
     </span><span class="kw">type </span>MockStakeTableAuth = StakeTableAuthentication&lt;DummyTransport, BLSPubKey, Connection&gt;;

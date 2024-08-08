@@ -847,6 +847,7 @@
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -952,6 +953,7 @@
             instance_state.as_ref(),
             <span class="kw-2">&amp;</span>parent_leaf,
             commitment_and_metadata.commitment,
+            commitment_and_metadata.builder_commitment,
             commitment_and_metadata.metadata,
             commitment_and_metadata.fees.to_vec(),
             vid_share.data.common,
