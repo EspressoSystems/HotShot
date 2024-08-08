@@ -36,14 +36,17 @@ use crate::{
     request::REQUEST_TIMEOUT,
 };
 
-/// Trigger a request to the network for a proposal for a view and wait for the response
+/// Trigger a request to the network for a proposal for a justify QC and wait for the response
 #[instrument(skip_all)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
-    view: TYPES::Time,
+    justify_qc: &QuorumCertificate<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
+    // We cannot trust that the view in the justify QC corresponds to the leaf referenced in the justify QC.
+    // We check it later after we get the proposal for the view.
+    let view = justify_qc.view_number();
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
         view,
@@ -57,21 +60,32 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
+    if let Ok(_) = proposal.validate_signature(quorum_membership.as_ref()) {
+        bail!("Proposal is not properly signed by the leader of the view")
+    };
     let view_number = proposal.data.view_number();
-    let justify_qc = proposal.data.justify_qc.clone();
+    let proposal_justify_qc = proposal.data.justify_qc.clone();
 
-    if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
+    if !proposal_justify_qc.is_valid_cert(quorum_membership.as_ref()) {
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
     let mut consensus_write = consensus.write().await;
-    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let proposal_leaf = Leaf::from_quorum_proposal(&proposal.data);
+
+    // We asked for a proposal for the given view; the view number was taken from the justify QC in the newly received proposal.
+    // We cannot trust that the view in the justify QC really corresponds to the leaf referenced in the justify QC because the view in the justify QC is not signed.
+    // We need to additionally check that the leaf of the fetched proposal has the same commit as the one in the justify QC
+    if proposal_leaf.commit() != justify_qc.data().leaf_commit {
+        bail!("The leaf in the justify QC does not correspond to the corresponding proposal. Spoofed view number in the justify QC?");
+    }
+
     let state = Arc::new(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
 
     let view = View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
+            leaf: proposal_leaf.commit(),
             state,
             delta: None,
         },
@@ -80,13 +94,13 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
         tracing::trace!("{e:?}");
     }
 
-    consensus_write.update_saved_leaves(leaf.clone());
+    consensus_write.update_saved_leaves(proposal_leaf.clone());
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
         &event_stream,
     )
     .await;
-    Ok(leaf)
+    Ok(proposal_leaf)
 }
 
 /// Helper type to give names and to the output values of the leaf chain traversal operation.
@@ -293,10 +307,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     let parent_view_number = consensus
         .read()
         .await
-        .saved_leaves()
-        .get(&consensus.read().await.high_qc().data().leaf_commit)
-        .expect("parent_leaf_and_state: we haven't seen this leaf")
-        .view_number();
+        .high_qc_view_number();
     if !consensus
         .read()
         .await
@@ -304,7 +315,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         .contains_key(&parent_view_number)
     {
         let _ = fetch_proposal(
-            parent_view_number,
+            consensus.read().await.high_qc(),
             event_stream.clone(),
             quorum_membership,
             consensus.clone(),
@@ -314,10 +325,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     }
     let consensus_reader = consensus.read().await;
     let parent_view_number = consensus_reader
-        .saved_leaves()
-        .get(&consensus_reader.high_qc().data().leaf_commit)
-        .expect("parent_leaf_and_state: we haven't seen this leaf 2")
-        .view_number();
+        .high_qc_view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
         format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
     )?;

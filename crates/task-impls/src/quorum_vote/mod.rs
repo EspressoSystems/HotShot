@@ -105,7 +105,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         maybe_parent = match maybe_parent {
             Some(p) => Some(p),
             None => fetch_proposal(
-                justify_qc.view_number(),
+                &justify_qc,
                 self.sender.clone(),
                 Arc::clone(&self.quorum_membership),
                 OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),

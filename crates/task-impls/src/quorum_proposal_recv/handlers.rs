@@ -176,7 +176,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     parent_leaf = match parent_leaf {
         Some(p) => Some(p),
         None => fetch_proposal(
-            justify_qc.view_number(),
+            &justify_qc,
             event_sender.clone(),
             Arc::clone(&task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),

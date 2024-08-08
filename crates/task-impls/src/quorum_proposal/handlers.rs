@@ -244,6 +244,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
+        let high_qc = self.consensus.read().await.high_qc().clone();
         let high_qc_view_number = self.consensus.read().await.high_qc_view_number();
         if !self
             .consensus
@@ -257,7 +258,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
             let sender = self.sender.clone();
             let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
             async_spawn(async move {
-                fetch_proposal(high_qc_view_number, sender, membership, consensus).await
+                fetch_proposal(&high_qc, sender, membership, consensus).await
             });
             // Block on receiving the event from the event stream.
             EventDependency::new(

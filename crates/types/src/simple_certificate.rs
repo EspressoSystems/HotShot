@@ -158,6 +158,11 @@ impl<
     > HasViewNumber<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     fn view_number(&self) -> TYPES::Time {
+        if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<QuorumData<TYPES>>() {
+            return self.view_number;
+        } else if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<DaData>() {
+            return self.view_number;
+        }
         self.data().view_number()
     }
 }
@@ -238,8 +243,22 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
 
 /// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
 pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
+
+// impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumCertificate<TYPES> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
 /// Type alias for a DA certificate over `DaData`
 pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData, SuccessThreshold>;
+
+// impl<TYPES: NodeType> HasViewNumber<TYPES> for DaCertificate<TYPES> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
 /// Type alias for a Timeout certificate over a view number
 pub type TimeoutCertificate<TYPES> = SimpleCertificate<TYPES, TimeoutData<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncPreCommit` certificate over a view number

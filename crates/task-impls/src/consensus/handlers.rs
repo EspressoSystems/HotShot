@@ -352,7 +352,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     parent_leaf = match parent_leaf {
         Some(p) => Some(p),
         None => fetch_proposal(
-            justify_qc.view_number(),
+            &justify_qc,
             event_stream.clone(),
             Arc::clone(&task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
@@ -715,7 +715,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     parent = match parent {
         Some(p) => Some(p),
         None => fetch_proposal(
-            justify_qc.view_number(),
+            &justify_qc,
             vote_info.3.clone(),
             Arc::clone(&quorum_membership),
             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
