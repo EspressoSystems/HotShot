@@ -5,6 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 //! Implementations for examples and tests only
+use async_compatibility_layer::art::async_sleep;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use hotshot_types::{
@@ -19,26 +20,19 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, time::Duration};
 use vbs::version::Version;
 
 pub use crate::node_types::TestTypes;
 use crate::{
     block_types::{TestBlockPayload, TestTransaction},
-    node_types::TestableDelayImpl,
+    testable_delay::{DelayOptions, TestableDelay},
 };
-
-#[derive(Clone, Copy, Debug)]
-pub enum DelayOptions {
-    None,
-    Random,
-    Fixed,
-}
 
 /// Instance-level state implementation for testing purposes.
 #[derive(Clone, Copy, Debug)]
 pub struct TestInstanceState {
-    delay_option: DelayOptions,
+    pub delay_option: DelayOptions,
 }
 
 impl InstanceState for TestInstanceState {}
@@ -48,6 +42,12 @@ impl Default for TestInstanceState {
         TestInstanceState {
             delay_option: DelayOptions::None,
         }
+    }
+}
+
+impl TestInstanceState {
+    pub fn new(delay_option: DelayOptions) -> Self {
+        TestInstanceState { delay_option }
     }
 }
 
@@ -89,17 +89,16 @@ impl Default for TestValidatedState {
 }
 
 #[async_trait]
-impl TestableDelayImpl for TestValidatedState {
-    async fn add_delay(delay_option: DelayOptions) {
+impl TestableDelay for TestValidatedState {
+    async fn handle_delay_option(delay_option: DelayOptions) {
         match delay_option {
-            DelayOptions::None => {
-                tracing::error!("no delay");
-            }
+            DelayOptions::None => {}
             DelayOptions::Fixed => {
-                tracing::error!("fixed delay");
+                async_sleep(Duration::from_millis(50)).await;
             }
             DelayOptions::Random => {
-                tracing::error!("random delay");
+                let sleep_in_millis = rand::thread_rng().gen_range(25..=150);
+                async_sleep(Duration::from_millis(sleep_in_millis)).await;
             }
         }
     }
@@ -122,7 +121,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
-        Self::add_delay(instance.delay_option).await;
+        Self::handle_delay_option(instance.delay_option).await;
         Ok((
             TestValidatedState {
                 block_height: self.block_height + 1,

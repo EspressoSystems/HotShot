@@ -188,6 +188,7 @@ where
                 &TestInstanceState::default(),
             )
             .await,
+            async_delay: self.launcher.metadata.async_delay,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, I>>::new(
             spinning_task_state,
@@ -473,10 +474,11 @@ where
                         },
                     );
                 } else {
-                    let initializer =
-                        HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
-                            .await
-                            .unwrap();
+                    let initializer = HotShotInitializer::<TYPES>::from_genesis(
+                        TestInstanceState::new(self.launcher.metadata.async_delay),
+                    )
+                    .await
+                    .unwrap();
 
                     // See whether or not we should be DA
                     let is_da = node_id < config.da_staked_committee_size as u64;
@@ -539,9 +541,8 @@ where
         for (node_id, network, memberships, config, storage, marketplace_config) in
             uninitialized_nodes
         {
-            let behaviour = (self.launcher.metadata.behaviour)(node_id);
             let handle = create_test_handle(
-                behaviour,
+                self.launcher.metadata.clone(),
                 node_id,
                 network.clone(),
                 memberships,

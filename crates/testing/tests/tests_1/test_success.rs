@@ -9,6 +9,7 @@ use std::time::Duration;
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
     state_types::TestTypes,
+    testable_delay::DelayOptions,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -41,6 +42,30 @@ cross_tests!(
     },
 );
 
+cross_tests!(
+    TestName: test_success_with_async_delay,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTypes],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            ..TestDescription::default()
+        };
+
+        metadata.overall_safety_properties.num_failed_views = 0;
+        metadata.overall_safety_properties.num_successful_views = 10;
+        metadata.async_delay = DelayOptions::Random;
+        metadata
+    },
+);
+
+#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: double_propose_vote,
     Impls: [MemoryImpl],
