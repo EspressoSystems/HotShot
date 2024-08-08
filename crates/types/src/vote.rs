@@ -98,13 +98,13 @@ pub struct VoteAccumulator<
 > {
     /// Map of all signatures accumulated so far
     pub vote_outcomes: VoteMap2<
-        Commitment<VOTE>,
+        Commitment<VOTE::Data>,
         TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     >,
     /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     /// And a list of valid signatures for certificate aggregation
-    pub signers: SignersMap<Commitment<VOTE>, TYPES::SignatureKey>,
+    pub signers: SignersMap<Commitment<VOTE::Data>, TYPES::SignatureKey>,
     /// Phantom data to specify the types this accumulator is for
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
 }
@@ -120,8 +120,8 @@ impl<
     pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
         let key = vote.signing_key();
 
-        let vote_commitment = vote.vote_commitment();
-        if !key.validate(&vote.signature(), vote_commitment.as_ref()) {
+        let data_commitment = vote.data_commitment();
+        if !key.validate(&vote.signature(), data_commitment.as_ref()) {
             error!("Invalid vote! Vote Data {:?}", vote.data());
             return Either::Left(());
         }
@@ -142,7 +142,7 @@ impl<
 
         let (total_stake_casted, total_vote_map) = self
             .vote_outcomes
-            .entry(vote_commitment)
+            .entry(data_commitment)
             .or_insert_with(|| (U256::from(0), BTreeMap::new()));
 
         // Check for duplicate vote
@@ -151,7 +151,7 @@ impl<
         }
         let (signers, sig_list) = self
             .signers
-            .entry(vote_commitment)
+            .entry(data_commitment)
             .or_insert((bitvec![0; membership.total_nodes()], Vec::new()));
         if signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
@@ -162,7 +162,7 @@ impl<
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.stake();
-        total_vote_map.insert(key, (vote.signature(), vote.vote_commitment()));
+        total_vote_map.insert(key, (vote.signature(), vote.data_commitment()));
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC

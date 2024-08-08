@@ -36,22 +36,24 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I>,
 ) -> Result<()> {
+    let vote_view_number = task_state
+        .consensus
+        .read()
+        .await
+        .quorum_vote_view_number(vote);
     // Are we the leader for this view?
     ensure!(
-        task_state.quorum_membership.leader(vote.view_number() + 1) == task_state.public_key,
-        format!(
-            "We are not the leader for view {:?}",
-            vote.view_number() + 1
-        )
+        task_state.quorum_membership.leader(vote_view_number + 1) == task_state.public_key,
+        format!("We are not the leader for view {:?}", vote_view_number + 1)
     );
 
     let mut collector = task_state.vote_collector.write().await;
 
-    if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
+    if collector.is_none() || vote_view_number > collector.as_ref().unwrap().view {
         let info = AccumulatorInfo {
             public_key: task_state.public_key.clone(),
             membership: Arc::clone(&task_state.quorum_membership),
-            view: vote.view_number(),
+            view: vote_view_number,
             id: task_state.id,
         };
         *collector = create_vote_accumulator::<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>(

@@ -127,9 +127,26 @@ impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNu
     for SimpleVote<TYPES, DATA>
 {
     fn view_number(&self) -> <TYPES as NodeType>::Time {
+        if std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<QuorumData<TYPES>>()
+            || std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<DaData>()
+        {
+            return self.view_number;
+        }
         self.data().view_number()
     }
 }
+
+// impl<TYPES> HasViewNumber<TYPES> for SimpleVote<TYPES, QuorumData<TYPES>> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
+// impl<TYPES> HasViewNumber<TYPES> for SimpleVote<TYPES, DaData> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
 
 impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Vote<TYPES>
     for SimpleVote<TYPES, DATA>

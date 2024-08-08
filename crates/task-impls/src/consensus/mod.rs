@@ -297,23 +297,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                debug!("Received quorum vote: {:?}", vote.view_number());
-                if self.quorum_membership.leader(vote.view_number() + 1) != self.public_key {
+                let vote_view_number = self.consensus.read().await.quorum_vote_view_number(vote);
+                debug!("Received quorum vote: {:?}", vote_view_number);
+                if self.quorum_membership.leader(vote_view_number + 1) != self.public_key {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
-                        *vote.view_number() + 1,
-                        self.quorum_membership.leader(vote.view_number() + 2) == self.public_key
+                        *vote_view_number + 1,
+                        self.quorum_membership.leader(vote_view_number + 2) == self.public_key
                     );
                     return;
                 }
                 let mut collector = self.vote_collector.write().await;
 
-                if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
-                    debug!("Starting vote handle for view {:?}", vote.view_number());
+                if collector.is_none() || vote_view_number > collector.as_ref().unwrap().view {
+                    debug!("Starting vote handle for view {:?}", vote_view_number);
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
                         membership: Arc::clone(&self.quorum_membership),
-                        view: vote.view_number(),
+                        view: vote_view_number,
                         id: self.id,
                     };
                     *collector = create_vote_accumulator::<

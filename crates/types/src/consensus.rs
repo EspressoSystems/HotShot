@@ -19,6 +19,7 @@ use committable::{Commitment, Committable};
 use tracing::{debug, error, instrument, trace};
 use vec1::Vec1;
 
+use crate::simple_vote::{DaVote, QuorumVote};
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
@@ -34,7 +35,7 @@ use crate::{
     },
     utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
-    vote::{Certificate, HasViewNumber},
+    vote::{Certificate, HasViewNumber, Vote},
 };
 
 /// A type alias for `HashMap<Commitment<T>, T>`
@@ -671,6 +672,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.saved_payloads = self.saved_payloads.split_off(&new_anchor_view);
         self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
         self.last_proposals = self.last_proposals.split_off(&new_anchor_view);
+        self.vid_commit_view
+            .retain(|_, view| *view >= new_anchor_view);
     }
 
     /// Gets the last decided leaf.
@@ -767,7 +770,27 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         *self
             .vid_commit_view()
             .get(&cert.data().payload_commit)
-            .expect("Consensus::qc_view_number: we haven't seen this vid commitment yet!")
+            .expect("Consensus::dac_view_number: we haven't seen this vid commitment yet!")
+    }
+
+    /// Get a quorum vote's view number
+    /// # Panics
+    /// Panics if there is no leaf corresponding the vote
+    pub fn quorum_vote_view_number(&self, vote: &QuorumVote<TYPES>) -> TYPES::Time {
+        self.saved_leaves
+            .get(&vote.data().leaf_commit)
+            .expect("Consensus::quorum_vote_view_number: we haven't seen this leaf yet!")
+            .view_number()
+    }
+
+    /// Get DA vote's view number
+    /// # Panics
+    /// Panics if there is no view number corresponding to the DA vote.
+    pub fn da_vote_view_number(&self, vote: &DaVote<TYPES>) -> TYPES::Time {
+        *self
+            .vid_commit_view()
+            .get(&vote.data().payload_commit)
+            .expect("Consensus::da_vote_view_number: we haven't seen this vid commitment yet!")
     }
 }
 

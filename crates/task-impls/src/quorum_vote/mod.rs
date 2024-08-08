@@ -217,7 +217,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         .context("Failed to sign vote")?;
         debug!(
             "sending vote to next quorum leader {:?}",
-            vote.view_number() + 1
+            self.view_number + 1
         );
         // Add to the storage.
         self.storage
