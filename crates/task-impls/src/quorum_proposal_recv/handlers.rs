@@ -6,7 +6,7 @@
 
 #![allow(dead_code)]
 
-use std::sync::Arc;use crate::quorum_proposal_recv::{Versions, UpgradeLock};
+use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use async_broadcast::{broadcast, Sender};
@@ -35,6 +35,7 @@ use crate::{
         broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
         validate_proposal_view_and_certs, SEND_VIEW_CHANGE_EVENT,
     },
+    quorum_proposal_recv::{UpgradeLock, Versions},
 };
 
 /// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
@@ -134,7 +135,11 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The sequencer storage update fails.
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+pub(crate) async fn handle_quorum_proposal_recv<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,

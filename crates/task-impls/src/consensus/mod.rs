@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
 use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
@@ -20,12 +19,12 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -209,7 +208,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             self.round_start_delay,
             self.formed_upgrade_certificate.clone(),
-            Arc::clone(&self.upgrade_lock.decided_upgrade_certificate),
+            self.upgrade_lock.clone(),
             self.payload_commitment_and_metadata.clone(),
             self.proposal_cert.clone(),
             Arc::clone(&self.instance_state),
@@ -239,7 +238,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         if proposal.view_number() != view {
             return;
         }
-        let upgrade = Arc::clone(&self.upgrade_lock.decided_upgrade_certificate);
+        let upgrade = self.upgrade_lock.clone();
         let pub_key = self.public_key.clone();
         let priv_key = self.private_key.clone();
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
@@ -249,7 +248,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         let instance_state = Arc::clone(&self.instance_state);
         let id = self.id;
         let handle = async_spawn(async move {
-            update_state_and_vote_if_able::<TYPES, I>(
+            update_state_and_vote_if_able::<TYPES, I, V>(
                 view,
                 proposal,
                 pub_key,
@@ -488,7 +487,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
 
                 // If we have a decided upgrade certificate, the protocol version may also have
                 // been upgraded.
-                if let Some(cert) = self.upgrade_lock.decided_upgrade_certificate.read().await.clone() {
+                if let Some(cert) = self
+                    .upgrade_lock
+                    .decided_upgrade_certificate
+                    .read()
+                    .await
+                    .clone()
+                {
                     if new_view == cert.data.new_version_first_view {
                         error!(
                             "Version upgraded based on a decided upgrade cert: {:?}",
@@ -702,7 +707,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for ConsensusTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for ConsensusTaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

@@ -20,9 +20,9 @@ use tracing::{debug, instrument};
 
 use super::QuorumVoteTaskState;
 use crate::{
-  quorum_vote::Versions,
     events::HotShotEvent,
     helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
+    quorum_vote::Versions,
 };
 
 /// Handles the `QuorumProposalValidated` event.
@@ -53,7 +53,11 @@ pub(crate) async fn handle_quorum_proposal_validated<
     .await;
 
     if let Some(cert) = decided_upgrade_cert.clone() {
-        let mut decided_certificate_lock = task_state.upgrade_lock.decided_upgrade_certificate.write().await;
+        let mut decided_certificate_lock = task_state
+            .upgrade_lock
+            .decided_upgrade_certificate
+            .write()
+            .await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);
         let _ = sender

@@ -8,7 +8,7 @@
 //! initiate a proposal occurs.
 
 use std::{marker::PhantomData, sync::Arc, time::Duration};
-use crate::quorum_proposal::{UpgradeLock, Versions};
+
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -23,7 +23,7 @@ use hotshot_types::{
     constants::MarketplaceVersion,
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::{version, UpgradeCertificate},
+    simple_certificate::UpgradeCertificate,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
@@ -34,6 +34,7 @@ use vbs::version::StaticVersionType;
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
 };
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -165,10 +166,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             "Cannot propose because our VID payload commitment and metadata is for an older view."
         );
 
-        let version = version(
-            self.view_number,
-            &self.upgrade_lock.decided_upgrade_certificate.read().await.clone(),
-        )?;
+        let version = self.upgrade_lock.version(self.view_number).await?;
 
         let block_header = if version < MarketplaceVersion::VERSION {
             TYPES::BlockHeader::new_legacy(

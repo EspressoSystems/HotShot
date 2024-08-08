@@ -182,7 +182,8 @@ async fn test_upgrade_task_vote() {
         },
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: Duration::from_millis(65),
         state: consensus_state,
@@ -259,8 +260,10 @@ async fn test_upgrade_task_propose() {
         .iter()
         .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
-    let upgrade_state = UpgradeTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let upgrade_state =
+        UpgradeTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
 
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
@@ -458,8 +461,10 @@ async fn test_upgrade_task_blank_blocks() {
         views.push(view.clone());
     }
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
-    let upgrade_state = UpgradeTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let upgrade_state =
+        UpgradeTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
 
     let inputs = vec![
         vec![

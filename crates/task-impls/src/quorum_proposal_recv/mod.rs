@@ -7,7 +7,6 @@
 #![allow(unused_imports)]
 
 use std::{collections::BTreeMap, sync::Arc};
-use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
 
 use anyhow::{bail, Result};
 use async_broadcast::{broadcast, Receiver, Sender};
@@ -21,9 +20,10 @@ use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{Leaf, ViewChangeEvidence},
     event::Event,
+    message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::{HasViewNumber, VoteDependencyData},
@@ -102,7 +102,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumProposalRecvTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
+    QuorumProposalRecvTaskState<TYPES, I, V>
+{
     /// Cancel all tasks the consensus tasks has spawned before the given view
     pub async fn cancel_tasks(&mut self, view: TYPES::Time) {
         let keep = self.spawned_tasks.split_off(&view);

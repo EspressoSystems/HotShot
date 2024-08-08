@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -17,10 +16,11 @@ use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
+    message::UpgradeLock,
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
     traits::{
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
 };
@@ -154,7 +154,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Consensus2TaskS
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for Consensus2TaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for Consensus2TaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

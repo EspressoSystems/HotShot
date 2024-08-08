@@ -61,6 +61,9 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     output.push(HotShotEvent::BlockRecv(exp_packed_bundle));
 
     let transaction_state =
-        TransactionTaskState::<TestConsecutiveLeaderTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+        TransactionTaskState::<TestConsecutiveLeaderTypes, MemoryImpl, TestVersions>::create_from(
+            &handle,
+        )
+        .await;
     run_harness(input, output, transaction_state, false).await;
 }

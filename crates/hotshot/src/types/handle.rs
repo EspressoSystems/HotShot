@@ -156,12 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         tx: TYPES::Transaction,
     ) -> Result<(), HotShotError<TYPES>> {
-        self.hotshot
-            .publish_transaction_async(
-                tx,
-                Arc::clone(&self.hotshot.upgrade_lock.decided_upgrade_certificate),
-            )
-            .await
+        self.hotshot.publish_transaction_async(tx).await
     }
 
     /// Get the underlying consensus state for this [`SystemContext`]

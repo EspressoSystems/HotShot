@@ -21,6 +21,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
+    message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
@@ -28,7 +29,6 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    message::UpgradeLock,
     vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
@@ -102,7 +102,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumProposalTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
+    QuorumProposalTaskState<TYPES, I, V>
+{
     /// Create an event dependency
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create event dependency", level = "info")]
     fn create_event_dependency(

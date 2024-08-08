@@ -43,7 +43,8 @@ use vbs::version::StaticVersionType;
 use crate::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
     ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, UpgradeLock,
+    Versions,
 };
 
 /// event for global event stream
@@ -107,23 +108,18 @@ pub fn add_network_message_task<
         external_event_stream: handle.output_event_stream.0.clone(),
     };
 
-    let decided_upgrade_certificate =
-        Arc::clone(&handle.hotshot.upgrade_lock.decided_upgrade_certificate);
+    let upgrade_lock = handle.hotshot.upgrade_lock.clone();
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let task_handle = async_spawn(async move {
         loop {
-            let decided_upgrade_certificate_lock = decided_upgrade_certificate.read().await.clone();
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => {
                     let mut deserialized_messages = Vec::new();
 
                     for msg in msgs {
-                        let deserialized_message = match VersionedMessage::deserialize(
-                            &msg,
-                            &decided_upgrade_certificate_lock,
-                        ) {
+                        let deserialized_message = match upgrade_lock.deserialize(&msg).await {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
                                 tracing::error!("Failed to deserialize message: {}", e);
@@ -158,21 +154,21 @@ pub fn add_network_message_task<
 pub fn add_network_event_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    NET: ConnectedNetwork<TYPES::SignatureKey>,
     V: Versions,
+    NET: ConnectedNetwork<TYPES::SignatureKey>,
 >(
     handle: &mut SystemContextHandle<TYPES, I, V>,
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
 ) {
-    let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
+    let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         membership,
         filter,
         storage: Arc::clone(&handle.storage()),
-        decided_upgrade_certificate: None,
+        upgrade_lock: UpgradeLock::new(),
     };
     let task = Task::new(
         network_state,

@@ -5,7 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{marker::PhantomData, sync::Arc, time::SystemTime};
-use hotshot_types::message::UpgradeLock;use hotshot_types::traits::node_implementation::Versions;
+
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -19,12 +19,12 @@ use hotshot_types::{
     },
     data::UpgradeProposal,
     event::{Event, EventType},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
@@ -100,7 +100,11 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ve
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskState<TYPES, I, V> {
     /// Check if we have decided on an upgrade certificate
     async fn upgraded(&self) -> bool {
-        self.upgrade_lock.decided_upgrade_certificate.read().await.is_some()
+        self.upgrade_lock
+            .decided_upgrade_certificate
+            .read()
+            .await
+            .is_some()
     }
 
     /// main task event handler
@@ -120,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 if self.upgraded().await {
                     info!(
                         "Already upgraded to {:?}, skip voting.",
-                        TYPES::Upgrade::VERSION
+                        V::Upgrade::VERSION
                     );
                     return None;
                 }
@@ -139,9 +143,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 }
 
                 // If the proposal does not match our upgrade target, we immediately exit.
-                if proposal.data.upgrade_proposal.new_version_hash != TYPES::UPGRADE_HASH
-                    || proposal.data.upgrade_proposal.old_version != TYPES::Base::VERSION
-                    || proposal.data.upgrade_proposal.new_version != TYPES::Upgrade::VERSION
+                if proposal.data.upgrade_proposal.new_version_hash != V::UPGRADE_HASH
+                    || proposal.data.upgrade_proposal.old_version != V::Base::VERSION
+                    || proposal.data.upgrade_proposal.new_version != V::Upgrade::VERSION
                 {
                     return None;
                 }
@@ -284,9 +288,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                         == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {
-                        old_version: TYPES::Base::VERSION,
-                        new_version: TYPES::Upgrade::VERSION,
-                        new_version_hash: TYPES::UPGRADE_HASH.to_vec(),
+                        old_version: V::Base::VERSION,
+                        new_version: V::Upgrade::VERSION,
+                        new_version_hash: V::UPGRADE_HASH.to_vec(),
                         // We schedule the upgrade to begin 15 views in the future
                         old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
                         // and end 20 views in the future
@@ -337,7 +341,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
 
 #[async_trait]
 /// task state implementation for the upgrade task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for UpgradeTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for UpgradeTaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

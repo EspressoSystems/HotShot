@@ -131,7 +131,8 @@ async fn test_consensus_task() {
         ]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -187,7 +188,8 @@ async fn test_consensus_vote() {
         exact(QuorumVoteSend(votes[0].clone())),
     ])];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -326,7 +328,8 @@ async fn test_view_sync_finalize_propose() {
         ]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -423,7 +426,8 @@ async fn test_view_sync_finalize_vote() {
         ]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -527,7 +531,8 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         Expectations::from_outputs(vec![]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -581,7 +586,8 @@ async fn test_vid_disperse_storage_failure() {
         quorum_proposal_validated(),
     ])];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,

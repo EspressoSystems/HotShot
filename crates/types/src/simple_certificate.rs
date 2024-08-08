@@ -247,29 +247,3 @@ pub type ViewSyncFinalizeCertificate2<TYPES> =
 /// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeProposalData`
 pub type UpgradeCertificate<TYPES> =
     SimpleCertificate<TYPES, UpgradeProposalData<TYPES>, UpgradeThreshold>;
-
-/// Calculate the version applied in a view, based on the provided upgrade certificate.
-///
-/// # Errors
-/// Returns an error if we do not support the version required by the upgrade certificate.
-pub fn version<TYPES: NodeType>(
-    view: TYPES::Time,
-    upgrade_certificate: &Option<UpgradeCertificate<TYPES>>,
-) -> Result<Version> {
-    let version = match upgrade_certificate {
-        Some(ref cert) => {
-            if view >= cert.data.new_version_first_view {
-                if cert.data.new_version == TYPES::Upgrade::VERSION {
-                    TYPES::Upgrade::VERSION
-                } else {
-                    bail!("The network has upgraded to a new version that we do not support!");
-                }
-            } else {
-                TYPES::Base::VERSION
-            }
-        }
-        None => TYPES::Base::VERSION,
-    };
-
-    Ok(version)
-}

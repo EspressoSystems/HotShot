@@ -11,16 +11,12 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::Utc;
-use hotshot_task_impls::consensus::ConsensusTaskState;
-use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
-    builder::BuilderClient, da::DaTaskState, request::NetworkRequestState,
-    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
-    view_sync::ViewSyncTaskState,
-};
-use hotshot_task_impls::{
-    consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
+    da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
+    request::NetworkRequestState, rewind::RewindTaskState, transactions::TransactionTaskState,
+    upgrade::UpgradeTaskState, vid::VidTaskState, view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
     consensus::OuterConsensus,
@@ -48,9 +44,7 @@ where
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for NetworkRequestState<TYPES, I>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         Self {
             network: Arc::clone(&handle.hotshot.network),
             state: OuterConsensus::new(handle.hotshot.consensus()),
@@ -190,9 +184,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for TransactionTaskState<TYPES, I, V>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         Self {
             builder_timeout: handle.builder_timeout(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
@@ -229,9 +221,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for ConsensusTaskState<TYPES, I, V>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -268,9 +258,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumVoteTaskState<TYPES, I, V>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
 
         Self {
@@ -295,9 +283,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumProposalTaskState<TYPES, I, V>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -327,9 +313,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for QuorumProposalRecvTaskState<TYPES, I, V>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 
@@ -360,9 +344,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
     for Consensus2TaskState<TYPES, I, V>
 {
-    async fn create_from(
-        handle: &SystemContextHandle<TYPES, I, V>,
-    ) -> Self {
+    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
 

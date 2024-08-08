@@ -129,9 +129,6 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     /// Immutable instance state
     instance_state: Arc<TYPES::InstanceState>,
 
-    /// The network version
-    version: Arc<RwLock<Version>>,
-
     /// The view to enter when first starting consensus
     start_view: TYPES::Time,
 
@@ -177,7 +174,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Clone
             metrics: Arc::clone(&self.metrics),
             consensus: self.consensus.clone(),
             instance_state: Arc::clone(&self.instance_state),
-            version: Arc::clone(&self.version),
             start_view: self.start_view,
             output_event_stream: self.output_event_stream.clone(),
             external_event_stream: self.external_event_stream.clone(),
@@ -323,7 +319,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         );
 
         let consensus = Arc::new(RwLock::new(consensus));
-        let version = Arc::new(RwLock::new(TYPES::Base::VERSION));
 
         // This makes it so we won't block on broadcasting if there is not a receiver
         // Our own copy of the receiver is inactive so it doesn't count.
@@ -336,7 +331,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             public_key,
             private_key,
             config,
-            version,
             start_view: initializer.start_view,
             network,
             memberships: Arc::new(memberships),
@@ -462,7 +456,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
-        decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     ) -> Result<(), HotShotError<TYPES>> {
         trace!("Adding transaction to our own queue");
 
@@ -477,10 +470,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             kind: MessageKind::from(message_kind),
         };
 
-        let cert = decided_upgrade_certificate.read().await.clone();
-
-        let serialized_message = message
-            .serialize(&cert)
+        let serialized_message = self
+            .upgrade_lock
+            .serialize(&message)
+            .await
             .map_err(|_| HotShotError::FailedToSerialize)?;
 
         async_spawn(async move {
