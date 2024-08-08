@@ -398,8 +398,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         *qc.view_number()
                     );
 
+                    let qc_view_number = self.consensus.read().await.qc_view_number(qc);
                     if let Err(e) = self
-                        .publish_proposal(qc.view_number() + 1, event_stream)
+                        .publish_proposal(qc_view_number + 1, event_stream)
                         .await
                     {
                         debug!("Failed to propose; error = {e:?}");
@@ -421,20 +422,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                debug!("DAC Received for view {}!", *cert.view_number());
-                let view = cert.view_number();
+                let cert_view_number = self.consensus.read().await.dac_view_number(cert);
+                debug!("DAC Received for view {}!", *cert_view_number);
 
                 self.consensus
                     .write()
                     .await
-                    .update_saved_da_certs(view, cert.clone());
+                    .update_saved_da_certs(cert_view_number, cert.clone());
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
-                if proposal.view_number() != view {
+                if proposal.view_number() != cert_view_number {
                     return;
                 }
-                self.spawn_vote_task(view, event_stream).await;
+                self.spawn_vote_task(cert_view_number, event_stream).await;
             }
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
@@ -593,7 +594,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     auction_result: auction_result.clone(),
                 });
                 if self.quorum_membership.leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc().view_number() + 1 == view
+                    && self.consensus.read().await.high_qc_view_number() + 1 == view
                 {
                     if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         error!("Failed to propose; error = {e:?}");
@@ -658,8 +659,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                 let should_propose = self.quorum_membership.leader(new_view) == self.public_key
-                    && self.consensus.read().await.high_qc().view_number()
-                        == proposal.view_number();
+                    && self.consensus.read().await.high_qc_view_number() == proposal.view_number();
 
                 if should_propose {
                     debug!(

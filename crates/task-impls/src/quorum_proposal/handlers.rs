@@ -21,7 +21,6 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
-    vote::HasViewNumber,
 };
 use tracing::{debug, error, instrument};
 use vbs::version::StaticVersionType;
@@ -245,7 +244,7 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number();
+        let high_qc_view_number = self.consensus.read().await.high_qc_view_number();
         if !self
             .consensus
             .read()

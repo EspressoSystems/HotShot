@@ -77,7 +77,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A Data Availability Certificate (DAC) has been received by the network; handled by the consensus task
     DaCertificateRecv(DaCertificate<TYPES>),
     /// A DAC is validated.
-    DaCertificateValidated(DaCertificate<TYPES>),
+    DaCertificateValidated(TYPES::Time),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
@@ -197,7 +197,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpdateHighQc(QuorumCertificate<TYPES>),
 
     /// A new high_qc has been updated in `Consensus`.
-    HighQcUpdated(QuorumCertificate<TYPES>),
+    HighQcUpdated(TYPES::Time),
 
     /// A quorum proposal has been preliminarily validated.
     /// The preliminary checks include:
@@ -242,10 +242,9 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::DaCertificateRecv(cert) => {
                 write!(f, "DaCertificateRecv(view_number={:?})", cert.view_number())
             }
-            HotShotEvent::DaCertificateValidated(cert) => write!(
+            HotShotEvent::DaCertificateValidated(cert_view_number) => write!(
                 f,
-                "DaCertificateValidated(view_number={:?})",
-                cert.view_number()
+                "DaCertificateValidated(view_number={cert_view_number:?})"
             ),
             HotShotEvent::QuorumProposalSend(proposal, _) => write!(
                 f,
@@ -439,8 +438,8 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::UpdateHighQc(cert) => {
                 write!(f, "UpdateHighQc(view_number={:?})", cert.view_number())
             }
-            HotShotEvent::HighQcUpdated(cert) => {
-                write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
+            HotShotEvent::HighQcUpdated(cert_view_number) => {
+                write!(f, "HighQcUpdated(view_number={cert_view_number:?})")
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 write!(

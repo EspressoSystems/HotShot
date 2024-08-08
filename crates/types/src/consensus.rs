@@ -28,11 +28,14 @@ use crate::{
     },
     utils::{BuilderCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
+
+/// A HashMap: VidCommitment -> T
+pub type VidCommitmentMap<T> = HashMap<VidCommitment, T>;
 
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
@@ -267,6 +270,9 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
+
+    /// A map: VidCommitment -> view
+    vid_commit_view: VidCommitmentMap<TYPES::Time>,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -362,6 +368,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_payloads,
             high_qc,
             metrics,
+            vid_commit_view: HashMap::new(),
         }
     }
 
@@ -413,6 +420,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the map of our recent proposals
     pub fn last_proposals(&self) -> &BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>> {
         &self.last_proposals
+    }
+
+    /// Get the map of VidCommitment -> view
+    pub fn vid_commit_view(&self) -> &VidCommitmentMap<TYPES::Time> {
+        &self.vid_commit_view
     }
 
     /// Update the current view.
@@ -529,8 +541,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
+        let new_high_qc_view_number = self.qc_view_number(&high_qc);
         ensure!(
-            high_qc.view_number() > self.high_qc.view_number(),
+            new_high_qc_view_number > self.high_qc_view_number(),
             "High QC with an equal or higher view exists."
         );
         debug!("Updating high QC");
@@ -554,6 +567,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Add a new entry to the da_certs map.
     pub fn update_saved_da_certs(&mut self, view_number: TYPES::Time, cert: DaCertificate<TYPES>) {
         self.saved_da_certs.insert(view_number, cert);
+    }
+
+    /// Add a new entry to the vid_commit_view map
+    pub fn update_vid_commit_view(&mut self, vid_commit: VidCommitment, view_number: TYPES::Time) {
+        self.vid_commit_view.insert(vid_commit, view_number);
     }
 
     /// gather information from the parent chain of leaves
@@ -719,6 +737,31 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             }
         }
         Some(())
+    }
+
+    /// Get the current high QC's view number
+    pub fn high_qc_view_number(&self) -> TYPES::Time {
+        self.qc_view_number(self.high_qc())
+    }
+
+    /// Get a quorum certificate's view number
+    /// # Panics
+    /// Panics if there is no leaf corresponding the certificate
+    pub fn qc_view_number(&self, cert: &QuorumCertificate<TYPES>) -> TYPES::Time {
+        self.saved_leaves
+            .get(&cert.data().leaf_commit)
+            .expect("Consensus::qc_view_number: we haven't seen this leaf yet!")
+            .view_number()
+    }
+
+    /// Get DA certificate's view number
+    /// # Panics
+    /// Panics if there is no view number corresponding to the certificate
+    pub fn dac_view_number(&self, cert: &DaCertificate<TYPES>) -> TYPES::Time {
+        *self
+            .vid_commit_view()
+            .get(&cert.data().payload_commit)
+            .expect("Consensus::qc_view_number: we haven't seen this vid commitment yet!")
     }
 }
 

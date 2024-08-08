@@ -168,7 +168,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     let consensus_reader = consensus.read().await;
     let existing_upgrade_cert_reader = existing_upgrade_cert.read().await;
     let view_number = proposal.view_number();
-    let parent_view_number = proposal.justify_qc.view_number();
+    let parent_view_number = consensus.read().await.qc_view_number(&proposal.justify_qc);
     let old_anchor_view = consensus_reader.last_decided_view();
 
     let mut last_view_number_visited = view_number;
@@ -290,7 +290,13 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-    let parent_view_number = consensus.read().await.high_qc().view_number();
+    let parent_view_number = consensus
+        .read()
+        .await
+        .saved_leaves()
+        .get(&consensus.read().await.high_qc().data().leaf_commit)
+        .expect("parent_leaf_and_state: we haven't seen this leaf")
+        .view_number();
     if !consensus
         .read()
         .await
@@ -307,7 +313,11 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         .context("Failed to fetch proposal")?;
     }
     let consensus_reader = consensus.read().await;
-    let parent_view_number = consensus_reader.high_qc().view_number();
+    let parent_view_number = consensus_reader
+        .saved_leaves()
+        .get(&consensus_reader.high_qc().data().leaf_commit)
+        .expect("parent_leaf_and_state: we haven't seen this leaf 2")
+        .view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
         format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
     )?;
@@ -424,12 +434,13 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 
     // Liveness check.
     let read_consensus = consensus.read().await;
-    let liveness_check = justify_qc.view_number() > read_consensus.locked_view();
+    let justify_qc_view_number = read_consensus.qc_view_number(&justify_qc);
+    let liveness_check = justify_qc_view_number > read_consensus.locked_view();
 
     // Safety check.
     // Check if proposal extends from the locked leaf.
     let outcome = read_consensus.visit_leaf_ancestors(
-        justify_qc.view_number(),
+        justify_qc_view_number,
         Terminator::Inclusive(read_consensus.locked_view()),
         false,
         |leaf, _, _| {
@@ -487,11 +498,12 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 ///
 /// # Errors
 /// If any validation or view number check fails.
-pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
+pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     cur_view: TYPES::Time,
     quorum_membership: &Arc<TYPES::Membership>,
     timeout_membership: &Arc<TYPES::Membership>,
+    consensus: OuterConsensus<TYPES>,
 ) -> Result<()> {
     let view = proposal.data.view_number();
     ensure!(
@@ -503,8 +515,12 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     proposal.validate_signature(quorum_membership)?;
 
+    let justify_qc_view_number = consensus
+        .read()
+        .await
+        .qc_view_number(&proposal.data.justify_qc);
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
-    if proposal.data.justify_qc.view_number() != view - 1 {
+    if justify_qc_view_number != view - 1 {
         let received_proposal_cert =
             proposal.data.proposal_certificate.clone().context(format!(
                 "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",

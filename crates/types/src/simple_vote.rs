@@ -104,7 +104,7 @@ mod sealed {
 
 /// A simple yes vote over some votable type.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
+pub struct SimpleVote<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES>> {
     /// The signature share associated with this vote
     pub signature: (
         TYPES::SignatureKey,
@@ -151,7 +151,7 @@ impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Vote<TYPE
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> SimpleVote<TYPES, DATA> {
     /// Creates and signs a simple vote
     /// # Errors
     /// If we are unable to sign the data
@@ -181,9 +181,11 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> Committable for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Committable
+    for SimpleVote<TYPES, DATA>
+{
     fn commit(&self) -> Commitment<Self> {
-        Self::commit(&self.data, self.view_number)
+        Self::commit(self.data(), self.view_number())
     }
 }
 
