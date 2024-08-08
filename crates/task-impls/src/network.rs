@@ -17,9 +17,8 @@ use hotshot_types::{
     event::{Event, EventType, HotShotAction},
     message::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage, UpgradeLock, VersionedMessage,
+        SequencingMessage, UpgradeLock,
     },
-    simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
         network::{BroadcastDelay, ConnectedNetwork, TransmitType, ViewMessage},

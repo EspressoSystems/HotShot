@@ -371,13 +371,18 @@ where
 }
 
 #[derive(Clone)]
+/// A lock for an upgrade certificate decided by HotShot, which doubles as `PhantomData` for an instance of the `Versions` trait.
 pub struct UpgradeLock<TYPES: NodeType, V: Versions> {
+    /// a shared lock to an upgrade certificate decided by consensus
     pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
 
+    /// phantom data for the `Versions` trait
     pub _pd: PhantomData<V>,
 }
 
 impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
+    #[allow(clippy::new_without_default)]
+    /// Create a new `UpgradeLock` for a fresh instance of HotShot
     pub fn new() -> Self {
         Self {
             decided_upgrade_certificate: Arc::new(RwLock::new(None)),

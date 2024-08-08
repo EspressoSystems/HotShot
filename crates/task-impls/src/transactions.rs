@@ -12,7 +12,6 @@ use std::{
 use anyhow::{bail, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_timeout};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
@@ -23,7 +22,6 @@ use hotshot_types::{
     data::{null_block, PackedBundle},
     event::{Event, EventType},
     message::UpgradeLock,
-    simple_certificate::UpgradeCertificate,
     traits::{
         auction_results_provider::AuctionResultsProvider,
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},

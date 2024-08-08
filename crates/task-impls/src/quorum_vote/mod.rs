@@ -23,7 +23,6 @@ use hotshot_types::{
     data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
     message::{Proposal, UpgradeLock},
-    simple_certificate::UpgradeCertificate,
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,

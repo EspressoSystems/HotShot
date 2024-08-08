@@ -32,7 +32,7 @@ use hotshot_task_impls::{
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     data::QuorumProposal,
-    message::{Messages, Proposal, VersionedMessage},
+    message::{Messages, Proposal},
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},

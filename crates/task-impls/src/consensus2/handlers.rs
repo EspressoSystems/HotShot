@@ -24,7 +24,7 @@ use tracing::{debug, error, instrument};
 
 use super::Consensus2TaskState;
 use crate::{
-    consensus2::{UpgradeLock, Versions},
+    consensus2::Versions,
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},

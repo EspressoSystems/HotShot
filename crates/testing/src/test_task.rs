@@ -16,7 +16,7 @@ use futures::future::select_all;
 use hotshot::types::Event;
 use hotshot_task_impls::{events::HotShotEvent, network::NetworkMessageTaskState};
 use hotshot_types::{
-    message::{Messages, UpgradeLock, VersionedMessage},
+    message::{Messages, UpgradeLock},
     traits::{
         network::ConnectedNetwork,
         node_implementation::{NodeType, Versions},

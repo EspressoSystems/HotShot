@@ -19,13 +19,13 @@ use hotshot::{
 use hotshot_example_types::{
     auction_results_provider_types::{TestAuctionResult, TestAuctionResultsProvider},
     block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    node_types::{TestTypes, TestVersions},
+    node_types::TestVersions,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
 use hotshot_types::{
     data::ViewNumber,
-    message::{DataMessage, Message, MessageKind, UpgradeLock, VersionedMessage},
+    message::{DataMessage, Message, MessageKind, UpgradeLock},
     signature_key::{BLSPubKey, BuilderKey},
     traits::{
         network::{BroadcastDelay, ConnectedNetwork, TestableNetworkingImplementation, Topic},
@@ -35,7 +35,6 @@ use hotshot_types::{
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, trace};
-use vbs::version::StaticVersion;
 
 #[derive(
     Copy,

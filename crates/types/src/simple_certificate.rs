@@ -13,12 +13,11 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{ensure, Result};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
-use vbs::version::{StaticVersionType, Version};
 
 use crate::{
     data::serialize_signature2,

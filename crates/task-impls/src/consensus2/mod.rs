@@ -17,7 +17,7 @@ use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
     traits::{
         node_implementation::{NodeImplementation, NodeType, Versions},

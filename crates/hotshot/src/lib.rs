@@ -18,7 +18,6 @@ use hotshot_types::{
 };
 use rand::Rng;
 use url::Url;
-use vbs::version::StaticVersionType;
 
 /// Contains traits consumed by [`SystemContext`]
 pub mod traits;
@@ -50,8 +49,8 @@ use hotshot_types::{
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind, Proposal, VersionedMessage},
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    message::{DataMessage, Message, MessageKind, Proposal},
+    simple_certificate::QuorumCertificate,
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -68,7 +67,6 @@ use hotshot_types::{
 /// Reexport rand crate
 pub use rand;
 use tracing::{debug, instrument, trace};
-use vbs::version::Version;
 
 use crate::{
     tasks::{add_consensus_tasks, add_network_tasks},

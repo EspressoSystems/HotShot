@@ -14,7 +14,7 @@ use futures::StreamExt;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -59,7 +59,9 @@ async fn test_upgrade_task_with_proposal() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(3).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(3)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -140,8 +142,9 @@ async fn test_upgrade_task_with_proposal() {
         .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
 
     let proposal_state =
-        QuorumProposalTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
-    let upgrade_state = UpgradeTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+        QuorumProposalTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let upgrade_state =
+        UpgradeTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
 
     let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
 
