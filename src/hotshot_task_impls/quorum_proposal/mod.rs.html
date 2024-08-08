@@ -531,7 +531,6 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -977,7 +976,6 @@
                 <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view_number).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
-                    <span class="kw">return</span>;
                 }
 
                 <span class="self">self</span>.create_dependency_task_if_new(
