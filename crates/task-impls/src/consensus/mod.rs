@@ -297,19 +297,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                let Some(vote_view_number) =
-                    self.consensus.read().await.quorum_vote_view_number(vote)
-                else {
-                    warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
-                    // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
-                    async_sleep(Duration::from_millis(10)).await;
-                    broadcast_event(
-                        Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())),
-                        &event_stream,
-                    )
-                    .await;
-                    return;
-                };
+                let vote_view_number = vote.view_number();
+                // let Some(vote_view_number) =
+                //     self.consensus.read().await.quorum_vote_view_number(vote)
+                // else {
+                //     warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+                //     // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
+                //     async_sleep(Duration::from_millis(10)).await;
+                //     broadcast_event(
+                //         Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())),
+                //         &event_stream,
+                //     )
+                //     .await;
+                //     return;
+                // };
                 debug!("Received quorum vote: {:?}", vote_view_number);
                 if self.quorum_membership.leader(vote_view_number + 1) != self.public_key {
                     error!(

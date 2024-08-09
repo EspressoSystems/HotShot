@@ -36,15 +36,22 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I>,
 ) -> Result<()> {
-    let Some(vote_view_number) = task_state
-        .consensus
-        .read()
-        .await
-        .quorum_vote_view_number(vote)
-    else {
-        warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
-        bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
-    };
+    let vote_view_number = vote.view_number();
+    // let Some(vote_view_number) = task_state
+    //     .consensus
+    //     .read()
+    //     .await
+    //     .quorum_vote_view_number(vote)
+    // else {
+    //     warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+    //     async_sleep(Duration::from_millis(10)).await;
+    //     broadcast_event(
+    //         Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())),
+    //         &sender,
+    //     )
+    //     .await;
+    //     bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
+    // };
     // Are we the leader for this view?
     ensure!(
         task_state.quorum_membership.leader(vote_view_number + 1) == task_state.public_key,
