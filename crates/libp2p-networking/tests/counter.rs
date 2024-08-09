@@ -15,7 +15,10 @@ use async_lock::RwLock;
 use async_std::prelude::StreamExt;
 use common::{test_bed, HandleSnafu, HandleWithState, TestError};
 use hotshot_types::{signature_key::BLSPubKey, traits::signature_key::SignatureKey};
-use libp2p_networking::network::{NetworkEvent, NetworkNodeHandleError};
+use libp2p_networking::network::{
+    behaviours::dht::record::{Namespace, RecordKey, RecordValue},
+    NetworkEvent, NetworkNodeHandleError,
+};
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -387,12 +390,21 @@ async fn run_dht_rounds<K: SignatureKey + 'static>(
         value.push(inc_val);
 
         // put the key
-        msg_handle.handle.put_record(&key, &value).await.unwrap();
+        msg_handle
+            .handle
+            .put_record(
+                RecordKey::new(Namespace::Lookup, key.clone()),
+                RecordValue::Unsigned(value.clone()),
+            )
+            .await
+            .unwrap();
 
         // get the key from the other nodes
         for handle in handles {
-            let result: Result<Vec<u8>, NetworkNodeHandleError> =
-                handle.handle.record_timeout(&key, timeout).await;
+            let result: Result<Vec<u8>, NetworkNodeHandleError> = handle
+                .handle
+                .get_record_timeout(RecordKey::new(Namespace::Lookup, key.clone()), timeout)
+                .await;
             match result {
                 Err(e) => {
                     error!("DHT error {e:?} during GET");

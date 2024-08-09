@@ -14,6 +14,7 @@ mod handle;
 use std::{
     collections::{HashMap, HashSet},
     iter,
+    marker::PhantomData,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
@@ -106,6 +107,9 @@ pub struct NetworkNode<K: SignatureKey + 'static> {
     resend_tx: Option<UnboundedSender<ClientRequest>>,
     /// Send to the bootstrap task to tell it to start a bootstrap
     bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
+
+    /// Phantom data to hold the key type
+    pd: PhantomData<K>,
 }
 
 impl<K: SignatureKey + 'static> NetworkNode<K> {
@@ -273,6 +277,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             kconfig
                 .set_parallelism(NonZeroUsize::new(5).unwrap())
                 .set_provider_publication_interval(Some(record_republication_interval))
+                .set_record_filtering(libp2p::kad::StoreInserts::FilterBoth)
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);
 
@@ -360,6 +365,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             ),
             resend_tx: None,
             bootstrap_tx: None,
+            pd: PhantomData,
         })
     }
 
@@ -455,7 +461,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                         notify,
                         retry_count,
                     } => {
-                        self.dht_handler.record(
+                        self.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
@@ -639,7 +645,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 let maybe_event = match b {
                     NetworkEventInternal::DHTEvent(e) => self
                         .dht_handler
-                        .dht_handle_event(e, self.swarm.behaviour_mut().dht.store_mut()),
+                        .dht_handle_event::<K>(e, self.swarm.behaviour_mut().dht.store_mut()),
                     NetworkEventInternal::IdentifyEvent(e) => {
                         // NOTE feed identified peers into kademlia's routing table for peer discovery.
                         if let IdentifyEvent::Received {

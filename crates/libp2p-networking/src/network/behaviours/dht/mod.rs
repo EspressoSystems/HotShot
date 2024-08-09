@@ -18,16 +18,22 @@ use futures::{
     channel::{mpsc, oneshot::Sender},
     SinkExt,
 };
+use hotshot_types::traits::signature_key::SignatureKey;
 use lazy_static::lazy_static;
 use libp2p::kad::{
     /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
-    GetRecordOk, GetRecordResult, ProgressStep, PutRecordResult, QueryId, QueryResult, Record,
+    GetRecordOk, GetRecordResult, InboundRequest, ProgressStep, PutRecordResult, QueryId,
+    QueryResult, Record,
 };
 use libp2p::kad::{
     store::RecordStore, Behaviour as KademliaBehaviour, BootstrapError, Event as KademliaEvent,
 };
 use libp2p_identity::PeerId;
+use record::{RecordKey, RecordValue};
 use tracing::{debug, error, info, warn};
+
+/// Additional DHT record functionality
+pub mod record;
 
 /// the number of nodes required to get an answer from
 /// in order to trust that the answer is correct when retrieving from the DHT
@@ -160,7 +166,7 @@ impl DHTBehaviour {
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`crate::network::error::DHTError`] is sent instead.
     /// NOTE: noop if `retry_count` is 0
-    pub fn record(
+    pub fn get_record(
         &mut self,
         key: Vec<u8>,
         chan: Sender<Vec<u8>>,
@@ -388,7 +394,7 @@ impl DHTBehaviour {
     }
     #[allow(clippy::too_many_lines)]
     /// handle a DHT event
-    pub fn dht_handle_event(
+    pub fn dht_handle_event<K: SignatureKey + 'static>(
         &mut self,
         event: KademliaEvent,
         store: &mut MemoryStore,
@@ -470,7 +476,33 @@ impl DHTBehaviour {
             KademliaEvent::UnroutablePeer { peer } => {
                 debug!("Found unroutable peer {:?}", peer);
             }
-            KademliaEvent::InboundRequest { request: _r } => {}
+            KademliaEvent::InboundRequest { request } => {
+                if let InboundRequest::PutRecord {
+                    source: _s,
+                    connection: _c,
+                    record: Some(record),
+                } = request
+                {
+                    // Convert the record to the correct type
+                    if let Ok(record_value) = RecordValue::<K>::try_from(record.clone()) {
+                        // Convert the key to the correct type
+                        let Ok(record_key) = RecordKey::try_from_bytes(&record.key.to_vec()) else {
+                            warn!("Failed to deserialize record key");
+                            return None;
+                        };
+
+                        // If the record is signed by the correct key,
+                        if record_value.validate(&record_key) {
+                            // Store the record
+                            if let Err(err) = store.put(record.clone()) {
+                                warn!("Failed to store record: {:?}", err);
+                            }
+                        } else {
+                            warn!("Failed to validate record");
+                        }
+                    }
+                }
+            }
             KademliaEvent::RoutingUpdated {
                 peer: _,
                 is_new_peer: _,
