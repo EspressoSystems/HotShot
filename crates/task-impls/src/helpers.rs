@@ -191,7 +191,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     let consensus_reader = consensus.read().await;
     let existing_upgrade_cert_reader = existing_upgrade_cert.read().await;
     let view_number = proposal.view_number();
-    let parent_view_number = consensus.read().await.qc_view_number(&proposal.justify_qc);
+    let parent_view_number = consensus_reader.qc_view_number(&proposal.justify_qc);
     let old_anchor_view = consensus_reader.last_decided_view();
 
     let mut last_view_number_visited = view_number;

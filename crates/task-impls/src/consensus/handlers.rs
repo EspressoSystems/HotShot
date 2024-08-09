@@ -381,11 +381,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    let justify_qc_view_number = task_state
-        .consensus
-        .read()
-        .await
-        .qc_view_number(&justify_qc);
+    let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
     if justify_qc_view_number > consensus_read.high_qc_view_number() {
         if let Err(e) = task_state
             .storage
@@ -450,11 +446,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         // If we are missing the parent from storage, the safety check will fail.  But we can
         // still vote if the liveness check succeeds.
         let consensus_read = task_state.consensus.read().await;
-        let justify_qc_view_number = task_state
-            .consensus
-            .read()
-            .await
-            .qc_view_number(&justify_qc);
+        let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
         let liveness_check = justify_qc_view_number > consensus_read.locked_view();
 
         let high_qc = consensus_read.high_qc().clone();
