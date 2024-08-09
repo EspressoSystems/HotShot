@@ -5,8 +5,8 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 //! Implementations for examples and tests only
-use std::fmt::Debug;
-
+use async_compatibility_layer::art::async_sleep;
+use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
@@ -20,16 +20,28 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::{fmt::Debug, time::Duration};
 use vbs::version::Version;
 
-use crate::block_types::{TestBlockPayload, TestTransaction};
 pub use crate::node_types::TestTypes;
+use crate::{
+    block_types::{TestBlockPayload, TestTransaction},
+    testable_delay::{DelayConfig, DelayOptions, SupportedTypes, TestableDelay},
+};
 
 /// Instance-level state implementation for testing purposes.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct TestInstanceState {}
+#[derive(Clone, Debug, Default)]
+pub struct TestInstanceState {
+    pub delay_config: DelayConfig,
+}
 
 impl InstanceState for TestInstanceState {}
+
+impl TestInstanceState {
+    pub fn new(delay_config: DelayConfig) -> Self {
+        TestInstanceState { delay_config }
+    }
+}
 
 /// Application-specific state delta implementation for testing purposes.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -68,6 +80,26 @@ impl Default for TestValidatedState {
     }
 }
 
+#[async_trait]
+impl TestableDelay for TestValidatedState {
+    async fn handle_async_delay(delay_config: DelayConfig) {
+        if let Some(settings) = delay_config.get_setting(SupportedTypes::ValidatedState) {
+            match settings.delay_option {
+                DelayOptions::None => {}
+                DelayOptions::Fixed => {
+                    async_sleep(Duration::from_millis(settings.fixed_time_in_milliseconds)).await;
+                }
+                DelayOptions::Random => {
+                    let sleep_in_millis = rand::thread_rng().gen_range(
+                        settings.min_time_in_milliseconds..=settings.max_time_in_milliseconds,
+                    );
+                    async_sleep(Duration::from_millis(sleep_in_millis)).await;
+                }
+            }
+        }
+    }
+}
+
 impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
     type Error = BlockError;
 
@@ -79,12 +111,13 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
 
     async fn validate_and_apply_header(
         &self,
-        _instance: &Self::Instance,
+        instance: &Self::Instance,
         _parent_leaf: &Leaf<TYPES>,
         _proposed_header: &TYPES::BlockHeader,
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
+        Self::handle_async_delay(instance.delay_config.clone()).await;
         Ok((
             TestValidatedState {
                 block_height: self.block_height + 1,
