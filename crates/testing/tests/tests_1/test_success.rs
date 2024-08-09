@@ -60,7 +60,6 @@ cross_tests!(
 
         metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 10;
-        
         let mut config = DelayConfig::default();
         let delay_settings = DelaySettings {
             delay_option: DelayOptions::Random,
@@ -68,7 +67,6 @@ cross_tests!(
             max_time_in_milliseconds: 100,
             fixed_time_in_milliseconds: 0,
         };
-        
         config.add_settings_for_all_types(delay_settings);
         metadata.async_delay_config = config;
         metadata
@@ -93,7 +91,6 @@ cross_tests!(
 
         metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 10;
-        
         let mut config = DelayConfig::default();
         let mut delay_settings = DelaySettings {
             delay_option: DelayOptions::Random,
@@ -101,7 +98,6 @@ cross_tests!(
             max_time_in_milliseconds: 100,
             fixed_time_in_milliseconds: 15,
         };
-        
         config.add_setting(SupportedTraitTypesForAsyncDelay::Storage, &delay_settings);
 
         delay_settings.delay_option = DelayOptions::Fixed;
