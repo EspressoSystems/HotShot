@@ -441,7 +441,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let cert_view_number = self.consensus.read().await.dac_view_number(cert);
+                let Some(cert_view_number) = self.consensus.read().await.dac_view_number(cert)
+                else {
+                    warn!("We have received a DAC but we haven't seen this VID commitment yet!");
+                    // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DaCertificateRecv(cert.clone())),
+                        &event_stream,
+                    )
+                    .await;
+                    return;
+                };
                 debug!("DAC Received for view {}!", *cert_view_number);
 
                 self.consensus
@@ -484,6 +495,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     .write()
                     .await
                     .update_vid_shares(view, disperse.clone());
+                self.consensus
+                    .write()
+                    .await
+                    .update_vid_commit_view(disperse.data.payload_commitment, view);
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }

@@ -767,11 +767,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get DA certificate's view number
     /// # Panics
     /// Panics if there is no view number corresponding to the certificate
-    pub fn dac_view_number(&self, cert: &DaCertificate<TYPES>) -> TYPES::Time {
-        *self
-            .vid_commit_view()
+    pub fn dac_view_number(&self, cert: &DaCertificate<TYPES>) -> Option<TYPES::Time> {
+        self.vid_commit_view()
             .get(&cert.data().payload_commit)
-            .expect("Consensus::dac_view_number: we haven't seen this vid commitment yet!")
+            .copied()
     }
 
     /// Get a quorum vote's view number

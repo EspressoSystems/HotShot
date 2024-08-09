@@ -700,7 +700,9 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view).cloned() else {
         return false;
     };
-    let view = read_consnesus.dac_view_number(&cert);
+    let Some(view) = read_consnesus.dac_view_number(&cert) else {
+        return false;
+    };
     drop(read_consnesus);
 
     // TODO: do some of this logic without the vote token check, only do that when voting.

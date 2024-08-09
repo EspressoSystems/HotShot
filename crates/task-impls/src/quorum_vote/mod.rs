@@ -4,10 +4,9 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
-
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -38,6 +37,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
+use std::time::Duration;
+use std::{collections::HashMap, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -586,7 +587,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let cert_view_number = self.consensus.read().await.dac_view_number(cert);
+                let Some(cert_view_number) = self.consensus.read().await.dac_view_number(cert)
+                else {
+                    warn!("We have received a DAC but we haven't seen this VID commitment yet!");
+                    // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DaCertificateRecv(cert.clone())),
+                        &event_sender.clone(),
+                    )
+                    .await;
+                    return;
+                };
                 trace!("Received DAC for view {}", *cert_view_number);
                 if cert_view_number <= self.latest_voted_view {
                     return;
