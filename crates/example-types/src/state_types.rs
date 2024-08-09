@@ -20,19 +20,19 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, time::Duration};
+use std::{collections::HashMap, fmt::Debug, time::Duration};
 use vbs::version::Version;
 
 pub use crate::node_types::TestTypes;
 use crate::{
     block_types::{TestBlockPayload, TestTransaction},
-    testable_delay::{DelayOptions, TestableDelay},
+    testable_delay::{DelayConfig, DelayOptions, TestableDelay},
 };
 
 /// Instance-level state implementation for testing purposes.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct TestInstanceState {
-    pub delay_option: DelayOptions,
+    pub delay_config: DelayConfig,
 }
 
 impl InstanceState for TestInstanceState {}
@@ -40,14 +40,14 @@ impl InstanceState for TestInstanceState {}
 impl Default for TestInstanceState {
     fn default() -> Self {
         TestInstanceState {
-            delay_option: DelayOptions::None,
+            delay_config: DelayConfig::default(),
         }
     }
 }
 
 impl TestInstanceState {
-    pub fn new(delay_option: DelayOptions) -> Self {
-        TestInstanceState { delay_option }
+    pub fn new(delay_config: DelayConfig) -> Self {
+        TestInstanceState { delay_config }
     }
 }
 
