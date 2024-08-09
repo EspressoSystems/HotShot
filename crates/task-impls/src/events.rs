@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::fmt::Display;
 
 use async_broadcast::Sender;
@@ -20,7 +26,7 @@ use hotshot_types::{
     traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
     utils::{BuilderCommitment, View},
     vid::VidCommitment,
-    vote::{HasViewNumber, VoteDependencyData},
+    vote::HasViewNumber,
 };
 use vec1::Vec1;
 
@@ -179,9 +185,6 @@ pub enum HotShotEvent<TYPES: NodeType> {
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
     /// A HotShot upgrade was decided
     UpgradeDecided(UpgradeCertificate<TYPES>),
-
-    /// Initiate a vote right now for the designated view.
-    VoteNow(TYPES::Time, VoteDependencyData<TYPES>),
 
     /* Consensus State Update Events */
     /// A undecided view has been created and added to the validated state storage.
@@ -423,9 +426,6 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             }
             HotShotEvent::QuorumProposalRequest(view_number) => {
                 write!(f, "QuorumProposalRequest(view_number={view_number:?})")
-            }
-            HotShotEvent::VoteNow(view_number, _) => {
-                write!(f, "VoteNow(view_number={view_number:?})")
             }
             HotShotEvent::ValidatedStateUpdated(view_number, _) => {
                 write!(f, "ValidatedStateUpdated(view_number={view_number:?})")

@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #![cfg(not(feature = "dependency-tasks"))]
 
 use core::time::Duration;
@@ -97,6 +103,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
             instance_state.as_ref(),
             &parent_leaf,
             commitment_and_metadata.commitment,
+            commitment_and_metadata.builder_commitment,
             commitment_and_metadata.metadata,
             commitment_and_metadata.fees.to_vec(),
             vid_share.data.common,

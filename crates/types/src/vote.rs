@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! Vote, Accumulator, and Certificate Types
 
 use std::{
@@ -12,9 +18,7 @@ use ethereum_types::U256;
 use tracing::error;
 
 use crate::{
-    data::{Leaf, QuorumProposal, VidDisperseShare},
-    message::Proposal,
-    simple_certificate::{DaCertificate, Threshold},
+    simple_certificate::Threshold,
     simple_vote::Voteable,
     traits::{
         election::Membership,
@@ -182,21 +186,3 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
 /// Mapping of commitments to vote tokens by key.
 type VoteMap2<COMMITMENT, PK, SIG> = HashMap<COMMITMENT, (U256, BTreeMap<PK, (SIG, COMMITMENT)>)>;
-
-/// Payload for the `HotShotEvents::VoteNow` event type. The proposal and leaf are
-/// obtained via a `QuorumProposalValidated` event being processed.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub struct VoteDependencyData<TYPES: NodeType> {
-    /// The quorum proposal (not necessarily valid).
-    pub quorum_proposal: QuorumProposal<TYPES>,
-
-    /// The leaf we've obtained from the `QuorumProposalValidated` event. This is the
-    /// parent leaf.
-    pub parent_leaf: Leaf<TYPES>,
-
-    /// The VID share proposal.
-    pub vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
-
-    /// The DA certificate.
-    pub da_cert: DaCertificate<TYPES>,
-}
