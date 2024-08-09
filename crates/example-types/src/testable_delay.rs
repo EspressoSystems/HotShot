@@ -22,42 +22,43 @@ pub enum SupportedTypes {
 /// Config for each supported type
 pub struct DelaySettings {
     // Option to tell the async function what to do
-    delay_option: DelayOptions,
+    pub delay_option: DelayOptions,
     // Rng min time
-    min_time: u64,
+    pub min_time_in_milliseconds: u64,
     // Rng max time
-    max_time: u64,
+    pub max_time_in_milliseconds: u64,
     // Fixed time for fixed delay option
-    fixed_time: u64,
+    pub fixed_time_in_milliseconds: u64,
 }
 
 impl Default for DelaySettings {
     fn default() -> Self {
         DelaySettings {
             delay_option: DelayOptions::None,
-            min_time: 0,
-            max_time: 0,
-            fixed_time: 0,
+            min_time_in_milliseconds: 0,
+            max_time_in_milliseconds: 0,
+            fixed_time_in_milliseconds: 0,
         }
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Default)]
+/// Settings for each type
 pub struct DelayConfig {
     config: HashMap<SupportedTypes, DelaySettings>,
-}
-
-impl Default for DelayConfig {
-    fn default() -> Self {
-        DelayConfig {
-            config: HashMap::new(),
-        }
-    }
 }
 
 impl DelayConfig {
     pub fn new(config: HashMap<SupportedTypes, DelaySettings>) -> Self {
         DelayConfig { config }
+    }
+
+    pub fn add_settings_for_all_types(&mut self, settings: DelaySettings) {
+        let iterator = SupportedTypesIterator::new();
+
+        for supported_type in iterator {
+            self.config.insert(supported_type, settings.clone());
+        }
     }
 
     pub fn add_setting(&mut self, supported_type: SupportedTypes, settings: DelaySettings) {
@@ -70,6 +71,36 @@ impl DelayConfig {
 }
 
 #[async_trait]
+/// Implement this method to add some delay to async call
 pub trait TestableDelay {
-    async fn handle_delay_option(config: DelayConfig);
+    async fn handle_async_delay(config: DelayConfig);
+}
+
+/// Iterator to iterate over enum
+struct SupportedTypesIterator {
+    index: usize,
+}
+
+impl SupportedTypesIterator {
+    fn new() -> Self {
+        SupportedTypesIterator { index: 0 }
+    }
+}
+
+impl Iterator for SupportedTypesIterator {
+    type Item = SupportedTypes;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let supported_type = match self.index {
+            0 => Some(SupportedTypes::Storage),
+            1 => Some(SupportedTypes::ValidatedState),
+            2 => Some(SupportedTypes::BlockHeader),
+            _ => {
+                assert_eq!(self.index, 3, "Need to ensure that newly added or removed `SupportedTypes` enum is handled in iterator");
+                return None;
+            }
+        };
+        self.index += 1;
+        supported_type
+    }
 }

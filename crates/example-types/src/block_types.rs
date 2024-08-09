@@ -34,7 +34,7 @@ use vbs::version::Version;
 use crate::{
     node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
-    testable_delay::{DelayOptions, TestableDelay},
+    testable_delay::{DelayConfig, DelayOptions, SupportedTypes, TestableDelay},
 };
 
 /// The transaction in a [`TestBlockPayload`].
@@ -293,7 +293,7 @@ impl<
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<Self, Self::Error> {
-        Self::handle_delay_option(instance_state.delay_option).await;
+        Self::handle_async_delay(instance_state.delay_config.clone()).await;
         Ok(Self::new(
             parent_leaf,
             payload_commitment,
@@ -313,7 +313,7 @@ impl<
         _auction_results: Option<TYPES::AuctionResult>,
         _version: Version,
     ) -> Result<Self, Self::Error> {
-        Self::handle_delay_option(instance_state.delay_option).await;
+        Self::handle_async_delay(instance_state.delay_config.clone()).await;
         Ok(Self::new(
             parent_leaf,
             payload_commitment,
@@ -379,15 +379,20 @@ impl Committable for TestBlockHeader {
 
 #[async_trait]
 impl TestableDelay for TestBlockHeader {
-    async fn handle_delay_option(delay_option: DelayOptions) {
-        match delay_option {
-            DelayOptions::None => {}
-            DelayOptions::Fixed => {
-                async_sleep(Duration::from_millis(50)).await;
-            }
-            DelayOptions::Random => {
-                let sleep_in_millis = rand::thread_rng().gen_range(25..=150);
-                async_sleep(Duration::from_millis(sleep_in_millis)).await;
+    async fn handle_async_delay(delay_config: DelayConfig) {
+        if let Some(settings) = delay_config.get_setting(SupportedTypes::BlockHeader) {
+            match settings.delay_option {
+                DelayOptions::None => {}
+                DelayOptions::Fixed => {
+                    async_sleep(Duration::from_millis(settings.fixed_time_in_milliseconds)).await;
+                }
+                DelayOptions::Random => {
+                    let sleep_in_millis = rand::thread_rng().gen_range(
+                        settings.min_time_in_milliseconds..=settings.max_time_in_milliseconds,
+                    );
+
+                    async_sleep(Duration::from_millis(sleep_in_millis)).await;
+                }
             }
         }
     }

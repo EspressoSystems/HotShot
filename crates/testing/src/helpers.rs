@@ -73,7 +73,7 @@ pub async fn build_system_handle<
     let config = launcher.resource_generator.config.clone();
 
     let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::new(
-        launcher.metadata.async_delay,
+        launcher.metadata.async_delay_config,
     ))
     .await
     .unwrap();
