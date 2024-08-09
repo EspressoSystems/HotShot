@@ -73,7 +73,6 @@ cross_tests!(
     },
 );
 
-#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: double_propose_vote,
     Impls: [MemoryImpl],
