@@ -18,7 +18,6 @@ use committable::Committable;
 use futures::FutureExt;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus, View},
-    constants::MarketplaceVersion,
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
@@ -55,7 +54,7 @@ use crate::{
 /// the proposal send evnet.
 #[allow(clippy::too_many_arguments)]
 #[instrument(skip_all, fields(id = id, view = *view))]
-pub async fn create_and_send_proposal<TYPES: NodeType>(
+pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: OuterConsensus<TYPES>,
@@ -82,7 +81,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType>(
         .context("Failed to get vid share")?;
     drop(consensus_read);
 
-    let block_header = if version < MarketplaceVersion::VERSION {
+    let block_header = if version < V::Marketplace::VERSION {
         TYPES::BlockHeader::new_legacy(
             state.as_ref(),
             instance_state.as_ref(),
@@ -226,7 +225,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType, V: V
     let version = upgrade_lock.version(view).await?;
 
     let create_and_send_proposal_handle = async_spawn(async move {
-        match create_and_send_proposal(
+        match create_and_send_proposal::<TYPES, V>(
             public_key,
             private_key,
             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),

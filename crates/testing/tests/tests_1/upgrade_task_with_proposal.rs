@@ -32,10 +32,13 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    constants::BaseVersion,
     data::{null_block, Leaf, ViewNumber},
     simple_vote::UpgradeProposalData,
-    traits::{election::Membership, node_implementation::ConsensusTime, ValidatedState},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, Versions},
+        ValidatedState,
+    },
     utils::BuilderCommitment,
     vote::HasViewNumber,
 };
@@ -135,8 +138,11 @@ async fn test_upgrade_task_with_proposal() {
     let genesis_cert = proposals[0].data.justify_qc.clone();
     let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
-    let builder_fee =
-        null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version()).unwrap();
+    let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
+        quorum_membership.total_nodes(),
+        <TestVersions as Versions>::Base::VERSION,
+    )
+    .unwrap();
     let upgrade_votes = other_handles
         .iter()
         .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));

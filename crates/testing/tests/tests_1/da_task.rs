@@ -22,12 +22,12 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    constants::BaseVersion,
     data::{null_block, PackedBundle, ViewNumber},
     simple_vote::DaData,
     traits::{
-        block_contents::precompute_vid_commitment, election::Membership,
-        node_implementation::ConsensusTime,
+        block_contents::precompute_vid_commitment,
+        election::Membership,
+        node_implementation::{ConsensusTime, Versions},
     },
 };
 use vbs::version::StaticVersionType;
@@ -87,9 +87,9 @@ async fn test_da_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(
+                vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
                 Some(precompute),
@@ -176,9 +176,9 @@ async fn test_da_task_storage_failure() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(
+                vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
                 Some(precompute),

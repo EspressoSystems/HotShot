@@ -29,10 +29,12 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    constants::BaseVersion,
     data::{null_block, ViewNumber},
     simple_vote::UpgradeProposalData,
-    traits::{election::Membership, node_implementation::ConsensusTime},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, Versions},
+    },
     vote::HasViewNumber,
 };
 use vbs::version::{StaticVersionType, Version};
@@ -286,9 +288,9 @@ async fn test_upgrade_task_propose() {
                 proposals[2].data.block_header.builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
-                vec1![null_block::builder_fee(
+                vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
                 None,
@@ -382,8 +384,11 @@ async fn test_upgrade_task_blank_blocks() {
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
 
-    let builder_fee =
-        null_block::builder_fee(quorum_membership.total_nodes(), BaseVersion::version()).unwrap();
+    let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
+        quorum_membership.total_nodes(),
+        <TestVersions as Versions>::Base::VERSION,
+    )
+    .unwrap();
 
     let upgrade_data: UpgradeProposalData<TestTypes> = UpgradeProposalData {
         old_version,

@@ -52,22 +52,6 @@ pub struct Message<TYPES: NodeType> {
     pub kind: MessageKind<TYPES>,
 }
 
-/// Trait for messages that have a versioned serialization.
-pub trait VersionedMessage<'a, TYPES, V>
-where
-    TYPES: NodeType,
-    V: Versions,
-    Self: Serialize + Deserialize<'a> + HasViewNumber<TYPES> + Sized,
-{
-}
-
-impl<'a, TYPES, V> VersionedMessage<'a, TYPES, V> for Message<TYPES>
-where
-    TYPES: NodeType,
-    V: Versions,
-{
-}
-
 impl<TYPES: NodeType> fmt::Debug for Message<TYPES> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Message")

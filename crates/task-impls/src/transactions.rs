@@ -18,7 +18,6 @@ use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    constants::MarketplaceVersion,
     data::{null_block, PackedBundle},
     event::{Event, EventType},
     message::UpgradeLock,
@@ -128,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             }
         };
 
-        if version < MarketplaceVersion::VERSION {
+        if version < V::Marketplace::VERSION {
             self.handle_view_change_legacy(event_stream, block_view)
                 .await
         } else {
@@ -203,7 +202,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .add(1);
 
             let membership_total_nodes = self.membership.total_nodes();
-            let Some(null_fee) = null_block::builder_fee(self.membership.total_nodes(), version)
+            let Some(null_fee) =
+                null_block::builder_fee::<TYPES, V>(self.membership.total_nodes(), version)
             else {
                 error!("Failed to get null fee");
                 return None;
@@ -343,7 +343,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .add(1);
 
         let membership_total_nodes = self.membership.total_nodes();
-        let Some(null_fee) = null_block::builder_fee(self.membership.total_nodes(), version) else {
+        let Some(null_fee) =
+            null_block::builder_fee::<TYPES, V>(self.membership.total_nodes(), version)
+        else {
             error!("Failed to get null fee");
             return None;
         };

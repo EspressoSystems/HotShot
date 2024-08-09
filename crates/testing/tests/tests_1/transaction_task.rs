@@ -8,11 +8,11 @@ use hotshot_task_impls::{
 };
 use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
-    constants::BaseVersion,
     data::{null_block, PackedBundle, ViewNumber},
     traits::{
-        block_contents::precompute_vid_commitment, election::Membership,
-        node_implementation::ConsensusTime,
+        block_contents::precompute_vid_commitment,
+        election::Membership,
+        node_implementation::{ConsensusTime, Versions},
     },
 };
 use vbs::version::StaticVersionType;
@@ -46,11 +46,13 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
         vec![].into(),
         TestMetadata,
         current_view,
-        vec1::vec1![null_block::builder_fee(
-            quorum_membership.total_nodes(),
-            BaseVersion::version()
-        )
-        .unwrap()],
+        vec1::vec1![
+            null_block::builder_fee::<TestConsecutiveLeaderTypes, TestVersions>(
+                quorum_membership.total_nodes(),
+                <TestVersions as Versions>::Base::VERSION
+            )
+            .unwrap()
+        ],
         Some(precompute_data.clone()),
         None,
     );

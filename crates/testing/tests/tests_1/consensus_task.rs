@@ -37,7 +37,10 @@ use hotshot_testing::{
 use hotshot_types::{
     data::{null_block, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
-    traits::{election::Membership, node_implementation::ConsensusTime},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, Versions},
+    },
     utils::BuilderCommitment,
     vote::HasViewNumber,
 };
@@ -51,7 +54,6 @@ const TIMEOUT: Duration = Duration::from_millis(35);
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_types::constants::BaseVersion;
     use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
@@ -106,9 +108,9 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1![null_block::builder_fee(
+                vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION,
                 )
                 .unwrap()],
                 None,
@@ -204,7 +206,7 @@ async fn test_consensus_vote() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
     use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
-    use hotshot_types::{constants::BaseVersion, data::null_block};
+    use hotshot_types::data::null_block;
     use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
@@ -304,7 +306,11 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                vec1![null_block::builder_fee(4, BaseVersion::version()).unwrap()],
+                vec1![null_block::builder_fee::<TestTypes, TestVersions>(
+                    4,
+                    <TestVersions as Versions>::Base::VERSION
+                )
+                .unwrap()],
                 None,
             ),
         ],
