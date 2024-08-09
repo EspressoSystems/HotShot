@@ -1556,7 +1556,7 @@ dependencies = [
  "ark-serialize",
  "bitvec",
  "derivative",
- "derive_more",
+ "derive_more 0.99.18",
  "funty",
  "hex",
  "serde",
@@ -2152,6 +2152,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "derive_more"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+dependencies = [
+ "proc-macro2",
+ "quote",
  "syn 2.0.72",
 ]
 
@@ -3065,7 +3085,7 @@ dependencies = [
  "committable",
  "custom_debug",
  "dashmap",
- "derive_more",
+ "derive_more 1.0.0",
  "either",
  "ethereum-types",
  "futures",
@@ -3099,7 +3119,7 @@ dependencies = [
  "async-trait",
  "clap",
  "committable",
- "derive_more",
+ "derive_more 1.0.0",
  "futures",
  "hotshot-types",
  "serde",
@@ -3162,7 +3182,7 @@ dependencies = [
  "committable",
  "custom_debug",
  "dashmap",
- "derive_more",
+ "derive_more 1.0.0",
  "either",
  "futures",
  "hotshot",
@@ -4198,7 +4218,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.5",
 ]
 
 [[package]]
@@ -6948,7 +6968,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d1e02fca405f6280643174a50c942219f0bbf4dbf7d480f1dd864d6f211ae5"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
@@ -7607,7 +7627,7 @@ dependencies = [
  "clap",
  "config",
  "derivative",
- "derive_more",
+ "derive_more 0.99.18",
  "dirs",
  "edit-distance",
  "futures",
@@ -8353,7 +8373,7 @@ checksum = "6a9d83afb293d109ae418271619046cd9d87d63ba83e473e25a5e36101edc453"
 dependencies = [
  "anyhow",
  "bincode",
- "derive_more",
+ "derive_more 0.99.18",
  "serde",
  "serde_with",
 ]
