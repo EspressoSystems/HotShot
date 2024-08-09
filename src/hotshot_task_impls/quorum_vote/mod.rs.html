@@ -670,6 +670,7 @@
 <a href="#668" id="668">668</a>
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -910,6 +911,7 @@
     <span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
         <span class="kw">let </span>high_qc_view_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number;
+
         <span class="comment">// The validated state of a non-genesis high QC should exist in the state map.
         </span><span class="kw">if </span><span class="kw-2">*</span>high_qc_view_number != <span class="kw-2">*</span>ViewNumber::genesis()
             &amp;&amp; !<span class="self">self
