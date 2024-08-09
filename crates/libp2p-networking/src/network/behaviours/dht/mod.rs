@@ -9,7 +9,7 @@ pub mod bootstrap;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
