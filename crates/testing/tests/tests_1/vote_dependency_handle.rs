@@ -5,19 +5,14 @@ use std::time::Duration;
 use async_compatibility_layer::art::async_timeout;
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
-use hotshot_macros::{run_test, test_scripts};
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
 use hotshot_task_impls::{
     events::HotShotEvent::*,
     quorum_vote::{QuorumVoteTaskState, VoteDependencyHandle},
 };
 use hotshot_testing::{
-    all_predicates,
-    helpers::{build_fake_view_with_leaf, build_system_handle, vid_share},
+    helpers::{build_fake_view_with_leaf, build_system_handle},
     predicates::{event::*, Predicate, PredicateResult},
-    random,
-    script::{Expectations, InputOrder, TaskScript},
-    serial,
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
@@ -43,7 +38,7 @@ async fn test_vote_dependency_handle() {
     let node_id = 2;
 
     // Construct the system handle for the node ID to build all of the state objects.
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(node_id)
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
@@ -93,25 +88,27 @@ async fn test_vote_dependency_handle() {
         ];
 
         // We only need this to be able to make the vote dependency handle state. It's not explicitly necessary, but it's easy.
-        let qv = QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+        let qv =
+            QuorumVoteTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
 
         let event_sender = handle.internal_event_stream_sender();
         let mut event_receiver = handle.internal_event_stream_receiver_known_impl();
         let view_number = ViewNumber::new(node_id);
 
-        let vote_dependency_handle_state = VoteDependencyHandle::<TestTypes, MemoryImpl> {
-            public_key: qv.public_key.clone(),
-            private_key: qv.private_key.clone(),
-            consensus: OuterConsensus::new(Arc::clone(&qv.consensus.inner_consensus)),
-            instance_state: Arc::clone(&qv.instance_state),
-            quorum_membership: Arc::clone(&qv.quorum_membership),
-            storage: Arc::clone(&qv.storage),
-            view_number,
-            sender: event_sender.clone(),
-            receiver: event_receiver.clone(),
-            decided_upgrade_certificate: Arc::clone(&qv.decided_upgrade_certificate),
-            id: qv.id,
-        };
+        let vote_dependency_handle_state =
+            VoteDependencyHandle::<TestTypes, MemoryImpl, TestVersions> {
+                public_key: qv.public_key,
+                private_key: qv.private_key.clone(),
+                consensus: OuterConsensus::new(Arc::clone(&qv.consensus.inner_consensus)),
+                instance_state: Arc::clone(&qv.instance_state),
+                quorum_membership: Arc::clone(&qv.quorum_membership),
+                storage: Arc::clone(&qv.storage),
+                view_number,
+                sender: event_sender.clone(),
+                receiver: event_receiver.clone(),
+                upgrade_lock: qv.upgrade_lock.clone(),
+                id: qv.id,
+            };
 
         let inputs_len = inputs.len();
         for event in inputs.into_iter() {

@@ -4,29 +4,26 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
+use hotshot::tasks::{BadProposalViewDos, DoubleProposeVote};
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
     state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    test_builder::TestDescription,
+    test_builder::{Behaviour, TestDescription},
     view_sync_task::ViewSyncTaskDescription,
-};
-use {
-    hotshot::tasks::{BadProposalViewDos, DoubleProposeVote},
-    hotshot_testing::test_builder::Behaviour,
-    std::rc::Rc,
 };
 
 cross_tests!(
     TestName: test_success,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
+    Versions: [TestVersions],
     Ignore: false,
     Metadata: {
         TestDescription {
@@ -45,6 +42,7 @@ cross_tests!(
     TestName: double_propose_vote,
     Impls: [MemoryImpl],
     Types: [TestTypes],
+    Versions: [TestVersions],
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| { match node_id {
@@ -70,6 +68,7 @@ cross_tests!(
     TestName: multiple_bad_proposals,
     Impls: [MemoryImpl],
     Types: [TestTypes],
+    Versions: [TestVersions],
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| { match node_id {
@@ -98,6 +97,7 @@ cross_tests!(
     TestName: test_with_double_leader_no_failures,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestConsecutiveLeaderTypes],
+    Versions: [TestVersions],
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
