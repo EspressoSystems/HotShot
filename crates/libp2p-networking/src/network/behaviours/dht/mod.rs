@@ -483,12 +483,6 @@ impl DHTBehaviour {
                     record: Some(record),
                 } = request
                 {
-                    // If the record is expired, ignore it
-                    if record.is_expired(Instant::now()) {
-                        warn!("Received an expired record");
-                        return None;
-                    }
-
                     // Convert the record to the correct type
                     if let Ok(record_value) = RecordValue::<K>::try_from(record.clone()) {
                         // Convert the key to the correct type
