@@ -6,11 +6,9 @@
 
 #![cfg(not(feature = "dependency-tasks"))]
 
-use std::{collections::BTreeMap, sync::Arc};
-
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -34,6 +32,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
+use std::time::Duration;
+use std::{collections::BTreeMap, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
@@ -301,6 +301,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     self.consensus.read().await.quorum_vote_view_number(vote)
                 else {
                     warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+                    // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())),
+                        &event_stream,
+                    )
+                    .await;
                     return;
                 };
                 debug!("Received quorum vote: {:?}", vote_view_number);

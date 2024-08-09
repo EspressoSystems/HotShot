@@ -4,11 +4,9 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{marker::PhantomData, sync::Arc};
-
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
@@ -33,6 +31,8 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
+use std::time::Duration;
+use std::{marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::{debug, error, instrument, warn};
@@ -259,6 +259,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     warn!(
                         "We have received a DA vote but we haven't seen this VID commitment yet!"
                     );
+                    // This is a workaround: we might have already received a vote for VID that we haven't yet calculated on our own.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DaVoteRecv(vote.clone())),
+                        &event_stream,
+                    )
+                    .await;
                     return None;
                 };
                 debug!("DA vote recv, Main Task {:?}", vote_view_number);

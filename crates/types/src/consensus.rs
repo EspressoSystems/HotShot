@@ -16,7 +16,7 @@ use std::{
 use anyhow::{bail, ensure, Result};
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use committable::{Commitment, Committable};
-use tracing::{debug, error, instrument, trace};
+use tracing::{debug, error, instrument, trace, warn};
 use vec1::Vec1;
 
 use crate::simple_vote::{DaVote, QuorumVote};
@@ -647,6 +647,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// `saved_payloads` and `validated_state_map` fields of `Consensus`.
     /// # Panics
     /// On inconsistent stored entries
+    #[instrument(skip_all)]
     pub fn collect_garbage(&mut self, old_anchor_view: TYPES::Time, new_anchor_view: TYPES::Time) {
         // state check
         let anchor_entry = self
