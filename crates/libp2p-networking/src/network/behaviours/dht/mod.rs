@@ -187,21 +187,21 @@ impl DHTBehaviour {
                 error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
-            // // Check if the key is already being queried
-            // if self.outstanding_dht_query_keys.insert(key.clone()) {
-            //     // The key was not already being queried and was not in the cache. Start a new query.
-            let qid = kad.get_record(key.clone().into());
-            let query = KadGetQuery {
-                backoff,
-                progress: DHTProgress::InProgress(qid),
-                notify: chan,
-                num_replicas: factor,
-                key,
-                retry_count: retry_count - 1,
-                records: HashMap::default(),
-            };
-            self.in_progress_record_queries.insert(qid, query);
-            // }
+            // Check if the key is already being queried
+            if self.outstanding_dht_query_keys.insert(key.clone()) {
+                // The key was not already being queried and was not in the cache. Start a new query.
+                let qid = kad.get_record(key.clone().into());
+                let query = KadGetQuery {
+                    backoff,
+                    progress: DHTProgress::InProgress(qid),
+                    notify: chan,
+                    num_replicas: factor,
+                    key,
+                    retry_count: retry_count - 1,
+                    records: HashMap::default(),
+                };
+                self.in_progress_record_queries.insert(qid, query);
+            }
         }
     }
 
