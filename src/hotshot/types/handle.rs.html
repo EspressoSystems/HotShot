@@ -260,6 +260,7 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -438,11 +439,12 @@
             </span>.broadcast_direct(Arc::new(HotShotEvent::Shutdown))
             .<span class="kw">await
             </span>.inspect_err(|err| <span class="macro">tracing::error!</span>(<span class="string">"Failed to send shutdown event: {err}"</span>));
-        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down network tasks!"</span>);
-        <span class="self">self</span>.network_registry.shutdown().<span class="kw">await</span>;
 
         <span class="macro">tracing::error!</span>(<span class="string">"Shutting down the network!"</span>);
         <span class="self">self</span>.hotshot.network.shut_down().<span class="kw">await</span>;
+
+        <span class="macro">tracing::error!</span>(<span class="string">"Shutting down network tasks!"</span>);
+        <span class="self">self</span>.network_registry.shutdown().<span class="kw">await</span>;
 
         <span class="macro">tracing::error!</span>(<span class="string">"Shutting down consensus!"</span>);
         <span class="self">self</span>.consensus_registry.shutdown().<span class="kw">await</span>;
