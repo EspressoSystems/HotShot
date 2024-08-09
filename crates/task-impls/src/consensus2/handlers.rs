@@ -36,16 +36,23 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I>,
 ) -> Result<()> {
-    let Some(vote_view_number) = task_state
-        .consensus
-        .read()
-        .await
-        .quorum_vote_view_number(vote)
-    else {
-        warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+    let mut retries = 0;
+    // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
+    let vote_view_number = loop {
+        if let Some(view_number) = task_state
+            .consensus
+            .read()
+            .await
+            .quorum_vote_view_number(vote)
+        {
+            break view_number;
+        }
+        if retries > 5 {
+            warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+            bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
+        }
         async_sleep(Duration::from_millis(10)).await;
-        broadcast_event(Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())), sender).await;
-        bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
+        retries += 1;
     };
     // Are we the leader for this view?
     ensure!(

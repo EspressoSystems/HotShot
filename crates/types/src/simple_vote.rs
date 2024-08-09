@@ -286,7 +286,7 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposalData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        self.decide_by - UPGRADE_DECIDE_BY_OFFSET + UPGRADE_PROPOSE_OFFSET
+        self.decide_by + UPGRADE_PROPOSE_OFFSET - UPGRADE_DECIDE_BY_OFFSET
     }
 }
 

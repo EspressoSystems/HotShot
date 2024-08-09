@@ -297,18 +297,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                let Some(vote_view_number) =
-                    self.consensus.read().await.quorum_vote_view_number(vote)
-                else {
-                    warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
-                    // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
+                let mut retries = 0;
+                // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
+                let vote_view_number = loop {
+                    if let Some(view_number) =
+                        self.consensus.read().await.quorum_vote_view_number(vote)
+                    {
+                        break view_number;
+                    }
+                    if retries > 5 {
+                        warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+                        return;
+                    }
                     async_sleep(Duration::from_millis(10)).await;
-                    broadcast_event(
-                        Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())),
-                        &event_stream,
-                    )
-                    .await;
-                    return;
+                    retries += 1;
                 };
                 debug!("Received quorum vote: {:?}", vote_view_number);
                 if self.quorum_membership.leader(vote_view_number + 1) != self.public_key {
@@ -417,7 +419,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                         *qc.view_number()
                     );
 
-                    let qc_view_number = self.consensus.read().await.qc_view_number(qc);
+                    let Some(qc_view_number) = self.consensus.read().await.qc_view_number(qc)
+                    else {
+                        warn!("We haven't seen this leaf yet!");
+                        return;
+                    };
                     if let Err(e) = self
                         .publish_proposal(qc_view_number + 1, event_stream)
                         .await
@@ -441,18 +447,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let Some(cert_view_number) = self.consensus.read().await.dac_view_number(cert)
-                else {
-                    warn!("We have received a DAC but we haven't seen this VID commitment yet!");
-                    // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                let mut retries = 0;
+                // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                let cert_view_number = loop {
+                    if let Some(view_number) = self.consensus.read().await.dac_view_number(cert) {
+                        break view_number;
+                    }
+                    if retries > 5 {
+                        warn!(
+                            "We have received a DAC but we haven't seen this VID commitment yet!"
+                        );
+                        return;
+                    }
                     async_sleep(Duration::from_millis(10)).await;
-                    broadcast_event(
-                        Arc::new(HotShotEvent::DaCertificateRecv(cert.clone())),
-                        &event_stream,
-                    )
-                    .await;
-                    return;
+                    retries += 1;
                 };
+
                 debug!("DAC Received for view {}!", *cert_view_number);
 
                 self.consensus
@@ -627,8 +637,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     block_view: view,
                     auction_result: auction_result.clone(),
                 });
+                let Some(high_qc_view_number) = self.consensus.read().await.high_qc_view_number()
+                else {
+                    warn!("We haven't seen this leaf yet!");
+                    return;
+                };
                 if self.quorum_membership.leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc_view_number() + 1 == view
+                    && high_qc_view_number + 1 == view
                 {
                     if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         error!("Failed to propose; error = {e:?}");
@@ -692,8 +707,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 let new_view = proposal.view_number() + 1;
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+                let Some(high_qc_view_number) = self.consensus.read().await.high_qc_view_number()
+                else {
+                    warn!("We haven't seen this leaf yet!");
+                    return;
+                };
                 let should_propose = self.quorum_membership.leader(new_view) == self.public_key
-                    && self.consensus.read().await.high_qc_view_number() == proposal.view_number();
+                    && high_qc_view_number == proposal.view_number();
 
                 if should_propose {
                     debug!(

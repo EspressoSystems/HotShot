@@ -182,6 +182,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
+#[instrument(skip_all)]
 pub async fn decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal<TYPES>,
     consensus: OuterConsensus<TYPES>,
@@ -191,12 +192,15 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     let consensus_reader = consensus.read().await;
     let existing_upgrade_cert_reader = existing_upgrade_cert.read().await;
     let view_number = proposal.view_number();
-    let parent_view_number = consensus_reader.qc_view_number(&proposal.justify_qc);
     let old_anchor_view = consensus_reader.last_decided_view();
 
     let mut last_view_number_visited = view_number;
     let mut current_chain_length = 0usize;
     let mut res = LeafChainTraversalOutcome::default();
+    let Some(parent_view_number) = consensus_reader.qc_view_number(&proposal.justify_qc) else {
+        warn!("We haven't seen this leaf yet!");
+        return res;
+    };
 
     if let Err(e) = consensus_reader.visit_leaf_ancestors(
         parent_view_number,
@@ -313,7 +317,10 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-    let parent_view_number = consensus.read().await.high_qc_view_number();
+    let Some(parent_view_number) = consensus.read().await.high_qc_view_number() else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
     if !consensus
         .read()
         .await
@@ -330,7 +337,10 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         .context("Failed to fetch proposal")?;
     }
     let consensus_reader = consensus.read().await;
-    let parent_view_number = consensus_reader.high_qc_view_number();
+    let Some(parent_view_number) = consensus_reader.high_qc_view_number() else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
         format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
     )?;
@@ -447,7 +457,10 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 
     // Liveness check.
     let read_consensus = consensus.read().await;
-    let justify_qc_view_number = read_consensus.qc_view_number(&justify_qc);
+    let Some(justify_qc_view_number) = read_consensus.qc_view_number(&justify_qc) else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
     let liveness_check = justify_qc_view_number > read_consensus.locked_view();
 
     // Safety check.
@@ -511,6 +524,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 ///
 /// # Errors
 /// If any validation or view number check fails.
+#[instrument(skip_all)]
 pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     cur_view: TYPES::Time,
@@ -528,10 +542,14 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     proposal.validate_signature(quorum_membership)?;
 
-    let justify_qc_view_number = consensus
+    let Some(justify_qc_view_number) = consensus
         .read()
         .await
-        .qc_view_number(&proposal.data.justify_qc);
+        .qc_view_number(&proposal.data.justify_qc)
+    else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if justify_qc_view_number != view - 1 {
         let received_proposal_cert =

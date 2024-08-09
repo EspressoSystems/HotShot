@@ -391,8 +391,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
                     let consensus_reader = self.consensus.read().await;
-                    let qc_view_number = consensus_reader.qc_view_number(&qc);
-                    if qc_view_number <= consensus_reader.high_qc_view_number() {
+                    let Some(qc_view_number) = consensus_reader.qc_view_number(&qc) else {
+                        warn!("We haven't seen this leaf yet!");
+                        return;
+                    };
+                    let Some(high_qc_view_number) = consensus_reader.high_qc_view_number() else {
+                        warn!("We haven't seen this leaf yet!");
+                        return;
+                    };
+                    if qc_view_number <= high_qc_view_number {
                         tracing::trace!(
                             "Received a QC for a view that was not > than our current high QC"
                         );
@@ -480,7 +487,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     warn!("Failed to store High QC of QC we formed; error = {:?}", e);
                 }
 
-                let qc_view_number = self.consensus.read().await.qc_view_number(qc);
+                let Some(qc_view_number) = self.consensus.read().await.qc_view_number(qc) else {
+                    warn!("We haven't seen this leaf yet!");
+                    return;
+                };
 
                 broadcast_event(
                     HotShotEvent::HighQcUpdated(qc_view_number).into(),

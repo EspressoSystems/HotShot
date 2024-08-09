@@ -78,7 +78,11 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
-    let justify_qc_view_number = consensus_write.qc_view_number(&proposal.data.justify_qc);
+    let Some(justify_qc_view_number) = consensus_write.qc_view_number(&proposal.data.justify_qc)
+    else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
     let liveness_check = justify_qc_view_number > consensus_write.locked_view();
 
     drop(consensus_write);
@@ -193,8 +197,15 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
-    if justify_qc_view_number > consensus_read.high_qc_view_number() {
+    let Some(justify_qc_view_number) = consensus_read.qc_view_number(&justify_qc) else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
+    let Some(high_qc_view_number) = consensus_read.high_qc_view_number() else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
+    if justify_qc_view_number > high_qc_view_number {
         if let Err(e) = task_state
             .storage
             .write()

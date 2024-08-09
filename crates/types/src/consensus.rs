@@ -548,9 +548,16 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
-        let new_high_qc_view_number = self.qc_view_number(&high_qc);
+        let Some(new_high_qc_view_number) = self.qc_view_number(&high_qc) else {
+            warn!("We haven't seen this leaf yet!");
+            bail!("We haven't seen this leaf yet!");
+        };
+        let Some(high_qc_view_number) = self.high_qc_view_number() else {
+            warn!("We haven't seen this leaf yet!");
+            bail!("We haven't seen this leaf yet!");
+        };
         ensure!(
-            new_high_qc_view_number > self.high_qc_view_number(),
+            new_high_qc_view_number > high_qc_view_number,
             "High QC with an equal or higher view exists."
         );
         debug!("Updating high QC");
@@ -750,23 +757,19 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the current high QC's view number
-    pub fn high_qc_view_number(&self) -> TYPES::Time {
+    pub fn high_qc_view_number(&self) -> Option<TYPES::Time> {
         self.qc_view_number(self.high_qc())
     }
 
     /// Get a quorum certificate's view number
-    /// # Panics
-    /// Panics if there is no leaf corresponding the certificate
-    pub fn qc_view_number(&self, cert: &QuorumCertificate<TYPES>) -> TYPES::Time {
+    pub fn qc_view_number(&self, cert: &QuorumCertificate<TYPES>) -> Option<TYPES::Time> {
         self.saved_leaves
-            .get(&cert.data().leaf_commit)
-            .expect("Consensus::qc_view_number: we haven't seen this leaf yet!")
+            .get(&cert.data().leaf_commit)?
             .view_number()
+            .into()
     }
 
     /// Get DA certificate's view number
-    /// # Panics
-    /// Panics if there is no view number corresponding to the certificate
     pub fn dac_view_number(&self, cert: &DaCertificate<TYPES>) -> Option<TYPES::Time> {
         self.vid_commit_view()
             .get(&cert.data().payload_commit)

@@ -28,6 +28,7 @@ use hotshot_types::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
+use tracing::log::warn;
 use tracing::{debug, error, instrument};
 use vbs::version::StaticVersionType;
 
@@ -252,7 +253,10 @@ impl<TYPES: NodeType> HandleDepOutput for ProposalDependencyHandle<TYPES> {
     #[allow(clippy::no_effect_underscore_binding)]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc = self.consensus.read().await.high_qc().clone();
-        let high_qc_view_number = self.consensus.read().await.high_qc_view_number();
+        let Some(high_qc_view_number) = self.consensus.read().await.high_qc_view_number() else {
+            warn!("We haven't seen this leaf yet!");
+            return;
+        };
         if !self
             .consensus
             .read()

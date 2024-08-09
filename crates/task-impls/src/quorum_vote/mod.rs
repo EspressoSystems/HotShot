@@ -237,8 +237,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
 
     #[allow(clippy::too_many_lines)]
+    #[instrument(skip_all)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc_view_number();
+        let Some(high_qc_view_number) = self.consensus.read().await.high_qc_view_number() else {
+            warn!("We haven't seen this leaf yet!");
+            return;
+        };
         // The validated state of a non-genesis high QC should exist in the state map.
         if *high_qc_view_number != *ViewNumber::genesis()
             && !self
@@ -548,17 +552,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let Some(cert_view_number) = self.consensus.read().await.dac_view_number(cert)
-                else {
-                    warn!("We have received a DAC but we haven't seen this VID commitment yet!");
-                    // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                let mut retries = 0;
+                // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                let cert_view_number = loop {
+                    if let Some(view_number) = self.consensus.read().await.dac_view_number(cert) {
+                        break view_number;
+                    }
+                    if retries > 5 {
+                        warn!(
+                            "We have received a DAC but we haven't seen this VID commitment yet!"
+                        );
+                        return;
+                    }
                     async_sleep(Duration::from_millis(10)).await;
-                    broadcast_event(
-                        Arc::new(HotShotEvent::DaCertificateRecv(cert.clone())),
-                        &event_sender.clone(),
-                    )
-                    .await;
-                    return;
+                    retries += 1;
                 };
                 trace!("Received DAC for view {}", *cert_view_number);
                 if cert_view_number <= self.latest_voted_view {

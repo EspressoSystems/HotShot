@@ -381,8 +381,15 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
-    if justify_qc_view_number > consensus_read.high_qc_view_number() {
+    let Some(justify_qc_view_number) = consensus_read.qc_view_number(&justify_qc) else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
+    let Some(high_qc_view_number) = consensus_read.high_qc_view_number() else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
+    if justify_qc_view_number > high_qc_view_number {
         if let Err(e) = task_state
             .storage
             .write()
@@ -446,7 +453,10 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         // If we are missing the parent from storage, the safety check will fail.  But we can
         // still vote if the liveness check succeeds.
         let consensus_read = task_state.consensus.read().await;
-        let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
+        let Some(justify_qc_view_number) = consensus_read.qc_view_number(&justify_qc) else {
+            warn!("We haven't seen this leaf yet!");
+            bail!("We haven't seen this leaf yet!")
+        };
         let liveness_check = justify_qc_view_number > consensus_read.locked_view();
 
         let high_qc = consensus_read.high_qc().clone();
@@ -460,18 +470,28 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             let new_view = proposal.data.view_number + 1;
 
             // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+            let Some(high_qc_view_number) = task_state.consensus.read().await.high_qc_view_number()
+            else {
+                warn!("We haven't seen this leaf yet!");
+                bail!("We haven't seen this leaf yet!");
+            };
             let should_propose = task_state.quorum_membership.leader(new_view)
                 == task_state.public_key
-                && task_state.consensus.read().await.high_qc_view_number()
-                    == current_proposal.clone().unwrap().view_number;
+                && high_qc_view_number == current_proposal.clone().unwrap().view_number;
 
             if should_propose {
                 debug!(
                     "Attempting to publish proposal after voting for liveness; now in view: {}",
                     *new_view
                 );
+                let Some(high_qc_view_number) =
+                    task_state.consensus.read().await.high_qc_view_number()
+                else {
+                    warn!("We haven't seen this leaf yet!");
+                    bail!("We haven't seen this leaf yet!");
+                };
                 let create_and_send_proposal_handle = publish_proposal_if_able(
-                    task_state.consensus.read().await.high_qc_view_number() + 1,
+                    high_qc_view_number + 1,
                     event_stream,
                     Arc::clone(&task_state.quorum_membership),
                     task_state.public_key.clone(),
@@ -561,9 +581,12 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     let new_view = task_state.current_proposal.clone().unwrap().view_number + 1;
     // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
     // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
+    let Some(high_qc_view_number) = task_state.consensus.read().await.high_qc_view_number() else {
+        warn!("We haven't seen this leaf yet!");
+        bail!("We haven't seen this leaf yet!");
+    };
     let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
-        && task_state.consensus.read().await.high_qc_view_number()
-            == task_state.current_proposal.clone().unwrap().view_number;
+        && high_qc_view_number == task_state.current_proposal.clone().unwrap().view_number;
 
     if let Some(new_decided_view) = res.new_decided_view_number {
         task_state.cancel_tasks(new_decided_view).await;
@@ -701,6 +724,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         return false;
     };
     let Some(view) = read_consnesus.dac_view_number(&cert) else {
+        warn!("We have received a DAC but we haven't seen this VID commitment yet!");
         return false;
     };
     drop(read_consnesus);
