@@ -25,11 +25,11 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
+use hotshot_types::vote::HasViewNumber;
 use hotshot_types::{
     data::ViewNumber,
     traits::{node_implementation::ConsensusTime, ValidatedState},
 };
-use hotshot_types::vote::HasViewNumber;
 
 #[cfg(test)]
 #[cfg(feature = "dependency-tasks")]
