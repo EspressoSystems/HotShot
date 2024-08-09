@@ -6,7 +6,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use chrono::Utc;
@@ -18,9 +18,9 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 use super::Consensus2TaskState;
 use crate::{
@@ -36,22 +36,30 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I>,
 ) -> Result<()> {
+    let Some(vote_view_number) = task_state
+        .consensus
+        .read()
+        .await
+        .quorum_vote_view_number(vote)
+    else {
+        warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+        async_sleep(Duration::from_millis(10)).await;
+        broadcast_event(Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())), sender).await;
+        bail!("We have received a Quorum vote but we haven't seen this leaf yet!");
+    };
     // Are we the leader for this view?
     ensure!(
-        task_state.quorum_membership.leader(vote.view_number() + 1) == task_state.public_key,
-        format!(
-            "We are not the leader for view {:?}",
-            vote.view_number() + 1
-        )
+        task_state.quorum_membership.leader(vote_view_number + 1) == task_state.public_key,
+        format!("We are not the leader for view {:?}", vote_view_number + 1)
     );
 
     let mut collector = task_state.vote_collector.write().await;
 
-    if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
+    if collector.is_none() || vote_view_number > collector.as_ref().unwrap().view {
         let info = AccumulatorInfo {
             public_key: task_state.public_key.clone(),
             membership: Arc::clone(&task_state.quorum_membership),
-            view: vote.view_number(),
+            view: vote_view_number,
             id: task_state.id,
         };
         *collector = create_vote_accumulator::<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>(
@@ -138,7 +146,7 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     let decided_upgrade_certificate_read =
         task_state.decided_upgrade_certificate.read().await.clone();
     if let Some(cert) = decided_upgrade_certificate_read {
-        if new_view_number == cert.data.new_version_first_view {
+        if new_view_number == cert.data().new_version_first_view {
             error!(
                 "Version upgraded based on a decided upgrade cert: {:?}",
                 cert

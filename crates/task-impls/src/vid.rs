@@ -117,6 +117,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     error!("VID: failed to sign dispersal payload");
                     return None;
                 };
+                self.consensus
+                    .write()
+                    .await
+                    .update_vid_commit_view(vid_disperse.payload_commitment, view_number);
                 debug!("publishing VID disperse for view {}", *view_number);
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(

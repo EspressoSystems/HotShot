@@ -78,8 +78,8 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
-    let liveness_check =
-        proposal.data.justify_qc.clone().view_number() > consensus_write.locked_view();
+    let justify_qc_view_number = consensus_write.qc_view_number(&proposal.data.justify_qc);
+    let liveness_check = justify_qc_view_number > consensus_write.locked_view();
 
     drop(consensus_write);
 
@@ -138,7 +138,9 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         task_state.cur_view,
         &task_state.quorum_membership,
         &task_state.timeout_membership,
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
     )
+    .await
     .context("Failed to validate proposal view or attached certs")?;
 
     let view_number = proposal.data.view_number();
@@ -164,13 +166,13 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.data.leaf_commit)
+        .get(&justify_qc.data().leaf_commit)
         .cloned();
 
     parent_leaf = match parent_leaf {
         Some(p) => Some(p),
         None => fetch_proposal(
-            justify_qc.view_number(),
+            &justify_qc,
             event_sender.clone(),
             Arc::clone(&task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
@@ -191,7 +193,8 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+    let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
+    if justify_qc_view_number > consensus_read.high_qc_view_number() {
         if let Err(e) = task_state
             .storage
             .write()
@@ -211,7 +214,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     drop(consensus_write);
 
     broadcast_event(
-        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
+        HotShotEvent::HighQcUpdated(justify_qc_view_number).into(),
         event_sender,
     )
     .await;
@@ -219,7 +222,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
-            justify_qc.data.leaf_commit
+            justify_qc.data().leaf_commit
         );
         return validate_proposal_liveness(proposal, event_sender, task_state).await;
     };

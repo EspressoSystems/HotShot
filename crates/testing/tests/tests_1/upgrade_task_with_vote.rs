@@ -134,7 +134,7 @@ async fn test_upgrade_task_with_vote() {
 
     let expectations = vec![
         Expectations::from_outputs(all_predicates![
-            exact(DaCertificateValidated(dacs[1].clone())),
+            exact(DaCertificateValidated(dacs[1].view_number())),
             exact(VidShareValidated(vids[1].0[0].clone())),
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
             validated_state_updated(),
@@ -143,7 +143,7 @@ async fn test_upgrade_task_with_vote() {
         Expectations::from_outputs_and_task_states(
             all_predicates![
                 exact(LockedViewUpdated(ViewNumber::new(1))),
-                exact(DaCertificateValidated(dacs[2].clone())),
+                exact(DaCertificateValidated(dacs[2].view_number())),
                 exact(VidShareValidated(vids[2].0[0].clone())),
                 exact(QuorumVoteDependenciesValidated(ViewNumber::new(3))),
                 validated_state_updated(),
@@ -156,7 +156,7 @@ async fn test_upgrade_task_with_vote() {
                 exact(LockedViewUpdated(ViewNumber::new(2))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(1))),
                 leaf_decided(),
-                exact(DaCertificateValidated(dacs[3].clone())),
+                exact(DaCertificateValidated(dacs[3].view_number())),
                 exact(VidShareValidated(vids[3].0[0].clone())),
                 exact(QuorumVoteDependenciesValidated(ViewNumber::new(4))),
                 validated_state_updated(),
@@ -169,7 +169,7 @@ async fn test_upgrade_task_with_vote() {
                 exact(LockedViewUpdated(ViewNumber::new(3))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(2))),
                 leaf_decided(),
-                exact(DaCertificateValidated(dacs[4].clone())),
+                exact(DaCertificateValidated(dacs[4].view_number())),
                 exact(VidShareValidated(vids[4].0[0].clone())),
                 exact(QuorumVoteDependenciesValidated(ViewNumber::new(5))),
                 validated_state_updated(),

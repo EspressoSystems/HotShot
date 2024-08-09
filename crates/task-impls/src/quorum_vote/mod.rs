@@ -4,10 +4,9 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
-
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -38,6 +37,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
+use std::time::Duration;
+use std::{collections::HashMap, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, instrument, trace, warn};
@@ -104,12 +105,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
             .read()
             .await
             .saved_leaves()
-            .get(&justify_qc.date().leaf_commit)
+            .get(&justify_qc.data().leaf_commit)
             .cloned();
         maybe_parent = match maybe_parent {
             Some(p) => Some(p),
             None => fetch_proposal(
-                justify_qc.view_number(),
+                justify_qc,
                 self.sender.clone(),
                 Arc::clone(&self.quorum_membership),
                 OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
@@ -119,7 +120,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         };
         let parent = maybe_parent.context(format!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-            justify_qc.date().leaf_commit,
+            justify_qc.data().leaf_commit,
             proposed_leaf.view_number(),
         ))?;
         let consensus_reader = self.consensus.read().await;
@@ -215,7 +216,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         .context("Failed to sign vote")?;
         debug!(
             "sending vote to next quorum leader {:?}",
-            vote.view_number() + 1
+            self.view_number + 1
         );
         // Add to the storage.
         self.storage
@@ -237,7 +238,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
+        let high_qc_view_number = self.consensus.read().await.high_qc_view_number();
         // The validated state of a non-genesis high QC should exist in the state map.
         if *high_qc_view_number != *ViewNumber::genesis()
             && !self
@@ -287,8 +288,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     }
                     leaf = Some(proposed_leaf);
                 }
-                HotShotEvent::DaCertificateValidated(cert) => {
-                    let cert_payload_comm = cert.date().payload_commit;
+                HotShotEvent::DaCertificateValidated(cert_view_number) => {
+                    let cert_payload_comm = self.consensus.read().await.saved_da_certs().get(cert_view_number).expect("VoteDependencyHandle::handle_dep_result::DaCertificateValidated: we haven't seen this DA cert yet").data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
@@ -415,8 +416,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                         }
                     }
                     VoteDependency::Dac => {
-                        if let HotShotEvent::DaCertificateValidated(cert) = event {
-                            cert.view_number
+                        if let HotShotEvent::DaCertificateValidated(cert_view_number) = event {
+                            *cert_view_number
                         } else {
                             return false;
                         }
@@ -547,9 +548,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let view = cert.view_number;
-                trace!("Received DAC for view {}", *view);
-                if view <= self.latest_voted_view {
+                let Some(cert_view_number) = self.consensus.read().await.dac_view_number(cert)
+                else {
+                    warn!("We have received a DAC but we haven't seen this VID commitment yet!");
+                    // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DaCertificateRecv(cert.clone())),
+                        &event_sender.clone(),
+                    )
+                    .await;
+                    return;
+                };
+                trace!("Received DAC for view {}", *cert_view_number);
+                if cert_view_number <= self.latest_voted_view {
                     return;
                 }
 
@@ -562,14 +574,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 self.consensus
                     .write()
                     .await
-                    .update_saved_da_certs(view, cert.clone());
+                    .update_saved_da_certs(cert_view_number, cert.clone());
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::DaCertificateValidated(cert.clone())),
+                    Arc::new(HotShotEvent::DaCertificateValidated(cert_view_number)),
                     &event_sender.clone(),
                 )
                 .await;
-                self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
+                self.create_dependency_task_if_new(
+                    cert_view_number,
+                    event_receiver,
+                    &event_sender,
+                    None,
+                );
             }
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();

@@ -13,6 +13,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
 use crate::{
+    constants::{UPGRADE_DECIDE_BY_OFFSET, UPGRADE_PROPOSE_OFFSET},
     data::Leaf,
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     vid::VidCommitment,
@@ -109,7 +110,7 @@ mod sealed {
 
 /// A simple yes vote over some votable type.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
+pub struct SimpleVote<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES>> {
     /// The signature share associated with this vote
     pub signature: (
         TYPES::SignatureKey,
@@ -117,18 +118,40 @@ pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
     ),
     /// The leaf commitment being voted on.
     pub data: DATA,
+    /// DO NOT USE, it is not signed!
     /// The view this vote was cast for
     pub view_number: TYPES::Time,
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNumber<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
     fn view_number(&self) -> <TYPES as NodeType>::Time {
-        self.view_number
+        if std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<QuorumData<TYPES>>()
+            || std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<DaData>()
+        {
+            return self.view_number;
+        }
+        self.data().view_number()
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
-    type Commitment = DATA;
+// impl<TYPES> HasViewNumber<TYPES> for SimpleVote<TYPES, QuorumData<TYPES>> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
+// impl<TYPES> HasViewNumber<TYPES> for SimpleVote<TYPES, DaData> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Vote<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
+    type Data = DATA;
 
     fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
         self.signature.0.clone()
@@ -138,16 +161,20 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
         self.signature.1.clone()
     }
 
-    fn date(&self) -> &DATA {
+    fn data(&self) -> &DATA {
         &self.data
     }
 
-    fn date_commitment(&self) -> Commitment<DATA> {
+    fn vote_commitment(&self) -> Commitment<Self> {
+        self.commit()
+    }
+
+    fn data_commitment(&self) -> Commitment<Self::Data> {
         self.data.commit()
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> SimpleVote<TYPES, DATA> {
     /// Creates and signs a simple vote
     /// # Errors
     /// If we are unable to sign the data
@@ -166,6 +193,23 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
             Err(e) => Err(e),
         }
     }
+
+    /// A private associated function that calculates a commitment based on the provided data and view.
+    /// Used to calculate the vote's commitment including the data and the view number.
+    fn commit(data: &DATA, view: TYPES::Time) -> Commitment<Self> {
+        committable::RawCommitmentBuilder::new("Vote data")
+            .u64(*view)
+            .var_size_bytes(data.commit().as_ref())
+            .finalize()
+    }
+}
+
+impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> Committable
+    for SimpleVote<TYPES, DATA>
+{
+    fn commit(&self) -> Commitment<Self> {
+        Self::commit(self.data(), self.view_number())
+    }
 }
 
 impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
@@ -173,6 +217,12 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
         committable::RawCommitmentBuilder::new("Quorum data")
             .var_size_bytes(self.leaf_commit.as_ref())
             .finalize()
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        unimplemented!()
     }
 }
 
@@ -184,6 +234,12 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for TimeoutData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        self.view
+    }
+}
+
 impl Committable for DaData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
@@ -192,11 +248,23 @@ impl Committable for DaData {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for DaData {
+    fn view_number(&self) -> TYPES::Time {
+        unimplemented!()
+    }
+}
+
 impl Committable for VidData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("VID data")
             .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for VidData {
+    fn view_number(&self) -> TYPES::Time {
+        unimplemented!()
     }
 }
 
@@ -216,6 +284,12 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposalData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        self.decide_by - UPGRADE_DECIDE_BY_OFFSET + UPGRADE_PROPOSE_OFFSET
+    }
+}
+
 /// This implements commit for all the types which contain a view and relay public key.
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::Time,
@@ -232,14 +306,32 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncPreCommitData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        self.round
+    }
+}
+
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
     }
 }
+impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncFinalizeData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        self.round
+    }
+}
+
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for ViewSyncCommitData<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        self.round
     }
 }
 

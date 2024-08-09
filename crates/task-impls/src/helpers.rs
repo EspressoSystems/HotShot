@@ -42,14 +42,17 @@ use crate::{
     request::REQUEST_TIMEOUT,
 };
 
-/// Trigger a request to the network for a proposal for a view and wait for the response
+/// Trigger a request to the network for a proposal for a justify QC and wait for the response
 #[instrument(skip_all)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
-    view: TYPES::Time,
+    justify_qc: &QuorumCertificate<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
 ) -> Result<Leaf<TYPES>> {
+    // We cannot trust that the view in the justify QC corresponds to the leaf referenced in the justify QC.
+    // We check it later after we get the proposal for the view.
+    let view = justify_qc.view_number();
     let (tx, mut rx) = broadcast(1);
     let event = ProposalMissing {
         view,
@@ -63,21 +66,35 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
         bail!("Request for proposal failed");
     };
+    if proposal
+        .validate_signature(quorum_membership.as_ref())
+        .is_err()
+    {
+        bail!("Proposal is not properly signed by the leader of the view")
+    };
     let view_number = proposal.data.view_number();
-    let justify_qc = proposal.data.justify_qc.clone();
+    let proposal_justify_qc = proposal.data.justify_qc.clone();
 
-    if !justify_qc.is_valid_cert(quorum_membership.as_ref()) {
+    if !proposal_justify_qc.is_valid_cert(quorum_membership.as_ref()) {
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
     let mut consensus_write = consensus.write().await;
-    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let proposal_leaf = Leaf::from_quorum_proposal(&proposal.data);
+
+    // We asked for a proposal for the given view; the view number was taken from the justify QC in the newly received proposal.
+    // We cannot trust that the view in the justify QC really corresponds to the leaf referenced in the justify QC because the view in the justify QC is not signed.
+    // We need to additionally check that the leaf of the fetched proposal has the same commit as the one in the justify QC
+    if proposal_leaf.commit() != justify_qc.data().leaf_commit {
+        bail!("The leaf in the justify QC does not correspond to the corresponding proposal. Spoofed view number in the justify QC?");
+    }
+
     let state = Arc::new(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
 
     let view = View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
+            leaf: proposal_leaf.commit(),
             state,
             delta: None,
         },
@@ -86,13 +103,13 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
         tracing::trace!("{e:?}");
     }
 
-    consensus_write.update_saved_leaves(leaf.clone());
+    consensus_write.update_saved_leaves(proposal_leaf.clone());
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
         &event_stream,
     )
     .await;
-    Ok(leaf)
+    Ok(proposal_leaf)
 }
 
 /// Helper type to give names and to the output values of the leaf chain traversal operation.
@@ -174,7 +191,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     let consensus_reader = consensus.read().await;
     let existing_upgrade_cert_reader = existing_upgrade_cert.read().await;
     let view_number = proposal.view_number();
-    let parent_view_number = proposal.justify_qc.view_number();
+    let parent_view_number = consensus_reader.qc_view_number(&proposal.justify_qc);
     let old_anchor_view = consensus_reader.last_decided_view();
 
     let mut last_view_number_visited = view_number;
@@ -228,7 +245,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                 // Check if there's a new upgrade certificate available.
                 if let Some(cert) = leaf.upgrade_certificate() {
                     if leaf.upgrade_certificate() != *existing_upgrade_cert_reader {
-                        if cert.data.decide_by < view_number {
+                        if cert.data().decide_by < view_number {
                             warn!("Failed to decide an upgrade certificate in time. Ignoring.");
                         } else {
                             info!("Reached decide on upgrade certificate: {:?}", cert);
@@ -296,7 +313,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
-    let parent_view_number = consensus.read().await.high_qc().view_number();
+    let parent_view_number = consensus.read().await.high_qc_view_number();
     if !consensus
         .read()
         .await
@@ -304,7 +321,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         .contains_key(&parent_view_number)
     {
         let _ = fetch_proposal(
-            parent_view_number,
+            consensus.read().await.high_qc(),
             event_stream.clone(),
             quorum_membership,
             consensus.clone(),
@@ -313,7 +330,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         .context("Failed to fetch proposal")?;
     }
     let consensus_reader = consensus.read().await;
-    let parent_view_number = consensus_reader.high_qc().view_number();
+    let parent_view_number = consensus_reader.high_qc_view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
         format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
     )?;
@@ -323,12 +340,12 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
         format!("Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}")
     )?;
 
-    if leaf_commitment != consensus_reader.high_qc().date().leaf_commit {
+    if leaf_commitment != consensus_reader.high_qc().data().leaf_commit {
         // NOTE: This happens on the genesis block
         debug!(
             "They don't equal: {:?}   {:?}",
             leaf_commitment,
-            consensus_reader.high_qc().date().leaf_commit
+            consensus_reader.high_qc().data().leaf_commit
         );
     }
 
@@ -430,12 +447,13 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 
     // Liveness check.
     let read_consensus = consensus.read().await;
-    let liveness_check = justify_qc.view_number() > read_consensus.locked_view();
+    let justify_qc_view_number = read_consensus.qc_view_number(&justify_qc);
+    let liveness_check = justify_qc_view_number > read_consensus.locked_view();
 
     // Safety check.
     // Check if proposal extends from the locked leaf.
     let outcome = read_consensus.visit_leaf_ancestors(
-        justify_qc.view_number(),
+        justify_qc_view_number,
         Terminator::Inclusive(read_consensus.locked_view()),
         false,
         |leaf, _, _| {
@@ -493,11 +511,12 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType>(
 ///
 /// # Errors
 /// If any validation or view number check fails.
-pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
+pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     cur_view: TYPES::Time,
     quorum_membership: &Arc<TYPES::Membership>,
     timeout_membership: &Arc<TYPES::Membership>,
+    consensus: OuterConsensus<TYPES>,
 ) -> Result<()> {
     let view = proposal.data.view_number();
     ensure!(
@@ -509,8 +528,12 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     proposal.validate_signature(quorum_membership)?;
 
+    let justify_qc_view_number = consensus
+        .read()
+        .await
+        .qc_view_number(&proposal.data.justify_qc);
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
-    if proposal.data.justify_qc.view_number() != view - 1 {
+    if justify_qc_view_number != view - 1 {
         let received_proposal_cert =
             proposal.data.proposal_certificate.clone().context(format!(
                 "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
@@ -520,7 +543,7 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
         match received_proposal_cert {
             ViewChangeEvidence::Timeout(timeout_cert) => {
                 ensure!(
-                    timeout_cert.date().view == view - 1,
+                    timeout_cert.data().view == view - 1,
                     "Timeout certificate for view {} was not for the immediately preceding view",
                     *view
                 );
@@ -532,9 +555,9 @@ pub fn validate_proposal_view_and_certs<TYPES: NodeType>(
             }
             ViewChangeEvidence::ViewSync(view_sync_cert) => {
                 ensure!(
-                    view_sync_cert.view_number == view,
+                    view_sync_cert.view_number() == view,
                     "View sync cert view number {:?} does not match proposal view number {:?}",
-                    view_sync_cert.view_number,
+                    view_sync_cert.view_number(),
                     view
                 );
 

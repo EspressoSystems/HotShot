@@ -316,7 +316,9 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         task_state.cur_view,
         &task_state.quorum_membership,
         &task_state.timeout_membership,
+        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
     )
+    .await
     .context("Failed to validate proposal view and attached certs")?;
 
     let view = proposal.data.view_number();
@@ -351,13 +353,13 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.date().leaf_commit)
+        .get(&justify_qc.data().leaf_commit)
         .cloned();
 
     parent_leaf = match parent_leaf {
         Some(p) => Some(p),
         None => fetch_proposal(
-            justify_qc.view_number(),
+            &justify_qc,
             event_stream.clone(),
             Arc::clone(&task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
@@ -379,7 +381,8 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+    let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
+    if justify_qc_view_number > consensus_read.high_qc_view_number() {
         if let Err(e) = task_state
             .storage
             .write()
@@ -402,7 +405,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
-            justify_qc.date().leaf_commit
+            justify_qc.data().leaf_commit
         );
         let leaf = Leaf::from_quorum_proposal(&proposal.data);
 
@@ -443,7 +446,8 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         // If we are missing the parent from storage, the safety check will fail.  But we can
         // still vote if the liveness check succeeds.
         let consensus_read = task_state.consensus.read().await;
-        let liveness_check = justify_qc.view_number() > consensus_read.locked_view();
+        let justify_qc_view_number = consensus_read.qc_view_number(&justify_qc);
+        let liveness_check = justify_qc_view_number > consensus_read.locked_view();
 
         let high_qc = consensus_read.high_qc().clone();
         let locked_view = consensus_read.locked_view();
@@ -458,16 +462,16 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
             // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
             let should_propose = task_state.quorum_membership.leader(new_view)
                 == task_state.public_key
-                && high_qc.view_number == current_proposal.clone().unwrap().view_number;
+                && task_state.consensus.read().await.high_qc_view_number()
+                    == current_proposal.clone().unwrap().view_number;
 
-            let qc = high_qc.clone();
             if should_propose {
                 debug!(
                     "Attempting to publish proposal after voting for liveness; now in view: {}",
                     *new_view
                 );
                 let create_and_send_proposal_handle = publish_proposal_if_able(
-                    qc.view_number + 1,
+                    task_state.consensus.read().await.high_qc_view_number() + 1,
                     event_stream,
                     Arc::clone(&task_state.quorum_membership),
                     task_state.public_key.clone(),
@@ -558,7 +562,7 @@ pub async fn handle_quorum_proposal_validated<TYPES: NodeType, I: NodeImplementa
     // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
     // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
     let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
-        && task_state.consensus.read().await.high_qc().view_number
+        && task_state.consensus.read().await.high_qc_view_number()
             == task_state.current_proposal.clone().unwrap().view_number;
 
     if let Some(new_decided_view) = res.new_decided_view_number {
@@ -696,21 +700,23 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view).cloned() else {
         return false;
     };
+    let Some(view) = read_consnesus.dac_view_number(&cert) else {
+        return false;
+    };
     drop(read_consnesus);
 
-    let view = cert.view_number;
     // TODO: do some of this logic without the vote token check, only do that when voting.
     let justify_qc = proposal.justify_qc.clone();
     let mut parent = consensus
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.date().leaf_commit)
+        .get(&justify_qc.data().leaf_commit)
         .cloned();
     parent = match parent {
         Some(p) => Some(p),
         None => fetch_proposal(
-            justify_qc.view_number(),
+            &justify_qc,
             vote_info.3.clone(),
             Arc::clone(&quorum_membership),
             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
@@ -725,7 +731,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(parent) = parent else {
         error!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-            justify_qc.date().leaf_commit,
+            justify_qc.data().leaf_commit,
             proposal.view_number,
         );
         return false;
@@ -769,7 +775,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     // Validate the DAC.
     let message = if cert.is_valid_cert(vote_info.2.as_ref()) {
         // Validate the block payload commitment for non-genesis DAC.
-        if cert.date().payload_commit != proposal.block_header.payload_commitment() {
+        if cert.data().payload_commit != proposal.block_header.payload_commitment() {
             warn!(
                 "Block payload commitment does not equal da cert payload commitment. View = {}",
                 *view

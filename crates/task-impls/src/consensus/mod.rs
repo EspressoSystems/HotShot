@@ -6,11 +6,9 @@
 
 #![cfg(not(feature = "dependency-tasks"))]
 
-use std::{collections::BTreeMap, sync::Arc};
-
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -34,6 +32,8 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
+use std::time::Duration;
+use std::{collections::BTreeMap, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
@@ -297,23 +297,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                debug!("Received quorum vote: {:?}", vote.view_number());
-                if self.quorum_membership.leader(vote.view_number() + 1) != self.public_key {
+                let Some(vote_view_number) =
+                    self.consensus.read().await.quorum_vote_view_number(vote)
+                else {
+                    warn!("We have received a Quorum vote but we haven't seen this leaf yet!");
+                    // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::QuorumVoteRecv(vote.clone())),
+                        &event_stream,
+                    )
+                    .await;
+                    return;
+                };
+                debug!("Received quorum vote: {:?}", vote_view_number);
+                if self.quorum_membership.leader(vote_view_number + 1) != self.public_key {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
-                        *vote.view_number() + 1,
-                        self.quorum_membership.leader(vote.view_number() + 2) == self.public_key
+                        *vote_view_number + 1,
+                        self.quorum_membership.leader(vote_view_number + 2) == self.public_key
                     );
                     return;
                 }
                 let mut collector = self.vote_collector.write().await;
 
-                if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
-                    debug!("Starting vote handle for view {:?}", vote.view_number());
+                if collector.is_none() || vote_view_number > collector.as_ref().unwrap().view {
+                    debug!("Starting vote handle for view {:?}", vote_view_number);
                     let info = AccumulatorInfo {
                         public_key: self.public_key.clone(),
                         membership: Arc::clone(&self.quorum_membership),
-                        view: vote.view_number(),
+                        view: vote_view_number,
                         id: self.id,
                     };
                     *collector = create_vote_accumulator::<
@@ -381,11 +394,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
 
                     debug!(
                         "Attempting to publish proposal after forming a TC for view {}",
-                        *qc.view_number
+                        *qc.view_number()
                     );
 
                     if let Err(e) = self
-                        .publish_proposal(qc.view_number + 1, event_stream)
+                        .publish_proposal(qc.view_number() + 1, event_stream)
                         .await
                     {
                         debug!("Failed to propose; error = {e:?}");
@@ -401,11 +414,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",
-                        *qc.view_number
+                        *qc.view_number()
                     );
 
+                    let qc_view_number = self.consensus.read().await.qc_view_number(qc);
                     if let Err(e) = self
-                        .publish_proposal(qc.view_number + 1, event_stream)
+                        .publish_proposal(qc_view_number + 1, event_stream)
                         .await
                     {
                         debug!("Failed to propose; error = {e:?}");
@@ -416,31 +430,42 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",
-                    *cert.view_number
+                    *cert.view_number()
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
-                if cert.data.decide_by >= self.cur_view + 3 {
+                if cert.data().decide_by >= self.cur_view + 3 {
                     debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                debug!("DAC Received for view {}!", *cert.view_number);
-                let view = cert.view_number;
+                let Some(cert_view_number) = self.consensus.read().await.dac_view_number(cert)
+                else {
+                    warn!("We have received a DAC but we haven't seen this VID commitment yet!");
+                    // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                    async_sleep(Duration::from_millis(10)).await;
+                    broadcast_event(
+                        Arc::new(HotShotEvent::DaCertificateRecv(cert.clone())),
+                        &event_stream,
+                    )
+                    .await;
+                    return;
+                };
+                debug!("DAC Received for view {}!", *cert_view_number);
 
                 self.consensus
                     .write()
                     .await
-                    .update_saved_da_certs(view, cert.clone());
+                    .update_saved_da_certs(cert_view_number, cert.clone());
                 let Some(proposal) = self.current_proposal.clone() else {
                     return;
                 };
-                if proposal.view_number() != view {
+                if proposal.view_number() != cert_view_number {
                     return;
                 }
-                self.spawn_vote_task(view, event_stream).await;
+                self.spawn_vote_task(cert_view_number, event_stream).await;
             }
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
@@ -470,6 +495,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     .write()
                     .await
                     .update_vid_shares(view, disperse.clone());
+                self.consensus
+                    .write()
+                    .await
+                    .update_vid_commit_view(disperse.data.payload_commitment, view);
                 if disperse.data.recipient_key != self.public_key {
                     return;
                 }
@@ -490,7 +519,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // If we have a decided upgrade certificate, the protocol version may also have
                 // been upgraded.
                 if let Some(cert) = self.decided_upgrade_certificate.read().await.clone() {
-                    if new_view == cert.data.new_version_first_view {
+                    if new_view == cert.data().new_version_first_view {
                         error!(
                             "Version upgraded based on a decided upgrade cert: {:?}",
                             cert
@@ -599,7 +628,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     auction_result: auction_result.clone(),
                 });
                 if self.quorum_membership.leader(view) == self.public_key
-                    && self.consensus.read().await.high_qc().view_number() + 1 == view
+                    && self.consensus.read().await.high_qc_view_number() + 1 == view
                 {
                     if let Err(e) = self.publish_proposal(view, event_stream.clone()).await {
                         error!("Failed to propose; error = {e:?}");
@@ -636,19 +665,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     error!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.date()
+                        certificate.data()
                     );
                     return;
                 }
 
-                let view = certificate.view_number;
+                let view = certificate.view_number();
 
                 if self.quorum_membership.leader(view) == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                     debug!(
                         "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
-                        *certificate.view_number
+                        *certificate.view_number()
                     );
 
                     if let Err(e) = self.publish_proposal(view, event_stream).await {
@@ -664,7 +693,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
                 let should_propose = self.quorum_membership.leader(new_view) == self.public_key
-                    && self.consensus.read().await.high_qc().view_number == proposal.view_number();
+                    && self.consensus.read().await.high_qc_view_number() == proposal.view_number();
 
                 if should_propose {
                     debug!(

@@ -76,7 +76,7 @@ async fn test_vote_dependency_handle() {
     // We permute all possible orderings of inputs. Ordinarily we'd use `random!` for this, but
     // the dependency handles do not (yet) work with the existing test suite.
     let all_inputs = vec![
-        DaCertificateValidated(dacs[1].clone()),
+        DaCertificateValidated(dacs[1].view_number()),
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         VidShareValidated(vids[1].0[0].clone()),
     ]

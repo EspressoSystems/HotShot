@@ -12,7 +12,7 @@ use std::{
 };
 
 use bitvec::{bitvec, vec::BitVec};
-use committable::Commitment;
+use committable::{Commitment, Committable};
 use either::Either;
 use ethereum_types::U256;
 use tracing::error;
@@ -28,17 +28,18 @@ use crate::{
 };
 
 /// A simple vote that has a signer and commitment to the data voted on.
-pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
+pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> + Committable {
     /// Type of data commitment this vote uses.
-    type Commitment: Voteable;
+    type Data: Voteable;
 
     /// Get the signature of the vote sender
     fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
     /// Gets the data which was voted on by this vote
-    fn date(&self) -> &Self::Commitment;
+    fn data(&self) -> &Self::Data;
+    /// Gets the (Data + view number) commitment of the vote
+    fn vote_commitment(&self) -> Commitment<Self>;
     /// Gets the Data commitment of the vote
-    fn date_commitment(&self) -> Commitment<Self::Commitment>;
-
+    fn data_commitment(&self) -> Commitment<Self::Data>;
     /// Gets the public signature key of the votes creator/sender
     fn signing_key(&self) -> TYPES::SignatureKey;
 }
@@ -75,9 +76,9 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     // TODO: Make this a static ratio of the total stake of `Membership`
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
     /// Get the commitment which was voted on
-    fn date(&self) -> &Self::Voteable;
+    fn data(&self) -> &Self::Voteable;
     /// Get the vote commitment which the votes commit to
-    fn date_commitment(&self) -> Commitment<Self::Voteable>;
+    fn data_commitment(&self) -> Commitment<Self::Voteable>;
 }
 /// Mapping of vote commitment to signatures and bitvec
 type SignersMap<COMMITMENT, KEY> = HashMap<
@@ -90,33 +91,36 @@ type SignersMap<COMMITMENT, KEY> = HashMap<
 /// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
 pub struct VoteAccumulator<
     TYPES: NodeType,
-    VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    VOTE: Vote<TYPES> + Committable,
+    CERT: Certificate<TYPES, Voteable = VOTE::Data>,
 > {
     /// Map of all signatures accumulated so far
     pub vote_outcomes: VoteMap2<
-        Commitment<VOTE::Commitment>,
+        Commitment<VOTE::Data>,
         TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     >,
     /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     /// And a list of valid signatures for certificate aggregation
-    pub signers: SignersMap<Commitment<VOTE::Commitment>, TYPES::SignatureKey>,
+    pub signers: SignersMap<Commitment<VOTE::Data>, TYPES::SignatureKey>,
     /// Phantom data to specify the types this accumulator is for
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
 }
 
-impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOTE::Commitment>>
-    VoteAccumulator<TYPES, VOTE, CERT>
+impl<
+        TYPES: NodeType,
+        VOTE: Vote<TYPES> + Committable + Clone,
+        CERT: Certificate<TYPES, Voteable = VOTE::Data>,
+    > VoteAccumulator<TYPES, VOTE, CERT>
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.
     pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
         let key = vote.signing_key();
 
-        let vote_commitment = vote.date_commitment();
-        if !key.validate(&vote.signature(), vote_commitment.as_ref()) {
-            error!("Invalid vote! Vote Data {:?}", vote.date());
+        let data_commitment = vote.data_commitment();
+        if !key.validate(&vote.signature(), data_commitment.as_ref()) {
+            error!("Invalid vote! Vote Data {:?}", vote.data());
             return Either::Left(());
         }
 
@@ -136,7 +140,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
         let (total_stake_casted, total_vote_map) = self
             .vote_outcomes
-            .entry(vote_commitment)
+            .entry(data_commitment)
             .or_insert_with(|| (U256::from(0), BTreeMap::new()));
 
         // Check for duplicate vote
@@ -145,7 +149,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
         }
         let (signers, sig_list) = self
             .signers
-            .entry(vote_commitment)
+            .entry(data_commitment)
             .or_insert((bitvec![0; membership.total_nodes()], Vec::new()));
         if signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
@@ -156,7 +160,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.stake();
-        total_vote_map.insert(key, (vote.signature(), vote.date_commitment()));
+        total_vote_map.insert(key, (vote.signature(), vote.data_commitment()));
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC
@@ -173,8 +177,8 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOT
             );
 
             let cert = CERT::create_signed_certificate(
-                vote.date_commitment(),
-                vote.date().clone(),
+                vote.data_commitment(),
+                vote.data().clone(),
                 real_qc_sig,
                 vote.view_number(),
             );

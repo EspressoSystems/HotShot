@@ -25,6 +25,7 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
+use hotshot_types::vote::HasViewNumber;
 use hotshot_types::{
     data::ViewNumber,
     traits::{node_implementation::ConsensusTime, ValidatedState},
@@ -87,7 +88,7 @@ async fn test_quorum_proposal_recv_task() {
 
     let expectations = vec![Expectations::from_outputs(vec![
         exact(QuorumProposalPreliminarilyValidated(proposals[1].clone())),
-        exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
+        exact(HighQcUpdated(proposals[1].data.view_number())),
         exact(ValidatedStateUpdated(
             ViewNumber::new(2),
             build_fake_view_with_leaf_and_state(
@@ -205,7 +206,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
             ),
         )),
         quorum_proposal_missing(),
-        exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
+        exact(HighQcUpdated(proposals[2].data.view_number())),
     ])];
 
     let state = QuorumProposalRecvTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;

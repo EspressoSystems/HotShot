@@ -130,9 +130,9 @@ pub async fn build_system_handle<
 /// if we fail to sign the data
 pub fn build_cert<
     TYPES: NodeType<SignatureKey = BLSPubKey>,
-    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
-    VOTE: Vote<TYPES, Commitment = DATAType>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    DATAType: Committable + HasViewNumber<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
+    VOTE: Vote<TYPES, Data = DATAType> + Clone,
+    CERT: Certificate<TYPES, Voteable = VOTE::Data>,
 >(
     data: DATAType,
     membership: &TYPES::Membership,
@@ -145,13 +145,12 @@ pub fn build_cert<
     let vote =
         SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key)
             .expect("Failed to sign data!");
-    let cert = CERT::create_signed_certificate(
-        vote.date_commitment(),
-        vote.date().clone(),
+    CERT::create_signed_certificate(
+        vote.data_commitment(),
+        vote.data().clone(),
         real_qc_sig,
         vote.view_number(),
-    );
-    cert
+    )
 }
 
 pub fn vid_share<TYPES: NodeType>(
@@ -174,8 +173,8 @@ pub fn vid_share<TYPES: NodeType>(
 pub fn build_assembled_sig<
     TYPES: NodeType<SignatureKey = BLSPubKey>,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
-    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+    CERT: Certificate<TYPES, Voteable = VOTE::Data>,
+    DATAType: Committable + HasViewNumber<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
     membership: &TYPES::Membership,
