@@ -9,7 +9,7 @@ use std::time::Duration;
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
     state_types::TestTypes,
-    testable_delay::{DelayConfig, DelaySettings, DelayOptions},
+    testable_delay::{DelayConfig, DelayOptions, DelaySettings},
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
