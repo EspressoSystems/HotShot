@@ -1107,8 +1107,8 @@
 </span><span class="kw">pub struct </span>MarketplaceConfig&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// auction results provider
     </span><span class="kw">pub </span>auction_results_provider: Arc&lt;I::AuctionResultsProvider&gt;,
-    <span class="doccomment">/// generic builder
-    </span><span class="kw">pub </span>generic_builder_url: Url,
+    <span class="doccomment">/// fallback builder
+    </span><span class="kw">pub </span>fallback_builder_url: Url,
 }
 
 <span class="doccomment">/// Bundle of all the memberships a consensus instance uses
