@@ -20,30 +20,22 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, time::Duration};
+use std::{fmt::Debug, time::Duration};
 use vbs::version::Version;
 
 pub use crate::node_types::TestTypes;
 use crate::{
     block_types::{TestBlockPayload, TestTransaction},
-    testable_delay::{DelayConfig, DelayOptions, TestableDelay},
+    testable_delay::{DelayConfig, DelayOptions, SupportedTypes, TestableDelay},
 };
 
 /// Instance-level state implementation for testing purposes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TestInstanceState {
     pub delay_config: DelayConfig,
 }
 
 impl InstanceState for TestInstanceState {}
-
-impl Default for TestInstanceState {
-    fn default() -> Self {
-        TestInstanceState {
-            delay_config: DelayConfig::default(),
-        }
-    }
-}
 
 impl TestInstanceState {
     pub fn new(delay_config: DelayConfig) -> Self {
@@ -90,15 +82,19 @@ impl Default for TestValidatedState {
 
 #[async_trait]
 impl TestableDelay for TestValidatedState {
-    async fn handle_delay_option(delay_option: DelayOptions) {
-        match delay_option {
-            DelayOptions::None => {}
-            DelayOptions::Fixed => {
-                async_sleep(Duration::from_millis(50)).await;
-            }
-            DelayOptions::Random => {
-                let sleep_in_millis = rand::thread_rng().gen_range(25..=150);
-                async_sleep(Duration::from_millis(sleep_in_millis)).await;
+    async fn handle_async_delay(delay_config: DelayConfig) {
+        if let Some(settings) = delay_config.get_setting(SupportedTypes::ValidatedState) {
+            match settings.delay_option {
+                DelayOptions::None => {}
+                DelayOptions::Fixed => {
+                    async_sleep(Duration::from_millis(settings.fixed_time_in_milliseconds)).await;
+                }
+                DelayOptions::Random => {
+                    let sleep_in_millis = rand::thread_rng().gen_range(
+                        settings.min_time_in_milliseconds..=settings.max_time_in_milliseconds,
+                    );
+                    async_sleep(Duration::from_millis(sleep_in_millis)).await;
+                }
             }
         }
     }
@@ -121,7 +117,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
-        Self::handle_delay_option(instance.delay_option).await;
+        Self::handle_async_delay(instance.delay_config.clone()).await;
         Ok((
             TestValidatedState {
                 block_height: self.block_height + 1,

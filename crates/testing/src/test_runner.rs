@@ -188,7 +188,7 @@ where
                 &TestInstanceState::default(),
             )
             .await,
-            async_delay: self.launcher.metadata.async_delay,
+            async_delay_config: self.launcher.metadata.async_delay_config,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, I>>::new(
             spinning_task_state,
@@ -475,7 +475,7 @@ where
                     );
                 } else {
                     let initializer = HotShotInitializer::<TYPES>::from_genesis(
-                        TestInstanceState::new(self.launcher.metadata.async_delay),
+                        TestInstanceState::new(self.launcher.metadata.async_delay_config.clone()),
                     )
                     .await
                     .unwrap();

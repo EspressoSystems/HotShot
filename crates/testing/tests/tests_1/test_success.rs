@@ -9,7 +9,7 @@ use std::time::Duration;
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes},
     state_types::TestTypes,
-    testable_delay::DelayOptions,
+    testable_delay::{DelayConfig, DelaySettings, DelayOptions},
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -60,7 +60,15 @@ cross_tests!(
 
         metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 10;
-        metadata.async_delay = DelayOptions::Random;
+        let delay_settings = DelaySettings {
+            delay_option: DelayOptions::Random,
+            min_time_in_milliseconds: 10,
+            max_time_in_milliseconds: 100,
+            fixed_time_in_milliseconds: 0,
+        };
+        let mut config = DelayConfig::default();
+        config.add_settings_for_all_types(delay_settings);
+        metadata.async_delay_config = config;
         metadata
     },
 );
