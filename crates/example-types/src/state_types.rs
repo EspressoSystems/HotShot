@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 //! Implementations for examples and tests only
-use async_compatibility_layer::art::async_sleep;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
 use hotshot_types::{
@@ -20,13 +19,13 @@ use hotshot_types::{
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, time::Duration};
+use std::fmt::Debug;
 use vbs::version::Version;
 
 pub use crate::node_types::TestTypes;
 use crate::{
     block_types::{TestBlockPayload, TestTransaction},
-    testable_delay::{DelayConfig, DelayOptions, SupportedTypes, TestableDelay},
+    testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay},
 };
 
 /// Instance-level state implementation for testing purposes.
@@ -82,20 +81,11 @@ impl Default for TestValidatedState {
 
 #[async_trait]
 impl TestableDelay for TestValidatedState {
-    async fn handle_async_delay(delay_config: DelayConfig) {
-        if let Some(settings) = delay_config.get_setting(SupportedTypes::ValidatedState) {
-            match settings.delay_option {
-                DelayOptions::None => {}
-                DelayOptions::Fixed => {
-                    async_sleep(Duration::from_millis(settings.fixed_time_in_milliseconds)).await;
-                }
-                DelayOptions::Random => {
-                    let sleep_in_millis = rand::thread_rng().gen_range(
-                        settings.min_time_in_milliseconds..=settings.max_time_in_milliseconds,
-                    );
-                    async_sleep(Duration::from_millis(sleep_in_millis)).await;
-                }
-            }
+    async fn run_delay_settings_from_config(delay_config: &DelayConfig) {
+        if let Some(settings) =
+            delay_config.get_setting(&SupportedTraitTypesForAsyncDelay::ValidatedState)
+        {
+            Self::handle_async_delay(settings).await;
         }
     }
 }
@@ -117,7 +107,7 @@ impl<TYPES: NodeType> ValidatedState<TYPES> for TestValidatedState {
         _vid_common: VidCommon,
         _version: Version,
     ) -> Result<(Self, Self::Delta), Self::Error> {
-        Self::handle_async_delay(instance.delay_config.clone()).await;
+        Self::run_delay_settings_from_config(&instance.delay_config).await;
         Ok((
             TestValidatedState {
                 block_height: self.block_height + 1,
