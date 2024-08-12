@@ -602,7 +602,7 @@ pub struct PushCdnDaRun<TYPES: NodeType> {
     /// The underlying configuration
     config: NetworkConfig<TYPES::SignatureKey>,
     /// The underlying network
-    network: PushCdnNetwork<TYPES>,
+    network: PushCdnNetwork<TYPES::SignatureKey>,
 }
 
 #[async_trait]
@@ -615,11 +615,11 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Network = PushCdnNetwork<TYPES>,
+            Network = PushCdnNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
-    > RunDa<TYPES, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
+    > RunDa<TYPES, PushCdnNetwork<TYPES::SignatureKey>, NODE> for PushCdnDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -663,7 +663,7 @@ where
         PushCdnDaRun { config, network }
     }
 
-    fn network(&self) -> PushCdnNetwork<TYPES> {
+    fn network(&self) -> PushCdnNetwork<TYPES::SignatureKey> {
         self.network.clone()
     }
 
@@ -804,14 +804,13 @@ where
         .await;
 
         // Initialize our CDN network
-        let cdn_network: PushCdnDaRun<TYPES> = <PushCdnDaRun<TYPES> as RunDa<
-            TYPES,
-            PushCdnNetwork<TYPES>,
-            PushCdnImpl,
-        >>::initialize_networking(
-            config.clone(), libp2p_advertise_address
-        )
-        .await;
+        let cdn_network: PushCdnDaRun<TYPES> =
+            <PushCdnDaRun<TYPES> as RunDa<
+                TYPES,
+                PushCdnNetwork<TYPES::SignatureKey>,
+                PushCdnImpl,
+            >>::initialize_networking(config.clone(), libp2p_advertise_address)
+            .await;
 
         // Create our combined network config
         let delay_duration = config
