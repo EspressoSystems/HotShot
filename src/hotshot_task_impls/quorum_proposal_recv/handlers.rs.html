@@ -260,6 +260,11 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -297,14 +302,15 @@
         broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
         validate_proposal_view_and_certs, SEND_VIEW_CHANGE_EVENT,
     },
+    quorum_proposal_recv::{UpgradeLock, Versions},
 };
 
 <span class="doccomment">/// Update states in the event that the parent state is not found for a given `proposal`.
 </span><span class="attr">#[instrument(skip_all)]
-</span><span class="kw">async fn </span>validate_proposal_liveness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">async fn </span>validate_proposal_liveness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
@@ -386,11 +392,15 @@
 /// - The sequencer storage update fails.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_recv&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>sender = sender.clone();
     <span class="kw">let </span>cur_view = task_state.cur_view;
@@ -491,7 +501,7 @@
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
-        Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
         Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
         event_sender.clone(),
         sender,

@@ -268,7 +268,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;Source, Error&gt; = App::with_state(source);
             app.register_module(<span class="string">"block_info"</span>, builder_api)
                 .expect(<span class="string">"Failed to register the builder API"</span>);
-            async_spawn(app.serve(url, TYPES::Base::instance()))
+            async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="prelude-val">Some</span>(start_builder(url.clone(), source.clone()));

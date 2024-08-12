@@ -281,6 +281,23 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -307,17 +324,22 @@
 
 <span class="kw">use </span><span class="kw">super</span>::Consensus2TaskState;
 <span class="kw">use crate</span>::{
+    consensus2::Versions,
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},
 };
 
 <span class="doccomment">/// Handle a `QuorumVoteRecv` event.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_vote_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_vote_recv&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     vote: <span class="kw-2">&amp;</span>QuorumVote&lt;TYPES&gt;,
     event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Are we the leader for this view?
     </span><span class="macro">ensure!</span>(
@@ -356,11 +378,15 @@
 }
 
 <span class="doccomment">/// Handle a `TimeoutVoteRecv` event.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_timeout_vote_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_timeout_vote_recv&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     vote: <span class="kw-2">&amp;</span>TimeoutVote&lt;TYPES&gt;,
     event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Are we the leader for this view?
     </span><span class="macro">ensure!</span>(
@@ -401,10 +427,14 @@
 
 <span class="doccomment">/// Handle a `ViewChange` event.
 </span><span class="attr">#[instrument(skip_all)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_view_change&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_view_change&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     new_view_number: TYPES::Time,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">ensure!</span>(
         new_view_number &gt; task_state.cur_view,
@@ -418,8 +448,12 @@
     </span>task_state.cur_view = new_view_number;
 
     <span class="comment">// If we have a decided upgrade certificate, the protocol version may also have been upgraded.
-    </span><span class="kw">let </span>decided_upgrade_certificate_read =
-        task_state.decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
+    </span><span class="kw">let </span>decided_upgrade_certificate_read = task_state
+        .upgrade_lock
+        .decided_upgrade_certificate
+        .read()
+        .<span class="kw">await
+        </span>.clone();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = decided_upgrade_certificate_read {
         <span class="kw">if </span>new_view_number == cert.data.new_version_first_view {
             <span class="macro">error!</span>(
@@ -494,10 +528,10 @@
 
 <span class="doccomment">/// Handle a `Timeout` event.
 </span><span class="attr">#[instrument(skip_all)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_timeout&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_timeout&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     view_number: TYPES::Time,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>Consensus2TaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">ensure!</span>(
         task_state.cur_view &lt; view_number,

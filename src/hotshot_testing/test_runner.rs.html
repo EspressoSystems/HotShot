@@ -720,6 +720,8 @@
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -759,7 +761,7 @@
     traits::{
         election::Membership,
         network::{ConnectedNetwork, Topic},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
     HotShotConfig, ValidatorConfig,
 };
@@ -792,8 +794,9 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;InstanceState = TestInstanceState, ValidatedState = TestValidatedState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
+        V: Versions,
         N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
-    &gt; TestRunner&lt;TYPES, I, N&gt;
+    &gt; TestRunner&lt;TYPES, I, V, N&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES&gt;,
     I: NodeImplementation&lt;
@@ -912,7 +915,7 @@
             .<span class="kw">await</span>,
             async_delay_config: <span class="self">self</span>.launcher.metadata.async_delay_config,
         };
-        <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;&gt;::new(
+        <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I, V&gt;&gt;::new(
             spinning_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
@@ -937,7 +940,7 @@
             test_receiver.clone(),
         );
 
-        <span class="kw">let </span>overall_safety_task = TestTask::&lt;OverallSafetyTask&lt;TYPES, I&gt;&gt;::new(
+        <span class="kw">let </span>overall_safety_task = TestTask::&lt;OverallSafetyTask&lt;TYPES, I, V&gt;&gt;::new(
             overall_safety_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
@@ -1312,7 +1315,7 @@
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         storage: I::Storage,
         marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
-    ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {
+    ) -&gt; Arc&lt;SystemContext&lt;TYPES, I, V&gt;&gt; {
         <span class="comment">// Get key pair for certificate aggregation
         </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
         <span class="kw">let </span>public_key = validator_config.public_key.clone();
@@ -1349,7 +1352,7 @@
             Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         ),
         external_channel: (Sender&lt;Event&lt;TYPES&gt;&gt;, Receiver&lt;Event&lt;TYPES&gt;&gt;),
-    ) -&gt; Arc&lt;SystemContext&lt;TYPES, I&gt;&gt; {
+    ) -&gt; Arc&lt;SystemContext&lt;TYPES, I, V&gt;&gt; {
         <span class="comment">// Get key pair for certificate aggregation
         </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
         <span class="kw">let </span>public_key = validator_config.public_key.clone();
@@ -1372,13 +1375,13 @@
 }
 
 <span class="doccomment">/// a node participating in a test
-</span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>Node&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// The node's unique identifier
     </span><span class="kw">pub </span>node_id: u64,
     <span class="doccomment">/// The underlying network belonging to the node
     </span><span class="kw">pub </span>network: Network&lt;TYPES, I&gt;,
     <span class="doccomment">/// The handle to the node's internals
-    </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I, V&gt;,
 }
 
 <span class="doccomment">/// This type combines all of the paramters needed to build the context for a node that started
@@ -1399,10 +1402,10 @@
 
 <span class="doccomment">/// The late node context dictates how we're building a node that started late during the test.
 </span><span class="attr">#[allow(clippy::large_enum_variant)]
-</span><span class="kw">pub enum </span>LateNodeContext&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub enum </span>LateNodeContext&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// The system context that we're passing directly to the node, this means the node is already
     /// initialized successfully.
-    </span>InitializedContext(Arc&lt;SystemContext&lt;TYPES, I&gt;&gt;),
+    </span>InitializedContext(Arc&lt;SystemContext&lt;TYPES, I, V&gt;&gt;),
 
     <span class="doccomment">/// The system context that we're passing to the node when it is not yet initialized, so we're
     /// initializing it based on the received leaf and init parameters.
@@ -1412,12 +1415,12 @@
 }
 
 <span class="doccomment">/// A yet-to-be-started node that participates in tests
-</span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// The underlying network belonging to the node
     </span><span class="kw">pub </span>network: Network&lt;TYPES, I&gt;,
     <span class="doccomment">/// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
-    </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I, V&gt;,
 }
 
 <span class="doccomment">/// The runner of a test network
@@ -1425,16 +1428,17 @@
 </span><span class="kw">pub struct </span>TestRunner&lt;
     TYPES: NodeType,
     I: TestableNodeImplementation&lt;TYPES&gt;,
+    V: Versions,
     N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
 &gt; {
     <span class="doccomment">/// test launcher, contains a bunch of useful metadata and closures
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) launcher: TestLauncher&lt;TYPES, I, V&gt;,
     <span class="doccomment">/// nodes in the test
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) nodes: Vec&lt;Node&lt;TYPES, I, V&gt;&gt;,
     <span class="doccomment">/// the solver server running in the test
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) solver_server: <span class="prelude-ty">Option</span>&lt;(Url, JoinHandle&lt;()&gt;)&gt;,
     <span class="doccomment">/// nodes with a late start
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I, V&gt;&gt;,
     <span class="doccomment">/// the next node unique identifier
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) next_node_id: u64,
     <span class="doccomment">/// Phantom for N

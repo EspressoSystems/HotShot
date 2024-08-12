@@ -107,7 +107,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeType, Versions};
 <span class="kw">use </span>rand::thread_rng;
 <span class="kw">use </span>snafu::Snafu;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -123,10 +123,10 @@
 </span><span class="kw">pub struct </span>TxnTaskErr {}
 
 <span class="doccomment">/// state of task that decides when things are completed
-</span><span class="kw">pub struct </span>TxnTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>TxnTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="comment">// TODO should this be in a rwlock? Or maybe a similar abstraction to the registry is in order
     </span><span class="doccomment">/// Handles for all nodes.
-    </span><span class="kw">pub </span>handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I, V&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Optional index of the next node.
     </span><span class="kw">pub </span>next_node_idx: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="doccomment">/// time to wait between txns
@@ -135,7 +135,7 @@
     </span><span class="kw">pub </span>shutdown_chan: Receiver&lt;TestEvent&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TxnTask&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; TxnTask&lt;TYPES, I, V&gt; {
     <span class="kw">pub fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; JoinHandle&lt;()&gt; {
         async_spawn(<span class="kw">async move </span>{
             async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;

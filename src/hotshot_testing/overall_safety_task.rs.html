@@ -589,6 +589,8 @@
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -610,7 +612,7 @@
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
-    traits::node_implementation::{ConsensusTime, NodeType},
+    traits::node_implementation::{ConsensusTime, NodeType, Versions},
     vid::VidCommitment,
 };
 <span class="kw">use </span>snafu::Snafu;
@@ -676,9 +678,9 @@
 }
 
 <span class="doccomment">/// Data availability task state
-</span><span class="kw">pub struct </span>OverallSafetyTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>OverallSafetyTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// handles
-    </span><span class="kw">pub </span>handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I, V&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// ctx
     </span><span class="kw">pub </span>ctx: RoundCtx&lt;TYPES&gt;,
     <span class="doccomment">/// configure properties
@@ -689,7 +691,9 @@
     </span><span class="kw">pub </span>test_sender: Sender&lt;TestEvent&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; OverallSafetyTask&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt;
+    OverallSafetyTask&lt;TYPES, I, V&gt;
+{
     <span class="kw">async fn </span>handle_view_failure(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_failed_views: usize, view_number: TYPES::Time) {
         <span class="kw">let </span>expected_views_to_fail = <span class="kw-2">&amp;mut </span><span class="self">self</span>.properties.expected_views_to_fail;
 
@@ -719,8 +723,8 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestTaskState
-    <span class="kw">for </span>OverallSafetyTask&lt;TYPES, I&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; TestTaskState
+    <span class="kw">for </span>OverallSafetyTask&lt;TYPES, I, V&gt;
 {
     <span class="kw">type </span>Event = Event&lt;TYPES&gt;;
 

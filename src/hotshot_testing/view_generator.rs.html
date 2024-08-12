@@ -567,7 +567,7 @@
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
 <span class="kw">use </span>hotshot_types::{
@@ -944,7 +944,7 @@
 
     <span class="kw">pub fn </span>create_quorum_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
+        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
     ) -&gt; QuorumVote&lt;TestTypes&gt; {
         QuorumVote::&lt;TestTypes&gt;::create_signed_vote(
             QuorumData {
@@ -960,7 +960,7 @@
     <span class="kw">pub fn </span>create_upgrade_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         data: UpgradeProposalData&lt;TestTypes&gt;,
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
+        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
     ) -&gt; UpgradeVote&lt;TestTypes&gt; {
         UpgradeVote::&lt;TestTypes&gt;::create_signed_vote(
             data,
@@ -974,7 +974,7 @@
     <span class="kw">pub fn </span>create_da_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         data: DaData,
-        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
+        handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
     ) -&gt; DaVote&lt;TestTypes&gt; {
         DaVote::create_signed_vote(
             data,

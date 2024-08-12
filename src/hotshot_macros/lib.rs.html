@@ -530,6 +530,28 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -551,6 +573,8 @@
 </span><span class="kw">struct </span>CrossTestData {
     <span class="doccomment">/// imlementations
     </span>impls: ExprArray,
+    <span class="doccomment">/// versions
+    </span>versions: ExprArray,
     <span class="doccomment">/// types
     </span>types: ExprArray,
     <span class="doccomment">/// name of the test
@@ -566,6 +590,7 @@
     </span><span class="kw">fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.impls.is_some()
             &amp;&amp; <span class="self">self</span>.types.is_some()
+            &amp;&amp; <span class="self">self</span>.versions.is_some()
             &amp;&amp; <span class="self">self</span>.test_name.is_some()
             &amp;&amp; <span class="self">self</span>.metadata.is_some()
             &amp;&amp; <span class="self">self</span>.test_name.is_some()
@@ -580,6 +605,8 @@
     </span>ty: ExprPath,
     <span class="doccomment">/// impl
     </span>imply: ExprPath,
+    <span class="doccomment">/// impl
+    </span>version: ExprPath,
     <span class="doccomment">/// name of test
     </span>test_name: Ident,
     <span class="doccomment">/// test description
@@ -633,6 +660,7 @@
         <span class="kw">let </span>TestData {
             ty,
             imply,
+            version,
             test_name,
             metadata,
             ignore,
@@ -656,7 +684,7 @@
             </span><span class="kw">async fn </span>#test_name() {
                 async_compatibility_layer::logging::setup_logging();
                 async_compatibility_layer::logging::setup_backtrace();
-                TestDescription::&lt;#ty, #imply&gt;::gen_launcher((#metadata), <span class="number">0</span>).launch().run_test::&lt;SimpleBuilderImplementation&gt;().<span class="kw">await</span>;
+                TestDescription::&lt;#ty, #imply, #version&gt;::gen_launcher((#metadata), <span class="number">0</span>).launch().run_test::&lt;SimpleBuilderImplementation&gt;().<span class="kw">await</span>;
             }
         }
     }
@@ -669,6 +697,7 @@
     <span class="macro">syn::custom_keyword!</span>(TestName);
     <span class="macro">syn::custom_keyword!</span>(Types);
     <span class="macro">syn::custom_keyword!</span>(Impls);
+    <span class="macro">syn::custom_keyword!</span>(Versions);
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>CrossTestData {
@@ -688,6 +717,11 @@
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
                 <span class="kw">let </span>impls = input.parse::&lt;ExprArray&gt;()<span class="question-mark">?</span>;
                 description.impls(impls);
+            } <span class="kw">else if </span>input.peek(keywords::Versions) {
+                <span class="kw">let _ </span>= input.parse::&lt;keywords::Versions&gt;()<span class="question-mark">?</span>;
+                input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
+                <span class="kw">let </span>versions = input.parse::&lt;ExprArray&gt;()<span class="question-mark">?</span>;
+                description.versions(versions);
             } <span class="kw">else if </span>input.peek(keywords::TestName) {
                 <span class="kw">let _ </span>= input.parse::&lt;keywords::TestName&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
@@ -705,7 +739,7 @@
                 description.ignore(ignore);
             } <span class="kw">else </span>{
                 <span class="macro">panic!</span>(
-                    <span class="string">"Unexpected token. Expected one of: Metadata, Ignore, Impls, Types, Testname"
+                    <span class="string">"Unexpected token. Expected one of: Metadata, Ignore, Impls, Versions, Types, Testname"
                 </span>);
             }
             <span class="kw">if </span>input.peek(<span class="macro">Token!</span>[,]) {
@@ -736,28 +770,38 @@
         p
     });
 
+    <span class="kw">let </span>versions = test_spec.versions.elems.iter().map(|t| {
+        <span class="kw">let </span>Expr::Path(p) = t <span class="kw">else </span>{
+            <span class="macro">panic!</span>(<span class="string">"Expected Path for Version! Got {t:?}"</span>);
+        };
+        p
+    });
+
     <span class="kw">let </span><span class="kw-2">mut </span>result = <span class="macro">quote!</span> {};
     <span class="kw">for </span>ty <span class="kw">in </span>types.clone() {
         <span class="kw">let </span><span class="kw-2">mut </span>type_mod = <span class="macro">quote!</span> {};
         <span class="kw">for </span>imp <span class="kw">in </span>impls.clone() {
-            <span class="kw">let </span>test_data = TestDataBuilder::create_empty()
-                .test_name(test_spec.test_name.clone())
-                .metadata(test_spec.metadata.clone())
-                .ignore(test_spec.ignore.clone())
-                .imply(imp.clone())
-                .ty(ty.clone())
-                .build()
-                .unwrap();
-            <span class="kw">let </span>test = test_data.generate_test();
+            <span class="kw">for </span>version <span class="kw">in </span>versions.clone() {
+                <span class="kw">let </span>test_data = TestDataBuilder::create_empty()
+                    .test_name(test_spec.test_name.clone())
+                    .metadata(test_spec.metadata.clone())
+                    .ignore(test_spec.ignore.clone())
+                    .version(version.clone())
+                    .imply(imp.clone())
+                    .ty(ty.clone())
+                    .build()
+                    .unwrap();
+                <span class="kw">let </span>test = test_data.generate_test();
 
-            <span class="kw">let </span>impl_str = <span class="macro">format_ident!</span>(<span class="string">"{}"</span>, imp.to_lower_snake_str());
-            <span class="kw">let </span>impl_result = <span class="macro">quote!</span> {
-                <span class="kw">pub mod </span>#impl_str {
-                    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-                    #test
-                }
-            };
-            type_mod.extend(impl_result);
+                <span class="kw">let </span>impl_str = <span class="macro">format_ident!</span>(<span class="string">"{}"</span>, imp.to_lower_snake_str());
+                <span class="kw">let </span>impl_result = <span class="macro">quote!</span> {
+                    <span class="kw">pub mod </span>#impl_str {
+                        <span class="kw">use super</span>::<span class="kw-2">*</span>;
+                        #test
+                    }
+                };
+                type_mod.extend(impl_result);
+            }
         }
         <span class="kw">let </span>ty_str = <span class="macro">format_ident!</span>(<span class="string">"{}"</span>, ty.to_lower_snake_str());
         <span class="kw">let </span>typ_result = <span class="macro">quote!</span> {

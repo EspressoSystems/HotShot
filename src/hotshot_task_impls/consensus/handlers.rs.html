@@ -848,13 +848,25 @@
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
-
-</span><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
@@ -870,11 +882,10 @@
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus, View},
-    constants::MarketplaceVersion,
     data::{null_block, Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType},
     message::{GeneralConsensusMessage, Proposal},
-    simple_certificate::{version, UpgradeCertificate},
+    simple_certificate::UpgradeCertificate,
     simple_vote::QuorumData,
     traits::{
         block_contents::BlockHeader,
@@ -894,6 +905,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
 <span class="kw">use crate</span>::{
+    consensus::{UpgradeLock, Versions},
     events::HotShotEvent,
     helpers::{
         broadcast_event, decide_from_proposal, fetch_proposal, parent_leaf_and_state, update_view,
@@ -906,7 +918,7 @@
 /// the proposal send evnet.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[instrument(skip_all, fields(id = id, view = <span class="kw-2">*</span>view))]
-</span><span class="kw">pub async fn </span>create_and_send_proposal&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>create_and_send_proposal&lt;TYPES: NodeType, V: Versions&gt;(
     public_key: TYPES::SignatureKey,
     private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     consensus: OuterConsensus&lt;TYPES&gt;,
@@ -933,7 +945,7 @@
         </span>.context(<span class="string">"Failed to get vid share"</span>)<span class="question-mark">?</span>;
     drop(consensus_read);
 
-    <span class="kw">let </span>block_header = <span class="kw">if </span>version &lt; MarketplaceVersion::VERSION {
+    <span class="kw">let </span>block_header = <span class="kw">if </span>version &lt; V::Marketplace::VERSION {
         TYPES::BlockHeader::new_legacy(
             state.as_ref(),
             instance_state.as_ref(),
@@ -1012,7 +1024,7 @@
 /// standard case proposal scenario.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
-</span><span class="kw">pub async fn </span>publish_proposal_from_commitment_and_metadata&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>publish_proposal_from_commitment_and_metadata&lt;TYPES: NodeType, V: Versions&gt;(
     view: TYPES::Time,
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1021,7 +1033,7 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     delay: u64,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -1049,7 +1061,7 @@
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = proposal_upgrade_certificate.clone() {
         <span class="kw">if </span>cert
-            .is_relevant(view, Arc::clone(<span class="kw-2">&amp;</span>decided_upgrade_certificate))
+            .is_relevant(view, Arc::clone(<span class="kw-2">&amp;</span>upgrade_lock.decided_upgrade_certificate))
             .<span class="kw">await
             </span>.is_err()
         {
@@ -1074,10 +1086,10 @@
         <span class="string">"Cannot propose because our VID payload commitment and metadata is for an older view."
     </span>);
 
-    <span class="kw">let </span>version = version(view, <span class="kw-2">&amp;</span>decided_upgrade_certificate.read().<span class="kw">await</span>.clone())<span class="question-mark">?</span>;
+    <span class="kw">let </span>version = upgrade_lock.version(view).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="kw">let </span>create_and_send_proposal_handle = async_spawn(<span class="kw">async move </span>{
-        <span class="kw">match </span>create_and_send_proposal(
+        <span class="kw">match </span>create_and_send_proposal::&lt;TYPES, V&gt;(
             public_key,
             private_key,
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
@@ -1109,7 +1121,7 @@
 /// `commitment_and_metadata`, or a `decided_upgrade_certificate`.
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
-</span><span class="kw">pub async fn </span>publish_proposal_if_able&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>publish_proposal_if_able&lt;TYPES: NodeType, V: Versions&gt;(
     view: TYPES::Time,
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1118,7 +1130,7 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     delay: u64,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     commitment_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt;,
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -1133,7 +1145,7 @@
         consensus,
         delay,
         formed_upgrade_certificate,
-        decided_upgrade_certificate,
+        upgrade_lock,
         commitment_and_metadata,
         proposal_cert,
         instance_state,
@@ -1147,11 +1159,15 @@
 /// Returns the proposal that should be used to set the `cur_proposal` for other tasks.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_recv&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_recv&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumProposal&lt;TYPES&gt;&gt;&gt; {
     <span class="kw">let </span>sender = sender.clone();
     <span class="macro">debug!</span>(
@@ -1325,7 +1341,7 @@
                     OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
                     task_state.round_start_delay,
                     task_state.formed_upgrade_certificate.clone(),
-                    Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
+                    task_state.upgrade_lock.clone(),
                     task_state.payload_commitment_and_metadata.clone(),
                     task_state.proposal_cert.clone(),
                     Arc::clone(<span class="kw-2">&amp;</span>task_state.instance_state),
@@ -1355,7 +1371,7 @@
                 proposal.clone(),
                 parent_leaf,
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
-                Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
                 Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
                 event_stream.clone(),
                 sender,
@@ -1370,10 +1386,14 @@
 <span class="doccomment">/// Handle `QuorumProposalValidated` event content and submit a proposal if possible.
 </span><span class="attr">#[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-</span><span class="kw">pub async fn </span>handle_quorum_proposal_validated&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub async fn </span>handle_quorum_proposal_validated&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view = proposal.view_number();
     task_state.current_proposal = <span class="prelude-val">Some</span>(proposal.clone());
@@ -1381,13 +1401,17 @@
     <span class="kw">let </span>res = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
-        Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
         <span class="kw-2">&amp;</span>task_state.public_key,
     )
     .<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = res.decided_upgrade_cert {
-        <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state.decided_upgrade_certificate.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state
+            .upgrade_lock
+            .decided_upgrade_certificate
+            .write()
+            .<span class="kw">await</span>;
         <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
         drop(decided_certificate_lock);
         <span class="kw">let _ </span>= event_stream
@@ -1486,9 +1510,9 @@
 
 <span class="doccomment">/// Private key, latest decided upgrade certificate, committee membership, and event stream, for
 /// sending the vote.
-</span><span class="kw">type </span>VoteInfo&lt;TYPES&gt; = (
+</span><span class="kw">type </span>VoteInfo&lt;TYPES, V&gt; = (
     &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    UpgradeLock&lt;TYPES, V&gt;,
     Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;,
     Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 );
@@ -1499,7 +1523,11 @@
 </span><span class="doccomment">/// Check if we are able to vote, like whether the proposal is valid,
 /// whether we have DAC and VID share, and if so, vote.
 </span><span class="attr">#[instrument(skip_all, fields(id = id, view = <span class="kw-2">*</span>cur_view))]
-</span><span class="kw">pub async fn </span>update_state_and_vote_if_able&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub async fn </span>update_state_and_vote_if_able&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     cur_view: TYPES::Time,
     proposal: QuorumProposal&lt;TYPES&gt;,
     public_key: TYPES::SignatureKey,
@@ -1507,7 +1535,7 @@
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
-    vote_info: VoteInfo&lt;TYPES&gt;,
+    vote_info: VoteInfo&lt;TYPES, V&gt;,
     id: u64,
 ) -&gt; bool {
     <span class="kw">use </span>hotshot_types::simple_vote::QuorumVote;
@@ -1531,7 +1559,7 @@
         <span class="kw">return </span><span class="bool-val">false</span>;
     };
 
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span>vote_info.<span class="number">1</span>.read().<span class="kw">await</span>.clone() {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_cert) = <span class="kw-2">&amp;</span>vote_info.<span class="number">1</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone() {
         <span class="kw">if </span>upgrade_cert.upgrading_in(cur_view)
             &amp;&amp; <span class="prelude-val">Some</span>(proposal.block_header.payload_commitment())
                 != null_block::commitment(quorum_membership.total_nodes())
@@ -1586,7 +1614,7 @@
     };
     drop(read_consnesus);
 
-    <span class="kw">let </span>version = <span class="kw">match </span>version(view, <span class="kw-2">&amp;</span>vote_info.<span class="number">1</span>.read().<span class="kw">await</span>.clone()) {
+    <span class="kw">let </span>version = <span class="kw">match </span>vote_info.<span class="number">1</span>.version(view).<span class="kw">await </span>{
         <span class="prelude-val">Ok</span>(version) =&gt; version,
         <span class="prelude-val">Err</span>(e) =&gt; {
             <span class="macro">error!</span>(<span class="string">"Failed to calculate the version: {e:?}"</span>);

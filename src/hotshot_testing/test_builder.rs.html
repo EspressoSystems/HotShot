@@ -512,6 +512,13 @@
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -531,8 +538,9 @@
     storage_types::TestStorage, testable_delay::DelayConfig,
 };
 <span class="kw">use </span>hotshot_types::{
-    consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
-    HotShotConfig, ValidatorConfig,
+    consensus::ConsensusMetricsValue,
+    traits::node_implementation::{NodeType, Versions},
+    ExecutionType, HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
 <span class="kw">use </span>vec1::Vec1;
@@ -570,7 +578,7 @@
 
 <span class="doccomment">/// metadata describing a test
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>TestDescription&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>TestDescription&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Total number of staked nodes in the test
     </span><span class="kw">pub </span>num_nodes_with_stake: usize,
     <span class="doccomment">/// Total number of non-staked nodes in the test
@@ -605,30 +613,31 @@
     <span class="doccomment">/// description of the solver to run
     </span><span class="kw">pub </span>solver: FakeSolverApiDescription,
     <span class="doccomment">/// nodes with byzantine behaviour
-    </span><span class="kw">pub </span>behaviour: Rc&lt;<span class="kw">dyn </span>Fn(u64) -&gt; Behaviour&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>behaviour: Rc&lt;<span class="kw">dyn </span>Fn(u64) -&gt; Behaviour&lt;TYPES, I, V&gt;&gt;,
     <span class="doccomment">/// Delay config if any to add delays to asynchronous calls
     </span><span class="kw">pub </span>async_delay_config: DelayConfig,
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>Behaviour&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    ByzantineTwins(Box&lt;<span class="kw">dyn </span>TwinsHandlerState&lt;TYPES, I&gt;&gt;),
-    Byzantine(Box&lt;<span class="kw">dyn </span>EventTransformerState&lt;TYPES, I&gt;&gt;),
+</span><span class="kw">pub enum </span>Behaviour&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
+    ByzantineTwins(Box&lt;<span class="kw">dyn </span>TwinsHandlerState&lt;TYPES, I, V&gt;&gt;),
+    Byzantine(Box&lt;<span class="kw">dyn </span>EventTransformerState&lt;TYPES, I, V&gt;&gt;),
     Standard,
 }
 
 <span class="kw">pub async fn </span>create_test_handle&lt;
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
     I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
 &gt;(
-    metadata: TestDescription&lt;TYPES, I&gt;,
+    metadata: TestDescription&lt;TYPES, I, V&gt;,
     node_id: u64,
     network: Network&lt;TYPES, I&gt;,
     memberships: Memberships&lt;TYPES&gt;,
     config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
     storage: I::Storage,
     marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
-) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
+) -&gt; SystemContextHandle&lt;TYPES, I, V&gt; {
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState::new(
         metadata.async_delay_config,
     ))
@@ -684,7 +693,7 @@
                 .<span class="kw">await
         </span>}
         Behaviour::Standard =&gt; {
-            <span class="kw">let </span>hotshot = SystemContext::&lt;TYPES, I&gt;::new(
+            <span class="kw">let </span>hotshot = SystemContext::&lt;TYPES, I, V&gt;::new(
                 public_key,
                 private_key,
                 node_id,
@@ -742,7 +751,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TestDescription&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TestDescription&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// the default metadata for a stress test
     </span><span class="attr">#[must_use]
     #[allow(clippy::redundant_field_names)]
@@ -782,7 +791,7 @@
     </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
         <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
-        TestDescription::&lt;TYPES, I&gt; {
+        TestDescription::&lt;TYPES, I, V&gt; {
             <span class="comment">// TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             </span>num_bootstrap_nodes: num_nodes_with_stake,
@@ -804,7 +813,7 @@
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
-            ..TestDescription::&lt;TYPES, I&gt;::default()
+            ..TestDescription::&lt;TYPES, I, V&gt;::default()
         }
     }
 
@@ -844,7 +853,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Default <span class="kw">for </span>TestDescription&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; Default
+    <span class="kw">for </span>TestDescription&lt;TYPES, I, V&gt;
+{
     <span class="doccomment">/// by default, just a single round
     </span><span class="attr">#[allow(clippy::redundant_field_names)]
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
@@ -891,8 +902,11 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;, I: TestableNodeImplementation&lt;TYPES&gt;&gt;
-    TestDescription&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
+        I: TestableNodeImplementation&lt;TYPES&gt;,
+        V: Versions,
+    &gt; TestDescription&lt;TYPES, I, V&gt;
 <span class="kw">where
     </span>I: NodeImplementation&lt;TYPES, AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;&gt;,
 {
@@ -901,7 +915,7 @@
     /// # Panics
     /// if some of the the configuration values are zero
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>, node_id: u64) -&gt; TestLauncher&lt;TYPES, I&gt; {
+    </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>, node_id: u64) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
         <span class="kw">let </span>TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,

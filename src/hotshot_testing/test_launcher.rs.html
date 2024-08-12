@@ -88,7 +88,7 @@
 <span class="kw">use </span>hotshot_types::{
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
-        node_implementation::NodeType,
+        node_implementation::{NodeType, Versions},
     },
     HotShotConfig,
 };
@@ -114,18 +114,18 @@
 }
 
 <span class="doccomment">/// test launcher
-</span><span class="kw">pub struct </span>TestLauncher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>TestLauncher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// generator for resources
     </span><span class="kw">pub </span>resource_generator: ResourceGenerators&lt;TYPES, I&gt;,
     <span class="doccomment">/// metadata used for tasks
-    </span><span class="kw">pub </span>metadata: TestDescription&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>metadata: TestDescription&lt;TYPES, I, V&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; TestLauncher&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// launch the test
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>launch&lt;N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;&gt;(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I, N&gt; {
-        TestRunner::&lt;TYPES, I, N&gt; {
+    </span><span class="kw">pub fn </span>launch&lt;N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;&gt;(<span class="self">self</span>) -&gt; TestRunner&lt;TYPES, I, V, N&gt; {
+        TestRunner::&lt;TYPES, I, V, N&gt; {
             launcher: <span class="self">self</span>,
             nodes: Vec::new(),
             solver_server: <span class="prelude-val">None</span>,

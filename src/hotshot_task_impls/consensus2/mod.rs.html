@@ -172,6 +172,9 @@
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -190,10 +193,11 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
+    message::UpgradeLock,
+    simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
     traits::{
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
 };
@@ -213,7 +217,7 @@
 </span><span class="kw">mod </span>handlers;
 
 <span class="doccomment">/// Task state for the Consensus task.
-</span><span class="kw">pub struct </span>Consensus2TaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>Consensus2TaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Our public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
 
@@ -270,10 +274,10 @@
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
 
-    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
-    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Consensus2TaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; Consensus2TaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// Handles a consensus event received on the event stream
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, last_decided_view = <span class="kw-2">*</span><span class="self">self</span>.last_decided_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"Consensus2TaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
@@ -327,7 +331,9 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>Consensus2TaskState&lt;TYPES, I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>Consensus2TaskState&lt;TYPES, I, V&gt;
+{
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(

@@ -56,7 +56,7 @@
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>local_ip_address::local_ip;
 <span class="kw">use </span>tracing::{debug, instrument};
@@ -88,6 +88,6 @@
     );
 
     <span class="macro">debug!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
-    infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, ThisRun&gt;(args).<span class="kw">await</span>;
+    infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, TestVersions, ThisRun&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div></section></main></body></html>

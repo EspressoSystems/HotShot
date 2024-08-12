@@ -337,6 +337,7 @@
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -365,7 +366,7 @@
     simple_certificate::QuorumCertificate,
     traits::{
         network::ConnectedNetwork,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
     },
     vote::HasViewNumber,
     ValidatorConfig,
@@ -385,11 +386,11 @@
 </span><span class="kw">pub struct </span>SpinningTaskErr {}
 
 <span class="doccomment">/// Spinning task state
-</span><span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// handle to the nodes
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I, V&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// late start nodes
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) late_start: HashMap&lt;u64, LateStartNode&lt;TYPES, I, V&gt;&gt;,
     <span class="doccomment">/// time based changes
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) changes: BTreeMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt;,
     <span class="doccomment">/// most recent view seen by spinning task
@@ -407,7 +408,8 @@
         TYPES: NodeType&lt;InstanceState = TestInstanceState, ValidatedState = TestValidatedState&gt;,
         I: TestableNodeImplementation&lt;TYPES&gt;,
         N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
-    &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I&gt;
+        V: Versions,
+    &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I, V&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES&gt;,
     I: NodeImplementation&lt;
@@ -570,7 +572,7 @@
                                     </span>node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64,
                                 );
                                 <span class="kw">let </span>context =
-                                    TestRunner::&lt;TYPES, I, N&gt;::add_node_with_config_and_channels(
+                                    TestRunner::&lt;TYPES, I, V, N&gt;::add_node_with_config_and_channels(
                                         node_id,
                                         network.clone(),
                                         (<span class="kw-2">*</span>memberships).clone(),

@@ -914,6 +914,8 @@
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
 <a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1718,8 +1720,10 @@
 
     <span class="kw">use crate</span>::{
         traits::{
-            block_contents::BuilderFee, node_implementation::NodeType,
-            signature_key::BuilderSignatureKey, BlockPayload,
+            block_contents::BuilderFee,
+            node_implementation::{NodeType, Versions},
+            signature_key::BuilderSignatureKey,
+            BlockPayload,
         },
         vid::{vid_scheme, VidCommitment},
     };
@@ -1743,7 +1747,7 @@
 
     <span class="doccomment">/// Builder fee data for a null block payload
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType&gt;(
+    </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType, V: Versions&gt;(
         num_storage_nodes: usize,
         version: vbs::version::Version,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
@@ -1755,7 +1759,7 @@
                 [<span class="number">0_u8</span>; <span class="number">32</span>], <span class="number">0</span>,
             );
 
-        <span class="kw">if </span>version &gt;= <span class="kw">crate</span>::constants::MarketplaceVersion::version() {
+        <span class="kw">if </span>version &gt;= V::Marketplace::VERSION {
             <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(<span class="kw-2">&amp;</span>priv_key, FEE_AMOUNT)
             {
                 <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {

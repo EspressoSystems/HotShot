@@ -167,6 +167,9 @@
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -189,9 +192,10 @@
     consensus::{Consensus, OuterConsensus},
     data::{Leaf, ViewChangeEvidence},
     event::Event,
+    message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
@@ -212,7 +216,7 @@
 
 <span class="doccomment">/// The state for the quorum proposal task. Contains all of the information for
 /// handling [`HotShotEvent::QuorumProposalRecv`] events.
-</span><span class="kw">pub struct </span>QuorumProposalRecvTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>QuorumProposalRecvTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Our public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
 
@@ -265,11 +269,13 @@
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
 
-    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
-    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; QuorumProposalRecvTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
+    QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;
+{
     <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
     </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
         <span class="kw">let </span>keep = <span class="self">self</span>.spawned_tasks.split_off(<span class="kw-2">&amp;</span>view);
@@ -303,8 +309,8 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState
-    <span class="kw">for </span>QuorumProposalRecvTaskState&lt;TYPES, I&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;
 {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 

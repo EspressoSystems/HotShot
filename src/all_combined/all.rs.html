@@ -160,6 +160,8 @@
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -182,7 +184,7 @@
     traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
     types::SignatureKey,
 };
-<span class="kw">use </span>hotshot_example_types::state_types::TestTypes;
+<span class="kw">use </span>hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>infra::{gen_local_address, BUILDER_BASE_PORT, VALIDATOR_BASE_PORT};
@@ -308,12 +310,14 @@
         <span class="kw">let </span>builder_address = gen_local_address::&lt;BUILDER_BASE_PORT&gt;(i);
 
         <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
-            infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, ThisRun&gt;(ValidatorArgs {
-                url: orchestrator_url,
-                advertise_address: <span class="prelude-val">Some</span>(advertise_address),
-                builder_address: <span class="prelude-val">Some</span>(builder_address),
-                network_config_file: <span class="prelude-val">None</span>,
-            })
+            infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, TestVersions, ThisRun&gt;(
+                ValidatorArgs {
+                    url: orchestrator_url,
+                    advertise_address: <span class="prelude-val">Some</span>(advertise_address),
+                    builder_address: <span class="prelude-val">Some</span>(builder_address),
+                    network_config_file: <span class="prelude-val">None</span>,
+                },
+            )
             .<span class="kw">await</span>;
         });
         nodes.push(node);

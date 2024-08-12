@@ -422,6 +422,44 @@
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -433,9 +471,10 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use </span>std::{fmt, fmt::Debug, marker::PhantomData};
+</span><span class="kw">use </span>std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>cdn_proto::util::mnemonic;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>derivative::Derivative;
@@ -448,7 +487,7 @@
 <span class="kw">use crate</span>::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
-        version, DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -458,7 +497,7 @@
     traits::{
         election::Membership,
         network::{DataRequest, ResponseMessage, ViewMessage},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
@@ -474,74 +513,6 @@
     <span class="doccomment">/// The message kind
     </span><span class="kw">pub </span>kind: MessageKind&lt;TYPES&gt;,
 }
-
-<span class="doccomment">/// Trait for messages that have a versioned serialization.
-</span><span class="kw">pub trait </span>VersionedMessage&lt;<span class="lifetime">'a</span>, TYPES&gt;
-<span class="kw">where
-    </span>TYPES: NodeType,
-    <span class="self">Self</span>: Serialize + Deserialize&lt;<span class="lifetime">'a</span>&gt; + HasViewNumber&lt;TYPES&gt; + Sized,
-{
-    <span class="doccomment">/// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.
-    ///
-    /// # Errors
-    ///
-    /// Errors if serialization fails.
-    </span><span class="kw">fn </span>serialize(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        upgrade_certificate: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
-        <span class="kw">let </span>view = <span class="self">self</span>.view_number();
-
-        <span class="kw">let </span>version = version(view, upgrade_certificate)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>serialized_message = <span class="kw">match </span>version {
-            <span class="comment">// Associated constants cannot be used in pattern matches, so we do this trick instead.
-            </span>v <span class="kw">if </span>v == TYPES::Base::VERSION =&gt; Serializer::&lt;TYPES::Base&gt;::serialize(<span class="kw-2">&amp;</span><span class="self">self</span>),
-            v <span class="kw">if </span>v == TYPES::Upgrade::VERSION =&gt; Serializer::&lt;TYPES::Upgrade&gt;::serialize(<span class="kw-2">&amp;</span><span class="self">self</span>),
-            <span class="kw">_ </span>=&gt; {
-                <span class="macro">bail!</span>(<span class="string">"Attempted to serialize with an incompatible version. This should be impossible."</span>);
-            }
-        };
-
-        serialized_message.context(<span class="string">"Failed to serialize message!"</span>)
-    }
-
-    <span class="doccomment">/// Deserialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version. This function will fail on improperly versioned messages.
-    ///
-    /// # Errors
-    ///
-    /// Errors if deserialization fails.
-    </span><span class="kw">fn </span>deserialize(
-        message: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
-        upgrade_certificate: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>actual_version = Version::deserialize(message)
-            .context(<span class="string">"Failed to read message version!"</span>)<span class="question-mark">?
-            </span>.<span class="number">0</span>;
-
-        <span class="kw">let </span>deserialized_message: <span class="self">Self </span>= <span class="kw">match </span>actual_version {
-            v <span class="kw">if </span>v == TYPES::Base::VERSION =&gt; Serializer::&lt;TYPES::Base&gt;::deserialize(message),
-            v <span class="kw">if </span>v == TYPES::Upgrade::VERSION =&gt; Serializer::&lt;TYPES::Upgrade&gt;::deserialize(message),
-            <span class="kw">_ </span>=&gt; {
-                <span class="macro">bail!</span>(<span class="string">"Cannot deserialize message!"</span>);
-            }
-        }
-        .context(<span class="string">"Failed to deserialize message!"</span>)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>view = deserialized_message.view_number();
-
-        <span class="kw">let </span>expected_version = version(view, upgrade_certificate)<span class="question-mark">?</span>;
-
-        <span class="macro">ensure!</span>(
-            actual_version == expected_version,
-            <span class="string">"Message has invalid version number for its view. Expected: {expected_version}, Actual: {actual_version}, View: {view:?}"
-        </span>);
-
-        <span class="prelude-val">Ok</span>(deserialized_message)
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, TYPES&gt; VersionedMessage&lt;<span class="lifetime">'a</span>, TYPES&gt; <span class="kw">for </span>Message&lt;TYPES&gt; <span class="kw">where </span>TYPES: NodeType {}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; fmt::Debug <span class="kw">for </span>Message&lt;TYPES&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
@@ -842,6 +813,111 @@
         </span>);
 
         <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="attr">#[derive(Clone)]
+</span><span class="doccomment">/// A lock for an upgrade certificate decided by HotShot, which doubles as `PhantomData` for an instance of the `Versions` trait.
+</span><span class="kw">pub struct </span>UpgradeLock&lt;TYPES: NodeType, V: Versions&gt; {
+    <span class="doccomment">/// a shared lock to an upgrade certificate decided by consensus
+    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+
+    <span class="doccomment">/// phantom data for the `Versions` trait
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;V&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; UpgradeLock&lt;TYPES, V&gt; {
+    <span class="attr">#[allow(clippy::new_without_default)]
+    </span><span class="doccomment">/// Create a new `UpgradeLock` for a fresh instance of HotShot
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            decided_upgrade_certificate: Arc::new(RwLock::new(<span class="prelude-val">None</span>)),
+            _pd: PhantomData::&lt;V&gt;,
+        }
+    }
+
+    <span class="doccomment">/// Calculate the version applied in a view, based on the provided upgrade lock.
+    ///
+    /// # Errors
+    /// Returns an error if we do not support the version required by the decided upgrade certificate.
+    </span><span class="kw">pub async fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;Version&gt; {
+        <span class="kw">let </span>upgrade_certificate = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>;
+
+        <span class="kw">let </span>version = <span class="kw">match </span><span class="kw-2">*</span>upgrade_certificate {
+            <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) =&gt; {
+                <span class="kw">if </span>view &gt;= cert.data.new_version_first_view {
+                    <span class="kw">if </span>cert.data.new_version == V::Upgrade::VERSION {
+                        V::Upgrade::VERSION
+                    } <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">"The network has upgraded to a new version that we do not support!"</span>);
+                    }
+                } <span class="kw">else </span>{
+                    V::Base::VERSION
+                }
+            }
+            <span class="prelude-val">None </span>=&gt; V::Base::VERSION,
+        };
+
+        <span class="prelude-val">Ok</span>(version)
+    }
+
+    <span class="doccomment">/// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.
+    ///
+    /// # Errors
+    ///
+    /// Errors if serialization fails.
+    </span><span class="kw">pub async fn </span>serialize&lt;M: HasViewNumber&lt;TYPES&gt; + Serialize&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: <span class="kw-2">&amp;</span>M,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
+        <span class="kw">let </span>view = message.view_number();
+
+        <span class="kw">let </span>version = <span class="self">self</span>.version(view).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">let </span>serialized_message = <span class="kw">match </span>version {
+            <span class="comment">// Associated constants cannot be used in pattern matches, so we do this trick instead.
+            </span>v <span class="kw">if </span>v == V::Base::VERSION =&gt; Serializer::&lt;V::Base&gt;::serialize(<span class="kw-2">&amp;</span>message),
+            v <span class="kw">if </span>v == V::Upgrade::VERSION =&gt; Serializer::&lt;V::Upgrade&gt;::serialize(<span class="kw-2">&amp;</span>message),
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">bail!</span>(<span class="string">"Attempted to serialize with an incompatible version. This should be impossible."</span>);
+            }
+        };
+
+        serialized_message.context(<span class="string">"Failed to serialize message!"</span>)
+    }
+
+    <span class="doccomment">/// Deserialize a message with a version number, using `message.view_number()` to determine the message's version. This function will fail on improperly versioned messages.
+    ///
+    /// # Errors
+    ///
+    /// Errors if deserialization fails.
+    </span><span class="kw">pub async fn </span>deserialize&lt;M: HasViewNumber&lt;TYPES&gt; + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;M&gt; {
+        <span class="kw">let </span>actual_version = Version::deserialize(message)
+            .context(<span class="string">"Failed to read message version!"</span>)<span class="question-mark">?
+            </span>.<span class="number">0</span>;
+
+        <span class="kw">let </span>deserialized_message: M = <span class="kw">match </span>actual_version {
+            v <span class="kw">if </span>v == V::Base::VERSION =&gt; Serializer::&lt;V::Base&gt;::deserialize(message),
+            v <span class="kw">if </span>v == V::Upgrade::VERSION =&gt; Serializer::&lt;V::Upgrade&gt;::deserialize(message),
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">bail!</span>(<span class="string">"Cannot deserialize message!"</span>);
+            }
+        }
+        .context(<span class="string">"Failed to deserialize message!"</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>view = deserialized_message.view_number();
+
+        <span class="kw">let </span>expected_version = <span class="self">self</span>.version(view).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="macro">ensure!</span>(
+            actual_version == expected_version,
+            <span class="string">"Message has invalid version number for its view. Expected: {expected_version}, Actual: {actual_version}, View: {view:?}"
+        </span>);
+
+        <span class="prelude-val">Ok</span>(deserialized_message)
     }
 }
 </code></pre></div></section></main></body></html>

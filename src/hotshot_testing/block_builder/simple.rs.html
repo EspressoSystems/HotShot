@@ -609,7 +609,7 @@
         app.register_module::&lt;Error, <span class="kw">_</span>&gt;(<span class="string">"block_info"</span>, builder_api)
             .expect(<span class="string">"Failed to register the builder API"</span>);
 
-        async_spawn(app.serve(url, TYPES::Base::instance()));
+        async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()));
     }
 }
 

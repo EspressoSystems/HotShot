@@ -531,6 +531,9 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -554,10 +557,11 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
+    message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -576,7 +580,7 @@
 <span class="kw">mod </span>handlers;
 
 <span class="doccomment">/// The state for the quorum proposal task.
-</span><span class="kw">pub struct </span>QuorumProposalTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>QuorumProposalTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Latest view number that has been proposed for.
     </span><span class="kw">pub </span>latest_proposed_view: TYPES::Time,
 
@@ -630,11 +634,13 @@
     /// since they will be present in the leaf we propose off of.
     </span><span class="kw">pub </span>formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
-    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; QuorumProposalTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
+    QuorumProposalTaskState&lt;TYPES, I, V&gt;
+{
     <span class="doccomment">/// Create an event dependency
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view), name = <span class="string">"Create event dependency"</span>, level = <span class="string">"info"</span>)]
     </span><span class="kw">fn </span>create_event_dependency(
@@ -856,7 +862,7 @@
                 instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                 formed_upgrade_certificate: <span class="self">self</span>.formed_upgrade_certificate.clone(),
-                decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
+                upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
                 id: <span class="self">self</span>.id,
             },
         );
@@ -1033,8 +1039,8 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState
-    <span class="kw">for </span>QuorumProposalTaskState&lt;TYPES, I&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>QuorumProposalTaskState&lt;TYPES, I, V&gt;
 {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 

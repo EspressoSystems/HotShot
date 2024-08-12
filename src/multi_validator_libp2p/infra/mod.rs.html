@@ -1067,6 +1067,12 @@
 <a href="#1065" id="1065">1065</a>
 <a href="#1066" id="1066">1066</a>
 <a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1128,7 +1134,7 @@
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
         network::{ConnectedNetwork, Topic},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         states::TestableState,
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
@@ -1416,6 +1422,7 @@
         Storage = TestStorage&lt;TYPES&gt;,
         AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
     &gt;,
+    V: Versions,
 &gt; <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1433,7 +1440,7 @@
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE&gt; {
+    </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE, V&gt; {
         <span class="kw">let </span>initializer =
             hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState::default())
                 .<span class="kw">await
@@ -1499,7 +1506,7 @@
     </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>run_hotshot(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        context: SystemContextHandle&lt;TYPES, NODE&gt;,
+        context: SystemContextHandle&lt;TYPES, NODE, V&gt;,
         transactions: <span class="kw-2">&amp;mut </span>Vec&lt;TestTransaction&gt;,
         transactions_to_send_per_round: u64,
         transaction_size_in_bytes: u64,
@@ -1688,7 +1695,8 @@
             Storage = TestStorage&lt;TYPES&gt;,
             AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
+        V: Versions,
+    &gt; RunDa&lt;TYPES, PushCdnNetwork&lt;TYPES&gt;, NODE, V&gt; <span class="kw">for </span>PushCdnDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1765,7 +1773,8 @@
             Storage = TestStorage&lt;TYPES&gt;,
             AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDa&lt;TYPES, Libp2pNetwork&lt;TYPES::SignatureKey&gt;, NODE&gt; <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
+        V: Versions,
+    &gt; RunDa&lt;TYPES, Libp2pNetwork&lt;TYPES::SignatureKey&gt;, NODE, V&gt; <span class="kw">for </span>Libp2pDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1851,7 +1860,8 @@
             Storage = TestStorage&lt;TYPES&gt;,
             AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt;,
-    &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, NODE&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
+        V: Versions,
+    &gt; RunDa&lt;TYPES, CombinedNetworks&lt;TYPES&gt;, NODE, V&gt; <span class="kw">for </span>CombinedDaRun&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState: TestableState&lt;TYPES&gt;,
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
@@ -1863,20 +1873,21 @@
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     ) -&gt; CombinedDaRun&lt;TYPES&gt; {
         <span class="comment">// Initialize our Libp2p network
-        </span><span class="kw">let </span>libp2p_network: Libp2pDaRun&lt;TYPES&gt; = &lt;Libp2pDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
-            TYPES,
-            Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
-            Libp2pImpl,
-        &gt;&gt;::initialize_networking(
-            config.clone(), libp2p_advertise_address
-        )
-        .<span class="kw">await</span>;
+        </span><span class="kw">let </span>libp2p_network: Libp2pDaRun&lt;TYPES&gt; =
+            &lt;Libp2pDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
+                TYPES,
+                Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
+                Libp2pImpl,
+                V,
+            &gt;&gt;::initialize_networking(config.clone(), libp2p_advertise_address)
+            .<span class="kw">await</span>;
 
         <span class="comment">// Initialize our CDN network
         </span><span class="kw">let </span>cdn_network: PushCdnDaRun&lt;TYPES&gt; = &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
             TYPES,
             PushCdnNetwork&lt;TYPES&gt;,
             PushCdnImpl,
+            V,
         &gt;&gt;::initialize_networking(
             config.clone(), libp2p_advertise_address
         )
@@ -1921,7 +1932,8 @@
         Storage = TestStorage&lt;TYPES&gt;,
         AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
     &gt;,
-    RUNDA: RunDa&lt;TYPES, NETWORK, NODE&gt;,
+    V: Versions,
+    RUNDA: RunDa&lt;TYPES, NETWORK, NODE, V&gt;,
 &gt;(
     args: ValidatorArgs,
 ) <span class="kw">where

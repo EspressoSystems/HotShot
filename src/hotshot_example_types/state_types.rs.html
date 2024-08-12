@@ -153,6 +153,7 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -160,7 +161,9 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="doccomment">//! Implementations for examples and tests only
-</span><span class="kw">use </span>async_trait::async_trait;
+</span><span class="kw">use </span>std::fmt::Debug;
+
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
@@ -174,7 +177,6 @@
 };
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::node_types::TestTypes;

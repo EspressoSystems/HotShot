@@ -133,6 +133,12 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -157,6 +163,7 @@
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
+    quorum_vote::Versions,
 };
 
 <span class="doccomment">/// Handles the `QuorumProposalValidated` event.
@@ -164,10 +171,11 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_validated&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
 &gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>LeafChainTraversalOutcome {
         new_locked_view_number,
@@ -180,13 +188,17 @@
     } = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
-        Arc::clone(<span class="kw-2">&amp;</span>task_state.decided_upgrade_certificate),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
         <span class="kw-2">&amp;</span>task_state.public_key,
     )
     .<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = decided_upgrade_cert.clone() {
-        <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state.decided_upgrade_certificate.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>decided_certificate_lock = task_state
+            .upgrade_lock
+            .decided_upgrade_certificate
+            .write()
+            .<span class="kw">await</span>;
         <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
         drop(decided_certificate_lock);
         <span class="kw">let _ </span>= sender

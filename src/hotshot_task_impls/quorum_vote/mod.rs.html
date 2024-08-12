@@ -671,6 +671,7 @@
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -695,13 +696,12 @@
     consensus::OuterConsensus,
     data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
-    message::Proposal,
-    simple_certificate::{version, UpgradeCertificate},
+    message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
         ValidatedState,
@@ -736,7 +736,7 @@
 }
 
 <span class="doccomment">/// Handler for the vote dependency.
-</span><span class="kw">pub struct </span>VoteDependencyHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>VoteDependencyHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Public key.
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Private Key.
@@ -755,13 +755,15 @@
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Event receiver.
     </span><span class="kw">pub </span>receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
-    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; VoteDependencyHandle&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>, V: Versions&gt;
+    VoteDependencyHandle&lt;TYPES, I, V&gt;
+{
     <span class="doccomment">/// Updates the shared consensus state with the new voting data.
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"VoteDependencyHandle"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.view_number))]
     </span><span class="kw">async fn </span>update_shared_state(
@@ -803,10 +805,8 @@
 
         drop(consensus_reader);
 
-        <span class="kw">let </span>version = version(
-            <span class="self">self</span>.view_number,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone(),
-        )<span class="question-mark">?</span>;
+        <span class="kw">let </span>version = <span class="self">self</span>.upgrade_lock.version(<span class="self">self</span>.view_number).<span class="kw">await</span><span class="question-mark">?</span>;
+
         <span class="kw">let </span>(validated_state, state_delta) = parent_state
             .validate_and_apply_header(
                 <span class="kw-2">&amp;</span><span class="self">self</span>.instance_state,
@@ -903,8 +903,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>&gt; HandleDepOutput
-    <span class="kw">for </span>VoteDependencyHandle&lt;TYPES, I&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>, V: Versions&gt; HandleDepOutput
+    <span class="kw">for </span>VoteDependencyHandle&lt;TYPES, I, V&gt;
 {
     <span class="kw">type </span>Output = Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;;
 
@@ -1026,7 +1026,7 @@
 <span class="doccomment">/// The state for the quorum vote task.
 ///
 /// Contains all of the information for the quorum vote.
-</span><span class="kw">pub struct </span>QuorumVoteTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>QuorumVoteTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Public key.
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
 
@@ -1063,11 +1063,11 @@
     <span class="doccomment">/// Reference to the storage.
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 
-    <span class="doccomment">/// An upgrade certificate that has been decided on, if any.
-    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; QuorumVoteTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; QuorumVoteTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// Create an event dependency.
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_voted_view = <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view), name = <span class="string">"Quorum vote create event dependency"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">fn </span>create_event_dependency(
@@ -1152,7 +1152,7 @@
 
         <span class="kw">let </span>dependency_task = DependencyTask::new(
             dependency_chain,
-            VoteDependencyHandle::&lt;TYPES, I&gt; {
+            VoteDependencyHandle::&lt;TYPES, I, V&gt; {
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
                 consensus: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
@@ -1162,7 +1162,7 @@
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                decided_upgrade_certificate: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
+                upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
                 id: <span class="self">self</span>.id,
             },
         );
@@ -1319,7 +1319,9 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>QuorumVoteTaskState&lt;TYPES, I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;
+{
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(

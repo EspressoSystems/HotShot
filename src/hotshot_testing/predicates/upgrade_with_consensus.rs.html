@@ -56,6 +56,11 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -67,13 +72,13 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+<span class="kw">use </span>hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
 <span class="kw">use </span>hotshot_task_impls::consensus::ConsensusTaskState;
 <span class="kw">use </span>hotshot_types::simple_certificate::UpgradeCertificate;
 
 <span class="kw">use </span><span class="kw">crate</span>::predicates::{Predicate, PredicateResult};
 
-<span class="kw">type </span>ConsensusTaskTestState = ConsensusTaskState&lt;TestTypes, MemoryImpl&gt;;
+<span class="kw">type </span>ConsensusTaskTestState = ConsensusTaskState&lt;TestTypes, MemoryImpl, TestVersions&gt;;
 
 <span class="kw">type </span>UpgradeCertCallback =
     Arc&lt;<span class="kw">dyn </span>Fn(Arc&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TestTypes&gt;&gt;&gt;) -&gt; bool + Send + Sync&gt;;
@@ -92,7 +97,12 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl </span>Predicate&lt;ConsensusTaskTestState&gt; <span class="kw">for </span>UpgradeCertPredicate {
     <span class="kw">async fn </span>evaluate(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span>ConsensusTaskTestState) -&gt; PredicateResult {
-        <span class="kw">let </span>upgrade_cert = input.decided_upgrade_certificate.read().<span class="kw">await</span>.clone();
+        <span class="kw">let </span>upgrade_cert = input
+            .upgrade_lock
+            .decided_upgrade_certificate
+            .read()
+            .<span class="kw">await
+            </span>.clone();
         PredicateResult::from((<span class="self">self</span>.check)(upgrade_cert.into()))
     }
 

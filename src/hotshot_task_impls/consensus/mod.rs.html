@@ -734,13 +734,17 @@
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
-
-</span><span class="attr">#![cfg(not(feature = <span class="string">"dependency-tasks"</span>))]
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
@@ -757,12 +761,12 @@
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{QuorumProposal, VidDisperseShare, ViewChangeEvidence},
     event::{Event, EventType},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{QuorumCertificate, TimeoutCertificate, UpgradeCertificate},
     simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -794,7 +798,7 @@
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
-</span><span class="kw">pub struct </span>ConsensusTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>ConsensusTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Our public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
@@ -868,11 +872,11 @@
     <span class="doccomment">/// This node's storage ref
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 
-    <span class="doccomment">/// an upgrade certificate that has been decided on, if any
-    </span><span class="kw">pub </span>decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ConsensusTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ConsensusTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
     </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
         <span class="kw">let </span>keep = <span class="self">self</span>.spawned_tasks.split_off(<span class="kw-2">&amp;</span>view);
@@ -946,7 +950,7 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="self">self</span>.round_start_delay,
             <span class="self">self</span>.formed_upgrade_certificate.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate),
+            <span class="self">self</span>.upgrade_lock.clone(),
             <span class="self">self</span>.payload_commitment_and_metadata.clone(),
             <span class="self">self</span>.proposal_cert.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
@@ -976,7 +980,7 @@
         <span class="kw">if </span>proposal.view_number() != view {
             <span class="kw">return</span>;
         }
-        <span class="kw">let </span>upgrade = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.decided_upgrade_certificate);
+        <span class="kw">let </span>upgrade = <span class="self">self</span>.upgrade_lock.clone();
         <span class="kw">let </span>pub_key = <span class="self">self</span>.public_key.clone();
         <span class="kw">let </span>priv_key = <span class="self">self</span>.private_key.clone();
         <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
@@ -986,7 +990,7 @@
         <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
         <span class="kw">let </span>id = <span class="self">self</span>.id;
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
-            update_state_and_vote_if_able::&lt;TYPES, I&gt;(
+            update_state_and_vote_if_able::&lt;TYPES, I, V&gt;(
                 view,
                 proposal,
                 pub_key,
@@ -1225,7 +1229,13 @@
 
                 <span class="comment">// If we have a decided upgrade certificate, the protocol version may also have
                 // been upgraded.
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone() {
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self
+                    </span>.upgrade_lock
+                    .decided_upgrade_certificate
+                    .read()
+                    .<span class="kw">await
+                    </span>.clone()
+                {
                     <span class="kw">if </span>new_view == cert.data.new_version_first_view {
                         <span class="macro">error!</span>(
                             <span class="string">"Version upgraded based on a decided upgrade cert: {:?}"</span>,
@@ -1439,7 +1449,9 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, V&gt;
+{
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(

@@ -394,6 +394,7 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -415,7 +416,7 @@
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestTransaction,
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -431,7 +432,7 @@
         consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
     },
     utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
@@ -452,14 +453,15 @@
             Storage = TestStorage&lt;TYPES&gt;,
             AuctionResultsProvider = TestAuctionResultsProvider&lt;TYPES&gt;,
         &gt; + TestableNodeImplementation&lt;TYPES&gt;,
+    V: Versions,
 &gt;(
     node_id: u64,
 ) -&gt; (
-    SystemContextHandle&lt;TYPES, I&gt;,
+    SystemContextHandle&lt;TYPES, I, V&gt;,
     Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span>builder: TestDescription&lt;TYPES, I&gt; = TestDescription::default_multiple_rounds();
+    <span class="kw">let </span>builder: TestDescription&lt;TYPES, I, V&gt; = TestDescription::default_multiple_rounds();
 
     <span class="kw">let </span>launcher = builder.gen_launcher(node_id);
 
@@ -735,7 +737,7 @@
 }
 
 <span class="kw">pub async fn </span>build_vote(
-    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl&gt;,
+    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
     proposal: QuorumProposal&lt;TestTypes&gt;,
 ) -&gt; GeneralConsensusMessage&lt;TestTypes&gt; {
     <span class="kw">let </span>view = ViewNumber::new(<span class="kw-2">*</span>proposal.view_number);
