@@ -37,8 +37,9 @@ use hotshot_types::{
         COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
     },
     data::ViewNumber,
+    request_response::NetworkMsgResponseChannel,
     traits::{
-        network::{BroadcastDelay, ConnectedNetwork, ResponseChannel, Topic},
+        network::{BroadcastDelay, ConnectedNetwork, Topic},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -345,7 +346,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
 
     async fn spawn_request_receiver_task(
         &self,
-    ) -> Option<mpsc::Receiver<(Vec<u8>, ResponseChannel<Vec<u8>>)>> {
+    ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
         self.secondary().spawn_request_receiver_task().await
     }
 

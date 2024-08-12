@@ -33,6 +33,7 @@ use cdn_client::{
 };
 #[cfg(feature = "hotshot-testing")]
 use cdn_marshal::{Config as MarshalConfig, Marshal};
+use futures::channel::mpsc;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -40,6 +41,7 @@ use hotshot_types::traits::network::{
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
+    request_response::{NetworkMsgResponseChannel, TakeReceiver},
     traits::{
         metrics::{Counter, Metrics, NoMetrics},
         network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError, Topic as HotShotTopic},
@@ -181,6 +183,8 @@ pub struct PushCdnNetwork<TYPES: NodeType> {
     /// Whether or not the underlying network is supposed to be paused
     #[cfg(feature = "hotshot-testing")]
     is_paused: Arc<AtomicBool>,
+    // The receiver channel for
+    // request_receiver_channel: TakeReceiver,
 }
 
 /// The enum for the topics we can subscribe to in the Push CDN
@@ -429,6 +433,22 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for PushCdnNetwork
 
 #[async_trait]
 impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for PushCdnNetwork<TYPES> {
+    // async fn request_data<ReqDataTYPES: NodeType>(
+    //     &self,
+    //     request: Vec<u8>,
+    //     recipient: ReqDataTYPES::SignatureKey,
+    // ) -> Result<Vec<u8>, NetworkError> {
+    //     self.client.send_direct_message(recipient, request).await;
+
+    //     Ok(vec![])
+    // }
+
+    // async fn spawn_request_receiver_task(
+    //     &self,
+    // ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
+    //     None
+    // }
+
     /// Pause sending and receiving on the PushCDN network.
     fn pause(&self) {
         #[cfg(feature = "hotshot-testing")]

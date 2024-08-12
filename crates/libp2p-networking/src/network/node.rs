@@ -24,7 +24,9 @@ use async_compatibility_layer::{
 };
 use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 use hotshot_types::{
-    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::signature_key::SignatureKey,
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC,
+    request_response::{Request, Response},
+    traits::signature_key::SignatureKey,
 };
 use libp2p::{
     autonat,
@@ -61,7 +63,10 @@ pub use self::{
     },
 };
 use super::{
-    behaviours::dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
+    behaviours::{
+        dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
+        request_response,
+    },
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
@@ -70,7 +75,7 @@ use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
-    request_response::{Request, RequestResponseState, Response},
+    request_response::RequestResponseState,
 };
 
 /// Maximum size of a message
