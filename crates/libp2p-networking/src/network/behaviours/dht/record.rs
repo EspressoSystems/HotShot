@@ -124,6 +124,7 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
     /// If the message requires authentication, validate the record by verifying the signature with the
     /// given key
     pub fn validate(&self, record_key: &RecordKey) -> bool {
+        error!("Validating record");
         if let Self::Signed(value, signature) = self {
             // If the request is "signed", the public key is the record's key
             let Ok(public_key) = K::from_bytes(record_key.key.as_slice()) else {
