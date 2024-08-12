@@ -3066,7 +3066,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3132,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3164,7 +3164,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3214,7 +3214,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
@@ -3232,7 +3232,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3242,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3271,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3292,7 +3292,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3306,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3342,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4501,7 +4501,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
