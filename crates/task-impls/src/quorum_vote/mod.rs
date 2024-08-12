@@ -6,7 +6,6 @@
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -37,7 +36,6 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
-use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;

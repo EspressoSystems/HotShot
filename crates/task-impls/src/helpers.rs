@@ -548,7 +548,8 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
         if let Some(justify_qc_view_number) = consensus
             .read()
             .await
-            .qc_view_number(&proposal.data.justify_qc) {
+            .qc_view_number(&proposal.data.justify_qc)
+        {
             break justify_qc_view_number;
         }
         if retries < 1 {

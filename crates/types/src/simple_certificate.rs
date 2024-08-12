@@ -166,7 +166,8 @@ impl<
     fn view_number(&self) -> TYPES::Time {
         if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<QuorumData<TYPES>>()
             || std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<DaData>()
-            || std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<UpgradeProposalData<TYPES>>()
+            || std::any::TypeId::of::<VOTEABLE>()
+                == std::any::TypeId::of::<UpgradeProposalData<TYPES>>()
         {
             return self.view_number;
         }

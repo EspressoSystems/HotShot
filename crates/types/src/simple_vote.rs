@@ -13,7 +13,6 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
 use crate::{
-    constants::{UPGRADE_DECIDE_BY_OFFSET, UPGRADE_PROPOSE_OFFSET},
     data::Leaf,
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     vid::VidCommitment,
@@ -129,7 +128,8 @@ impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNu
     fn view_number(&self) -> <TYPES as NodeType>::Time {
         if std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<QuorumData<TYPES>>()
             || std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<DaData>()
-            || std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<UpgradeProposalData<TYPES>>()
+            || std::any::TypeId::of::<DATA>()
+                == std::any::TypeId::of::<UpgradeProposalData<TYPES>>()
         {
             return self.view_number;
         }

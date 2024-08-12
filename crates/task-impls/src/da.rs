@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
@@ -31,7 +31,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
-use std::time::Duration;
 use std::{marker::PhantomData, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;

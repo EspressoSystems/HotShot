@@ -393,8 +393,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                     let consensus_reader = self.consensus.read().await;
                     let mut retries = 5;
                     let qc_view_number = loop {
-                        if let Some(qc_view_number) = consensus_reader
-                            .qc_view_number(&qc) {
+                        if let Some(qc_view_number) = consensus_reader.qc_view_number(&qc) {
                             break qc_view_number;
                         }
                         if retries < 1 {
