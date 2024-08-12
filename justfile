@@ -39,7 +39,7 @@ build_release *ARGS:
   cargo build --profile=release {{ARGS}}
 
 example *ARGS:
-  cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
+  cargo run --package hotshot-examples --no-default-features --example {{ARGS}}
 
 example_fixed_leader *ARGS:
   cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
@@ -53,31 +53,31 @@ test *ARGS:
 
 test-ci *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test-ci-rest *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5 --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5 --test-threads=1 --nocapture
 
 test-ci-1 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_1 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test-ci-2 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test-ci-3 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_3 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_3 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test-ci-4 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_4 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_4 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test-ci-5 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_5 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
+  RUST_LOG=error,hotshot=debug,libp2p-networking=debug cargo test tests_5 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
 
