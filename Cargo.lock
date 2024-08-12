@@ -142,9 +142,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle"
-version = "1.0.8"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bec1de6f59aedf83baf9ff929c98f2ad654b97c9510f4e70cf6f661d49fd5b1"
+checksum = "038dfcf04a5feb68e9c60b21c9625a54c2c0616e79b72b0fd87075a056ae1d1b"
 
 [[package]]
 name = "anstyle-parse"
@@ -1452,9 +1452,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.14"
+version = "4.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c937d4061031a6d0c8da4b9a4f98a172fc2976dfb1c19213a9cf7d0d3c837e36"
+checksum = "0fbb260a053428790f3de475e304ff84cdbc4face759ea7a3e64c1edd938a7fc"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1462,9 +1462,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.14"
+version = "4.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85379ba512b21a328adf887e85f7742d12e96eb31f3ef077df4ffc26b506ffed"
+checksum = "64b17d7ea74e9f833c7dbf2cbe4fb12ff26783eda4782a8975b72f895c9b4d99"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1556,7 +1556,7 @@ dependencies = [
  "ark-serialize",
  "bitvec",
  "derivative",
- "derive_more",
+ "derive_more 0.99.18",
  "funty",
  "hex",
  "serde",
@@ -2152,6 +2152,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "derive_more"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+dependencies = [
+ "proc-macro2",
+ "quote",
  "syn 2.0.72",
 ]
 
@@ -3046,7 +3066,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3065,7 +3085,7 @@ dependencies = [
  "committable",
  "custom_debug",
  "dashmap",
- "derive_more",
+ "derive_more 1.0.0",
  "either",
  "ethereum-types",
  "futures",
@@ -3099,7 +3119,7 @@ dependencies = [
  "async-trait",
  "clap",
  "committable",
- "derive_more",
+ "derive_more 1.0.0",
  "futures",
  "hotshot-types",
  "serde",
@@ -3112,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3144,7 +3164,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3162,7 +3182,7 @@ dependencies = [
  "committable",
  "custom_debug",
  "dashmap",
- "derive_more",
+ "derive_more 1.0.0",
  "either",
  "futures",
  "hotshot",
@@ -3194,7 +3214,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
@@ -3212,7 +3232,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3222,7 +3242,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3251,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3272,7 +3292,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3286,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3322,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4198,7 +4218,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.5",
 ]
 
 [[package]]
@@ -4481,7 +4501,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.68"
+version = "0.5.69"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -6616,9 +6636,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.205"
+version = "1.0.204"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e33aedb1a7135da52b7c21791455563facbbcc43d0f0f66165b42c21b3dfb150"
+checksum = "bc76f558e0cbb2a839d37354c575f1dc3fdc6546b5be373ba43d95f231bf7c12"
 dependencies = [
  "serde_derive",
 ]
@@ -6645,9 +6665,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.205"
+version = "1.0.204"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692d6f5ac90220161d6774db30c662202721e64aed9058d2c394f451261420c1"
+checksum = "e0cd7e117be63d3c3678776753929474f3b04a43a080c744d6b0ae2a8c28e222"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6948,7 +6968,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d1e02fca405f6280643174a50c942219f0bbf4dbf7d480f1dd864d6f211ae5"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
@@ -7607,7 +7627,7 @@ dependencies = [
  "clap",
  "config",
  "derivative",
- "derive_more",
+ "derive_more 0.99.18",
  "dirs",
  "edit-distance",
  "futures",
@@ -8353,7 +8373,7 @@ checksum = "6a9d83afb293d109ae418271619046cd9d87d63ba83e473e25a5e36101edc453"
 dependencies = [
  "anyhow",
  "bincode",
- "derive_more",
+ "derive_more 0.99.18",
  "serde",
  "serde_with",
 ]
