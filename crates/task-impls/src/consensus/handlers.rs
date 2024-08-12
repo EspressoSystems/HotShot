@@ -723,10 +723,10 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     let Some(cert) = read_consnesus.saved_da_certs().get(&cur_view).cloned() else {
         return false;
     };
-    let Some(view) = read_consnesus.dac_view_number(&cert) else {
-        warn!("We have received a DAC but we haven't seen this VID commitment yet!");
-        return false;
-    };
+    // let Some(view) = read_consnesus.dac_view_number(&cert) else {
+    //     warn!("We have received a DAC but we haven't seen this VID commitment yet!");
+    //     return false;
+    // };
     drop(read_consnesus);
 
     // TODO: do some of this logic without the vote token check, only do that when voting.
@@ -766,7 +766,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
     };
     drop(read_consnesus);
 
-    let version = match version(view, &vote_info.1.read().await.clone()) {
+    let version = match version(cur_view, &vote_info.1.read().await.clone()) {
         Ok(version) => version,
         Err(e) => {
             error!("Failed to calculate the version: {e:?}");
@@ -802,7 +802,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
         if cert.data().payload_commit != proposal.block_header.payload_commitment() {
             warn!(
                 "Block payload commitment does not equal da cert payload commitment. View = {}",
-                *view
+                *cur_view
             );
             return false;
         }
@@ -810,7 +810,7 @@ pub async fn update_state_and_vote_if_able<TYPES: NodeType, I: NodeImplementatio
             QuorumData {
                 leaf_commit: proposed_leaf.commit(),
             },
-            view,
+            cur_view,
             &public_key,
             &vote_info.0,
         ) {

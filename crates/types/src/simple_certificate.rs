@@ -166,12 +166,20 @@ impl<
     fn view_number(&self) -> TYPES::Time {
         if std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<QuorumData<TYPES>>()
             || std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<DaData>()
+            || std::any::TypeId::of::<VOTEABLE>() == std::any::TypeId::of::<UpgradeProposalData<TYPES>>()
         {
             return self.view_number;
         }
         self.data().view_number()
     }
 }
+
+// impl<TYPES> HasViewNumber<TYPES> for UpgradeCertificate<TYPES> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
 impl<TYPES: NodeType> Display for QuorumCertificate<TYPES> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "view: {:?}", self.view_number())

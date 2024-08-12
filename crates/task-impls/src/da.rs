@@ -254,20 +254,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
-                let mut retries = 0;
-                // This is a workaround: we might have already received a vote for VID that we haven't yet calculated on our own.
-                let vote_view_number = loop {
-                    if let Some(view_number) = self.consensus.read().await.da_vote_view_number(vote)
-                    {
-                        break view_number;
-                    }
-                    if retries > 5 {
-                        warn!("We have received a DA vote but we haven't seen this VID commitment yet!");
-                        return None;
-                    }
-                    async_sleep(Duration::from_millis(10)).await;
-                    retries += 1;
-                };
+                let vote_view_number = vote.view_number();
+                // let mut retries = 0;
+                // // This is a workaround: we might have already received a vote for VID that we haven't yet calculated on our own.
+                // let vote_view_number = loop {
+                //     if let Some(view_number) = self.consensus.read().await.da_vote_view_number(vote)
+                //     {
+                //         break view_number;
+                //     }
+                //     if retries > 5 {
+                //         warn!("We have received a DA vote but we haven't seen this VID commitment yet!");
+                //         return None;
+                //     }
+                //     async_sleep(Duration::from_millis(10)).await;
+                //     retries += 1;
+                // };
                 debug!("DA vote recv, Main Task {:?}", vote_view_number);
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote_view_number;

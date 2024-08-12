@@ -129,6 +129,7 @@ impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNu
     fn view_number(&self) -> <TYPES as NodeType>::Time {
         if std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<QuorumData<TYPES>>()
             || std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<DaData>()
+            || std::any::TypeId::of::<DATA>() == std::any::TypeId::of::<UpgradeProposalData<TYPES>>()
         {
             return self.view_number;
         }
@@ -143,6 +144,12 @@ impl<TYPES: NodeType, DATA: Voteable + HasViewNumber<TYPES> + 'static> HasViewNu
 // }
 
 // impl<TYPES> HasViewNumber<TYPES> for SimpleVote<TYPES, DaData> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
+// impl<TYPES> HasViewNumber<TYPES> for SimpleVote<TYPES, UpgradeVote<TYPES>> {
 //     fn view_number(&self) -> TYPES::Time {
 //         todo!()
 //     }
@@ -286,7 +293,7 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposalData<TYPES> {
     fn view_number(&self) -> TYPES::Time {
-        self.decide_by + UPGRADE_PROPOSE_OFFSET - UPGRADE_DECIDE_BY_OFFSET
+        unimplemented!();
     }
 }
 
