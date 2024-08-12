@@ -367,6 +367,25 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -400,6 +419,7 @@
 <span class="kw">use crate</span>::{
     node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
+    testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay},
 };
 
 <span class="doccomment">/// The transaction in a [`TestBlockPayload`].
@@ -637,14 +657,19 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&lt;BlockHeader = <span class="self">Self</span>, BlockPayload = TestBlockPayload&gt;&gt; BlockHeader&lt;TYPES&gt;
-    <span class="kw">for </span>TestBlockHeader
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType&lt;
+            BlockHeader = <span class="self">Self</span>,
+            BlockPayload = TestBlockPayload,
+            InstanceState = TestInstanceState,
+        &gt;,
+    &gt; BlockHeader&lt;TYPES&gt; <span class="kw">for </span>TestBlockHeader
 {
     <span class="kw">type </span>Error = std::convert::Infallible;
 
     <span class="kw">async fn </span>new_legacy(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
-        _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
+        instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
@@ -653,6 +678,7 @@
         _vid_common: VidCommon,
         _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span>instance_state.delay_config).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new(
             parent_leaf,
             payload_commitment,
@@ -662,7 +688,7 @@
 
     <span class="kw">async fn </span>new_marketplace(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
-        _instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
+        instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
@@ -672,6 +698,7 @@
         _auction_results: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
         _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span>instance_state.delay_config).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new(
             parent_leaf,
             payload_commitment,
@@ -732,6 +759,17 @@
 
     <span class="kw">fn </span>tag() -&gt; String {
         <span class="string">"TEST_HEADER"</span>.to_string()
+    }
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>TestableDelay <span class="kw">for </span>TestBlockHeader {
+    <span class="kw">async fn </span>run_delay_settings_from_config(delay_config: <span class="kw-2">&amp;</span>DelayConfig) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(settings) =
+            delay_config.get_setting(<span class="kw-2">&amp;</span>SupportedTraitTypesForAsyncDelay::BlockHeader)
+        {
+            <span class="self">Self</span>::handle_async_delay(settings).<span class="kw">await</span>;
+        }
     }
 }
 </code></pre></div></section></main></body></html>

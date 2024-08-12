@@ -130,6 +130,29 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -137,8 +160,7 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="doccomment">//! Implementations for examples and tests only
-</span><span class="kw">use </span>std::fmt::Debug;
-
+</span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_types::{
     data::{fake_commitment, BlockError, Leaf, ViewNumber},
@@ -152,16 +174,28 @@
 };
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>vbs::version::Version;
 
-<span class="kw">use </span><span class="kw">crate</span>::block_types::{TestBlockPayload, TestTransaction};
 <span class="kw">pub use </span><span class="kw">crate</span>::node_types::TestTypes;
+<span class="kw">use crate</span>::{
+    block_types::{TestBlockPayload, TestTransaction},
+    testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay},
+};
 
 <span class="doccomment">/// Instance-level state implementation for testing purposes.
-</span><span class="attr">#[derive(Clone, Copy, Debug, Default)]
-</span><span class="kw">pub struct </span>TestInstanceState {}
+</span><span class="attr">#[derive(Clone, Debug, Default)]
+</span><span class="kw">pub struct </span>TestInstanceState {
+    <span class="kw">pub </span>delay_config: DelayConfig,
+}
 
 <span class="kw">impl </span>InstanceState <span class="kw">for </span>TestInstanceState {}
+
+<span class="kw">impl </span>TestInstanceState {
+    <span class="kw">pub fn </span>new(delay_config: DelayConfig) -&gt; <span class="self">Self </span>{
+        TestInstanceState { delay_config }
+    }
+}
 
 <span class="doccomment">/// Application-specific state delta implementation for testing purposes.
 </span><span class="attr">#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -200,6 +234,17 @@
     }
 }
 
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>TestableDelay <span class="kw">for </span>TestValidatedState {
+    <span class="kw">async fn </span>run_delay_settings_from_config(delay_config: <span class="kw-2">&amp;</span>DelayConfig) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(settings) =
+            delay_config.get_setting(<span class="kw-2">&amp;</span>SupportedTraitTypesForAsyncDelay::ValidatedState)
+        {
+            <span class="self">Self</span>::handle_async_delay(settings).<span class="kw">await</span>;
+        }
+    }
+}
+
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ValidatedState&lt;TYPES&gt; <span class="kw">for </span>TestValidatedState {
     <span class="kw">type </span>Error = BlockError;
 
@@ -211,12 +256,13 @@
 
     <span class="kw">async fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
+        instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
         _parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         _proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
         _vid_common: VidCommon,
         _version: Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Delta), <span class="self">Self</span>::Error&gt; {
+        <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span>instance.delay_config).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>((
             TestValidatedState {
                 block_height: <span class="self">self</span>.block_height + <span class="number">1</span>,

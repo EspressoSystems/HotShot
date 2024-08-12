@@ -631,7 +631,7 @@
             &lt;TestBlockPayload <span class="kw">as </span>BlockPayload&lt;TestTypes&gt;&gt;::from_transactions(
                 transactions.clone(),
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                <span class="kw-2">&amp;</span>TestInstanceState {},
+                <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await
             </span>.unwrap();
@@ -675,7 +675,7 @@
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                <span class="kw-2">&amp;</span>TestInstanceState {},
+                <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await</span>,
             upgrade_certificate: <span class="prelude-val">None</span>,
@@ -765,7 +765,7 @@
             &lt;TestBlockPayload <span class="kw">as </span>BlockPayload&lt;TestTypes&gt;&gt;::from_transactions(
                 transactions.clone(),
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                <span class="kw-2">&amp;</span>TestInstanceState {},
+                <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await
             </span>.unwrap();

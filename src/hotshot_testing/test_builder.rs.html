@@ -500,6 +500,18 @@
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -516,7 +528,7 @@
 };
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    storage_types::TestStorage,
+    storage_types::TestStorage, testable_delay::DelayConfig,
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
@@ -594,6 +606,8 @@
     </span><span class="kw">pub </span>solver: FakeSolverApiDescription,
     <span class="doccomment">/// nodes with byzantine behaviour
     </span><span class="kw">pub </span>behaviour: Rc&lt;<span class="kw">dyn </span>Fn(u64) -&gt; Behaviour&lt;TYPES, I&gt;&gt;,
+    <span class="doccomment">/// Delay config if any to add delays to asynchronous calls
+    </span><span class="kw">pub </span>async_delay_config: DelayConfig,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -607,7 +621,7 @@
     TYPES: NodeType&lt;InstanceState = TestInstanceState&gt;,
     I: NodeImplementation&lt;TYPES&gt;,
 &gt;(
-    behaviour: Behaviour&lt;TYPES, I&gt;,
+    metadata: TestDescription&lt;TYPES, I&gt;,
     node_id: u64,
     network: Network&lt;TYPES, I&gt;,
     memberships: Memberships&lt;TYPES&gt;,
@@ -615,9 +629,11 @@
     storage: I::Storage,
     marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
 ) -&gt; SystemContextHandle&lt;TYPES, I&gt; {
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
-        .<span class="kw">await
-        </span>.unwrap();
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState::new(
+        metadata.async_delay_config,
+    ))
+    .<span class="kw">await
+    </span>.unwrap();
 
     <span class="comment">// See whether or not we should be DA
     </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
@@ -629,6 +645,7 @@
     </span><span class="kw">let </span>private_key = validator_config.private_key.clone();
     <span class="kw">let </span>public_key = validator_config.public_key.clone();
 
+    <span class="kw">let </span>behaviour = (metadata.behaviour)(node_id);
     <span class="kw">match </span>behaviour {
         Behaviour::ByzantineTwins(state) =&gt; {
             <span class="kw">let </span>state = Box::leak(state);
@@ -869,6 +886,7 @@
                 </span>error_pct: <span class="number">0.1</span>,
             },
             behaviour: Rc::new(|<span class="kw">_</span>| Behaviour::Standard),
+            async_delay_config: DelayConfig::default(),
         }
     }
 }
@@ -979,6 +997,7 @@
                 a.view_sync_timeout = view_sync_timeout;
             };
 
+        <span class="kw">let </span>metadata = <span class="self">self</span>.clone();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: &lt;I <span class="kw">as </span>TestableNodeImplementation&lt;TYPES&gt;&gt;::gen_networks(
@@ -988,7 +1007,12 @@
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(|<span class="kw">_</span>| TestStorage::&lt;TYPES&gt;::default()),
+                storage: Box::new(<span class="kw">move </span>|<span class="kw">_</span>| {
+                    <span class="kw">let </span><span class="kw-2">mut </span>storage = TestStorage::&lt;TYPES&gt;::default();
+                    <span class="comment">// update storage impl to use settings delay option
+                    </span>storage.delay_config = metadata.async_delay_config.clone();
+                    storage
+                }),
                 config,
                 marketplace_config: Box::new(|<span class="kw">_</span>| MarketplaceConfig::&lt;TYPES, I&gt; {
                     auction_results_provider: TestAuctionResultsProvider::&lt;TYPES&gt;::default().into(),

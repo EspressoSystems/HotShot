@@ -716,6 +716,10 @@
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -896,13 +900,17 @@
             late_start,
             latest_view: <span class="prelude-val">None</span>,
             changes,
-            last_decided_leaf: Leaf::genesis(<span class="kw-2">&amp;</span>TestValidatedState::default(), <span class="kw-2">&amp;</span>TestInstanceState {})
-                .<span class="kw">await</span>,
-            high_qc: QuorumCertificate::genesis(
+            last_decided_leaf: Leaf::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                <span class="kw-2">&amp;</span>TestInstanceState {},
+                <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await</span>,
+            high_qc: QuorumCertificate::genesis(
+                <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                <span class="kw-2">&amp;</span>TestInstanceState::default(),
+            )
+            .<span class="kw">await</span>,
+            async_delay_config: <span class="self">self</span>.launcher.metadata.async_delay_config,
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I&gt;&gt;::new(
             spinning_task_state,
@@ -1188,10 +1196,11 @@
                         },
                     );
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>initializer =
-                        HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
-                            .<span class="kw">await
-                            </span>.unwrap();
+                    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(
+                        TestInstanceState::new(<span class="self">self</span>.launcher.metadata.async_delay_config.clone()),
+                    )
+                    .<span class="kw">await
+                    </span>.unwrap();
 
                     <span class="comment">// See whether or not we should be DA
                     </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
@@ -1254,9 +1263,8 @@
         </span><span class="kw">for </span>(node_id, network, memberships, config, storage, marketplace_config) <span class="kw">in
             </span>uninitialized_nodes
         {
-            <span class="kw">let </span>behaviour = (<span class="self">self</span>.launcher.metadata.behaviour)(node_id);
             <span class="kw">let </span>handle = create_test_handle(
-                behaviour,
+                <span class="self">self</span>.launcher.metadata.clone(),
                 node_id,
                 network.clone(),
                 memberships,

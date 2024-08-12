@@ -334,6 +334,9 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -354,6 +357,7 @@
     auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
+    testable_delay::DelayConfig,
 };
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
@@ -394,6 +398,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) last_decided_leaf: Leaf&lt;TYPES&gt;,
     <span class="doccomment">/// Highest qc seen in the test for restarting nodes
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) high_qc: QuorumCertificate&lt;TYPES&gt;,
+    <span class="doccomment">/// Add specified delay to async calls
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) async_delay_config: DelayConfig,
 }
 
 <span class="attr">#[async_trait]
@@ -464,7 +470,7 @@
 
                                         <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
                                             <span class="self">self</span>.last_decided_leaf.clone(),
-                                            TestInstanceState {},
+                                            TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
                                             <span class="prelude-val">None</span>,
                                             view_number,
                                             BTreeMap::new(),
@@ -541,14 +547,14 @@
                                 <span class="kw">let </span>read_storage = storage.read().<span class="kw">await</span>;
                                 <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
                                     <span class="self">self</span>.last_decided_leaf.clone(),
-                                    TestInstanceState {},
+                                    TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
                                     <span class="prelude-val">None</span>,
                                     view_number,
                                     read_storage.proposals_cloned().<span class="kw">await</span>,
                                     read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
                                         QuorumCertificate::genesis(
                                             <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                                            <span class="kw-2">&amp;</span>TestInstanceState {},
+                                            <span class="kw-2">&amp;</span>TestInstanceState::default(),
                                         )
                                         .<span class="kw">await</span>,
                                     ),

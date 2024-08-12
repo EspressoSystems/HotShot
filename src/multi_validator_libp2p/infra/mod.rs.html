@@ -1066,6 +1066,7 @@
 <a href="#1064" id="1064">1064</a>
 <a href="#1065" id="1065">1065</a>
 <a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1433,9 +1434,10 @@
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
     </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE&gt; {
-        <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
-            .<span class="kw">await
-            </span>.expect(<span class="string">"Couldn't generate genesis block"</span>);
+        <span class="kw">let </span>initializer =
+            hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState::default())
+                .<span class="kw">await
+                </span>.expect(<span class="string">"Couldn't generate genesis block"</span>);
 
         <span class="kw">let </span>config = <span class="self">self</span>.config();
 

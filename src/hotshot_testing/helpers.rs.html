@@ -392,6 +392,8 @@
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -466,9 +468,11 @@
     <span class="kw">let </span>marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState {})
-        .<span class="kw">await
-        </span>.unwrap();
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState::new(
+        launcher.metadata.async_delay_config,
+    ))
+    .<span class="kw">await
+    </span>.unwrap();
 
     <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();
