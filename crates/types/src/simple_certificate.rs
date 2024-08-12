@@ -175,6 +175,18 @@ impl<
     }
 }
 
+// impl<TYPES> HasViewNumber<TYPES> for QuorumData<TYPES> {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
+// impl<TYPES> HasViewNumber<TYPES> for DaData {
+//     fn view_number(&self) -> TYPES::Time {
+//         todo!()
+//     }
+// }
+
 // impl<TYPES> HasViewNumber<TYPES> for UpgradeCertificate<TYPES> {
 //     fn view_number(&self) -> TYPES::Time {
 //         todo!()
