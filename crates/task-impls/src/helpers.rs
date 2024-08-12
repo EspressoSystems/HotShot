@@ -531,6 +531,7 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
     quorum_membership: &Arc<TYPES::Membership>,
     timeout_membership: &Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
+    event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> Result<()> {
     let view = proposal.data.view_number();
     ensure!(
@@ -542,13 +543,26 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType>(
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     proposal.validate_signature(quorum_membership)?;
 
-    let Some(justify_qc_view_number) = consensus
-        .read()
-        .await
-        .qc_view_number(&proposal.data.justify_qc)
-    else {
-        warn!("We haven't seen this leaf yet!");
-        bail!("We haven't seen this leaf yet!");
+    let mut retries = 5;
+    let justify_qc_view_number = loop {
+        if let Some(justify_qc_view_number) = consensus
+            .read()
+            .await
+            .qc_view_number(&proposal.data.justify_qc) {
+            break justify_qc_view_number;
+        }
+        if retries < 1 {
+            warn!("We haven't seen this leaf yet!");
+            bail!("We haven't seen this leaf yet!");
+        }
+        retries -= 1;
+        let _ = fetch_proposal(
+            &proposal.data.justify_qc,
+            event_sender.clone(),
+            Arc::clone(quorum_membership),
+            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
+        )
+        .await;
     };
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if justify_qc_view_number != view - 1 {

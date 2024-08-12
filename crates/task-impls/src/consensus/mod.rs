@@ -44,7 +44,7 @@ use crate::{
         update_state_and_vote_if_able,
     },
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
+    helpers::{broadcast_event, cancel_task, fetch_proposal, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
@@ -407,6 +407,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     };
                 }
                 either::Left(qc) => {
+                    let mut retries = 5;
+                    let qc_view_number = loop {
+                        if let Some(qc_view_number) = self.consensus
+                            .read()
+                            .await
+                            .qc_view_number(&qc) {
+                            break qc_view_number;
+                        }
+                        if retries < 1 {
+                            warn!("We haven't seen this leaf yet!");
+                            return;
+                        }
+                        retries -= 1;
+                        let _ = fetch_proposal(
+                            &qc,
+                            event_stream.clone(),
+                            Arc::clone(&self.quorum_membership),
+                            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                        )
+                        .await;
+                    };
                     if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
                         error!("Failed to store High QC of QC we formed. Error: {:?}", e);
                     }
@@ -416,14 +437,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                     }
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",
-                        *qc.view_number()
+                        *qc_view_number
                     );
 
-                    let Some(qc_view_number) = self.consensus.read().await.qc_view_number(qc)
-                    else {
-                        warn!("We haven't seen this leaf yet!");
-                        return;
-                    };
                     if let Err(e) = self
                         .publish_proposal(qc_view_number + 1, event_stream)
                         .await

@@ -317,6 +317,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         &task_state.quorum_membership,
         &task_state.timeout_membership,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+        &event_stream,
     )
     .await
     .context("Failed to validate proposal view and attached certs")?;

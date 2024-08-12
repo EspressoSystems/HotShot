@@ -37,7 +37,7 @@ use tracing::{debug, instrument, warn};
 use self::handlers::{ProposalDependency, ProposalDependencyHandle};
 use crate::{
     events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    helpers::{broadcast_event, cancel_task, fetch_proposal},
 };
 
 mod handlers;
@@ -391,9 +391,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
                     let consensus_reader = self.consensus.read().await;
-                    let Some(qc_view_number) = consensus_reader.qc_view_number(&qc) else {
-                        warn!("We haven't seen this leaf yet!");
-                        return;
+                    let mut retries = 5;
+                    let qc_view_number = loop {
+                        if let Some(qc_view_number) = consensus_reader
+                            .qc_view_number(&qc) {
+                            break qc_view_number;
+                        }
+                        if retries < 1 {
+                            warn!("We haven't seen this leaf yet!");
+                            return;
+                        }
+                        retries -= 1;
+                        let _ = fetch_proposal(
+                            &qc,
+                            event_sender.clone(),
+                            Arc::clone(&self.quorum_membership),
+                            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                        )
+                        .await;
                     };
                     let Some(high_qc_view_number) = consensus_reader.high_qc_view_number() else {
                         warn!("We haven't seen this leaf yet!");
