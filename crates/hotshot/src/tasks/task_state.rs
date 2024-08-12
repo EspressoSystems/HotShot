@@ -208,10 +208,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             auction_results_provider: Arc::clone(
                 &handle.hotshot.marketplace_config.auction_results_provider,
             ),
-            generic_builder_url: handle
+            fallback_builder_url: handle
                 .hotshot
                 .marketplace_config
-                .generic_builder_url
+                .fallback_builder_url
                 .clone(),
         }
     }

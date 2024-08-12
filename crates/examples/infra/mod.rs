@@ -366,9 +366,10 @@ pub trait RunDa<
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
     async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE, V> {
-        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
-            .await
-            .expect("Couldn't generate genesis block");
+        let initializer =
+            hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
+                .await
+                .expect("Couldn't generate genesis block");
 
         let config = self.config();
 
@@ -405,8 +406,8 @@ pub trait RunDa<
 
         let marketplace_config = MarketplaceConfig {
             auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
-            // TODO: we need to pass a valid generic builder url here somehow
-            generic_builder_url: url::Url::parse("http://localhost").unwrap(),
+            // TODO: we need to pass a valid fallback builder url here somehow
+            fallback_builder_url: url::Url::parse("http://localhost").unwrap(),
         };
 
         SystemContext::init(
