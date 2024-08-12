@@ -92,7 +92,6 @@ async fn test_upgrade_task_with_vote() {
             .unwrap();
         consensus_writer.update_saved_leaves(view.leaf.clone());
     }
-    drop(consensus_writer);
 
     generator.add_upgrade(upgrade_data);
 
@@ -104,6 +103,10 @@ async fn test_upgrade_task_with_vote() {
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
     }
+
+    let _ = consensus_writer.update_high_qc(proposals[2].data.justify_qc.clone());
+
+    drop(consensus_writer);
 
     let inputs = vec![
         random![

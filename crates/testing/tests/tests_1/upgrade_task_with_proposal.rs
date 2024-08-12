@@ -209,12 +209,12 @@ async fn test_upgrade_task_with_proposal() {
             ]),
             Expectations::from_outputs(all_predicates![
                 exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-                exact(HighQcUpdated(proposals[1].data.view_number())),
+                exact(HighQcUpdated(proposals[1].data.justify_qc.view_number())),
             ]),
             Expectations::from_outputs(vec![]),
             Expectations::from_outputs(all_predicates![
                 exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-                exact(HighQcUpdated(proposals[2].data.view_number())),
+                exact(HighQcUpdated(proposals[2].data.justify_qc.view_number())),
                 quorum_proposal_send_with_upgrade_certificate::<TestTypes>()
             ]),
         ],

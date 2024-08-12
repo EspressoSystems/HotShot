@@ -302,7 +302,7 @@ impl TestView {
             >(
                 data.clone(),
                 quorum_membership,
-                next_view,
+                data.view,
                 &public_key,
                 &private_key,
             );

@@ -284,20 +284,20 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ]),
         Expectations::from_outputs(all_predicates![
             exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[1].data.view_number())),
+            exact(HighQcUpdated(proposals[1].data.justify_qc.view_number())),
         ]),
         Expectations::from_outputs(all_predicates![
             exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[2].data.view_number())),
+            exact(HighQcUpdated(proposals[2].data.justify_qc.view_number())),
             quorum_proposal_send(),
         ]),
         Expectations::from_outputs(all_predicates![
             exact(UpdateHighQc(proposals[3].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[3].data.view_number())),
+            exact(HighQcUpdated(proposals[3].data.justify_qc.view_number())),
         ]),
         Expectations::from_outputs(all_predicates![
             exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[4].data.view_number())),
+            exact(HighQcUpdated(proposals[4].data.justify_qc.view_number())),
         ]),
     ];
 
@@ -348,7 +348,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
         leaves.push(view.leaf.clone());
     }
     let timeout_data = TimeoutData {
-        view: ViewNumber::new(1),
+        view: ViewNumber::new(2),
     };
     generator.add_timeout(timeout_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
