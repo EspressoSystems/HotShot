@@ -317,6 +317,8 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
         // Validate the signature
         if !record.validate(&key) {
             return Err(NetworkNodeHandleError::FailedToVerify);
+        } else {
+            println!("Failed to verify");
         }
 
         Ok(record.value().to_vec())
