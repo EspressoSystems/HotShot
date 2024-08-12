@@ -491,6 +491,9 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     // for a view sync or timeout cert. This value could be anything as long as it is not the
     // previous view number.
     proposals[0].data.justify_qc.view_number = proposals[3].data.justify_qc.view_number();
+    // We need to change signatures as well because is_cert_valid panics when
+    // view_number != 0 and signatures == None
+    proposals[0].data.justify_qc.signatures = proposals[3].data.justify_qc.signatures.clone();
 
     let inputs = vec![
         random![
