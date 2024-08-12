@@ -33,7 +33,6 @@ use cdn_client::{
 };
 #[cfg(feature = "hotshot-testing")]
 use cdn_marshal::{Config as MarshalConfig, Marshal};
-use futures::channel::mpsc;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -41,7 +40,6 @@ use hotshot_types::traits::network::{
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
-    request_response::{NetworkMsgResponseChannel, TakeReceiver},
     traits::{
         metrics::{Counter, Metrics, NoMetrics},
         network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError, Topic as HotShotTopic},

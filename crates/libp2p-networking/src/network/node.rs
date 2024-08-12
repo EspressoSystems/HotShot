@@ -63,10 +63,7 @@ pub use self::{
     },
 };
 use super::{
-    behaviours::{
-        dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
-        request_response,
-    },
+    behaviours::dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,

@@ -6,14 +6,9 @@
 
 use std::collections::HashMap;
 
-use async_lock::Mutex;
-use futures::channel::{
-    mpsc::{self, Receiver},
-    oneshot::Sender,
-};
-use hotshot_types::request_response::{Request, Response, NetworkMsgResponseChannel};
+use futures::channel::oneshot::Sender;
+use hotshot_types::request_response::{Request, Response};
 use libp2p::request_response::{Message, OutboundRequestId};
-use serde::{Deserialize, Serialize};
 
 use crate::network::NetworkEvent;
 

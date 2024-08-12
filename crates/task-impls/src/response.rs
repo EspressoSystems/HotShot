@@ -10,7 +10,7 @@ use async_broadcast::Receiver;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use futures::{channel::mpsc, FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
@@ -19,7 +19,7 @@ use hotshot_types::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
         SequencingMessage,
     },
-    request_response::{RequestReceiver, NetworkMsgResponseChannel},
+    request_response::{NetworkMsgResponseChannel, RequestReceiver},
     traits::{
         election::Membership,
         network::{DataRequest, RequestKind, ResponseMessage},

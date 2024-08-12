@@ -48,7 +48,7 @@ use hotshot_types::{
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
-        network::{self, ConnectedNetwork, NetworkError, ResponseMessage, Topic},
+        network::{ConnectedNetwork, NetworkError, ResponseMessage, Topic},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
