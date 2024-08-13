@@ -342,7 +342,7 @@ mod test {
 
         // Validate it
         assert!(
-            record_value.validate(&record_key) == false,
+            !record_value.validate(&record_key),
             "Failed to detect invalid unsigned record"
         );
     }
