@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use anyhow::{bail, Context, Result};
 use hotshot_types::traits::signature_key::SignatureKey;
 use libp2p::kad::Record;
@@ -136,9 +134,7 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
             signed_value.extend_from_slice(value);
 
             // Check the entire value
-            let now = Instant::now();
             let _ = public_key.validate(signature, &signed_value);
-            println!("Signature validation took {:?}", now.elapsed());
 
             true
         } else {
