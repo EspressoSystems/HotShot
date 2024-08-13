@@ -4,6 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use hotshot_types::request_response::{Request, Response};
 use libp2p::{
     autonat,
     gossipsub::{Behaviour as GossipBehaviour, Event as GossipEvent, IdentTopic},
@@ -17,7 +18,6 @@ use libp2p_swarm_derive::NetworkBehaviour;
 use tracing::{debug, error};
 
 use super::NetworkEventInternal;
-use hotshot_types::request_response::{Request, Response};
 
 /// Overarching network behaviour performing:
 /// - network topology discovoery

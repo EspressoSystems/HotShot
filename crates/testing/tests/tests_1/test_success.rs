@@ -8,7 +8,10 @@ use std::{rc::Rc, time::Duration};
 
 use hotshot::tasks::{BadProposalViewDos, DoubleProposeVote};
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
+    node_types::{
+        Libp2pImpl, MarketplaceUpgradeTestVersions, MemoryImpl, PushCdnImpl,
+        TestConsecutiveLeaderTypes, TestVersions,
+    },
     state_types::TestTypes,
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
@@ -34,6 +37,26 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
+            ..TestDescription::default()
+        }
+    },
+);
+
+cross_tests!(
+    TestName: test_success_marketplace,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTypes],
+    Versions: [MarketplaceUpgradeTestVersions],
+    Ignore: false,
+    Metadata: {
+        TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            upgrade_view: Some(5),
             ..TestDescription::default()
         }
     },
