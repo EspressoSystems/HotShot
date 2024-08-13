@@ -327,11 +327,9 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
             .map_err(|e| NetworkNodeHandleError::DeserializationError { source: e.into() })?;
 
         // Validate the signature
-        let now = Instant::now();
         if !record.validate(&key, &Arc::clone(&self.record_cache)) {
             return Err(NetworkNodeHandleError::FailedToVerify);
         }
-        println!("Validation took {:?}", now.elapsed());
 
         Ok(record.value().to_vec())
     }
