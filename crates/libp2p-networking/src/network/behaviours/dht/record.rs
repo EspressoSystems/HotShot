@@ -6,7 +6,7 @@ use tracing::warn;
 
 /// A (signed or unsigned) record value to be stored (serialized) in the DHT.
 /// This is a wrapper around a value that includes a possible signature.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub enum RecordValue<K: SignatureKey + 'static> {
     /// A signed record value
     Signed(Vec<u8>, K::PureAssembledSignatureType),
@@ -26,6 +26,15 @@ pub enum Namespace {
     #[cfg(test)]
     /// A secondary record type for testing purposes
     Testing = u8::MAX,
+}
+
+/// Require certain namespaces to be authenticated
+fn requires_authentication(namespace: Namespace) -> bool {
+    match namespace {
+        Namespace::Lookup => true,
+        #[cfg(test)]
+        Namespace::Testing => false,
+    }
 }
 
 /// Allow fallible conversion from a byte to a namespace
@@ -121,22 +130,28 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
     /// If the message requires authentication, validate the record by verifying the signature with the
     /// given key
     pub fn validate(&self, record_key: &RecordKey) -> bool {
-        if let Self::Signed(value, signature) = self {
-            // If the request is "signed", the public key is the record's key
-            let Ok(public_key) = K::from_bytes(record_key.key.as_slice()) else {
-                warn!("Failed to deserialize signer's public key");
-                return false;
-            };
-
-            // The value to sign should be the record key concatenated with the value
-            let mut signed_value = record_key.to_bytes();
-            signed_value.extend_from_slice(value);
-
-            // Validate the signature
-            public_key.validate(signature, &signed_value)
-        } else {
-            true
+        // If the record requires authentication, validate the signature
+        if !requires_authentication(record_key.namespace) {
+            return true;
         }
+
+        // The record must be signed
+        let Self::Signed(value, signature) = self else {
+            return false;
+        };
+
+        // If the request is "signed", the public key is the record's key
+        let Ok(public_key) = K::from_bytes(record_key.key.as_slice()) else {
+            warn!("Failed to deserialize signer's public key");
+            return false;
+        };
+
+        // The value to sign should be the record key concatenated with the value
+        let mut signed_value = record_key.to_bytes();
+        signed_value.extend_from_slice(value);
+
+        // Validate the signature
+        public_key.validate(signature, &signed_value)
     }
 
     /// Get the underlying value of the record
@@ -291,6 +306,44 @@ mod test {
         assert!(
             record_value.validate(&record_key),
             "Failed to validate unsigned record"
+        );
+    }
+
+    /// Test that unauthenticated namespaces do not require validation for unsigned records
+    #[test]
+    fn test_unauthenticated_namespace() {
+        // Generate a staking keypair
+        let (public_key, _) = BLSPubKey::generated_from_seed_indexed([1; 32], 1337);
+
+        // Create a record key (as we need to sign both the key and the value)
+        let record_key = RecordKey::new(Namespace::Testing, public_key.to_bytes());
+
+        // Created an unsigned record
+        let record_value: RecordValue<BLSPubKey> = RecordValue::new(vec![5, 6, 7, 8]);
+
+        // Validate it
+        assert!(
+            record_value.validate(&record_key),
+            "Failed to validate unsigned record in unauthenticated namespace"
+        );
+    }
+
+    /// Test that authenticated namespaces do require validation for unsigned records
+    #[test]
+    fn test_authenticated_namespace() {
+        // Generate a staking keypair
+        let (public_key, _) = BLSPubKey::generated_from_seed_indexed([1; 32], 1337);
+
+        // Create a record key (as we need to sign both the key and the value)
+        let record_key = RecordKey::new(Namespace::Lookup, public_key.to_bytes());
+
+        // Created an unsigned record
+        let record_value: RecordValue<BLSPubKey> = RecordValue::new(vec![5, 6, 7, 8]);
+
+        // Validate it
+        assert!(
+            record_value.validate(&record_key) == false,
+            "Failed to detect invalid unsigned record"
         );
     }
 }

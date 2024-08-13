@@ -80,3 +80,89 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use hotshot_types::signature_key::BLSPubKey;
+    use libp2p::{
+        kad::{store::MemoryStore, Record},
+        PeerId,
+    };
+
+    use crate::network::behaviours::dht::record::Namespace;
+
+    use super::*;
+
+    /// Test that a valid record is stored
+    #[test]
+    fn test_valid_stored() {
+        // Generate a staking keypair
+        let (public_key, private_key) = BLSPubKey::generated_from_seed_indexed([1; 32], 1337);
+
+        // Create a value. The key is the public key
+        let value = vec![5, 6, 7, 8];
+
+        // Create a record key (as we need to sign both the key and the value)
+        let record_key = RecordKey::new(Namespace::Lookup, public_key.to_bytes());
+
+        // Sign the record and value with the private key
+        let record_value: RecordValue<BLSPubKey> =
+            RecordValue::new_signed(&record_key, value.clone(), &private_key).unwrap();
+
+        // Initialize the store
+        let mut store: ValidatedStore<MemoryStore, BLSPubKey> =
+            ValidatedStore::new(MemoryStore::new(PeerId::random()));
+
+        // Serialize the record value
+        let record_value_bytes =
+            bincode::serialize(&record_value).expect("Failed to serialize record value");
+
+        // Create and store the record
+        let record = Record::new(record_key.to_bytes(), record_value_bytes);
+        store.put(record).expect("Failed to store record");
+
+        // Check that the record is stored
+        let libp2p_record_key = libp2p::kad::RecordKey::new(&record_key.to_bytes());
+        let stored_record = store.get(&libp2p_record_key).expect("Failed to get record");
+        let stored_record_value: RecordValue<BLSPubKey> =
+            bincode::deserialize(&stored_record.value).expect("Failed to deserialize record value");
+
+        // Make sure the stored record is the same as the original record
+        assert_eq!(
+            record_value, stored_record_value,
+            "Stored record is not the same as original"
+        );
+    }
+
+    /// Test that an invalid record is not stored
+    #[test]
+    fn test_invalid_not_stored() {
+        // Generate a staking keypair
+        let (public_key, _) = BLSPubKey::generated_from_seed_indexed([1; 32], 1337);
+
+        // Create a record key (as we need to sign both the key and the value)
+        let record_key = RecordKey::new(Namespace::Lookup, public_key.to_bytes());
+
+        // Create a new (unsigned, invalid) record value
+        let record_value: RecordValue<BLSPubKey> = RecordValue::new(vec![2, 3]);
+
+        // Initialize the store
+        let mut store: ValidatedStore<MemoryStore, BLSPubKey> =
+            ValidatedStore::new(MemoryStore::new(PeerId::random()));
+
+        // Serialize the record value
+        let record_value_bytes =
+            bincode::serialize(&record_value).expect("Failed to serialize record value");
+
+        // Make sure we are unable to store the record
+        let record = Record::new(record_key.to_bytes(), record_value_bytes);
+        assert!(store.put(record).is_err(), "Should not have stored record");
+
+        // Check that the record is not stored
+        let libp2p_record_key = libp2p::kad::RecordKey::new(&record_key.to_bytes());
+        assert!(
+            store.get(&libp2p_record_key).is_none(),
+            "Should not have stored record"
+        );
+    }
+}
