@@ -12,7 +12,7 @@ use std::{
 };
 
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
+    node_types::{CombinedImpl, Libp2pImpl, TestConsecutiveLeaderTypes, TestVersions, MemoryImpl},
     state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
@@ -29,7 +29,7 @@ use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, 
 // Test that a good leader can succeed in the view directly after view sync
 cross_tests!(
     TestName: test_with_failures_2,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -71,7 +71,7 @@ cross_tests!(
 #[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: dishonest_leader,
-    Impls: [MemoryImpl],
+    Impls: [CombinedImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -113,7 +113,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_with_double_leader_failures,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl],
     Types: [TestConsecutiveLeaderTypes],
     Versions: [TestVersions],
     Ignore: false,

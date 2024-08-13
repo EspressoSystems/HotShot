@@ -6,7 +6,7 @@
 
 use std::time::{Duration, Instant};
 
-use hotshot_example_types::node_types::{Libp2pImpl, TestTypes, TestVersions};
+use hotshot_example_types::node_types::{CombinedImpl, Libp2pImpl, TestTypes, TestVersions};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -54,7 +54,7 @@ async fn libp2p_network_sync() {
 async fn test_memory_network_sync() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestDescription,
@@ -62,7 +62,7 @@ async fn test_memory_network_sync() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
+    let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
@@ -129,7 +129,7 @@ async fn libp2p_network_async() {
 async fn test_memory_network_async() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestDescription,
@@ -137,7 +137,7 @@ async fn test_memory_network_async() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
+    let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
             num_failed_views: 5000,
@@ -152,7 +152,7 @@ async fn test_memory_network_async() {
         timing_data: TimingData {
             timeout_ratio: (1, 1),
             next_view_timeout: 1000,
-            ..TestDescription::<TestTypes, MemoryImpl, TestVersions>::default_multiple_rounds()
+            ..TestDescription::<TestTypes, CombinedImpl, TestVersions>::default_multiple_rounds()
                 .timing_data
         },
         unreliable_network: Some(Box::new(AsynchronousNetwork {
@@ -176,7 +176,7 @@ async fn test_memory_network_async() {
 async fn test_memory_network_partially_sync() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestDescription,
@@ -184,7 +184,7 @@ async fn test_memory_network_partially_sync() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
+    let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             num_failed_views: 0,
             ..Default::default()
@@ -277,7 +277,7 @@ async fn test_memory_network_chaos() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
+    let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {

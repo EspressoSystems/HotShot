@@ -8,7 +8,7 @@ use std::{rc::Rc, time::Duration};
 
 use hotshot::tasks::{BadProposalViewDos, DoubleProposeVote};
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
+    node_types::{CombinedImpl, Libp2pImpl, TestConsecutiveLeaderTypes, TestVersions},
     state_types::TestTypes,
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
@@ -22,7 +22,7 @@ use hotshot_testing::{
 
 cross_tests!(
     TestName: test_success,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -41,7 +41,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_success_with_async_delay,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -73,7 +73,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_success_with_async_delay_2,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -113,7 +113,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: double_propose_vote,
-    Impls: [MemoryImpl],
+    Impls: [CombinedImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -139,7 +139,7 @@ cross_tests!(
 // Test where node 4 sends out the correct quorum proposal and additionally spams the network with an extra 99 malformed proposals
 cross_tests!(
     TestName: multiple_bad_proposals,
-    Impls: [MemoryImpl],
+    Impls: [CombinedImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,
@@ -168,7 +168,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_with_double_leader_no_failures,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl],
     Types: [TestConsecutiveLeaderTypes],
     Versions: [TestVersions],
     Ignore: false,
