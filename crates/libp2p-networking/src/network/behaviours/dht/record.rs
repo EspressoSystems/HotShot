@@ -23,7 +23,6 @@ pub enum Namespace {
     /// A namespace for looking up P2P identities
     Lookup = 0,
 
-    #[cfg(test)]
     /// A secondary record type for testing purposes
     Testing = u8::MAX,
 }
@@ -32,7 +31,6 @@ pub enum Namespace {
 fn requires_authentication(namespace: Namespace) -> bool {
     match namespace {
         Namespace::Lookup => true,
-        #[cfg(test)]
         Namespace::Testing => false,
     }
 }
@@ -44,8 +42,7 @@ impl TryFrom<u8> for Namespace {
     fn try_from(value: u8) -> Result<Self> {
         match value {
             0 => Ok(Self::Lookup),
-            #[cfg(test)]
-            1 => Ok(Self::Testing),
+            u8::MAX => Ok(Self::Testing),
             _ => bail!("Unknown namespace"),
         }
     }
@@ -137,6 +134,7 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
 
         // The record must be signed
         let Self::Signed(value, signature) = self else {
+            warn!("Record should be signed but is not");
             return false;
         };
 

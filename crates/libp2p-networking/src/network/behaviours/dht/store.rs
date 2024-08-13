@@ -61,7 +61,7 @@ where
             // Convert the key to the correct type
             let Ok(record_key) = RecordKey::try_from_bytes(&record.key.to_vec()) else {
                 warn!("Failed to convert record key");
-                return Err(Error::ValueTooLarge);
+                return Err(Error::MaxRecords);
             };
 
             // If the record is signed by the correct key,
@@ -69,11 +69,11 @@ where
                 // Store the record
                 if let Err(err) = self.store.put(record.clone()) {
                     warn!("Failed to store record: {:?}", err);
-                    return Err(Error::ValueTooLarge);
+                    return Err(Error::MaxRecords);
                 }
             } else {
                 warn!("Failed to validate record");
-                return Err(Error::ValueTooLarge);
+                return Err(Error::MaxRecords);
             }
         }
 

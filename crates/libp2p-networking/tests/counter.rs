@@ -393,7 +393,7 @@ async fn run_dht_rounds<K: SignatureKey + 'static>(
         msg_handle
             .handle
             .put_record(
-                RecordKey::new(Namespace::Lookup, key.clone()),
+                RecordKey::new(Namespace::Testing, key.clone()),
                 RecordValue::Unsigned(value.clone()),
             )
             .await
@@ -403,7 +403,7 @@ async fn run_dht_rounds<K: SignatureKey + 'static>(
         for handle in handles {
             let result: Result<Vec<u8>, NetworkNodeHandleError> = handle
                 .handle
-                .get_record_timeout(RecordKey::new(Namespace::Lookup, key.clone()), timeout)
+                .get_record_timeout(RecordKey::new(Namespace::Testing, key.clone()), timeout)
                 .await;
             match result {
                 Err(e) => {
