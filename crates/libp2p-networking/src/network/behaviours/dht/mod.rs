@@ -9,6 +9,7 @@ pub mod bootstrap;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
+    sync::Arc,
     time::Duration,
 };
 
@@ -29,7 +30,7 @@ use libp2p::kad::{
     store::RecordStore, Behaviour as KademliaBehaviour, BootstrapError, Event as KademliaEvent,
 };
 use libp2p_identity::PeerId;
-use record::{RecordKey, RecordValue};
+use record::{new_record_validation_cache, RecordKey, RecordValidationCache, RecordValue};
 use tracing::{debug, error, info, warn};
 
 /// Additional DHT record functionality
@@ -73,6 +74,8 @@ pub struct DHTBehaviour {
     retry_tx: Option<UnboundedSender<ClientRequest>>,
     /// Sender to the bootstrap task
     bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
+    /// The record validation cache
+    record_cache: RecordValidationCache,
 }
 
 /// State of bootstrapping
@@ -130,6 +133,7 @@ impl DHTBehaviour {
             replication_factor,
             retry_tx: None,
             bootstrap_tx: None,
+            record_cache: new_record_validation_cache(),
         }
     }
 
@@ -492,7 +496,7 @@ impl DHTBehaviour {
                         };
 
                         // If the record is signed by the correct key,
-                        if record_value.validate(&record_key) {
+                        if record_value.validate(&record_key, &Arc::clone(&self.record_cache)) {
                             // Store the record
                             if let Err(err) = store.put(record.clone()) {
                                 warn!("Failed to store record: {:?}", err);
