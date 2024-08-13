@@ -17,7 +17,7 @@ use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_types::{
@@ -81,7 +81,7 @@ impl TestView {
             <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
                 transactions.clone(),
                 &TestValidatedState::default(),
-                &TestInstanceState {},
+                &TestInstanceState::default(),
             )
             .await
             .unwrap();
@@ -125,7 +125,7 @@ impl TestView {
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis(
                 &TestValidatedState::default(),
-                &TestInstanceState {},
+                &TestInstanceState::default(),
             )
             .await,
             upgrade_certificate: None,
@@ -215,7 +215,7 @@ impl TestView {
             <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
                 transactions.clone(),
                 &TestValidatedState::default(),
-                &TestInstanceState {},
+                &TestInstanceState::default(),
             )
             .await
             .unwrap();
@@ -394,7 +394,7 @@ impl TestView {
 
     pub fn create_quorum_vote(
         &self,
-        handle: &SystemContextHandle<TestTypes, MemoryImpl>,
+        handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     ) -> QuorumVote<TestTypes> {
         QuorumVote::<TestTypes>::create_signed_vote(
             QuorumData {
@@ -410,7 +410,7 @@ impl TestView {
     pub fn create_upgrade_vote(
         &self,
         data: UpgradeProposalData<TestTypes>,
-        handle: &SystemContextHandle<TestTypes, MemoryImpl>,
+        handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     ) -> UpgradeVote<TestTypes> {
         UpgradeVote::<TestTypes>::create_signed_vote(
             data,
@@ -424,7 +424,7 @@ impl TestView {
     pub fn create_da_vote(
         &self,
         data: DaData,
-        handle: &SystemContextHandle<TestTypes, MemoryImpl>,
+        handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     ) -> DaVote<TestTypes> {
         DaVote::create_signed_vote(
             data,

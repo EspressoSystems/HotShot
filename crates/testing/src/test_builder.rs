@@ -14,11 +14,12 @@ use hotshot::{
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    storage_types::TestStorage,
+    storage_types::TestStorage, testable_delay::DelayConfig,
 };
 use hotshot_types::{
-    consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
-    HotShotConfig, ValidatorConfig,
+    consensus::ConsensusMetricsValue,
+    traits::node_implementation::{NodeType, Versions},
+    ExecutionType, HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
 use vec1::Vec1;
@@ -56,7 +57,7 @@ pub struct TimingData {
 
 /// metadata describing a test
 #[derive(Clone)]
-pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Total number of staked nodes in the test
     pub num_nodes_with_stake: usize,
     /// Total number of non-staked nodes in the test
@@ -91,31 +92,36 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
-    pub behaviour: Rc<dyn Fn(u64) -> Behaviour<TYPES, I>>,
+    pub behaviour: Rc<dyn Fn(u64) -> Behaviour<TYPES, I, V>>,
+    /// Delay config if any to add delays to asynchronous calls
+    pub async_delay_config: DelayConfig,
 }
 
 #[derive(Debug)]
-pub enum Behaviour<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    ByzantineTwins(Box<dyn TwinsHandlerState<TYPES, I>>),
-    Byzantine(Box<dyn EventTransformerState<TYPES, I>>),
+pub enum Behaviour<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
+    ByzantineTwins(Box<dyn TwinsHandlerState<TYPES, I, V>>),
+    Byzantine(Box<dyn EventTransformerState<TYPES, I, V>>),
     Standard,
 }
 
 pub async fn create_test_handle<
     TYPES: NodeType<InstanceState = TestInstanceState>,
     I: NodeImplementation<TYPES>,
+    V: Versions,
 >(
-    behaviour: Behaviour<TYPES, I>,
+    metadata: TestDescription<TYPES, I, V>,
     node_id: u64,
     network: Network<TYPES, I>,
     memberships: Memberships<TYPES>,
     config: HotShotConfig<TYPES::SignatureKey>,
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,
-) -> SystemContextHandle<TYPES, I> {
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
-        .await
-        .unwrap();
+) -> SystemContextHandle<TYPES, I, V> {
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::new(
+        metadata.async_delay_config,
+    ))
+    .await
+    .unwrap();
 
     // See whether or not we should be DA
     let is_da = node_id < config.da_staked_committee_size as u64;
@@ -127,6 +133,7 @@ pub async fn create_test_handle<
     let private_key = validator_config.private_key.clone();
     let public_key = validator_config.public_key.clone();
 
+    let behaviour = (metadata.behaviour)(node_id);
     match behaviour {
         Behaviour::ByzantineTwins(state) => {
             let state = Box::leak(state);
@@ -165,7 +172,7 @@ pub async fn create_test_handle<
                 .await
         }
         Behaviour::Standard => {
-            let hotshot = SystemContext::<TYPES, I>::new(
+            let hotshot = SystemContext::<TYPES, I, V>::new(
                 public_key,
                 private_key,
                 node_id,
@@ -223,7 +230,7 @@ impl Default for TimingData {
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription<TYPES, I, V> {
     /// the default metadata for a stress test
     #[must_use]
     #[allow(clippy::redundant_field_names)]
@@ -263,7 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
     pub fn default_multiple_rounds() -> Self {
         let num_nodes_with_stake = 10;
         let num_nodes_without_stake = 0;
-        TestDescription::<TYPES, I> {
+        TestDescription::<TYPES, I, V> {
             // TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             num_bootstrap_nodes: num_nodes_with_stake,
@@ -285,7 +292,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            ..TestDescription::<TYPES, I>::default()
+            ..TestDescription::<TYPES, I, V>::default()
         }
     }
 
@@ -325,7 +332,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I> {
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
+    for TestDescription<TYPES, I, V>
+{
     /// by default, just a single round
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
@@ -367,12 +376,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 error_pct: 0.1,
             },
             behaviour: Rc::new(|_| Behaviour::Standard),
+            async_delay_config: DelayConfig::default(),
         }
     }
 }
 
-impl<TYPES: NodeType<InstanceState = TestInstanceState>, I: TestableNodeImplementation<TYPES>>
-    TestDescription<TYPES, I>
+impl<
+        TYPES: NodeType<InstanceState = TestInstanceState>,
+        I: TestableNodeImplementation<TYPES>,
+        V: Versions,
+    > TestDescription<TYPES, I, V>
 where
     I: NodeImplementation<TYPES, AuctionResultsProvider = TestAuctionResultsProvider<TYPES>>,
 {
@@ -381,7 +394,7 @@ where
     /// # Panics
     /// if some of the the configuration values are zero
     #[must_use]
-    pub fn gen_launcher(self, node_id: u64) -> TestLauncher<TYPES, I> {
+    pub fn gen_launcher(self, node_id: u64) -> TestLauncher<TYPES, I, V> {
         let TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
@@ -477,6 +490,7 @@ where
                 a.view_sync_timeout = view_sync_timeout;
             };
 
+        let metadata = self.clone();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
@@ -486,7 +500,12 @@ where
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(|_| TestStorage::<TYPES>::default()),
+                storage: Box::new(move |_| {
+                    let mut storage = TestStorage::<TYPES>::default();
+                    // update storage impl to use settings delay option
+                    storage.delay_config = metadata.async_delay_config.clone();
+                    storage
+                }),
                 config,
                 marketplace_config: Box::new(|_| MarketplaceConfig::<TYPES, I> {
                     auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),

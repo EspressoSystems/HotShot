@@ -24,17 +24,22 @@ use tracing::{debug, error, instrument, warn};
 
 use super::Consensus2TaskState;
 use crate::{
+    consensus2::Versions,
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task},
     vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},
 };
 
 /// Handle a `QuorumVoteRecv` event.
-pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_quorum_vote_recv<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     vote: &QuorumVote<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut Consensus2TaskState<TYPES, I>,
+    task_state: &mut Consensus2TaskState<TYPES, I, V>,
 ) -> Result<()> {
     let mut retries = 0;
     // This is a workaround: we might have already received a vote for a leaf that we haven't yet seen in a proposal.
@@ -88,11 +93,15 @@ pub(crate) async fn handle_quorum_vote_recv<TYPES: NodeType, I: NodeImplementati
 }
 
 /// Handle a `TimeoutVoteRecv` event.
-pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_timeout_vote_recv<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     vote: &TimeoutVote<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut Consensus2TaskState<TYPES, I>,
+    task_state: &mut Consensus2TaskState<TYPES, I, V>,
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
@@ -133,10 +142,14 @@ pub(crate) async fn handle_timeout_vote_recv<TYPES: NodeType, I: NodeImplementat
 
 /// Handle a `ViewChange` event.
 #[instrument(skip_all)]
-pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_view_change<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     new_view_number: TYPES::Time,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut Consensus2TaskState<TYPES, I>,
+    task_state: &mut Consensus2TaskState<TYPES, I, V>,
 ) -> Result<()> {
     ensure!(
         new_view_number > task_state.cur_view,
@@ -150,8 +163,12 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     task_state.cur_view = new_view_number;
 
     // If we have a decided upgrade certificate, the protocol version may also have been upgraded.
-    let decided_upgrade_certificate_read =
-        task_state.decided_upgrade_certificate.read().await.clone();
+    let decided_upgrade_certificate_read = task_state
+        .upgrade_lock
+        .decided_upgrade_certificate
+        .read()
+        .await
+        .clone();
     if let Some(cert) = decided_upgrade_certificate_read {
         if new_view_number == cert.data().new_version_first_view {
             error!(
@@ -226,10 +243,10 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
 
 /// Handle a `Timeout` event.
 #[instrument(skip_all)]
-pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     view_number: TYPES::Time,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut Consensus2TaskState<TYPES, I>,
+    task_state: &mut Consensus2TaskState<TYPES, I, V>,
 ) -> Result<()> {
     ensure!(
         task_state.cur_view < view_number,

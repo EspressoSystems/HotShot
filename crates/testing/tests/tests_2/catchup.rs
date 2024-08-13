@@ -10,7 +10,7 @@
 async fn test_catchup_libp2p() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{Libp2pImpl, TestTypes};
+    use hotshot_example_types::node_types::{Libp2pImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -25,7 +25,8 @@ async fn test_catchup_libp2p() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, Libp2pImpl> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> =
+        TestDescription::default();
     let catchup_node = vec![ChangeNode {
         idx: 19,
         updown: UpDown::Up,
@@ -69,7 +70,7 @@ async fn test_catchup_libp2p() {
 async fn test_catchup_combined() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -84,7 +85,8 @@ async fn test_catchup_combined() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
+        TestDescription::default();
     let catchup_nodes = vec![ChangeNode {
         idx: 18,
         updown: UpDown::Up,
@@ -123,7 +125,7 @@ async fn test_catchup_combined() {
 async fn test_catchup_one_node() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -137,7 +139,8 @@ async fn test_catchup_one_node() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
+        TestDescription::default();
     let catchup_nodes = vec![ChangeNode {
         idx: 18,
         updown: UpDown::Up,
@@ -178,7 +181,7 @@ async fn test_catchup_one_node() {
 async fn test_catchup_in_view_sync() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -192,7 +195,8 @@ async fn test_catchup_in_view_sync() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
+        TestDescription::default();
     let catchup_nodes = vec![
         ChangeNode {
             idx: 18,
@@ -240,7 +244,7 @@ async fn test_catchup_in_view_sync() {
 async fn test_catchup_reload() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -255,7 +259,8 @@ async fn test_catchup_reload() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
+        TestDescription::default();
     let catchup_node = vec![ChangeNode {
         idx: 19,
         updown: UpDown::Up,
@@ -299,7 +304,7 @@ async fn test_catchup_reload() {
 async fn test_all_restart() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -314,7 +319,8 @@ async fn test_all_restart() {
         next_view_timeout: 2000,
         ..Default::default()
     };
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription::default();
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
+        TestDescription::default();
     let mut catchup_nodes = vec![];
     for i in 1..20 {
         catchup_nodes.push(ChangeNode {

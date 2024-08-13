@@ -18,6 +18,7 @@ use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
+    testable_delay::DelayConfig,
 };
 use hotshot_types::{
     data::Leaf,
@@ -25,7 +26,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         network::ConnectedNetwork,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
     },
     vote::HasViewNumber,
     ValidatorConfig,
@@ -45,11 +46,11 @@ pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 pub struct SpinningTaskErr {}
 
 /// Spinning task state
-pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     /// handle to the nodes
-    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// late start nodes
-    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I>>,
+    pub(crate) late_start: HashMap<u64, LateStartNode<TYPES, I, V>>,
     /// time based changes
     pub(crate) changes: BTreeMap<TYPES::Time, Vec<ChangeNode>>,
     /// most recent view seen by spinning task
@@ -58,6 +59,8 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(crate) last_decided_leaf: Leaf<TYPES>,
     /// Highest qc seen in the test for restarting nodes
     pub(crate) high_qc: QuorumCertificate<TYPES>,
+    /// Add specified delay to async calls
+    pub(crate) async_delay_config: DelayConfig,
 }
 
 #[async_trait]
@@ -65,7 +68,8 @@ impl<
         TYPES: NodeType<InstanceState = TestInstanceState, ValidatedState = TestValidatedState>,
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<TYPES::SignatureKey>,
-    > TestTaskState for SpinningTask<TYPES, I>
+        V: Versions,
+    > TestTaskState for SpinningTask<TYPES, I, V>
 where
     I: TestableNodeImplementation<TYPES>,
     I: NodeImplementation<
@@ -128,7 +132,7 @@ where
 
                                         let initializer = HotShotInitializer::<TYPES>::from_reload(
                                             self.last_decided_leaf.clone(),
-                                            TestInstanceState {},
+                                            TestInstanceState::new(self.async_delay_config.clone()),
                                             None,
                                             view_number,
                                             BTreeMap::new(),
@@ -205,14 +209,14 @@ where
                                 let read_storage = storage.read().await;
                                 let initializer = HotShotInitializer::<TYPES>::from_reload(
                                     self.last_decided_leaf.clone(),
-                                    TestInstanceState {},
+                                    TestInstanceState::new(self.async_delay_config.clone()),
                                     None,
                                     view_number,
                                     read_storage.proposals_cloned().await,
                                     read_storage.high_qc_cloned().await.unwrap_or(
                                         QuorumCertificate::genesis(
                                             &TestValidatedState::default(),
-                                            &TestInstanceState {},
+                                            &TestInstanceState::default(),
                                         )
                                         .await,
                                     ),
@@ -228,7 +232,7 @@ where
                                     node_id < config.da_staked_committee_size as u64,
                                 );
                                 let context =
-                                    TestRunner::<TYPES, I, N>::add_node_with_config_and_channels(
+                                    TestRunner::<TYPES, I, V, N>::add_node_with_config_and_channels(
                                         node_id,
                                         network.clone(),
                                         (*memberships).clone(),
