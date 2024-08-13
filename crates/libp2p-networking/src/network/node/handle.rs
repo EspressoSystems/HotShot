@@ -11,8 +11,9 @@ use async_compatibility_layer::{
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use futures::channel::oneshot;
-use hotshot_types::traits::{
-    network::NetworkError as HotshotNetworkError, signature_key::SignatureKey,
+use hotshot_types::{
+    request_response::{Request, Response},
+    traits::{network::NetworkError as HotshotNetworkError, signature_key::SignatureKey},
 };
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
@@ -20,11 +21,8 @@ use snafu::{ResultExt, Snafu};
 use tracing::{debug, info, instrument};
 
 use crate::network::{
-    behaviours::{
-        dht::record::{
-            new_record_validation_cache, Namespace, RecordKey, RecordValidationCache, RecordValue,
-        },
-        request_response::{Request, Response},
+    behaviours::dht::record::{
+        new_record_validation_cache, Namespace, RecordKey, RecordValidationCache, RecordValue,
     },
     error::{CancelledRequestSnafu, DHTError},
     gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
