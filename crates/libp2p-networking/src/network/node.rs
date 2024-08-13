@@ -277,7 +277,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             kconfig
                 .set_parallelism(NonZeroUsize::new(5).unwrap())
                 .set_provider_publication_interval(Some(record_republication_interval))
-                .set_record_filtering(libp2p::kad::StoreInserts::FilterBoth)
+                // .set_record_filtering(libp2p::kad::StoreInserts::FilterBoth)
                 .set_publication_interval(Some(record_republication_interval))
                 .set_record_ttl(ttl);
 
