@@ -23,15 +23,18 @@ pub enum Namespace {
     /// A namespace for looking up P2P identities
     Lookup = 0,
 
-    /// A secondary record type for testing purposes
-    Testing = u8::MAX,
+    /// An authenticated namespace useful for testing
+    Testing = 254,
+
+    /// An unauthenticated namespace useful for testing
+    TestingUnauthenticated = 255,
 }
 
 /// Require certain namespaces to be authenticated
 fn requires_authentication(namespace: Namespace) -> bool {
     match namespace {
-        Namespace::Lookup => true,
-        Namespace::Testing => false,
+        Namespace::Lookup | Namespace::Testing => true,
+        Namespace::TestingUnauthenticated => false,
     }
 }
 
@@ -42,7 +45,8 @@ impl TryFrom<u8> for Namespace {
     fn try_from(value: u8) -> Result<Self> {
         match value {
             0 => Ok(Self::Lookup),
-            u8::MAX => Ok(Self::Testing),
+            254 => Ok(Self::Testing),
+            255 => Ok(Self::TestingUnauthenticated),
             _ => bail!("Unknown namespace"),
         }
     }
@@ -314,7 +318,7 @@ mod test {
         let (public_key, _) = BLSPubKey::generated_from_seed_indexed([1; 32], 1337);
 
         // Create a record key (as we need to sign both the key and the value)
-        let record_key = RecordKey::new(Namespace::Testing, public_key.to_bytes());
+        let record_key = RecordKey::new(Namespace::TestingUnauthenticated, public_key.to_bytes());
 
         // Created an unsigned record
         let record_value: RecordValue<BLSPubKey> = RecordValue::new(vec![5, 6, 7, 8]);
