@@ -4,13 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    collections::HashSet,
-    fmt::Debug,
-    marker::PhantomData,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{collections::HashSet, fmt::Debug, marker::PhantomData, sync::Arc, time::Duration};
 
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout, future::to},
