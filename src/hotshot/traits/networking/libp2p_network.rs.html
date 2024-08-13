@@ -1140,6 +1140,15 @@
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
 <a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1176,28 +1185,30 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>futures::{
-    channel::mpsc::{<span class="self">self</span>, channel, Receiver, Sender},
+    channel::mpsc::{<span class="self">self</span>, channel, Sender},
     future::{join_all, Either},
     FutureExt, StreamExt,
 };
 <span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::traits::network::{
-    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
-};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
+    request_response::{NetworkMsgResponseChannel, Request, Response},
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
-        network::{<span class="self">self</span>, ConnectedNetwork, NetworkError, ResponseMessage, Topic},
+        network::{ConnectedNetwork, NetworkError, ResponseMessage, Topic},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
+};
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+</span><span class="kw">use </span>hotshot_types::{
+    request_response::TakeReceiver,
+    traits::network::{AsyncGenerator, NetworkReliability, TestableNetworkingImplementation},
 };
 <span class="kw">use </span>libp2p_identity::{
     ed25519::{<span class="self">self</span>, SecretKey},
@@ -1205,7 +1216,6 @@
 };
 <span class="kw">use </span>libp2p_networking::{
     network::{
-        behaviours::request_response::{Request, Response},
         spawn_network_node,
         transport::construct_auth_message,
         MeshParams,
@@ -1281,9 +1291,6 @@
         f.debug_struct(<span class="string">"Libp2p"</span>).field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="string">"inner"</span>).finish()
     }
 }
-
-<span class="doccomment">/// Locked Option of a receiver for moving the value out of the option
-</span><span class="kw">type </span>TakeReceiver = Mutex&lt;<span class="prelude-ty">Option</span>&lt;Receiver&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Response&gt;)&gt;&gt;&gt;;
 
 <span class="doccomment">/// Type alias for a shared collection of peerid, multiaddrs
 </span><span class="kw">pub type </span>PeerInfoVec = Arc&lt;RwLock&lt;Vec&lt;(PeerId, Multiaddr)&gt;&gt;&gt;;
@@ -2021,7 +2028,7 @@
 
     <span class="kw">async fn </span>spawn_request_receiver_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, network::ResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>internal_rx = <span class="self">self</span>.inner.requests_rx.lock().<span class="kw">await</span>.take()<span class="question-mark">?</span>;
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = mpsc::channel(<span class="number">100</span>);
@@ -2031,7 +2038,7 @@
                 <span class="kw">if </span>tx
                     .try_send((
                         request,
-                        network::ResponseChannel {
+                        NetworkMsgResponseChannel {
                             sender: response_tx,
                         },
                     ))
@@ -2267,7 +2274,18 @@
             .try_send(<span class="prelude-val">Some</span>((view_number, pk)))
     }
 
-    <span class="doccomment">/// handles view update
+    <span class="doccomment">/// The libp2p view update is a special operation intrinsic to its internal behavior.
+    ///
+    /// Libp2p needs to do a lookup because a libp2p address is not releated to
+    /// hotshot keys. So in libp2p we store a mapping of HotShot key to libp2p address
+    /// in a distributed hash table.
+    ///
+    /// This means to directly message someone on libp2p we need to lookup in the hash
+    /// table what their libp2p address is, using their HotShot public key as the key.
+    ///
+    /// So the logic with libp2p is to prefetch upcomming leaders libp2p address to
+    /// save time when we later need to direct message the leader our vote. Hence the
+    /// use of the future view and leader to queue the lookups.
     </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
     <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,

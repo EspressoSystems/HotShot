@@ -677,30 +677,6 @@
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -717,7 +693,7 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>dyn_clone::DynClone;
 <span class="kw">use </span>futures::{
-    channel::{mpsc, oneshot},
+    channel::mpsc::{<span class="self">self</span>},
     Future,
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -748,6 +724,7 @@
 <span class="kw">use crate</span>::{
     data::ViewNumber,
     message::{MessagePurpose, SequencingMessage},
+    request_response::NetworkMsgResponseChannel,
     BoxSyncFuture,
 };
 
@@ -775,20 +752,6 @@
     </span>FailedToReceive,
     <span class="doccomment">/// Failed to send a message to the server
     </span>FailedToSend,
-}
-
-<span class="doccomment">/// Web server specific errors
-</span><span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
-#[snafu(visibility(<span class="kw">pub</span>))]
-</span><span class="kw">pub enum </span>WebServerNetworkError {
-    <span class="doccomment">/// The injected consensus data is incorrect
-    </span>IncorrectConsensusData,
-    <span class="doccomment">/// The client returned an error
-    </span>ClientError,
-    <span class="doccomment">/// Endpoint parsed incorrectly
-    </span>EndpointError,
-    <span class="doccomment">/// Client disconnected
-    </span>ClientDisconnected,
 }
 
 <span class="doccomment">/// the type of transmission
@@ -830,12 +793,6 @@
     </span>CentralizedServer {
         <span class="doccomment">/// source of error
         </span>source: CentralizedServerNetworkError,
-    },
-
-    <span class="doccomment">/// Web server specific errors
-    </span>WebServer {
-        <span class="doccomment">/// source of error
-        </span>source: WebServerNetworkError,
     },
     <span class="doccomment">/// unimplemented functionality
     </span>UnimplementedFeature,
@@ -899,12 +856,6 @@
     <span class="comment">// TODO move out of this trait.
     </span><span class="doccomment">/// get the purpose of the message
     </span><span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose;
-}
-
-<span class="doccomment">/// Wraps a oneshot channel for responding to requests
-</span><span class="kw">pub struct </span>ResponseChannel&lt;M: NetworkMsg&gt; {
-    <span class="doccomment">/// underlying sender for this channel
-    </span><span class="kw">pub </span>sender: oneshot::Sender&lt;M&gt;,
 }
 
 <span class="doccomment">/// A request for some data that the consensus layer is asking for.
@@ -1050,7 +1001,7 @@
     /// Returns `None`` if network does not support handling requests
     </span><span class="kw">async fn </span>spawn_request_receiver_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
         <span class="prelude-val">None
     </span>}
 
@@ -1066,7 +1017,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// handles view update
+    <span class="doccomment">/// Update view can be used for any reason, but mostly it's for canceling tasks,
+    /// and looking up the address of the leader of a future view.
     </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, _view: u64, _membership: <span class="kw-2">&amp;</span>TYPES::Membership)
     <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,

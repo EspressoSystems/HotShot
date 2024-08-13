@@ -89,6 +89,8 @@
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -103,6 +105,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::traits::implementations::ProductionDef;
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>tracing_subscriber::EnvFilter;
 
 <span class="comment">// TODO: forall, add logging where we need it
@@ -171,7 +174,8 @@
     };
 
     <span class="comment">// Create new `Marshal` from the config
-    </span><span class="kw">let </span>marshal = Marshal::&lt;ProductionDef&lt;TestTypes&gt;&gt;::new(config).<span class="kw">await</span><span class="question-mark">?</span>;
+    </span><span class="kw">let </span>marshal =
+        Marshal::&lt;ProductionDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt;::new(config).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Start the main loop, consuming it
     </span>marshal.start().<span class="kw">await</span><span class="question-mark">?</span>;

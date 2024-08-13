@@ -813,6 +813,8 @@
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -839,7 +841,9 @@
 };
 <span class="kw">use </span>futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 <span class="kw">use </span>hotshot_types::{
-    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::signature_key::SignatureKey,
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC,
+    request_response::{Request, Response},
+    traits::signature_key::SignatureKey,
 };
 <span class="kw">use </span>libp2p::{
     autonat,
@@ -885,7 +889,7 @@
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
-    request_response::{Request, RequestResponseState, Response},
+    request_response::RequestResponseState,
 };
 
 <span class="doccomment">/// Maximum size of a message

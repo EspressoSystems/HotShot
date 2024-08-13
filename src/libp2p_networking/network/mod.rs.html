@@ -257,6 +257,8 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -277,7 +279,10 @@
 <span class="kw">use </span>std::{collections::HashSet, fmt::Debug, str::FromStr};
 
 <span class="kw">use </span>futures::channel::oneshot::{<span class="self">self</span>, Sender};
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_types::{
+    request_response::{Request, Response},
+    traits::signature_key::SignatureKey,
+};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -301,7 +306,6 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>transport::StakeTableAuthentication;
 
-<span class="kw">use </span><span class="self">self</span>::behaviours::request_response::{Request, Response};
 <span class="kw">pub use </span><span class="self">self</span>::{
     def::NetworkDef,
     error::NetworkError,

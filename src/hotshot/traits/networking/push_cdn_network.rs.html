@@ -582,6 +582,23 @@
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -709,27 +726,27 @@
 
 <span class="doccomment">/// The production run definition for the Push CDN.
 /// Uses the real protocols and a Redis discovery client.
-</span><span class="kw">pub struct </span>ProductionDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>ProductionDef&lt;TYPES&gt; {
-    <span class="kw">type </span>User = UserDef&lt;TYPES&gt;;
-    <span class="kw">type </span>Broker = BrokerDef&lt;TYPES&gt;;
+</span><span class="kw">pub struct </span>ProductionDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; RunDef <span class="kw">for </span>ProductionDef&lt;K&gt; {
+    <span class="kw">type </span>User = UserDef&lt;K&gt;;
+    <span class="kw">type </span>Broker = BrokerDef&lt;K&gt;;
     <span class="kw">type </span>DiscoveryClientType = Redis;
     <span class="kw">type </span>Topic = Topic;
 }
 
 <span class="doccomment">/// The user definition for the Push CDN.
 /// Uses the Quic protocol and untrusted middleware.
-</span><span class="kw">pub struct </span>UserDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>UserDef&lt;TYPES&gt; {
-    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+</span><span class="kw">pub struct </span>UserDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectionDef <span class="kw">for </span>UserDef&lt;K&gt; {
+    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;K&gt;;
     <span class="kw">type </span>Protocol = Quic;
 }
 
 <span class="doccomment">/// The broker definition for the Push CDN.
 /// Uses the TCP protocol and trusted middleware.
-</span><span class="kw">pub struct </span>BrokerDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>BrokerDef&lt;TYPES&gt; {
-    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+</span><span class="kw">pub struct </span>BrokerDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; ConnectionDef <span class="kw">for </span>BrokerDef&lt;K&gt; {
+    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;K&gt;;
     <span class="kw">type </span>Protocol = Tcp;
 }
 
@@ -737,18 +754,18 @@
 /// protocol and no middleware. Differs from the user
 /// definition in that is on the client-side.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>ClientDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectionDef <span class="kw">for </span>ClientDef&lt;TYPES&gt; {
-    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;TYPES::SignatureKey&gt;;
+</span><span class="kw">pub struct </span>ClientDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
+<span class="kw">impl</span>&lt;K: SignatureKey&gt; ConnectionDef <span class="kw">for </span>ClientDef&lt;K&gt; {
+    <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;K&gt;;
     <span class="kw">type </span>Protocol = Quic;
 }
 
 <span class="doccomment">/// The testing run definition for the Push CDN.
 /// Uses the real protocols, but with an embedded discovery client.
-</span><span class="kw">pub struct </span>TestingDef&lt;TYPES: NodeType&gt;(PhantomData&lt;TYPES&gt;);
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; RunDef <span class="kw">for </span>TestingDef&lt;TYPES&gt; {
-    <span class="kw">type </span>User = UserDef&lt;TYPES&gt;;
-    <span class="kw">type </span>Broker = BrokerDef&lt;TYPES&gt;;
+</span><span class="kw">pub struct </span>TestingDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; RunDef <span class="kw">for </span>TestingDef&lt;K&gt; {
+    <span class="kw">type </span>User = UserDef&lt;K&gt;;
+    <span class="kw">type </span>Broker = BrokerDef&lt;K&gt;;
     <span class="kw">type </span>DiscoveryClientType = Embedded;
     <span class="kw">type </span>Topic = Topic;
 }
@@ -757,15 +774,17 @@
 /// that helps organize them all.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="doccomment">/// Is generic over both the type of key and the network protocol.
-</span><span class="kw">pub struct </span>PushCdnNetwork&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>PushCdnNetwork&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// The underlying client
-    </span>client: Client&lt;ClientDef&lt;TYPES&gt;&gt;,
+    </span>client: Client&lt;ClientDef&lt;K&gt;&gt;,
     <span class="doccomment">/// The CDN-specific metrics
     </span>metrics: Arc&lt;CdnMetricsValue&gt;,
     <span class="doccomment">/// Whether or not the underlying network is supposed to be paused
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span>is_paused: Arc&lt;AtomicBool&gt;,
-}
+    <span class="comment">// The receiver channel for
+    // request_receiver_channel: TakeReceiver,
+</span>}
 
 <span class="doccomment">/// The enum for the topics we can subscribe to in the Push CDN
 </span><span class="attr">#[repr(u8)]
@@ -781,7 +800,7 @@
 /// topics that are not implemented at the application level.
 </span><span class="kw">impl </span>TopicTrait <span class="kw">for </span>Topic {}
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; PushCdnNetwork&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; PushCdnNetwork&lt;K&gt; {
     <span class="doccomment">/// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
     /// topics we are interested in, and our wrapped keypair that we use to authenticate with the
     /// marshal.
@@ -791,7 +810,7 @@
     </span><span class="kw">pub fn </span>new(
         marshal_endpoint: String,
         topics: Vec&lt;Topic&gt;,
-        keypair: KeyPair&lt;WrappedSignatureKey&lt;TYPES::SignatureKey&gt;&gt;,
+        keypair: KeyPair&lt;WrappedSignatureKey&lt;K&gt;&gt;,
         metrics: CdnMetricsValue,
     ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Build config
@@ -842,7 +861,9 @@
 }
 
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>PushCdnNetwork&lt;TYPES&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
+    <span class="kw">for </span>PushCdnNetwork&lt;TYPES::SignatureKey&gt;
+{
     <span class="doccomment">/// Generate n Push CDN clients, a marshal, and two brokers (that run locally).
     /// Uses a `SQLite` database instead of Redis.
     </span><span class="attr">#[allow(clippy::too_many_lines)]
@@ -901,7 +922,7 @@
             <span class="kw">let </span>other_broker_identifier = <span class="macro">format!</span>(<span class="string">"{other_public_address}/{other_public_address}"</span>);
 
             <span class="comment">// Configure the broker
-            </span><span class="kw">let </span>config: BrokerConfig&lt;TestingDef&lt;TYPES&gt;&gt; = BrokerConfig {
+            </span><span class="kw">let </span>config: BrokerConfig&lt;TestingDef&lt;TYPES::SignatureKey&gt;&gt; = BrokerConfig {
                 public_advertise_endpoint: public_address.clone(),
                 public_bind_endpoint: public_address,
                 private_advertise_endpoint: private_address.clone(),
@@ -920,7 +941,7 @@
 
             <span class="comment">// Create and spawn the broker
             </span>async_spawn(<span class="kw">async move </span>{
-                <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TYPES&gt;&gt; =
+                <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TYPES::SignatureKey&gt;&gt; =
                     Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
 
                 <span class="comment">// If we are the first broker by identifier, we need to sleep a bit
@@ -953,7 +974,7 @@
 
         <span class="comment">// Spawn the marshal
         </span>async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;TYPES&gt;&gt; = Marshal::new(marshal_config)
+            <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;TYPES::SignatureKey&gt;&gt; = Marshal::new(marshal_config)
                 .<span class="kw">await
                 </span>.expect(<span class="string">"failed to spawn marshal"</span>);
 
@@ -983,15 +1004,16 @@
                     };
 
                     <span class="comment">// Configure our client
-                    </span><span class="kw">let </span>client_config: ClientConfig&lt;ClientDef&lt;TYPES&gt;&gt; = ClientConfig {
-                        keypair: KeyPair {
-                            public_key: WrappedSignatureKey(public_key),
-                            private_key,
-                        },
-                        subscribed_topics: topics,
-                        endpoint: marshal_endpoint,
-                        use_local_authority: <span class="bool-val">true</span>,
-                    };
+                    </span><span class="kw">let </span>client_config: ClientConfig&lt;ClientDef&lt;TYPES::SignatureKey&gt;&gt; =
+                        ClientConfig {
+                            keypair: KeyPair {
+                                public_key: WrappedSignatureKey(public_key),
+                                private_key,
+                            },
+                            subscribed_topics: topics,
+                            endpoint: marshal_endpoint,
+                            use_local_authority: <span class="bool-val">true</span>,
+                        };
 
                     <span class="comment">// Create our client
                     </span>Arc::new(PushCdnNetwork {
@@ -1012,8 +1034,24 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; ConnectedNetwork&lt;TYPES::SignatureKey&gt; <span class="kw">for </span>PushCdnNetwork&lt;TYPES&gt; {
-    <span class="doccomment">/// Pause sending and receiving on the PushCDN network.
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;K&gt; <span class="kw">for </span>PushCdnNetwork&lt;K&gt; {
+    <span class="comment">// async fn request_data&lt;ReqDataTYPES: NodeType&gt;(
+    //     &amp;self,
+    //     request: Vec&lt;u8&gt;,
+    //     recipient: ReqDataK,
+    // ) -&gt; Result&lt;Vec&lt;u8&gt;, NetworkError&gt; {
+    //     self.client.send_direct_message(recipient, request).await;
+
+    //     Ok(vec![])
+    // }
+
+    // async fn spawn_request_receiver_task(
+    //     &amp;self,
+    // ) -&gt; Option&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
+    //     None
+    // }
+
+    </span><span class="doccomment">/// Pause sending and receiving on the PushCDN network.
     </span><span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="self">self</span>.is_paused.store(<span class="bool-val">true</span>, Ordering::Relaxed);
@@ -1066,7 +1104,7 @@
     </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        _recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        _recipients: BTreeSet&lt;K&gt;,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.broadcast_message(message, Topic::Da)
@@ -1081,11 +1119,7 @@
     ///
     /// - If we fail to serialize the message
     /// - If we fail to send the direct message
-    </span><span class="kw">async fn </span>direct_message(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Vec&lt;u8&gt;,
-        recipient: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're paused, don't send the message
         </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
@@ -1150,8 +1184,8 @@
     </span><span class="kw">fn </span>queue_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: ViewNumber,
-        _pk: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, TYPES::SignatureKey)&gt;&gt;&gt; {
+        _pk: K,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 }

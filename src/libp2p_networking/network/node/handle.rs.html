@@ -597,8 +597,9 @@
     channel::{Receiver, SendError, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 <span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>hotshot_types::traits::{
-    network::NetworkError <span class="kw">as </span>HotshotNetworkError, signature_key::SignatureKey,
+<span class="kw">use </span>hotshot_types::{
+    request_response::{Request, Response},
+    traits::{network::NetworkError <span class="kw">as </span>HotshotNetworkError, signature_key::SignatureKey},
 };
 <span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -606,7 +607,6 @@
 <span class="kw">use </span>tracing::{debug, info, instrument};
 
 <span class="kw">use </span><span class="kw">crate</span>::network::{
-    behaviours::request_response::{Request, Response},
     error::{CancelledRequestSnafu, DHTError},
     gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,

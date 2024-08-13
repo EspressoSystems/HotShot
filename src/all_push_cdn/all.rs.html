@@ -156,6 +156,8 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -236,27 +238,28 @@
         </span><span class="kw">let </span>private_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{private_port}"</span>);
         <span class="kw">let </span>public_address = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{public_port}"</span>);
 
-        <span class="kw">let </span>config: cdn_broker::Config&lt;TestingDef&lt;TestTypes&gt;&gt; = cdn_broker::Config {
-            discovery_endpoint: discovery_endpoint.clone(),
-            public_advertise_endpoint: public_address.clone(),
-            public_bind_endpoint: public_address,
-            private_advertise_endpoint: private_address.clone(),
-            private_bind_endpoint: private_address,
+        <span class="kw">let </span>config: cdn_broker::Config&lt;TestingDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
+            cdn_broker::Config {
+                discovery_endpoint: discovery_endpoint.clone(),
+                public_advertise_endpoint: public_address.clone(),
+                public_bind_endpoint: public_address,
+                private_advertise_endpoint: private_address.clone(),
+                private_bind_endpoint: private_address,
 
-            keypair: KeyPair {
-                public_key: WrappedSignatureKey(broker_public_key),
-                private_key: broker_private_key.clone(),
-            },
+                keypair: KeyPair {
+                    public_key: WrappedSignatureKey(broker_public_key),
+                    private_key: broker_private_key.clone(),
+                },
 
-            metrics_bind_endpoint: <span class="prelude-val">None</span>,
-            ca_cert_path: <span class="prelude-val">None</span>,
-            ca_key_path: <span class="prelude-val">None</span>,
-            global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
-        };
+                metrics_bind_endpoint: <span class="prelude-val">None</span>,
+                ca_cert_path: <span class="prelude-val">None</span>,
+                ca_key_path: <span class="prelude-val">None</span>,
+                global_memory_pool_size: <span class="prelude-val">Some</span>(<span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
+            };
 
         <span class="comment">// Create and spawn the broker
         </span>async_spawn(<span class="kw">async move </span>{
-            <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;TestTypes&gt;&gt; =
+            <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
                 Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
 
             <span class="comment">// Error if we stopped unexpectedly
@@ -282,9 +285,10 @@
 
     <span class="comment">// Spawn the marshal
     </span>async_spawn(<span class="kw">async move </span>{
-        <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;TestTypes&gt;&gt; = Marshal::new(marshal_config)
-            .<span class="kw">await
-            </span>.expect(<span class="string">"failed to spawn marshal"</span>);
+        <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
+            Marshal::new(marshal_config)
+                .<span class="kw">await
+                </span>.expect(<span class="string">"failed to spawn marshal"</span>);
 
         <span class="comment">// Error if we stopped unexpectedly
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = marshal.start().<span class="kw">await </span>{

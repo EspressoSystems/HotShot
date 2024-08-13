@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Request","RequestResponseState","Response"]};
+window.SIDEBAR_ITEMS = {"struct":["RequestResponseState"]};

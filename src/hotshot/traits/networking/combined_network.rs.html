@@ -535,6 +535,7 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -574,8 +575,9 @@
         COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
     },
     data::ViewNumber,
+    request_response::NetworkMsgResponseChannel,
     traits::{
-        network::{BroadcastDelay, ConnectedNetwork, ResponseChannel, Topic},
+        network::{BroadcastDelay, ConnectedNetwork, Topic},
         node_implementation::NodeType,
     },
     BoxSyncFuture,
@@ -630,7 +632,7 @@
     /// Panics if `COMBINED_NETWORK_CACHE_SIZE` is 0
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
-        primary_network: PushCdnNetwork&lt;TYPES&gt;,
+        primary_network: PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
         secondary_network: Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
         delay_duration: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -657,7 +659,7 @@
 
     <span class="doccomment">/// Get a ref to the primary network
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PushCdnNetwork&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PushCdnNetwork&lt;TYPES::SignatureKey&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.networks.<span class="number">0
     </span>}
 
@@ -786,7 +788,7 @@
 /// on the tuple
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType&gt;(
-    <span class="kw">pub </span>PushCdnNetwork&lt;TYPES&gt;,
+    <span class="kw">pub </span>PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
     <span class="kw">pub </span>Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
 );
 
@@ -802,7 +804,7 @@
         secondary_network_delay: Duration,
     ) -&gt; AsyncGenerator&lt;Arc&lt;<span class="self">Self</span>&gt;&gt; {
         <span class="kw">let </span>generators = (
-            &lt;PushCdnNetwork&lt;TYPES&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
+            &lt;PushCdnNetwork&lt;TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -828,7 +830,7 @@
             Box::pin(<span class="kw">async move </span>{
                 <span class="comment">// Generate the CDN network
                 </span><span class="kw">let </span>cdn = gen0.<span class="kw">await</span>;
-                <span class="kw">let </span>cdn = Arc::&lt;PushCdnNetwork&lt;TYPES&gt;&gt;::into_inner(cdn).unwrap();
+                <span class="kw">let </span>cdn = Arc::&lt;PushCdnNetwork&lt;TYPES::SignatureKey&gt;&gt;::into_inner(cdn).unwrap();
 
                 <span class="comment">// Generate the p2p network
                 </span><span class="kw">let </span>p2p = gen1.<span class="kw">await</span>;
@@ -882,7 +884,7 @@
 
     <span class="kw">async fn </span>spawn_request_receiver_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, ResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
         <span class="self">self</span>.secondary().spawn_request_receiver_task().<span class="kw">await
     </span>}
 

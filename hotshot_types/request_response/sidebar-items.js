@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["NetworkMsgResponseChannel","Request","Response"],"type":["RequestReceiver","TakeReceiver"]};

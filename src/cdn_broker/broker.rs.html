@@ -156,7 +156,7 @@
     </span><span class="attr">#[arg(long, default_value = <span class="string">"local_ip:1738"</span>)]
     </span>public_advertise_endpoint: String,
 
-    <span class="doccomment">/// The broker-facing endpoint in `IP:port` form to bind to for connections from  
+    <span class="doccomment">/// The broker-facing endpoint in `IP:port` form to bind to for connections from
     /// other brokers
     </span><span class="attr">#[arg(long, default_value = <span class="string">"0.0.0.0:1739"</span>)]
     </span>private_bind_endpoint: String,
@@ -215,7 +215,7 @@
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::generated_from_seed_indexed(key_hash.into(), <span class="number">1337</span>);
 
     <span class="comment">// Create config
-    </span><span class="kw">let </span>broker_config: Config&lt;ProductionDef&lt;TestTypes&gt;&gt; = Config {
+    </span><span class="kw">let </span>broker_config: Config&lt;ProductionDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; = Config {
         ca_cert_path: args.ca_cert_path,
         ca_key_path: args.ca_key_path,
 
