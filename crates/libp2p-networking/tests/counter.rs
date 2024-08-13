@@ -403,7 +403,10 @@ async fn run_dht_rounds<K: SignatureKey + 'static>(
         for handle in handles {
             let result: Result<Vec<u8>, NetworkNodeHandleError> = handle
                 .handle
-                .get_record_timeout(RecordKey::new(Namespace::TestingUnauthenticated, key.clone()), timeout)
+                .get_record_timeout(
+                    RecordKey::new(Namespace::TestingUnauthenticated, key.clone()),
+                    timeout,
+                )
                 .await;
             match result {
                 Err(e) => {
