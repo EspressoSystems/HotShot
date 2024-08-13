@@ -1,30 +1,8 @@
-use std::{
-    num::NonZeroUsize,
-    sync::{Arc, Mutex},
-};
-
 use anyhow::{bail, Context, Result};
-use blake3::{Hash, Hasher};
 use hotshot_types::traits::signature_key::SignatureKey;
 use libp2p::kad::Record;
-use lru::LruCache;
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn};
-
-/// A cache for record validation results
-pub type RecordValidationCache = Arc<Mutex<LruCache<Hash, bool>>>;
-
-/// Create and return a new record validation cache
-/// with a default size of 100
-///
-/// # Panics
-/// If the cache size is zero
-#[must_use]
-pub fn new_record_validation_cache() -> RecordValidationCache {
-    Arc::new(Mutex::new(LruCache::new(
-        NonZeroUsize::new(100).expect("Cache size is zero"),
-    )))
-}
+use tracing::warn;
 
 /// A (signed or unsigned) record value to be stored (serialized) in the DHT.
 /// This is a wrapper around a value that includes a possible signature.
@@ -142,7 +120,7 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
 
     /// If the message requires authentication, validate the record by verifying the signature with the
     /// given key
-    pub fn validate(&self, record_key: &RecordKey, cache: &RecordValidationCache) -> bool {
+    pub fn validate(&self, record_key: &RecordKey) -> bool {
         if let Self::Signed(value, signature) = self {
             // If the request is "signed", the public key is the record's key
             let Ok(public_key) = K::from_bytes(record_key.key.as_slice()) else {
@@ -154,43 +132,8 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
             let mut signed_value = record_key.to_bytes();
             signed_value.extend_from_slice(value);
 
-            // Serialize signature
-            let Ok(signature_bytes) = bincode::serialize(signature) else {
-                warn!("Failed to serialize signature");
-                return false;
-            };
-
-            // Hash the public key, signature, and signed value
-            let hash = Hasher::new()
-                .update(record_key.key.as_slice())
-                .update(&signature_bytes)
-                .update(&signed_value)
-                .finalize();
-
-            // Try to lock the cache
-            let Ok(mut cache_guard) = cache.lock() else {
-                error!("Failed to lock record validation cache");
-                return false;
-            };
-
-            // Check if we have already validated this signature
-            if let Some(valid) = cache_guard.get(&hash) {
-                return *valid;
-            }
-            drop(cache_guard);
-
-            // Check the value
-            let result = public_key.validate(signature, &signed_value);
-
-            // Cache the result
-            let Ok(mut cache_guard) = cache.lock() else {
-                error!("Failed to lock record validation cache");
-                return false;
-            };
-            cache_guard.put(hash, result);
-            drop(cache_guard);
-
-            result
+            // Validate the signature
+            public_key.validate(signature, &signed_value)
         } else {
             true
         }
@@ -273,7 +216,7 @@ mod test {
 
         // Validate the signed record
         assert!(
-            record_value.validate(&record_key, &new_record_validation_cache(),),
+            record_value.validate(&record_key),
             "Failed to validate signed record"
         );
     }
@@ -299,7 +242,7 @@ mod test {
 
         // Validate the signed record
         assert!(
-            !record_value.validate(&record_key, &new_record_validation_cache(),),
+            !record_value.validate(&record_key),
             "Failed to detect invalid namespace"
         );
     }
@@ -327,7 +270,7 @@ mod test {
 
         // Validate the signed record
         assert!(
-            !record_value.validate(&record_key, &new_record_validation_cache(),),
+            !record_value.validate(&record_key),
             "Failed to detect invalid record key"
         );
     }
@@ -346,7 +289,7 @@ mod test {
 
         // Validate the unsigned record
         assert!(
-            record_value.validate(&record_key, &new_record_validation_cache(),),
+            record_value.validate(&record_key),
             "Failed to validate unsigned record"
         );
     }

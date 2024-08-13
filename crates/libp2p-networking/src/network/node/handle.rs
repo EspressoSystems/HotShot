@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashSet, fmt::Debug, marker::PhantomData, sync::Arc, time::Duration};
+use std::{collections::HashSet, fmt::Debug, marker::PhantomData, time::Duration};
 
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout, future::to},
@@ -21,9 +21,7 @@ use snafu::{ResultExt, Snafu};
 use tracing::{debug, info, instrument};
 
 use crate::network::{
-    behaviours::dht::record::{
-        new_record_validation_cache, Namespace, RecordKey, RecordValidationCache, RecordValue,
-    },
+    behaviours::dht::record::{Namespace, RecordKey, RecordValue},
     error::{CancelledRequestSnafu, DHTError},
     gen_multiaddr, ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,
@@ -48,9 +46,6 @@ pub struct NetworkNodeHandle<K: SignatureKey + 'static> {
 
     /// human readable id
     id: usize,
-
-    /// The record validation cache
-    record_cache: RecordValidationCache,
 
     /// Phantom data to hold the key type
     pd: PhantomData<K>,
@@ -120,7 +115,6 @@ pub async fn spawn_network_node<K: SignatureKey + 'static>(
         listen_addr,
         peer_id,
         id,
-        record_cache: new_record_validation_cache(),
         pd: PhantomData,
     };
     Ok((receiver, handle))
@@ -317,11 +311,6 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
         // Deserialize the record's value
         let record: RecordValue<K> = bincode::deserialize(&result)
             .map_err(|e| NetworkNodeHandleError::DeserializationError { source: e.into() })?;
-
-        // Validate the signature
-        if !record.validate(&key, &Arc::clone(&self.record_cache)) {
-            return Err(NetworkNodeHandleError::FailedToVerify);
-        }
 
         Ok(record.value().to_vec())
     }

@@ -38,6 +38,7 @@ void = "1"
 lazy_static = { workspace = true }
 lru.workspace = true
 pin-project = "1"
+delegate = "0.12"
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 libp2p = { workspace = true, features = ["tokio"] }
