@@ -136,14 +136,14 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
             signed_value.extend_from_slice(value);
 
             // Check the entire value
-            error!("validating signature");
+            println!("validating signature");
             let now = Instant::now();
             let _ = public_key.validate(signature, &signed_value);
-            error!("Signature validation took {:?}", now.elapsed());
+            println!("Signature validation took {:?}", now.elapsed());
 
             true
         } else {
-            error!("Unsigned record");
+            println!("Unsigned record");
             true
         }
     }
