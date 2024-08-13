@@ -134,7 +134,7 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
             signed_value.extend_from_slice(value);
 
             // Check the entire value
-            if public_key.validate(signature, &signed_value) {
+            if public_key.validate(signature, &signed_value){
                 true
             } else {
                 error!("Failed to validate signed record");
