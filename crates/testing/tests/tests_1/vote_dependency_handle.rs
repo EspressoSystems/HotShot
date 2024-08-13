@@ -60,6 +60,8 @@ async fn test_vote_dependency_handle() {
             )
             .unwrap();
         consensus_writer.update_saved_leaves(view.leaf.clone());
+        consensus_writer
+            .update_saved_da_certs(view.da_certificate.view_number(), view.da_certificate);
     }
     drop(consensus_writer);
 

@@ -428,6 +428,7 @@ async fn test_view_sync_finalize_vote() {
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[allow(clippy::assigning_clones)]
 /// Makes sure that, when a valid ViewSyncFinalize certificate is available, the consensus task
 /// will NOT vote when the certificate matches a different view number.
 async fn test_view_sync_finalize_vote_fail_view_number() {

@@ -291,7 +291,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert_view_number) => {
-                    let cert_payload_comm = self.consensus.read().await.saved_da_certs().get(cert_view_number).expect("VoteDependencyHandle::handle_dep_result::DaCertificateValidated: we haven't seen this DA cert yet").data().payload_commit;
+                    let cert_payload_comm = if let Some(da_cert) = self
+                        .consensus
+                        .read()
+                        .await
+                        .saved_da_certs()
+                        .get(cert_view_number)
+                    {
+                        da_cert.data().payload_commit
+                    } else {
+                        warn!("We haven't seen this DA cert yet");
+                        return;
+                    };
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
