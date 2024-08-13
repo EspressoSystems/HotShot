@@ -17,7 +17,7 @@ use hotshot_types::traits::{
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
 use snafu::{ResultExt, Snafu};
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::network::{
     behaviours::{
@@ -293,7 +293,6 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
         key: RecordKey,
         retry_count: u8,
     ) -> Result<Vec<u8>, NetworkNodeHandleError> {
-        error!("Getting record");
         // Serialize the key
         let serialized_key = key.to_bytes();
 
@@ -315,12 +314,10 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
         let record: RecordValue<K> = bincode::deserialize(&result)
             .map_err(|e| NetworkNodeHandleError::DeserializationError { source: e.into() })?;
 
-        error!("Got record");
         // Validate the signature
         if !record.validate(&key) {
             return Err(NetworkNodeHandleError::FailedToVerify);
         }
-        error!("Validated record");
 
         Ok(record.value().to_vec())
     }
