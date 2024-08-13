@@ -6,7 +6,7 @@
 
 use std::time::{Duration, Instant};
 
-use hotshot_example_types::node_types::{CombinedImpl, Libp2pImpl, TestTypes, TestVersions};
+use hotshot_example_types::node_types::{Libp2pImpl, TestTypes, TestVersions};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -269,7 +269,7 @@ async fn libp2p_network_partially_sync() {
 async fn test_memory_network_chaos() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+    use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
     use hotshot_testing::{
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
         test_builder::TestDescription,
