@@ -303,16 +303,10 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
         self.send_request(req).await?;
 
         // Map the error
-        let result = match r.await.context(CancelledRequestSnafu) {
+        match r.await.context(CancelledRequestSnafu) {
             Ok(result) => Ok(result),
             Err(e) => Err(e).context(DHTSnafu),
-        }?;
-
-        // Deserialize the record's value
-        let record: RecordValue<K> = bincode::deserialize(&result)
-            .map_err(|e| NetworkNodeHandleError::DeserializationError { source: e.into() })?;
-
-        Ok(record.value().to_vec())
+        }
     }
 
     /// Get a record from the kademlia DHT with a timeout

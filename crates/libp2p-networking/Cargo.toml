@@ -19,6 +19,7 @@ async-trait = { workspace = true }
 blake3 = { workspace = true }
 bincode = { workspace = true }
 custom_debug = { workspace = true }
+delegate = "0.12"
 derive_builder = "0.20"
 either = { workspace = true }
 futures = { workspace = true }
@@ -36,9 +37,7 @@ tide = { version = "0.16", optional = true, default-features = false, features =
 tracing = { workspace = true }
 void = "1"
 lazy_static = { workspace = true }
-lru.workspace = true
 pin-project = "1"
-delegate = "0.12"
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 libp2p = { workspace = true, features = ["tokio"] }
