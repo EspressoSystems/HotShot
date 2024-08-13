@@ -81,7 +81,7 @@ impl TestView {
             <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
                 transactions.clone(),
                 &TestValidatedState::default(),
-                &TestInstanceState::default(),
+                &TestInstanceState {},
             )
             .await
             .unwrap();
@@ -125,7 +125,7 @@ impl TestView {
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis(
                 &TestValidatedState::default(),
-                &TestInstanceState::default(),
+                &TestInstanceState {},
             )
             .await,
             upgrade_certificate: None,
@@ -215,7 +215,7 @@ impl TestView {
             <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
                 transactions.clone(),
                 &TestValidatedState::default(),
-                &TestInstanceState::default(),
+                &TestInstanceState {},
             )
             .await
             .unwrap();

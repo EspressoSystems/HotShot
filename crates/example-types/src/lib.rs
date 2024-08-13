@@ -18,6 +18,3 @@ pub mod storage_types;
 
 /// auction types for solver-to-hotshot interactions
 pub mod auction_results_provider_types;
-
-/// add a delay to async functions
-pub mod testable_delay;

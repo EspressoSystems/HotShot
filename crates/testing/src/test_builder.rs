@@ -14,7 +14,7 @@ use hotshot::{
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    storage_types::TestStorage, testable_delay::DelayConfig,
+    storage_types::TestStorage,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue, traits::node_implementation::NodeType, ExecutionType,
@@ -92,8 +92,6 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
     pub behaviour: Rc<dyn Fn(u64) -> Behaviour<TYPES, I>>,
-    /// Delay config if any to add delays to asynchronous calls
-    pub async_delay_config: DelayConfig,
 }
 
 #[derive(Debug)]
@@ -107,7 +105,7 @@ pub async fn create_test_handle<
     TYPES: NodeType<InstanceState = TestInstanceState>,
     I: NodeImplementation<TYPES>,
 >(
-    metadata: TestDescription<TYPES, I>,
+    behaviour: Behaviour<TYPES, I>,
     node_id: u64,
     network: Network<TYPES, I>,
     memberships: Memberships<TYPES>,
@@ -115,11 +113,9 @@ pub async fn create_test_handle<
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,
 ) -> SystemContextHandle<TYPES, I> {
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::new(
-        metadata.async_delay_config,
-    ))
-    .await
-    .unwrap();
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
+        .await
+        .unwrap();
 
     // See whether or not we should be DA
     let is_da = node_id < config.da_staked_committee_size as u64;
@@ -131,7 +127,6 @@ pub async fn create_test_handle<
     let private_key = validator_config.private_key.clone();
     let public_key = validator_config.public_key.clone();
 
-    let behaviour = (metadata.behaviour)(node_id);
     match behaviour {
         Behaviour::ByzantineTwins(state) => {
             let state = Box::leak(state);
@@ -372,7 +367,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for TestDescription<
                 error_pct: 0.1,
             },
             behaviour: Rc::new(|_| Behaviour::Standard),
-            async_delay_config: DelayConfig::default(),
         }
     }
 }
@@ -483,7 +477,6 @@ where
                 a.view_sync_timeout = view_sync_timeout;
             };
 
-        let metadata = self.clone();
         TestLauncher {
             resource_generator: ResourceGenerators {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
@@ -493,12 +486,7 @@ where
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(move |_| {
-                    let mut storage = TestStorage::<TYPES>::default();
-                    // update storage impl to use settings delay option
-                    storage.delay_config = metadata.async_delay_config.clone();
-                    storage
-                }),
+                storage: Box::new(|_| TestStorage::<TYPES>::default()),
                 config,
                 marketplace_config: Box::new(|_| MarketplaceConfig::<TYPES, I> {
                     auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
