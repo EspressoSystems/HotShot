@@ -173,6 +173,70 @@ pub enum EventType<TYPES: NodeType> {
     /// A message destined for external listeners was received
     ExternalMessageReceived(Vec<u8>),
 }
+
+// Implement Eq as well, since EventType should have reflexive equality
+impl<TYPES: NodeType> Eq for EventType<TYPES> {}
+
+impl<TYPES: NodeType> PartialEq for EventType<TYPES> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                EventType::DaProposal {
+                    proposal: p1,
+                    sender: s1,
+                },
+                EventType::DaProposal {
+                    proposal: p2,
+                    sender: s2,
+                },
+            ) => p1 == p2 && s1 == s2,
+            (
+                EventType::ReplicaViewTimeout { view_number: v1 },
+                EventType::ReplicaViewTimeout { view_number: v2 },
+            )
+            | (
+                EventType::ViewFinished { view_number: v1 },
+                EventType::ViewFinished { view_number: v2 },
+            )
+            | (
+                EventType::ViewTimeout { view_number: v1 },
+                EventType::ViewTimeout { view_number: v2 },
+            ) => v1 == v2,
+            (
+                EventType::Transactions { transactions: t1 },
+                EventType::Transactions { transactions: t2 },
+            ) => t1 == t2,
+            (
+                EventType::QuorumProposal {
+                    proposal: p1,
+                    sender: s1,
+                },
+                EventType::QuorumProposal {
+                    proposal: p2,
+                    sender: s2,
+                },
+            ) => p1 == p2 && s1 == s2,
+            (
+                EventType::UpgradeProposal {
+                    proposal: p1,
+                    sender: s1,
+                },
+                EventType::UpgradeProposal {
+                    proposal: p2,
+                    sender: s2,
+                },
+            ) => p1 == p2 && s1 == s2,
+            (EventType::ExternalMessageReceived(m1), EventType::ExternalMessageReceived(m2)) => {
+                m1 == m2
+            }
+            (event_v1, _event_v2) => unreachable!(
+                "TODO: PartialEq not yet implemented for this EventType variant {:#?}",
+                event_v1
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 /// A list of actions that we track for nodes
 pub enum HotShotAction {
