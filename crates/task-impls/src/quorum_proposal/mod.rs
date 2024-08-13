@@ -390,10 +390,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 }
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
-                    let consensus_reader = self.consensus.read().await;
                     let mut retries = 5;
                     let qc_view_number = loop {
-                        if let Some(qc_view_number) = consensus_reader.qc_view_number(&qc) {
+                        if let Some(qc_view_number) =
+                            self.consensus.read().await.qc_view_number(&qc)
+                        {
                             break qc_view_number;
                         }
                         if retries < 1 {
@@ -409,7 +410,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                         )
                         .await;
                     };
-                    let Some(high_qc_view_number) = consensus_reader.high_qc_view_number() else {
+                    let Some(high_qc_view_number) =
+                        self.consensus.read().await.high_qc_view_number()
+                    else {
                         warn!("We haven't seen this leaf yet!");
                         return;
                     };
