@@ -125,27 +125,27 @@ impl<T: SignatureKey> Serializable for WrappedSignatureKey<T> {
 
 /// The production run definition for the Push CDN.
 /// Uses the real protocols and a Redis discovery client.
-pub struct ProductionDef<TYPES: NodeType>(PhantomData<TYPES>);
-impl<TYPES: NodeType> RunDef for ProductionDef<TYPES> {
-    type User = UserDef<TYPES>;
-    type Broker = BrokerDef<TYPES>;
+pub struct ProductionDef<K: SignatureKey + 'static>(PhantomData<K>);
+impl<K: SignatureKey + 'static> RunDef for ProductionDef<K> {
+    type User = UserDef<K>;
+    type Broker = BrokerDef<K>;
     type DiscoveryClientType = Redis;
     type Topic = Topic;
 }
 
 /// The user definition for the Push CDN.
 /// Uses the Quic protocol and untrusted middleware.
-pub struct UserDef<TYPES: NodeType>(PhantomData<TYPES>);
-impl<TYPES: NodeType> ConnectionDef for UserDef<TYPES> {
-    type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
+pub struct UserDef<K: SignatureKey + 'static>(PhantomData<K>);
+impl<K: SignatureKey + 'static> ConnectionDef for UserDef<K> {
+    type Scheme = WrappedSignatureKey<K>;
     type Protocol = Quic;
 }
 
 /// The broker definition for the Push CDN.
 /// Uses the TCP protocol and trusted middleware.
-pub struct BrokerDef<TYPES: NodeType>(PhantomData<TYPES>);
-impl<TYPES: NodeType> ConnectionDef for BrokerDef<TYPES> {
-    type Scheme = WrappedSignatureKey<TYPES::SignatureKey>;
+pub struct BrokerDef<K: SignatureKey + 'static>(PhantomData<K>);
+impl<K: SignatureKey> ConnectionDef for BrokerDef<K> {
+    type Scheme = WrappedSignatureKey<K>;
     type Protocol = Tcp;
 }
 
@@ -161,10 +161,10 @@ impl<K: SignatureKey> ConnectionDef for ClientDef<K> {
 
 /// The testing run definition for the Push CDN.
 /// Uses the real protocols, but with an embedded discovery client.
-pub struct TestingDef<TYPES: NodeType>(PhantomData<TYPES>);
-impl<TYPES: NodeType> RunDef for TestingDef<TYPES> {
-    type User = UserDef<TYPES>;
-    type Broker = BrokerDef<TYPES>;
+pub struct TestingDef<K: SignatureKey + 'static>(PhantomData<K>);
+impl<K: SignatureKey + 'static> RunDef for TestingDef<K> {
+    type User = UserDef<K>;
+    type Broker = BrokerDef<K>;
     type DiscoveryClientType = Embedded;
     type Topic = Topic;
 }
@@ -321,7 +321,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
             let other_broker_identifier = format!("{other_public_address}/{other_public_address}");
 
             // Configure the broker
-            let config: BrokerConfig<TestingDef<TYPES>> = BrokerConfig {
+            let config: BrokerConfig<TestingDef<TYPES::SignatureKey>> = BrokerConfig {
                 public_advertise_endpoint: public_address.clone(),
                 public_bind_endpoint: public_address,
                 private_advertise_endpoint: private_address.clone(),
@@ -340,7 +340,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
             // Create and spawn the broker
             async_spawn(async move {
-                let broker: Broker<TestingDef<TYPES>> =
+                let broker: Broker<TestingDef<TYPES::SignatureKey>> =
                     Broker::new(config).await.expect("broker failed to start");
 
                 // If we are the first broker by identifier, we need to sleep a bit
@@ -373,7 +373,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
         // Spawn the marshal
         async_spawn(async move {
-            let marshal: Marshal<TestingDef<TYPES>> = Marshal::new(marshal_config)
+            let marshal: Marshal<TestingDef<TYPES::SignatureKey>> = Marshal::new(marshal_config)
                 .await
                 .expect("failed to spawn marshal");
 
