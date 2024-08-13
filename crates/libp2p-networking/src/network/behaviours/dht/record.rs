@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use hotshot_types::traits::signature_key::SignatureKey;
 use libp2p::kad::Record;
 use serde::{Deserialize, Serialize};
-// use tracing::warn;
+use tracing::warn;
 
 /// A (signed or unsigned) record value to be stored (serialized) in the DHT.
 /// This is a wrapper around a value that includes a possible signature.
@@ -120,23 +120,23 @@ impl<K: SignatureKey + 'static> RecordValue<K> {
 
     /// If the message requires authentication, validate the record by verifying the signature with the
     /// given key
-    pub fn validate(&self, _record_key: &RecordKey) -> bool {
-        // if let Self::Signed(value, signature) = self {
-        //     // If the request is "signed", the public key is the record's key
-        //     let Ok(public_key) = K::from_bytes(record_key.key.as_slice()) else {
-        //         warn!("Failed to deserialize signer's public key");
-        //         return false;
-        //     };
+    pub fn validate(&self, record_key: &RecordKey) -> bool {
+        if let Self::Signed(value, signature) = self {
+            // If the request is "signed", the public key is the record's key
+            let Ok(public_key) = K::from_bytes(record_key.key.as_slice()) else {
+                warn!("Failed to deserialize signer's public key");
+                return false;
+            };
 
-        //     // The value to sign should be the record key concatenated with the value
-        //     let mut signed_value = record_key.to_bytes();
-        //     signed_value.extend_from_slice(value);
+            // The value to sign should be the record key concatenated with the value
+            let mut signed_value = record_key.to_bytes();
+            signed_value.extend_from_slice(value);
 
-        //     // Check the entire value
-        //     public_key.validate(signature, &signed_value)
-        // } else {
-        true
-        // }
+            // Check the entire value
+            public_key.validate(signature, &signed_value)
+        } else {
+            true
+        }
     }
 
     /// Get the underlying value of the record
