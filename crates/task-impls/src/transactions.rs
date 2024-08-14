@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, Result};
+use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_timeout};
 use async_trait::async_trait;
@@ -34,7 +34,7 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument, warn};
 use url::Url;
-use vbs::version::StaticVersionType;
+use vbs::version::{StaticVersionType, Version};
 use vec1::Vec1;
 
 use crate::{
@@ -232,6 +232,128 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         return None;
     }
 
+    /// Produce a block by fetching auction results from the solver and bundles from builders.
+    pub async fn produce_block_marketplace(
+        &mut self,
+        parent_view: TYPES::Time,
+        parent_hash: VidCommitment,
+        block_view: TYPES::Time,
+    ) -> Result<PackedBundle<TYPES>> {
+        ensure!(
+            !self
+                .upgrade_lock
+                .decided_upgrade_certificate
+                .read()
+                .await
+                .as_ref()
+                .is_some_and(|cert| cert.upgrading_in(block_view)),
+            "Not requesting block because we are upgrading",
+        );
+
+        let start = Instant::now();
+
+        let maybe_auction_result = async_timeout(
+            self.builder_timeout,
+            self.auction_results_provider
+                .fetch_auction_result(block_view),
+        )
+        .await
+        .context("Timeout while getting auction result")?;
+
+        let auction_result = maybe_auction_result
+            .map_err(|e| warn!("Failed to get auction results: {e:#}"))
+            .unwrap_or_default(); // We continue here, as we still have fallback builder URL
+
+        let mut futures = Vec::new();
+
+        let mut builder_urls = auction_result.clone().urls();
+        builder_urls.push(self.fallback_builder_url.clone());
+
+        for url in builder_urls {
+            futures.push(async_timeout(
+                self.builder_timeout.saturating_sub(start.elapsed()),
+                async {
+                    let client = BuilderClientMarketplace::new(url);
+                    client.bundle(*parent_view, parent_hash, *block_view).await
+                },
+            ));
+        }
+
+        let mut bundles = Vec::new();
+
+        for bundle in join_all(futures).await {
+            match bundle {
+                Ok(Ok(b)) => bundles.push(b),
+                _ => continue,
+            }
+        }
+
+        let mut sequencing_fees = Vec::new();
+        let mut transactions: Vec<<TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction> =
+            Vec::new();
+
+        for bundle in bundles {
+            sequencing_fees.push(bundle.sequencing_fee);
+            transactions.extend(bundle.transactions);
+        }
+
+        let validated_state = self.consensus.read().await.decided_state();
+
+        let sequencing_fees = Vec1::try_from_vec(sequencing_fees)?;
+        let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(
+            transactions,
+            &validated_state,
+            &Arc::clone(&self.instance_state),
+        )
+        .await?;
+
+        Ok(PackedBundle::new(
+            block_payload.encode(),
+            metadata,
+            block_view,
+            sequencing_fees,
+            None,
+            Some(auction_result),
+        ))
+    }
+
+    /// Produce a null block
+    pub async fn null_block(
+        &mut self,
+        block_view: TYPES::Time,
+        version: Version,
+    ) -> Option<PackedBundle<TYPES>> {
+        // Increment the metric for number of empty blocks proposed
+        self.consensus
+            .write()
+            .await
+            .metrics
+            .number_of_empty_blocks_proposed
+            .add(1);
+
+        let membership_total_nodes = self.membership.total_nodes();
+        let Some(null_fee) =
+            null_block::builder_fee::<TYPES, V>(self.membership.total_nodes(), version)
+        else {
+            error!("Failed to calculate null block fee.");
+            return None;
+        };
+
+        // Create an empty block payload and metadata
+        let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
+
+        let (_, precompute_data) = precompute_vid_commitment(&[], membership_total_nodes);
+
+        Some(PackedBundle::new(
+            vec![].into(),
+            metadata,
+            block_view,
+            vec1::vec1![null_fee],
+            Some(precompute_data),
+            Some(TYPES::AuctionResult::default()),
+        ))
+    }
+
     #[allow(clippy::too_many_lines)]
     /// marketplace view change handler
     pub async fn handle_view_change_marketplace(
@@ -247,130 +369,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             }
         };
 
-        // Only request bundles and propose with a nonempty block if we are not between versions.
-        if !self
-            .upgrade_lock
-            .decided_upgrade_certificate
-            .read()
+        let (parent_view, parent_hash) = self.last_vid_commitment(block_view).await?;
+
+        let packed_bundle = match self
+            .produce_block_marketplace(parent_view, parent_hash, block_view)
             .await
-            .as_ref()
-            .is_some_and(|cert| cert.upgrading_in(block_view))
         {
-            let start = Instant::now();
+            Ok(b) => b,
+            Err(e) => {
+                tracing::info!(
+                    "Failed to get a block for view {:?}: {}. Continuing with empty block.",
+                    block_view,
+                    e
+                );
 
-            if let Ok(maybe_auction_result) = async_timeout(
-                self.builder_timeout,
-                self.auction_results_provider
-                    .fetch_auction_result(block_view),
-            )
-            .await
-            {
-                let auction_result = maybe_auction_result
-                    .map_err(|e| warn!("Failed to get auction results: {e:#}"))
-                    .unwrap_or_default(); // We continue here, as we still have fallback builder URL
-
-                let mut futures = Vec::new();
-
-                let mut builder_urls = auction_result.clone().urls();
-                builder_urls.push(self.fallback_builder_url.clone());
-
-                for url in builder_urls {
-                    futures.push(async_timeout(
-                        self.builder_timeout.saturating_sub(start.elapsed()),
-                        async {
-                            let client = BuilderClientMarketplace::new(url);
-                            client.bundle(*block_view).await
-                        },
-                    ));
-                }
-
-                let mut bundles = Vec::new();
-
-                for bundle in join_all(futures).await {
-                    match bundle {
-                        Ok(Ok(b)) => bundles.push(b),
-                        _ => continue,
-                    }
-                }
-
-                let mut sequencing_fees = Vec::new();
-                let mut transactions: Vec<
-                    <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction,
-                > = Vec::new();
-
-                for bundle in bundles {
-                    sequencing_fees.push(bundle.sequencing_fee);
-                    transactions.extend(bundle.transactions);
-                }
-
-                let validated_state = self.consensus.read().await.decided_state();
-
-                if let (Ok(sequencing_fees), Ok((block_payload, metadata))) = (
-                    Vec1::try_from_vec(sequencing_fees),
-                    TYPES::BlockPayload::from_transactions(
-                        transactions,
-                        &validated_state,
-                        &Arc::clone(&self.instance_state),
-                    )
-                    .await,
-                ) {
-                    broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
-                            block_payload.encode(),
-                            metadata,
-                            block_view,
-                            sequencing_fees,
-                            None,
-                            Some(auction_result),
-                        ))),
-                        event_stream,
-                    )
-                    .await;
-
-                    return None;
-                }
-            } else {
-                warn!("Timeout while getting auction results");
+                self.null_block(block_view, version).await?
             }
-        }
-
-        // If we couldn't get any bundles (due to either all of the builders or solver failing to return a result), send an empty block
-        warn!(
-            "Failed to get a block for view {:?}, proposing empty block",
-            block_view
-        );
-
-        // Increment the metric for number of empty blocks proposed
-        self.consensus
-            .write()
-            .await
-            .metrics
-            .number_of_empty_blocks_proposed
-            .add(1);
-
-        let membership_total_nodes = self.membership.total_nodes();
-        let Some(null_fee) =
-            null_block::builder_fee::<TYPES, V>(self.membership.total_nodes(), version)
-        else {
-            error!("Failed to get null fee");
-            return None;
         };
 
-        // Create an empty block payload and metadata
-        let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
-
-        let (_, precompute_data) = precompute_vid_commitment(&[], membership_total_nodes);
-
-        // Broadcast the empty block
         broadcast_event(
-            Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
-                vec![].into(),
-                metadata,
-                block_view,
-                vec1::vec1![null_fee],
-                Some(precompute_data),
-                Some(TYPES::AuctionResult::default()),
-            ))),
+            Arc::new(HotShotEvent::BlockRecv(packed_bundle)),
             event_stream,
         )
         .await;
