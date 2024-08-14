@@ -6,6 +6,7 @@
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_sleep;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -35,6 +36,7 @@ use hotshot_types::{
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
+use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -560,22 +562,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                let cert_view_number = cert.view_number();
-                // let mut retries = 0;
-                // // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
-                // let cert_view_number = loop {
-                //     if let Some(view_number) = self.consensus.read().await.dac_view_number(cert) {
-                //         break view_number;
-                //     }
-                //     if retries > 5 {
-                //         warn!(
-                //             "We have received a DAC but we haven't seen this VID commitment yet!"
-                //         );
-                //         return;
-                //     }
-                //     async_sleep(Duration::from_millis(10)).await;
-                //     retries += 1;
-                // };
+                // let cert_view_number = cert.view_number();
+                let mut retries = 0;
+                // This is a workaround: we might have already received a DAC for VID that we haven't yet seen.
+                let cert_view_number = loop {
+                    if let Some(view_number) = self.consensus.read().await.dac_view_number(cert) {
+                        break view_number;
+                    }
+                    if retries > 5 {
+                        warn!(
+                            "We have received a DAC but we haven't seen this VID commitment yet!"
+                        );
+                        return;
+                    }
+                    async_sleep(Duration::from_millis(10)).await;
+                    retries += 1;
+                };
                 trace!("Received DAC for view {}", *cert_view_number);
                 if cert_view_number <= self.latest_voted_view {
                     return;
