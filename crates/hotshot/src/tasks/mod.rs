@@ -24,8 +24,9 @@ use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
-    network,
-    network::{NetworkEventTaskState, NetworkMessageTaskState},
+    health_check::HealthCheckTaskState,
+    helpers::broadcast_event,
+    network::{self, NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
     transactions::TransactionTaskState,
@@ -35,7 +36,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    data::QuorumProposal,
+    data::{QuorumProposal, ViewNumber},
     message::{Messages, Proposal},
     request_response::RequestReceiver,
     traits::{
@@ -117,6 +118,7 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let stream = handle.internal_event_stream.0.clone();
     let task_handle = async_spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
@@ -146,26 +148,66 @@ pub fn add_network_message_task<
 
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
-
-        loop {
-            futures::select! {
-                () = shutdown_signal => {
-                    tracing::error!("Shutting down network message task");
-                    return;
-                }
-                msgs_option = fused_recv_stream.next() => {
-                    if let Some(msgs) = msgs_option {
-                        if msgs.0.is_empty() {
-                            // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                            async_sleep(Duration::from_millis(100)).await;
-                        } else {
-                            state.handle_messages(msgs.0).await;
-                        }
-                    } else {
-                        // Stream has ended, which shouldn't happen in this case.
-                        // You might want to handle this situation, perhaps by breaking the loop or logging an error.
-                        tracing::error!("Network message stream unexpectedly ended");
+        // #[cfg(async_executor_impl = "async-std")]
+        {
+            let interval = async_std::stream::interval(Duration::from_secs(5)).fuse();
+            futures::pin_mut!(interval);
+            loop {
+                futures::select! {
+                    () = shutdown_signal => {
+                        // tracing::error!("Shutting down network message task");
                         return;
+                    }
+                    msgs_option = fused_recv_stream.next() => {
+                        if let Some(msgs) = msgs_option {
+                            if msgs.0.is_empty() {
+                                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
+                                async_sleep(Duration::from_millis(100)).await;
+                            } else {
+                                state.handle_messages(msgs.0).await;
+                            }
+                        } else {
+                            // Stream has ended, which shouldn't happen in this case.
+                            // You might want to handle this situation, perhaps by breaking the loop or logging an error.
+                            tracing::error!("Network message stream unexpectedly ended");
+                            return;
+                        }
+                    }
+                    _ = interval.next() => {
+                        // tracing::error!("logging async");
+                        broadcast_event(Arc::new(HotShotEvent::HealthCheckResponse), &stream).await;
+                    }
+                }
+            }
+        }
+        #[cfg(async_executor_impl = "tokio")]
+        {
+            let interval = tokio::time::interval(Duration::from_secs(5));
+            futures::pin_mut!(interval);
+            loop {
+                futures::select! {
+                    () = shutdown_signal => {
+                        // tracing::error!("Shutting down network message task");
+                        return;
+                    }
+                    msgs_option = fused_recv_stream.next() => {
+                        if let Some(msgs) = msgs_option {
+                            if msgs.0.is_empty() {
+                                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
+                                async_sleep(Duration::from_millis(100)).await;
+                            } else {
+                                state.handle_messages(msgs.0).await;
+                            }
+                        } else {
+                            // Stream has ended, which shouldn't happen in this case.
+                            // You might want to handle this situation, perhaps by breaking the loop or logging an error.
+                            tracing::error!("Network message stream unexpectedly ended");
+                            return;
+                        }
+                    }
+                    _ = interval.tick().fuse() => {
+                        tracing::error!("logging tokio");
+                        broadcast_event(event, sender)
                     }
                 }
             }
@@ -210,6 +252,7 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
+    handle.add_task(HealthCheckTaskState::<TYPES>::create_from(handle).await);
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
     if V::Base::VERSION < V::Upgrade::VERSION {

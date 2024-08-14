@@ -216,6 +216,11 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 2. The proposal has been correctly signed by the leader of the current view
     /// 3. The justify QC is valid
     QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// Handle health check event
+    HealthCheckProbe(TYPES::Time),
+    /// Handle health check event
+    HealthCheckResponse,
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
@@ -462,6 +467,12 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     "QuorumProposalPreliminarilyValidated(view_number={:?}",
                     proposal.data.view_number()
                 )
+            }
+            HotShotEvent::HealthCheckProbe(view_number) => {
+                write!(f, "HealthCheckProbe(view_numver={:?}", view_number)
+            }
+            HotShotEvent::HealthCheckResponse => {
+                write!(f, "HealthCheckResponse(view_numver=")
             }
         }
     }

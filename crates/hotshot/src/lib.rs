@@ -635,6 +635,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         add_network_tasks::<TYPES, I, V>(&mut handle).await;
         add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
 
+        if handle.hotshot.id == 0 {
+            tracing::error!(
+                "added tasks, network: {:?} consensus: {:?}",
+                handle.network_registry.handles.len(),
+                handle.consensus_registry.task_handles.len()
+            );
+        }
+
         handle
     }
 }

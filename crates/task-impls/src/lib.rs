@@ -64,3 +64,6 @@ pub mod quorum_proposal_recv;
 
 /// Task for storing and replaying all received tasks by a node
 pub mod rewind;
+
+/// Task for broadcasting a health event to all tasks and logging when no response
+pub mod health_check;

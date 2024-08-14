@@ -3,3 +3,7 @@ translucence = { index = "https://dl.cloudsmith.io/basic/translucence/tl/cargo/i
 
 [net]
 git-fetch-with-cli = true
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/mold"]

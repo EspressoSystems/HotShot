@@ -106,7 +106,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
 /// A collection of tasks which can handle shutdown
 pub struct ConsensusTaskRegistry<EVENT> {
     /// Tasks this registry controls
-    task_handles: Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>,
+    pub task_handles: Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>,
 }
 
 impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {

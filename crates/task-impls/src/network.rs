@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{any::Any, collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -106,7 +106,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
         // We will send only one event for a vector of transactions.
         let mut transactions = Vec::new();
         for message in messages {
-            tracing::trace!("Received message from network:\n\n{message:?}");
+            // tracing::error!("Received message from network:\n\n{message:?}");
             let sender = message.sender;
             match message.kind {
                 MessageKind::Consensus(consensus_message) => {
