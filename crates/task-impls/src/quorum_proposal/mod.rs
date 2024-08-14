@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
@@ -15,10 +21,11 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
+    message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -37,7 +44,7 @@ use crate::{
 mod handlers;
 
 /// The state for the quorum proposal task.
-pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Latest view number that has been proposed for.
     pub latest_proposed_view: TYPES::Time,
 
@@ -91,11 +98,13 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// since they will be present in the leaf we propose off of.
     pub formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
+    QuorumProposalTaskState<TYPES, I, V>
+{
     /// Create an event dependency
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create event dependency", level = "info")]
     fn create_event_dependency(
@@ -317,7 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
-                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+                upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
             },
         );
@@ -437,7 +446,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
                 // All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
-                    return;
                 }
 
                 self.create_dependency_task_if_new(
@@ -495,8 +503,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumProposalTaskState<TYPE
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
-    for QuorumProposalTaskState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for QuorumProposalTaskState<TYPES, I, V>
 {
     type Event = HotShotEvent<TYPES>;
 

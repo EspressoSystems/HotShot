@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 use anyhow::Result;
@@ -27,7 +33,7 @@ struct Args {
     #[arg(long, default_value = "local_ip:1738")]
     public_advertise_endpoint: String,
 
-    /// The broker-facing endpoint in `IP:port` form to bind to for connections from  
+    /// The broker-facing endpoint in `IP:port` form to bind to for connections from
     /// other brokers
     #[arg(long, default_value = "0.0.0.0:1739")]
     private_bind_endpoint: String,
@@ -86,7 +92,7 @@ async fn main() -> Result<()> {
         <TestTypes as NodeType>::SignatureKey::generated_from_seed_indexed(key_hash.into(), 1337);
 
     // Create config
-    let broker_config: Config<ProductionDef<TestTypes>> = Config {
+    let broker_config: Config<ProductionDef<<TestTypes as NodeType>::SignatureKey>> = Config {
         ca_cert_path: args.ca_cert_path,
         ca_key_path: args.ca_key_path,
 

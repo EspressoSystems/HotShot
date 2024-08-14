@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -28,28 +34,30 @@ use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use futures::{
-    channel::mpsc::{self, channel, Receiver, Sender},
+    channel::mpsc::{self, channel, Sender},
     future::{join_all, Either},
     FutureExt, StreamExt,
 };
 use hotshot_orchestrator::config::NetworkConfig;
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::traits::network::{
-    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
-};
 use hotshot_types::{
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
+    request_response::{NetworkMsgResponseChannel, Request, Response},
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
-        network::{self, ConnectedNetwork, NetworkError, ResponseMessage, Topic},
+        network::{ConnectedNetwork, NetworkError, ResponseMessage, Topic},
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
+};
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::{
+    request_response::TakeReceiver,
+    traits::network::{AsyncGenerator, NetworkReliability, TestableNetworkingImplementation},
 };
 use libp2p_identity::{
     ed25519::{self, SecretKey},
@@ -57,8 +65,10 @@ use libp2p_identity::{
 };
 use libp2p_networking::{
     network::{
-        behaviours::request_response::{Request, Response},
-        spawn_network_node, MeshParams,
+        behaviours::dht::record::{Namespace, RecordKey, RecordValue},
+        spawn_network_node,
+        transport::construct_auth_message,
+        MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
         NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
@@ -67,7 +77,7 @@ use libp2p_networking::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::BroadcastDelay;
 
@@ -132,9 +142,6 @@ impl<K: SignatureKey + 'static> Debug for Libp2pNetwork<K> {
     }
 }
 
-/// Locked Option of a receiver for moving the value out of the option
-type TakeReceiver = Mutex<Option<Receiver<(Vec<u8>, ResponseChannel<Response>)>>>;
-
 /// Type alias for a shared collection of peerid, multiaddrs
 pub type PeerInfoVec = Arc<RwLock<Vec<(PeerId, Multiaddr)>>>;
 
@@ -144,7 +151,7 @@ struct Libp2pNetworkInner<K: SignatureKey + 'static> {
     /// this node's public key
     pk: K,
     /// handle to control the network
-    handle: Arc<NetworkNodeHandle>,
+    handle: Arc<NetworkNodeHandle<K>>,
     /// Message Receiver
     receiver: UnboundedReceiver<Vec<u8>>,
     /// Receiver for Requests for Data, includes the request and the response chan
@@ -249,6 +256,19 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 let privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
+
+                // Derive the Libp2p keypair from the private key
+                let libp2p_keypair = derive_libp2p_keypair::<TYPES::SignatureKey>(&privkey)
+                    .expect("Failed to derive libp2p keypair");
+
+                // Sign the lookup record
+                let lookup_record_value = RecordValue::new_signed(
+                    &RecordKey::new(Namespace::Lookup, pubkey.to_bytes()),
+                    libp2p_keypair.public().to_peer_id().to_bytes(),
+                    &privkey,
+                )
+                .expect("Failed to sign DHT lookup record");
+
                 // we want the majority of peers to have this lying around.
                 let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
                 let config = if node_id < num_bootstrap as u64 {
@@ -263,6 +283,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             mesh_n: (expected_node_count / 2 + 3),
                         }))
                         .server_mode(true)
+                        .identity(libp2p_keypair)
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
@@ -284,6 +305,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             mesh_n: 8,
                         }))
                         .server_mode(true)
+                        .identity(libp2p_keypair)
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
@@ -298,6 +320,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 let node_ids_ref = Arc::clone(&node_ids);
                 let da = da_keys.clone();
                 let reliability_config_dup = reliability_config.clone();
+
                 Box::pin(async move {
                     // If it's the second time we are starting this network, clear the bootstrap info
                     let mut write_ids = node_ids_ref.write().await;
@@ -312,6 +335,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             Libp2pMetricsValue::default(),
                             config,
                             pubkey.clone(),
+                            lookup_record_value,
                             bootstrap_addrs_ref,
                             usize::try_from(node_id).unwrap(),
                             #[cfg(feature = "hotshot-testing")]
@@ -401,7 +425,24 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         .parse()?;
 
         // Build our libp2p configuration from our global, network configuration
-        let mut config_builder: NetworkNodeConfigBuilder = NetworkNodeConfigBuilder::default();
+        let mut config_builder = NetworkNodeConfigBuilder::default();
+
+        // Extrapolate the stake table from the known nodes
+        let stake_table: HashSet<K> = config
+            .config
+            .known_nodes_with_stake
+            .iter()
+            .map(|node| K::public_key(&node.stake_table_entry))
+            .collect();
+
+        let auth_message =
+            construct_auth_message(pub_key, &keypair.public().to_peer_id(), priv_key)
+                .with_context(|| "Failed to construct auth message")?;
+
+        // Set the auth message and stake table
+        config_builder
+            .stake_table(Some(stake_table))
+            .auth_message(Some(auth_message));
 
         // The replication factor is the minimum of [the default and 2/3 the number of nodes]
         let Some(default_replication_factor) = DEFAULT_REPLICATION_FACTOR else {
@@ -413,6 +454,15 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             config.config.num_nodes_with_stake.get() * 2 / 3,
         ))
         .with_context(|| "Failed to calculate replication factor")?;
+
+        // Sign our DHT lookup record
+        let lookup_record_value = RecordValue::new_signed(
+            &RecordKey::new(Namespace::Lookup, pub_key.to_bytes()),
+            // The value is our Libp2p Peer ID
+            keypair.public().to_peer_id().to_bytes(),
+            priv_key,
+        )
+        .with_context(|| "Failed to sign DHT lookup record")?;
 
         config_builder
             .server_mode(libp2p_config.server_mode)
@@ -454,6 +504,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
             metrics,
             node_config,
             pub_key.clone(),
+            lookup_record_value,
             Arc::new(RwLock::new(bootstrap_nodes)),
             usize::try_from(config.node_index)?,
             #[cfg(feature = "hotshot-testing")]
@@ -494,14 +545,15 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         metrics: Libp2pMetricsValue,
-        config: NetworkNodeConfig,
+        config: NetworkNodeConfig<K>,
         pk: K,
+        lookup_record_value: RecordValue<K>,
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
         is_da: bool,
     ) -> Result<Libp2pNetwork<K>, NetworkError> {
-        let (mut rx, network_handle) = spawn_network_node(config.clone(), id)
+        let (mut rx, network_handle) = spawn_network_node::<K>(config.clone(), id)
             .await
             .map_err(Into::<NetworkError>::into)?;
         // Make bootstrap mappings known
@@ -565,7 +617,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
         result.handle_event_generator(sender, requests_tx, rx);
         result.spawn_node_lookup(node_lookup_recv);
-        result.spawn_connect(id);
+        result.spawn_connect(id, lookup_record_value);
 
         Ok(result)
     }
@@ -585,19 +637,12 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 #[allow(clippy::cast_possible_truncation)]
                 const THRESHOLD: u64 = (LOOK_AHEAD as f64 * 0.8) as u64;
 
-                debug!("Performing lookup for peer {:?}", pk);
+                trace!("Performing lookup for peer {:?}", pk);
 
                 // only run if we are not too close to the next view number
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
-                    let pk_bytes = match bincode::serialize(&pk) {
-                        Ok(serialized) => serialized,
-                        Err(e) => {
-                            tracing::error!("Failed to serialize public key; this should never happen. Error: {e}");
-                            return;
-                        }
-                    };
                     // look up
-                    if let Err(err) = handle.lookup_node(&pk_bytes, dht_timeout).await {
+                    if let Err(err) = handle.lookup_node(&pk.to_bytes(), dht_timeout).await {
                         warn!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
@@ -606,7 +651,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     }
 
     /// Initiates connection to the outside world
-    fn spawn_connect(&mut self, id: usize) {
+    fn spawn_connect(&mut self, id: usize, lookup_record_value: RecordValue<K>) {
         let pk = self.inner.pk.clone();
         let bootstrap_ref = Arc::clone(&self.inner.bootstrap_addrs);
         let handle = Arc::clone(&self.inner.handle);
@@ -637,34 +682,18 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                     handle.subscribe("DA".to_string()).await.unwrap();
                 }
 
-                // we want our records published before
-                // we begin participating in consensus
-                //
-                // Note: this serialization should never fail,
-                // and if it does the error is unrecoverable.
+                // Map our staking key to our Libp2p Peer ID so we can properly
+                // route direct messages
                 while handle
                     .put_record(
-                        &bincode::serialize(&pk).unwrap(),
-                        &bincode::serialize(&handle.peer_id()).unwrap(),
+                        RecordKey::new(Namespace::Lookup, pk.to_bytes()),
+                        lookup_record_value.clone(),
                     )
                     .await
                     .is_err()
                 {
                     async_sleep(Duration::from_secs(1)).await;
                 }
-
-                while handle
-                    .put_record(
-                        &bincode::serialize(&handle.peer_id()).unwrap(),
-                        &bincode::serialize(&pk).unwrap(),
-                    )
-                    .await
-                    .is_err()
-                {
-                    async_sleep(Duration::from_secs(1)).await;
-                }
-
-                info!("Finished putting Kademlia records");
 
                 // Wait for the network to connect to the required number of peers
                 if let Err(e) = handle.wait_to_connect(4, id).await {
@@ -803,11 +832,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         let pid = match self
             .inner
             .handle
-            .lookup_node(
-                &bincode::serialize(&recipient)
-                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
-                self.inner.dht_timeout,
-            )
+            .lookup_node(&recipient.to_bytes(), self.inner.dht_timeout)
             .await
         {
             Ok(pid) => pid,
@@ -854,7 +879,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
     async fn spawn_request_receiver_task(
         &self,
-    ) -> Option<mpsc::Receiver<(Vec<u8>, network::ResponseChannel<Vec<u8>>)>> {
+    ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
         let mut internal_rx = self.inner.requests_rx.lock().await.take()?;
         let handle = Arc::clone(&self.inner.handle);
         let (mut tx, rx) = mpsc::channel(100);
@@ -864,7 +889,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
                 if tx
                     .try_send((
                         request,
-                        network::ResponseChannel {
+                        NetworkMsgResponseChannel {
                             sender: response_tx,
                         },
                     ))
@@ -1020,11 +1045,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         let pid = match self
             .inner
             .handle
-            .lookup_node(
-                &bincode::serialize(&recipient)
-                    .map_err(|e| NetworkError::Libp2p { source: e.into() })?,
-                self.inner.dht_timeout,
-            )
+            .lookup_node(&recipient.to_bytes(), self.inner.dht_timeout)
             .await
         {
             Ok(pid) => pid,
@@ -1100,7 +1121,18 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             .try_send(Some((view_number, pk)))
     }
 
-    /// handles view update
+    /// The libp2p view update is a special operation intrinsic to its internal behavior.
+    ///
+    /// Libp2p needs to do a lookup because a libp2p address is not releated to
+    /// hotshot keys. So in libp2p we store a mapping of HotShot key to libp2p address
+    /// in a distributed hash table.
+    ///
+    /// This means to directly message someone on libp2p we need to lookup in the hash
+    /// table what their libp2p address is, using their HotShot public key as the key.
+    ///
+    /// So the logic with libp2p is to prefetch upcomming leaders libp2p address to
+    /// save time when we later need to direct message the leader our vote. Hence the
+    /// use of the future view and leader to queue the lookups.
     async fn update_view<'a, TYPES>(&'a self, view: u64, membership: &TYPES::Membership)
     where
         TYPES: NodeType<SignatureKey = K> + 'a,

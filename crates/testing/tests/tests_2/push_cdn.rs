@@ -1,7 +1,13 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::time::Duration;
 
 use async_compatibility_layer::logging::shutdown_logging;
-use hotshot_example_types::node_types::{PushCdnImpl, TestTypes};
+use hotshot_example_types::node_types::{PushCdnImpl, TestTypes, TestVersions};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -17,7 +23,7 @@ use tracing::instrument;
 async fn push_cdn_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, PushCdnImpl> = TestDescription {
+    let metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,

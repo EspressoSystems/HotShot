@@ -1,13 +1,18 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use hotshot::tasks::task_state::CreateTaskState;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
 use hotshot_task_impls::{
     events::HotShotEvent, harness::run_harness, view_sync::ViewSyncTaskState,
 };
 use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
     data::ViewNumber, simple_vote::ViewSyncPreCommitData,
-    traits::node_implementation::ConsensusTime,
-    vote::Vote,
+    traits::node_implementation::ConsensusTime, vote::Vote,
 };
 
 #[cfg(test)]
@@ -18,7 +23,9 @@ async fn test_view_sync_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 5.
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5)
+        .await
+        .0;
 
     let vote_data = ViewSyncPreCommitData {
         relay: 0,

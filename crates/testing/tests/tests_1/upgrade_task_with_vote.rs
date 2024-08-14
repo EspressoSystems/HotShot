@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #![cfg(feature = "dependency-tasks")]
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
@@ -8,7 +14,7 @@ use futures::StreamExt;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::TestInstanceState,
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -45,7 +51,9 @@ async fn test_upgrade_task_with_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -182,7 +190,8 @@ async fn test_upgrade_task_with_vote() {
         ),
     ];
 
-    let vote_state = QuorumVoteTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let vote_state =
+        QuorumVoteTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut vote_script = TaskScript {
         timeout: TIMEOUT,
         state: vote_state,

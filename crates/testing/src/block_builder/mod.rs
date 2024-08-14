@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::collections::HashMap;
 
 use async_broadcast::Receiver;
@@ -79,7 +85,7 @@ pub fn run_builder_source<TYPES, Source>(
             let mut app: App<Source, Error> = App::with_state(source);
             app.register_module("block_info", builder_api)
                 .expect("Failed to register the builder API");
-            async_spawn(app.serve(url, TYPES::Base::instance()))
+            async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
         };
 
         let mut handle = Some(start_builder(url.clone(), source.clone()));

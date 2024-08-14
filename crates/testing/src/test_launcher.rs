@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use hotshot::{
@@ -8,7 +14,7 @@ use hotshot_example_types::storage_types::TestStorage;
 use hotshot_types::{
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
-        node_implementation::NodeType,
+        node_implementation::{NodeType, Versions},
     },
     HotShotConfig,
 };
@@ -34,18 +40,18 @@ pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYP
 }
 
 /// test launcher
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     /// generator for resources
     pub resource_generator: ResourceGenerators<TYPES, I>,
     /// metadata used for tasks
-    pub metadata: TestDescription<TYPES, I>,
+    pub metadata: TestDescription<TYPES, I, V>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestLauncher<TYPES, I, V> {
     /// launch the test
     #[must_use]
-    pub fn launch<N: ConnectedNetwork<TYPES::SignatureKey>>(self) -> TestRunner<TYPES, I, N> {
-        TestRunner::<TYPES, I, N> {
+    pub fn launch<N: ConnectedNetwork<TYPES::SignatureKey>>(self) -> TestRunner<TYPES, I, V, N> {
+        TestRunner::<TYPES, I, V, N> {
             launcher: self,
             nodes: Vec::new(),
             solver_server: None,

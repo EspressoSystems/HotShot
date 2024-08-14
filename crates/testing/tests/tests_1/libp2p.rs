@@ -1,6 +1,12 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::time::Duration;
 
-use hotshot_example_types::node_types::{Libp2pImpl, TestTypes};
+use hotshot_example_types::node_types::{Libp2pImpl, TestTypes, TestVersions};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -17,7 +23,7 @@ use tracing::instrument;
 async fn libp2p_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, Libp2pImpl> = TestDescription {
+    let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
             ..Default::default()
@@ -48,7 +54,7 @@ async fn libp2p_network() {
 async fn libp2p_network_failures_2() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription<TestTypes, Libp2pImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
             ..Default::default()
@@ -96,7 +102,8 @@ async fn libp2p_network_failures_2() {
 async fn test_stress_libp2p_network() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, Libp2pImpl> = TestDescription::default_stress();
+    let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> =
+        TestDescription::default_stress();
     metadata
         .gen_launcher(0)
         .launch()

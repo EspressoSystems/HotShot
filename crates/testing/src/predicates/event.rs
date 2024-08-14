@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::sync::Arc;
 
 use async_lock::RwLock;
@@ -275,16 +281,6 @@ where
     let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
         matches!(e.as_ref(), ViewSyncPreCommitVoteSend(..))
     });
-    Box::new(EventPredicate { check, info })
-}
-
-pub fn vote_now<TYPES>() -> Box<EventPredicate<TYPES>>
-where
-    TYPES: NodeType,
-{
-    let info = "VoteNow".to_string();
-    let check: EventCallback<TYPES> =
-        Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), VoteNow(..)));
     Box::new(EventPredicate { check, info })
 }
 

@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! Provides types useful for representing `HotShot`'s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -790,8 +796,10 @@ pub mod null_block {
 
     use crate::{
         traits::{
-            block_contents::BuilderFee, node_implementation::NodeType,
-            signature_key::BuilderSignatureKey, BlockPayload,
+            block_contents::BuilderFee,
+            node_implementation::{NodeType, Versions},
+            signature_key::BuilderSignatureKey,
+            BlockPayload,
         },
         vid::{vid_scheme, VidCommitment},
     };
@@ -815,7 +823,7 @@ pub mod null_block {
 
     /// Builder fee data for a null block payload
     #[must_use]
-    pub fn builder_fee<TYPES: NodeType>(
+    pub fn builder_fee<TYPES: NodeType, V: Versions>(
         num_storage_nodes: usize,
         version: vbs::version::Version,
     ) -> Option<BuilderFee<TYPES>> {
@@ -827,7 +835,7 @@ pub mod null_block {
                 [0_u8; 32], 0,
             );
 
-        if version >= crate::constants::MarketplaceVersion::version() {
+        if version >= V::Marketplace::VERSION {
             match TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(&priv_key, FEE_AMOUNT)
             {
                 Ok(sig) => Some(BuilderFee {

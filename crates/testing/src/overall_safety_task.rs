@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
     sync::Arc,
@@ -13,7 +19,7 @@ use hotshot_types::{
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate,
-    traits::node_implementation::{ConsensusTime, NodeType},
+    traits::node_implementation::{ConsensusTime, NodeType, Versions},
     vid::VidCommitment,
 };
 use snafu::Snafu;
@@ -79,9 +85,9 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
 }
 
 /// Data availability task state
-pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     /// handles
-    pub handles: Arc<RwLock<Vec<Node<TYPES, I>>>>,
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// ctx
     pub ctx: RoundCtx<TYPES>,
     /// configure properties
@@ -92,9 +98,11 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub test_sender: Sender<TestEvent>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions>
+    OverallSafetyTask<TYPES, I, V>
+{
     async fn handle_view_failure(&mut self, num_failed_views: usize, view_number: TYPES::Time) {
-        let expected_view_to_fail = &mut self.properties.expected_views_to_fail;
+        let expected_views_to_fail = &mut self.properties.expected_views_to_fail;
 
         self.ctx.failed_views.insert(view_number);
         if self.ctx.failed_views.len() > num_failed_views {
@@ -102,16 +110,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TY
             self.error = Some(Box::new(OverallSafetyTaskErr::<TYPES>::TooManyFailures {
                 failed_views: self.ctx.failed_views.clone(),
             }));
-        } else if !expected_view_to_fail.is_empty() {
-            match expected_view_to_fail.get(&view_number) {
-                Some(_) => {
-                    expected_view_to_fail.insert(view_number, true);
+        } else if !expected_views_to_fail.is_empty() {
+            match expected_views_to_fail.entry(view_number) {
+                Entry::Occupied(mut view_seen) => {
+                    *view_seen.get_mut() = true;
                 }
-                None => {
+                Entry::Vacant(_v) => {
                     let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
                     self.error = Some(Box::new(
                         OverallSafetyTaskErr::<TYPES>::InconsistentFailedViews {
-                            expected_failed_views: expected_view_to_fail.keys().cloned().collect(),
+                            expected_failed_views: expected_views_to_fail.keys().cloned().collect(),
                             actual_failed_views: self.ctx.failed_views.clone(),
                         },
                     ));
@@ -122,8 +130,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> OverallSafetyTask<TY
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
-    for OverallSafetyTask<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTaskState
+    for OverallSafetyTask<TYPES, I, V>
 {
     type Event = Event<TYPES>;
 

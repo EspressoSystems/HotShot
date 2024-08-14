@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! The following is the main `Marshal` binary, which just instantiates and runs
 //! a `Marshal` object.
 
@@ -6,6 +12,7 @@ use cdn_marshal::{Config, Marshal};
 use clap::Parser;
 use hotshot::traits::implementations::ProductionDef;
 use hotshot_example_types::node_types::TestTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use tracing_subscriber::EnvFilter;
 
 // TODO: forall, add logging where we need it
@@ -74,7 +81,8 @@ async fn main() -> Result<()> {
     };
 
     // Create new `Marshal` from the config
-    let marshal = Marshal::<ProductionDef<TestTypes>>::new(config).await?;
+    let marshal =
+        Marshal::<ProductionDef<<TestTypes as NodeType>::SignatureKey>>::new(config).await?;
 
     // Start the main loop, consuming it
     marshal.start().await?;

@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #![allow(clippy::panic)]
 use std::{
     collections::HashMap,
@@ -53,7 +59,7 @@ use hotshot_types::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
         network::{ConnectedNetwork, Topic},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         states::TestableState,
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
@@ -341,6 +347,7 @@ pub trait RunDa<
         Storage = TestStorage<TYPES>,
         AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
+    V: Versions,
 > where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -358,10 +365,11 @@ pub trait RunDa<
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE> {
-        let initializer = hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState {})
-            .await
-            .expect("Couldn't generate genesis block");
+    async fn initialize_state_and_hotshot(&self) -> SystemContextHandle<TYPES, NODE, V> {
+        let initializer =
+            hotshot::HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::default())
+                .await
+                .expect("Couldn't generate genesis block");
 
         let config = self.config();
 
@@ -398,8 +406,8 @@ pub trait RunDa<
 
         let marketplace_config = MarketplaceConfig {
             auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
-            // TODO: we need to pass a valid generic builder url here somehow
-            generic_builder_url: url::Url::parse("http://localhost").unwrap(),
+            // TODO: we need to pass a valid fallback builder url here somehow
+            fallback_builder_url: url::Url::parse("http://localhost").unwrap(),
         };
 
         SystemContext::init(
@@ -423,7 +431,7 @@ pub trait RunDa<
     #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
-        context: SystemContextHandle<TYPES, NODE>,
+        context: SystemContextHandle<TYPES, NODE, V>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
         transaction_size_in_bytes: u64,
@@ -595,7 +603,7 @@ pub struct PushCdnDaRun<TYPES: NodeType> {
     /// The underlying configuration
     config: NetworkConfig<TYPES::SignatureKey>,
     /// The underlying network
-    network: PushCdnNetwork<TYPES>,
+    network: PushCdnNetwork<TYPES::SignatureKey>,
 }
 
 #[async_trait]
@@ -608,11 +616,12 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Network = PushCdnNetwork<TYPES>,
+            Network = PushCdnNetwork<TYPES::SignatureKey>,
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
-    > RunDa<TYPES, PushCdnNetwork<TYPES>, NODE> for PushCdnDaRun<TYPES>
+        V: Versions,
+    > RunDa<TYPES, PushCdnNetwork<TYPES::SignatureKey>, NODE, V> for PushCdnDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -656,7 +665,7 @@ where
         PushCdnDaRun { config, network }
     }
 
-    fn network(&self) -> PushCdnNetwork<TYPES> {
+    fn network(&self) -> PushCdnNetwork<TYPES::SignatureKey> {
         self.network.clone()
     }
 
@@ -689,7 +698,8 @@ impl<
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
-    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE> for Libp2pDaRun<TYPES>
+        V: Versions,
+    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE, V> for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -775,7 +785,8 @@ impl<
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
-    > RunDa<TYPES, CombinedNetworks<TYPES>, NODE> for CombinedDaRun<TYPES>
+        V: Versions,
+    > RunDa<TYPES, CombinedNetworks<TYPES>, NODE, V> for CombinedDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -787,24 +798,24 @@ where
         libp2p_advertise_address: Option<SocketAddr>,
     ) -> CombinedDaRun<TYPES> {
         // Initialize our Libp2p network
-        let libp2p_network: Libp2pDaRun<TYPES> = <Libp2pDaRun<TYPES> as RunDa<
-            TYPES,
-            Libp2pNetwork<TYPES::SignatureKey>,
-            Libp2pImpl,
-        >>::initialize_networking(
-            config.clone(), libp2p_advertise_address
-        )
-        .await;
+        let libp2p_network: Libp2pDaRun<TYPES> =
+            <Libp2pDaRun<TYPES> as RunDa<
+                TYPES,
+                Libp2pNetwork<TYPES::SignatureKey>,
+                Libp2pImpl,
+                V,
+            >>::initialize_networking(config.clone(), libp2p_advertise_address)
+            .await;
 
         // Initialize our CDN network
-        let cdn_network: PushCdnDaRun<TYPES> = <PushCdnDaRun<TYPES> as RunDa<
-            TYPES,
-            PushCdnNetwork<TYPES>,
-            PushCdnImpl,
-        >>::initialize_networking(
-            config.clone(), libp2p_advertise_address
-        )
-        .await;
+        let cdn_network: PushCdnDaRun<TYPES> =
+            <PushCdnDaRun<TYPES> as RunDa<
+                TYPES,
+                PushCdnNetwork<TYPES::SignatureKey>,
+                PushCdnImpl,
+                V,
+            >>::initialize_networking(config.clone(), libp2p_advertise_address)
+            .await;
 
         // Create our combined network config
         let delay_duration = config
@@ -845,7 +856,8 @@ pub async fn main_entry_point<
         Storage = TestStorage<TYPES>,
         AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
     >,
-    RUNDA: RunDa<TYPES, NETWORK, NODE>,
+    V: Versions,
+    RUNDA: RunDa<TYPES, NETWORK, NODE, V>,
 >(
     args: ValidatorArgs,
 ) where

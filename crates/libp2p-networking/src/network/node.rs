@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 /// configuration for the libp2p network (e.g. how it should be built)
 mod config;
 
@@ -8,6 +14,7 @@ mod handle;
 use std::{
     collections::{HashMap, HashSet},
     iter,
+    marker::PhantomData,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
@@ -17,7 +24,11 @@ use async_compatibility_layer::{
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
 use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
-use hotshot_types::constants::KAD_DEFAULT_REPUB_INTERVAL_SEC;
+use hotshot_types::{
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC,
+    request_response::{Request, Response},
+    traits::signature_key::SignatureKey,
+};
 use libp2p::{
     autonat,
     core::transport::ListenerId,
@@ -53,7 +64,10 @@ pub use self::{
     },
 };
 use super::{
-    behaviours::dht::bootstrap::{self, DHTBootstrapTask, InputEvent},
+    behaviours::dht::{
+        bootstrap::{self, DHTBootstrapTask, InputEvent},
+        store::ValidatedStore,
+    },
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
@@ -62,7 +76,7 @@ use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
-    request_response::{Request, RequestResponseState, Response},
+    request_response::RequestResponseState,
 };
 
 /// Maximum size of a message
@@ -76,16 +90,16 @@ pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
 #[derive(custom_debug::Debug)]
-pub struct NetworkNode {
+pub struct NetworkNode<K: SignatureKey + 'static> {
     /// pub/private key from with peer_id is derived
     identity: Keypair,
     /// peer id of network node
     peer_id: PeerId,
     /// the swarm of networkbehaviours
     #[debug(skip)]
-    swarm: Swarm<NetworkDef>,
+    swarm: Swarm<NetworkDef<K>>,
     /// the configuration parameters of the netework
-    config: NetworkNodeConfig,
+    config: NetworkNodeConfig<K>,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
     /// Handler for requests and response behavior events.
@@ -93,14 +107,17 @@ pub struct NetworkNode {
     /// Handler for direct messages
     direct_message_state: DMBehaviour,
     /// Handler for DHT Events
-    dht_handler: DHTBehaviour,
+    dht_handler: DHTBehaviour<K>,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
     /// Send to the bootstrap task to tell it to start a bootstrap
     bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
+
+    /// Phantom data to hold the key type
+    pd: PhantomData<K>,
 }
 
-impl NetworkNode {
+impl<K: SignatureKey + 'static> NetworkNode<K> {
     /// Returns number of peers this node is connected to
     pub fn num_connected(&self) -> usize {
         self.swarm.connected_peers().count()
@@ -158,19 +175,27 @@ impl NetworkNode {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new(config: NetworkNodeConfig) -> Result<Self, NetworkError> {
-        // Generate a random PeerId
+    pub async fn new(config: NetworkNodeConfig<K>) -> Result<Self, NetworkError> {
+        // Generate a random `KeyPair` if one is not specified
         let identity = if let Some(ref kp) = config.identity {
             kp.clone()
         } else {
             Keypair::generate_ed25519()
         };
+
+        // Get the `PeerId` from the `KeyPair`
         let peer_id = PeerId::from(identity.public());
-        debug!(?peer_id);
-        let transport: BoxedTransport = gen_transport(identity.clone()).await?;
-        debug!("Launched network transport");
+
+        // Generate the transport from the identity, stake table, and auth message
+        let transport: BoxedTransport = gen_transport::<K>(
+            identity.clone(),
+            config.stake_table.clone(),
+            config.auth_message.clone(),
+        )
+        .await?;
+
         // Generate the swarm
-        let mut swarm: Swarm<NetworkDef> = {
+        let mut swarm: Swarm<NetworkDef<K>> = {
             // Use the hash of the message's contents as the ID
             // Use blake3 for much paranoia at very high speeds
             let message_id_fn = |message: &GossipsubMessage| {
@@ -268,7 +293,11 @@ impl NetworkNode {
                 panic!("Replication factor not set");
             }
 
-            let mut kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            let mut kadem = Behaviour::with_config(
+                peer_id,
+                ValidatedStore::new(MemoryStore::new(peer_id)),
+                kconfig,
+            );
             if config.server_mode {
                 kadem.set_mode(Some(Mode::Server));
             }
@@ -344,6 +373,7 @@ impl NetworkNode {
             ),
             resend_tx: None,
             bootstrap_tx: None,
+            pd: PhantomData,
         })
     }
 
@@ -439,7 +469,7 @@ impl NetworkNode {
                         notify,
                         retry_count,
                     } => {
-                        self.dht_handler.record(
+                        self.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),

@@ -1,7 +1,14 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 /// Task for doing bootstraps at a regular interval
 pub mod bootstrap;
 use std::{
     collections::{HashMap, HashSet},
+    marker::PhantomData,
     num::NonZeroUsize,
     time::Duration,
 };
@@ -12,6 +19,7 @@ use futures::{
     channel::{mpsc, oneshot::Sender},
     SinkExt,
 };
+use hotshot_types::traits::signature_key::SignatureKey;
 use lazy_static::lazy_static;
 use libp2p::kad::{
     /* handler::KademliaHandlerIn, */ store::MemoryStore, BootstrapOk, GetClosestPeersOk,
@@ -21,7 +29,14 @@ use libp2p::kad::{
     store::RecordStore, Behaviour as KademliaBehaviour, BootstrapError, Event as KademliaEvent,
 };
 use libp2p_identity::PeerId;
+use store::ValidatedStore;
 use tracing::{debug, error, info, warn};
+
+/// Additional DHT record functionality
+pub mod record;
+
+/// Additional DHT store functionality
+pub mod store;
 
 /// the number of nodes required to get an answer from
 /// in order to trust that the answer is correct when retrieving from the DHT
@@ -42,7 +57,7 @@ use crate::network::{ClientRequest, NetworkEvent};
 /// - bootstrapping into the network
 /// - peer discovery
 #[derive(Debug)]
-pub struct DHTBehaviour {
+pub struct DHTBehaviour<K: SignatureKey + 'static> {
     /// in progress queries for nearby peers
     pub in_progress_get_closest_peers: HashMap<QueryId, Sender<()>>,
     /// List of in-progress get requests
@@ -61,6 +76,9 @@ pub struct DHTBehaviour {
     retry_tx: Option<UnboundedSender<ClientRequest>>,
     /// Sender to the bootstrap task
     bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
+
+    /// Phantom type for the key
+    phantom: PhantomData<K>,
 }
 
 /// State of bootstrapping
@@ -88,7 +106,7 @@ pub enum DHTEvent {
     IsBootstrapped,
 }
 
-impl DHTBehaviour {
+impl<K: SignatureKey + 'static> DHTBehaviour<K> {
     /// Give the handler a way to retry requests.
     pub fn set_retry(&mut self, tx: UnboundedSender<ClientRequest>) {
         self.retry_tx = Some(tx);
@@ -118,11 +136,15 @@ impl DHTBehaviour {
             replication_factor,
             retry_tx: None,
             bootstrap_tx: None,
+            phantom: PhantomData,
         }
     }
 
     /// print out the routing table to stderr
-    pub fn print_routing_table(&mut self, kadem: &mut KademliaBehaviour<MemoryStore>) {
+    pub fn print_routing_table(
+        &mut self,
+        kadem: &mut KademliaBehaviour<ValidatedStore<MemoryStore, K>>,
+    ) {
         let mut err = format!("KBUCKETS: PID: {:?}, ", self.peer_id);
         let v = kadem.kbuckets().collect::<Vec<_>>();
         for i in v {
@@ -154,14 +176,14 @@ impl DHTBehaviour {
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`crate::network::error::DHTError`] is sent instead.
     /// NOTE: noop if `retry_count` is 0
-    pub fn record(
+    pub fn get_record(
         &mut self,
         key: Vec<u8>,
         chan: Sender<Vec<u8>>,
         factor: NonZeroUsize,
         backoff: ExponentialBackoff,
         retry_count: u8,
-        kad: &mut KademliaBehaviour<MemoryStore>,
+        kad: &mut KademliaBehaviour<ValidatedStore<MemoryStore, K>>,
     ) {
         // noop
         if retry_count == 0 {
@@ -229,7 +251,7 @@ impl DHTBehaviour {
     /// update state based on recv-ed get query
     fn handle_get_query(
         &mut self,
-        store: &mut MemoryStore,
+        store: &mut ValidatedStore<MemoryStore, K>,
         record_results: GetRecordResult,
         id: QueryId,
         mut last: bool,
@@ -308,10 +330,14 @@ impl DHTBehaviour {
                         publisher: None,
                         expires: None,
                     };
-                    let _ = store.put(record);
-                    // return value
-                    if notify.send(r).is_err() {
-                        error!("Get DHT: channel closed before get record request result could be sent");
+
+                    // Only return the record if we can store it (validation passed)
+                    if store.put(record).is_ok() {
+                        if notify.send(r).is_err() {
+                            error!("Get DHT: channel closed before get record request result could be sent");
+                        }
+                    } else {
+                        error!("Failed to store record in local store");
                     }
                 }
                 // disagreement => query more nodes
@@ -385,7 +411,7 @@ impl DHTBehaviour {
     pub fn dht_handle_event(
         &mut self,
         event: KademliaEvent,
-        store: &mut MemoryStore,
+        store: &mut ValidatedStore<MemoryStore, K>,
     ) -> Option<NetworkEvent> {
         match event {
             KademliaEvent::OutboundQueryProgressed {
@@ -464,7 +490,6 @@ impl DHTBehaviour {
             KademliaEvent::UnroutablePeer { peer } => {
                 debug!("Found unroutable peer {:?}", peer);
             }
-            KademliaEvent::InboundRequest { request: _r } => {}
             KademliaEvent::RoutingUpdated {
                 peer: _,
                 is_new_peer: _,

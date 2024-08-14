@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! Types and Traits for the `HotShot` consensus module
 use std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
@@ -20,6 +26,7 @@ pub mod event;
 pub mod light_client;
 pub mod message;
 pub mod qc;
+pub mod request_response;
 pub mod signature_key;
 pub mod simple_certificate;
 pub mod simple_vote;

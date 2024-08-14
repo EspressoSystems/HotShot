@@ -1,10 +1,16 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! A multi validator
 use async_compatibility_layer::{
     art::async_spawn,
     logging::{setup_backtrace, setup_logging},
 };
 use clap::Parser;
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 use hotshot_orchestrator::client::{MultiValidatorArgs, ValidatorArgs};
 use tracing::instrument;
 
@@ -30,7 +36,7 @@ async fn main() {
         let args = args.clone();
 
         let node = async_spawn(async move {
-            infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(
+            infra::main_entry_point::<TestTypes, Network, NodeImpl, TestVersions, ThisRun>(
                 ValidatorArgs::from_multi_args(args, node_index),
             )
             .await;

@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #![allow(clippy::module_name_repetitions)]
 use std::{
     collections::{BTreeMap, HashMap},
@@ -596,12 +602,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncReplicaTaskState<TYP
                     "View sync protocol has received view sync evidence to update the view to {}",
                     *self.next_view
                 );
-
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view - 1)),
-                    &event_stream,
-                )
-                .await;
 
                 broadcast_event(
                     Arc::new(HotShotEvent::ViewChange(self.next_view)),

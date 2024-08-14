@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 // TODO: Remove after integration
 #![allow(unused_imports)]
 #![cfg(feature = "dependency-tasks")]
@@ -5,7 +11,7 @@
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::TestValidatedState,
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -14,7 +20,7 @@ use hotshot_task_impls::{
 };
 use hotshot_testing::{
     helpers::{build_fake_view_with_leaf_and_state, build_system_handle},
-    predicates::event::{all_predicates, exact, quorum_proposal_missing, vote_now},
+    predicates::event::{all_predicates, exact, quorum_proposal_missing},
     script::InputOrder,
     serial,
     view_generator::TestViewGenerator,
@@ -40,7 +46,9 @@ async fn test_quorum_proposal_recv_task() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
     let consensus = handle.hotshot.consensus();
@@ -98,7 +106,9 @@ async fn test_quorum_proposal_recv_task() {
         exact(ViewChange(ViewNumber::new(2))),
     ])];
 
-    let state = QuorumProposalRecvTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let state =
+        QuorumProposalRecvTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle)
+            .await;
     let mut script = TaskScript {
         timeout: Duration::from_millis(35),
         state,
@@ -121,15 +131,14 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         helpers::{build_fake_view_with_leaf, build_fake_view_with_leaf_and_state},
         script::{Expectations, TaskScript},
     };
-    use hotshot_types::{
-        data::Leaf,
-        vote::{HasViewNumber, VoteDependencyData},
-    };
+    use hotshot_types::{data::Leaf, vote::HasViewNumber};
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(4).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
     let consensus = handle.hotshot.consensus();
@@ -203,10 +212,11 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         )),
         quorum_proposal_missing(),
         exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
-        vote_now(),
     ])];
 
-    let state = QuorumProposalRecvTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let state =
+        QuorumProposalRecvTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle)
+            .await;
     let mut script = TaskScript {
         timeout: Duration::from_millis(35),
         state,

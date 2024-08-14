@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #![cfg(not(feature = "dependency-tasks"))]
 // TODO: Remove after integration of dependency-tasks
 #![allow(unused_imports)]
@@ -8,7 +14,7 @@ use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::TestInstanceState,
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -31,7 +37,10 @@ use hotshot_testing::{
 use hotshot_types::{
     data::{null_block, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
-    traits::{election::Membership, node_implementation::ConsensusTime},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, Versions},
+    },
     utils::BuilderCommitment,
     vote::{HasViewNumber, Vote},
 };
@@ -45,13 +54,14 @@ const TIMEOUT: Duration = Duration::from_millis(35);
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_consensus_task() {
-    use hotshot_types::constants::BaseVersion;
     use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -98,9 +108,9 @@ async fn test_consensus_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1![null_block::builder_fee(
+                vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION,
                 )
                 .unwrap()],
                 None,
@@ -123,7 +133,8 @@ async fn test_consensus_task() {
         ]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -140,7 +151,9 @@ async fn test_consensus_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -177,7 +190,8 @@ async fn test_consensus_vote() {
         exact(QuorumVoteSend(votes[0].clone())),
     ])];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -192,13 +206,15 @@ async fn test_consensus_vote() {
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_view_sync_finalize_propose() {
     use hotshot_example_types::{block_types::TestMetadata, state_types::TestValidatedState};
-    use hotshot_types::{constants::BaseVersion, data::null_block};
+    use hotshot_types::data::null_block;
     use vbs::version::StaticVersionType;
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(4).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4)
+        .await
+        .0;
     let (priv_key, pub_key) = key_pair_for_id(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
@@ -290,7 +306,11 @@ async fn test_view_sync_finalize_propose() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(4),
-                vec1![null_block::builder_fee(4, BaseVersion::version()).unwrap()],
+                vec1![null_block::builder_fee::<TestTypes, TestVersions>(
+                    4,
+                    <TestVersions as Versions>::Base::VERSION
+                )
+                .unwrap()],
                 None,
             ),
         ],
@@ -314,7 +334,8 @@ async fn test_view_sync_finalize_propose() {
         ]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -333,7 +354,9 @@ async fn test_view_sync_finalize_vote() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -409,7 +432,8 @@ async fn test_view_sync_finalize_vote() {
         ]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -428,7 +452,9 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(5).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5)
+        .await
+        .0;
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
@@ -511,7 +537,8 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
         Expectations::from_outputs(vec![]),
     ];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,
@@ -528,7 +555,9 @@ async fn test_vid_disperse_storage_failure() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
 
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
+        .await
+        .0;
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;
@@ -563,7 +592,8 @@ async fn test_vid_disperse_storage_failure() {
         quorum_proposal_validated(),
     ])];
 
-    let consensus_state = ConsensusTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let consensus_state =
+        ConsensusTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut consensus_script = TaskScript {
         timeout: TIMEOUT,
         state: consensus_state,

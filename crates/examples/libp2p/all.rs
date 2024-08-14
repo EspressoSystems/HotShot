@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! An example program using libp2p
 /// types used for this example
 pub mod types;
@@ -6,7 +12,7 @@ use async_compatibility_layer::{
     art::async_spawn,
     logging::{setup_backtrace, setup_logging},
 };
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 use hotshot_orchestrator::client::ValidatorArgs;
 use infra::{gen_local_address, BUILDER_BASE_PORT, VALIDATOR_BASE_PORT};
 use tracing::instrument;
@@ -45,12 +51,14 @@ async fn main() {
         let builder_address = gen_local_address::<BUILDER_BASE_PORT>(i);
         let orchestrator_url = orchestrator_url.clone();
         let node = async_spawn(async move {
-            infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(ValidatorArgs {
-                url: orchestrator_url,
-                advertise_address: Some(advertise_address),
-                builder_address: Some(builder_address),
-                network_config_file: None,
-            })
+            infra::main_entry_point::<TestTypes, Network, NodeImpl, TestVersions, ThisRun>(
+                ValidatorArgs {
+                    url: orchestrator_url,
+                    advertise_address: Some(advertise_address),
+                    builder_address: Some(builder_address),
+                    network_config_file: None,
+                },
+            )
             .await;
         });
         nodes.push(node);

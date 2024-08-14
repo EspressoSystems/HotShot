@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -6,7 +12,7 @@
 async fn test_timeout() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{MemoryImpl, TestTypes};
+    use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -21,7 +27,7 @@ async fn test_timeout() {
         ..Default::default()
     };
 
-    let mut metadata: TestDescription<TestTypes, MemoryImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
         num_nodes_with_stake: 10,
         start_nodes: 10,
         ..Default::default()
@@ -66,7 +72,7 @@ async fn test_timeout() {
 async fn test_timeout_libp2p() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{Libp2pImpl, TestTypes};
+    use hotshot_example_types::node_types::{Libp2pImpl, TestTypes, TestVersions};
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -84,7 +90,7 @@ async fn test_timeout_libp2p() {
         ..Default::default()
     };
 
-    let mut metadata: TestDescription<TestTypes, Libp2pImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         num_nodes_with_stake: 10,
         start_nodes: 10,
         num_bootstrap_nodes: 10,

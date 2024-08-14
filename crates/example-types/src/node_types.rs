@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use hotshot::traits::{
     election::{
         static_committee::{GeneralStaticCommittee, StaticCommittee},
@@ -9,7 +15,7 @@ use hotshot::traits::{
 use hotshot_types::{
     data::ViewNumber,
     signature_key::{BLSPubKey, BuilderKey},
-    traits::node_implementation::NodeType,
+    traits::node_implementation::{NodeType, Versions},
 };
 use serde::{Deserialize, Serialize};
 use vbs::version::StaticVersion;
@@ -39,12 +45,6 @@ use crate::{
 pub struct TestTypes;
 impl NodeType for TestTypes {
     type AuctionResult = TestAuctionResult;
-    type Base = StaticVersion<0, 1>;
-    type Upgrade = StaticVersion<0, 2>;
-    const UPGRADE_HASH: [u8; 32] = [
-        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-        0, 0,
-    ];
     type Time = ViewNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
@@ -74,12 +74,6 @@ impl NodeType for TestTypes {
 pub struct TestConsecutiveLeaderTypes;
 impl NodeType for TestConsecutiveLeaderTypes {
     type AuctionResult = TestAuctionResult;
-    type Base = StaticVersion<0, 1>;
-    type Upgrade = StaticVersion<0, 2>;
-    const UPGRADE_HASH: [u8; 32] = [
-        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-        0, 0,
-    ];
     type Time = ViewNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
@@ -116,7 +110,7 @@ pub struct CombinedImpl;
 pub type StaticMembership = StaticCommittee<TestTypes>;
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for PushCdnImpl {
-    type Network = PushCdnNetwork<TYPES>;
+    type Network = PushCdnNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }
@@ -137,4 +131,18 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
     type Network = Libp2pNetwork<TYPES::SignatureKey>;
     type Storage = TestStorage<TYPES>;
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct TestVersions {}
+
+impl Versions for TestVersions {
+    type Base = StaticVersion<0, 1>;
+    type Upgrade = StaticVersion<0, 2>;
+    const UPGRADE_HASH: [u8; 32] = [
+        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0,
+    ];
+
+    type Marketplace = StaticVersion<0, 3>;
 }

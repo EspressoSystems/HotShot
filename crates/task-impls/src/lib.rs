@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! The consensus layer for hotshot. This currently implements sequencing
 //! consensus in an event driven way
 
@@ -57,5 +63,4 @@ pub mod quorum_proposal;
 pub mod quorum_proposal_recv;
 
 /// Task for storing and replaying all received tasks by a node
-#[cfg(feature = "rewind")]
 pub mod rewind;

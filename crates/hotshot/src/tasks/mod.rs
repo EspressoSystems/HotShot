@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! Provides a number of tasks that run continuously
 
 /// Provides trait to create task states from a `SystemContextHandle`
@@ -8,6 +14,10 @@ use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
+use futures::{
+    future::{BoxFuture, FutureExt},
+    stream, StreamExt,
+};
 use hotshot_task::task::Task;
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
@@ -17,7 +27,7 @@ use hotshot_task_impls::{
     network,
     network::{NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
-    response::{run_response_task, NetworkResponseState, RequestReceiver},
+    response::{run_response_task, NetworkResponseState},
     transactions::TransactionTaskState,
     upgrade::UpgradeTaskState,
     vid::VidTaskState,
@@ -26,8 +36,8 @@ use hotshot_task_impls::{
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     data::QuorumProposal,
-    message::Proposal,
-    message::{Messages, VersionedMessage},
+    message::{Messages, Proposal},
+    request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -38,7 +48,8 @@ use vbs::version::StaticVersionType;
 use crate::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
     ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, UpgradeLock,
+    Versions,
 };
 
 /// event for global event stream
@@ -51,8 +62,12 @@ pub enum GlobalEvent {
 }
 
 /// Add tasks for network requests and responses
-pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub async fn add_request_network_task<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     let state = NetworkRequestState::<TYPES, I>::create_from(handle).await;
 
@@ -65,8 +80,8 @@ pub async fn add_request_network_task<TYPES: NodeType, I: NodeImplementation<TYP
 }
 
 /// Add a task which responds to requests on the network.
-pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
     request_receiver: RequestReceiver,
 ) {
     let state = NetworkResponseState::<TYPES>::new(
@@ -88,8 +103,9 @@ pub fn add_network_message_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     NET: ConnectedNetwork<TYPES::SignatureKey>,
+    V: Versions,
 >(
-    handle: &mut SystemContextHandle<TYPES, I>,
+    handle: &mut SystemContextHandle<TYPES, I, V>,
     channel: &Arc<NET>,
 ) {
     let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
@@ -97,46 +113,62 @@ pub fn add_network_message_task<
         external_event_stream: handle.output_event_stream.0.clone(),
     };
 
-    let decided_upgrade_certificate = Arc::clone(&handle.hotshot.decided_upgrade_certificate);
+    let upgrade_lock = handle.hotshot.upgrade_lock.clone();
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
+    let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
     let task_handle = async_spawn(async move {
-        loop {
-            let decided_upgrade_certificate_lock = decided_upgrade_certificate.read().await.clone();
+        futures::pin_mut!(shutdown_signal);
+
+        let recv_stream = stream::unfold((), |()| async {
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => {
                     let mut deserialized_messages = Vec::new();
-
                     for msg in msgs {
-                        let deserialized_message = match VersionedMessage::deserialize(
-                            &msg,
-                            &decided_upgrade_certificate_lock,
-                        ) {
+                        let deserialized_message = match upgrade_lock.deserialize(&msg).await {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
                                 tracing::error!("Failed to deserialize message: {}", e);
                                 continue;
                             }
                         };
-
                         deserialized_messages.push(deserialized_message);
                     }
-
                     Messages(deserialized_messages)
                 }
                 Err(err) => {
                     tracing::error!("failed to receive messages: {err}");
-
-                    // return zero messages so we sleep and try again
                     Messages(vec![])
                 }
             };
-            if msgs.0.is_empty() {
-                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                async_sleep(Duration::from_millis(100)).await;
-            } else {
-                state.handle_messages(msgs.0).await;
+            Some((msgs, ()))
+        });
+
+        let fused_recv_stream = recv_stream.boxed().fuse();
+        futures::pin_mut!(fused_recv_stream);
+
+        loop {
+            futures::select! {
+                () = shutdown_signal => {
+                    tracing::error!("Shutting down network message task");
+                    return;
+                }
+                msgs_option = fused_recv_stream.next() => {
+                    if let Some(msgs) = msgs_option {
+                        if msgs.0.is_empty() {
+                            // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
+                            async_sleep(Duration::from_millis(100)).await;
+                        } else {
+                            state.handle_messages(msgs.0).await;
+                        }
+                    } else {
+                        // Stream has ended, which shouldn't happen in this case.
+                        // You might want to handle this situation, perhaps by breaking the loop or logging an error.
+                        tracing::error!("Network message stream unexpectedly ended");
+                        return;
+                    }
+                }
             }
         }
     });
@@ -147,20 +179,21 @@ pub fn add_network_message_task<
 pub fn add_network_event_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
+    V: Versions,
     NET: ConnectedNetwork<TYPES::SignatureKey>,
 >(
-    handle: &mut SystemContextHandle<TYPES, I>,
+    handle: &mut SystemContextHandle<TYPES, I, V>,
     channel: Arc<NET>,
     membership: TYPES::Membership,
     filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
 ) {
-    let network_state: NetworkEventTaskState<_, _, _> = NetworkEventTaskState {
+    let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
         channel,
         view: TYPES::Time::genesis(),
         membership,
         filter,
         storage: Arc::clone(&handle.storage()),
-        decided_upgrade_certificate: None,
+        upgrade_lock: UpgradeLock::new(),
     };
     let task = Task::new(
         network_state,
@@ -171,24 +204,24 @@ pub fn add_network_event_task<
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
-pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(TransactionTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
-    if TYPES::Base::VERSION < TYPES::Upgrade::VERSION {
-        handle.add_task(UpgradeTaskState::<TYPES, I>::create_from(handle).await);
+    if V::Base::VERSION < V::Upgrade::VERSION {
+        handle.add_task(UpgradeTaskState::<TYPES, I, V>::create_from(handle).await);
     }
 
     {
         #![cfg(not(feature = "dependency-tasks"))]
         use hotshot_task_impls::consensus::ConsensusTaskState;
 
-        handle.add_task(ConsensusTaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(ConsensusTaskState::<TYPES, I, V>::create_from(handle).await);
     }
     {
         #![cfg(feature = "dependency-tasks")]
@@ -197,21 +230,53 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
         };
 
-        handle.add_task(QuorumProposalTaskState::<TYPES, I>::create_from(handle).await);
-        handle.add_task(QuorumVoteTaskState::<TYPES, I>::create_from(handle).await);
-        handle.add_task(QuorumProposalRecvTaskState::<TYPES, I>::create_from(handle).await);
-        handle.add_task(Consensus2TaskState::<TYPES, I>::create_from(handle).await);
+        handle.add_task(QuorumProposalTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(QuorumVoteTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(Consensus2TaskState::<TYPES, I, V>::create_from(handle).await);
     }
 
     #[cfg(feature = "rewind")]
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }
 
+/// Creates a monitor for shutdown events.
+///
+/// # Returns
+/// A `BoxFuture<'static, ()>` that resolves when a `HotShotEvent::Shutdown` is detected.
+///
+/// # Usage
+/// Use in `select!` macros or similar constructs for graceful shutdowns:
+#[must_use]
+pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &SystemContextHandle<TYPES, I, V>,
+) -> BoxFuture<'static, ()> {
+    // Activate the cloned internal event stream
+    let mut event_stream = handle.internal_event_stream.1.activate_cloned();
+
+    // Create a future that completes when the `HotShotEvent::Shutdown` is received
+    async move {
+        loop {
+            match event_stream.recv_direct().await {
+                Ok(event) => {
+                    if matches!(event.as_ref(), HotShotEvent::Shutdown) {
+                        return;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Shutdown event monitor channel recv error: {}", e);
+                }
+            }
+        }
+    }
+    .boxed()
+}
+
 #[async_trait]
 /// Trait for intercepting and modifying messages between the network and consensus layers.
 ///
 /// Consensus <-> [Byzantine logic layer] <-> Network
-pub trait EventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>>
+pub trait EventTransformerState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 where
     Self: std::fmt::Debug + Send + Sync + 'static,
 {
@@ -235,7 +300,7 @@ where
         metrics: ConsensusMetricsValue,
         storage: I::Storage,
         marketplace_config: MarketplaceConfig<TYPES, I>,
-    ) -> SystemContextHandle<TYPES, I> {
+    ) -> SystemContextHandle<TYPES, I, V> {
         let hotshot = SystemContext::new(
             public_key,
             private_key,
@@ -265,14 +330,15 @@ where
             memberships: Arc::clone(&hotshot.memberships),
         };
 
-        add_consensus_tasks::<TYPES, I>(&mut handle).await;
+        add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
         self.add_network_tasks(&mut handle).await;
 
         handle
     }
 
     /// Add byzantine network tasks with the trait
-    async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I>) {
+    #[allow(clippy::too_many_lines)]
+    async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I, V>) {
         let state_in = Arc::new(RwLock::new(self));
         let state_out = Arc::clone(&state_in);
         // channels between the task spawned in this function and the network tasks.
@@ -281,9 +347,9 @@ where
         // channel to the network task
         let (sender_to_network, network_task_receiver) = broadcast(EVENT_CHANNEL_SIZE);
         // channel from the network task
-        let (network_task_sender, mut receiver_from_network) = broadcast(EVENT_CHANNEL_SIZE);
+        let (network_task_sender, receiver_from_network) = broadcast(EVENT_CHANNEL_SIZE);
         // create a copy of the original receiver
-        let (original_sender, mut original_receiver) = (
+        let (original_sender, original_receiver) = (
             handle.internal_event_stream.0.clone(),
             handle.internal_event_stream.1.activate_cloned(),
         );
@@ -300,7 +366,7 @@ where
         );
 
         // spawn the network tasks with our newly-created channel
-        add_network_tasks::<TYPES, I>(handle).await;
+        add_network_tasks::<TYPES, I, V>(handle).await;
 
         std::mem::swap(
             &mut internal_event_stream,
@@ -309,17 +375,47 @@ where
 
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
+        let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let send_handle = async_spawn(async move {
+            futures::pin_mut!(shutdown_signal);
+
+            let recv_stream = stream::unfold(original_receiver, |mut recv| async move {
+                match recv.recv().await {
+                    Ok(event) => Some((Ok(event), recv)),
+                    Err(async_broadcast::RecvError::Closed) => None,
+                    Err(e) => Some((Err(e), recv)),
+                }
+            })
+            .boxed();
+
+            let fused_recv_stream = recv_stream.fuse();
+            futures::pin_mut!(fused_recv_stream);
+
             loop {
-                if let Ok(msg) = original_receiver.recv().await {
-                    let mut state = state_out.write().await;
-
-                    let mut results = state.send_handler(&msg).await;
-
-                    results.reverse();
-
-                    while let Some(event) = results.pop() {
-                        let _ = sender_to_network.broadcast(event.into()).await;
+                futures::select! {
+                    () = shutdown_signal => {
+                        tracing::error!("Shutting down relay send task");
+                        let _ = sender_to_network.broadcast(HotShotEvent::<TYPES>::Shutdown.into()).await;
+                        return;
+                    }
+                    event = fused_recv_stream.next() => {
+                        match event {
+                            Some(Ok(msg)) => {
+                                let mut state = state_out.write().await;
+                                let mut results = state.send_handler(&msg).await;
+                                results.reverse();
+                                while let Some(event) = results.pop() {
+                                    let _ = sender_to_network.broadcast(event.into()).await;
+                                }
+                            }
+                            Some(Err(e)) => {
+                                tracing::error!("Relay Task, send_handle, Error receiving event: {:?}", e);
+                            }
+                            None => {
+                                tracing::info!("Relay Task, send_handle, Event stream closed");
+                                return;
+                            }
+                        }
                     }
                 }
             }
@@ -327,17 +423,46 @@ where
 
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
+        let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let recv_handle = async_spawn(async move {
+            futures::pin_mut!(shutdown_signal);
+
+            let network_recv_stream =
+                stream::unfold(receiver_from_network, |mut recv| async move {
+                    match recv.recv().await {
+                        Ok(event) => Some((Ok(event), recv)),
+                        Err(async_broadcast::RecvError::Closed) => None,
+                        Err(e) => Some((Err(e), recv)),
+                    }
+                });
+
+            let fused_network_recv_stream = network_recv_stream.boxed().fuse();
+            futures::pin_mut!(fused_network_recv_stream);
+
             loop {
-                if let Ok(msg) = receiver_from_network.recv().await {
-                    let mut state = state_in.write().await;
-
-                    let mut results = state.recv_handler(&msg).await;
-
-                    results.reverse();
-
-                    while let Some(event) = results.pop() {
-                        let _ = original_sender.broadcast(event.into()).await;
+                futures::select! {
+                    () = shutdown_signal => {
+                        tracing::error!("Shutting down relay receive task");
+                        return;
+                    }
+                    event = fused_network_recv_stream.next() => {
+                        match event {
+                            Some(Ok(msg)) => {
+                                let mut state = state_in.write().await;
+                                let mut results = state.recv_handler(&msg).await;
+                                results.reverse();
+                                while let Some(event) = results.pop() {
+                                    let _ = original_sender.broadcast(event.into()).await;
+                                }
+                            }
+                            Some(Err(e)) => {
+                                tracing::error!("Relay Task, recv_handle, Error receiving event from network: {:?}", e);
+                            }
+                            None => {
+                                tracing::info!("Relay Task, recv_handle, Network event stream closed");
+                                return;
+                            }
+                        }
                     }
                 }
             }
@@ -358,7 +483,7 @@ pub struct BadProposalViewDos {
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransformerState<TYPES, I, V>
     for BadProposalViewDos
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
@@ -393,7 +518,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES,
 pub struct DoubleProposeVote;
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> EventTransformerState<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransformerState<TYPES, I, V>
     for DoubleProposeVote
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
@@ -464,8 +589,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestLeader<TYPES, I> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug>
-    EventTransformerState<TYPES, I> for DishonestLeader<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
+    EventTransformerState<TYPES, I, V> for DishonestLeader<TYPES, I>
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
         vec![event.clone()]
@@ -487,8 +612,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug>
 }
 
 /// adds tasks for sending/receiving messages to/from the network.
-pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    handle: &mut SystemContextHandle<TYPES, I>,
+pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
     let network = Arc::clone(&handle.network);
     let quorum_membership = handle.memberships.quorum_membership.clone();

@@ -1,9 +1,15 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{marker::PhantomData, sync::Arc};
 
 use hotshot::{tasks::task_state::CreateTaskState, types::SignatureKey};
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::{MemoryImpl, TestTypes},
+    node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
 use hotshot_macros::{run_test, test_scripts};
@@ -15,12 +21,11 @@ use hotshot_testing::{
     serial,
 };
 use hotshot_types::{
-    constants::BaseVersion,
     data::{null_block, DaProposal, PackedBundle, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
     },
 };
@@ -37,7 +42,9 @@ async fn test_vid_task() {
     async_compatibility_layer::logging::setup_backtrace();
 
     // Build the API for node 2.
-    let handle = build_system_handle::<TestTypes, MemoryImpl>(2).await.0;
+    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
+        .await
+        .0;
     let pub_key = handle.public_key();
 
     // quorum membership for VID share distribution
@@ -49,7 +56,7 @@ async fn test_vid_task() {
     let (payload, metadata) = <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
         transactions.clone(),
         &TestValidatedState::default(),
-        &TestInstanceState {},
+        &TestInstanceState::default(),
     )
     .await
     .unwrap();
@@ -92,9 +99,9 @@ async fn test_vid_task() {
                 encoded_transactions,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1::vec1![null_block::builder_fee(
+                vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
                 Some(vid_precompute),
@@ -111,9 +118,9 @@ async fn test_vid_task() {
                 builder_commitment,
                 TestMetadata,
                 ViewNumber::new(2),
-                vec1![null_block::builder_fee(
+                vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(),
-                    BaseVersion::version()
+                    <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
                 None,

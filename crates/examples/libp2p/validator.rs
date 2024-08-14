@@ -1,9 +1,15 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! A validator using libp2p
 use std::{net::SocketAddr, str::FromStr};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use clap::Parser;
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 use hotshot_orchestrator::client::ValidatorArgs;
 use local_ip_address::local_ip;
 use tracing::{debug, instrument};
@@ -35,5 +41,5 @@ async fn main() {
     );
 
     debug!("connecting to orchestrator at {:?}", args.url);
-    infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(args).await;
+    infra::main_entry_point::<TestTypes, Network, NodeImpl, TestVersions, ThisRun>(args).await;
 }

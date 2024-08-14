@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -16,6 +22,7 @@ use super::QuorumVoteTaskState;
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
+    quorum_vote::Versions,
 };
 
 /// Handles the `QuorumProposalValidated` event.
@@ -23,10 +30,11 @@ use crate::{
 pub(crate) async fn handle_quorum_proposal_validated<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
+    V: Versions,
 >(
     proposal: &QuorumProposal<TYPES>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumVoteTaskState<TYPES, I>,
+    task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let LeafChainTraversalOutcome {
         new_locked_view_number,
@@ -39,13 +47,17 @@ pub(crate) async fn handle_quorum_proposal_validated<
     } = decide_from_proposal(
         proposal,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
         &task_state.public_key,
     )
     .await;
 
     if let Some(cert) = decided_upgrade_cert.clone() {
-        let mut decided_certificate_lock = task_state.decided_upgrade_certificate.write().await;
+        let mut decided_certificate_lock = task_state
+            .upgrade_lock
+            .decided_upgrade_certificate
+            .write()
+            .await;
         *decided_certificate_lock = Some(cert.clone());
         drop(decided_certificate_lock);
         let _ = sender

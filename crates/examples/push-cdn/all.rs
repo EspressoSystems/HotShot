@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! A example program using the Push CDN
 /// The types we're importing
 pub mod types;
@@ -11,7 +17,7 @@ use hotshot::{
     traits::implementations::{TestingDef, WrappedSignatureKey},
     types::SignatureKey,
 };
-use hotshot_example_types::state_types::TestTypes;
+use hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
 use infra::{gen_local_address, BUILDER_BASE_PORT};
@@ -72,27 +78,28 @@ async fn main() {
         let private_address = format!("127.0.0.1:{private_port}");
         let public_address = format!("127.0.0.1:{public_port}");
 
-        let config: cdn_broker::Config<TestingDef<TestTypes>> = cdn_broker::Config {
-            discovery_endpoint: discovery_endpoint.clone(),
-            public_advertise_endpoint: public_address.clone(),
-            public_bind_endpoint: public_address,
-            private_advertise_endpoint: private_address.clone(),
-            private_bind_endpoint: private_address,
+        let config: cdn_broker::Config<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
+            cdn_broker::Config {
+                discovery_endpoint: discovery_endpoint.clone(),
+                public_advertise_endpoint: public_address.clone(),
+                public_bind_endpoint: public_address,
+                private_advertise_endpoint: private_address.clone(),
+                private_bind_endpoint: private_address,
 
-            keypair: KeyPair {
-                public_key: WrappedSignatureKey(broker_public_key),
-                private_key: broker_private_key.clone(),
-            },
+                keypair: KeyPair {
+                    public_key: WrappedSignatureKey(broker_public_key),
+                    private_key: broker_private_key.clone(),
+                },
 
-            metrics_bind_endpoint: None,
-            ca_cert_path: None,
-            ca_key_path: None,
-            global_memory_pool_size: Some(1024 * 1024 * 1024),
-        };
+                metrics_bind_endpoint: None,
+                ca_cert_path: None,
+                ca_key_path: None,
+                global_memory_pool_size: Some(1024 * 1024 * 1024),
+            };
 
         // Create and spawn the broker
         async_spawn(async move {
-            let broker: Broker<TestingDef<TestTypes>> =
+            let broker: Broker<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
                 Broker::new(config).await.expect("broker failed to start");
 
             // Error if we stopped unexpectedly
@@ -118,9 +125,10 @@ async fn main() {
 
     // Spawn the marshal
     async_spawn(async move {
-        let marshal: Marshal<TestingDef<TestTypes>> = Marshal::new(marshal_config)
-            .await
-            .expect("failed to spawn marshal");
+        let marshal: Marshal<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
+            Marshal::new(marshal_config)
+                .await
+                .expect("failed to spawn marshal");
 
         // Error if we stopped unexpectedly
         if let Err(err) = marshal.start().await {
@@ -134,12 +142,14 @@ async fn main() {
         let orchestrator_url = orchestrator_url.clone();
         let builder_address = gen_local_address::<BUILDER_BASE_PORT>(i);
         let node = async_spawn(async move {
-            infra::main_entry_point::<TestTypes, Network, NodeImpl, ThisRun>(ValidatorArgs {
-                url: orchestrator_url,
-                advertise_address: None,
-                builder_address: Some(builder_address),
-                network_config_file: None,
-            })
+            infra::main_entry_point::<TestTypes, Network, NodeImpl, TestVersions, ThisRun>(
+                ValidatorArgs {
+                    url: orchestrator_url,
+                    advertise_address: None,
+                    builder_address: Some(builder_address),
+                    network_config_file: None,
+                },
+            )
             .await;
         });
         nodes.push(node);

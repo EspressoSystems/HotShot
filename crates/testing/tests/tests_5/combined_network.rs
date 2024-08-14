@@ -1,6 +1,12 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::time::Duration;
 
-use hotshot_example_types::node_types::{CombinedImpl, TestTypes};
+use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -21,7 +27,7 @@ async fn test_combined_network() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
+    let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -56,7 +62,7 @@ async fn test_combined_network() {
 async fn test_combined_network_cdn_crash() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -103,7 +109,7 @@ async fn test_combined_network_cdn_crash() {
 async fn test_combined_network_reup() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -156,7 +162,7 @@ async fn test_combined_network_reup() {
 async fn test_combined_network_half_dc() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             round_start_delay: 25,
             next_view_timeout: 10_000,
@@ -232,7 +238,7 @@ fn generate_random_node_changes(
 async fn test_stress_combined_network_fuzzy() {
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
-    let mut metadata: TestDescription<TestTypes, CombinedImpl> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         num_bootstrap_nodes: 10,
         num_nodes_with_stake: 20,
         start_nodes: 20,

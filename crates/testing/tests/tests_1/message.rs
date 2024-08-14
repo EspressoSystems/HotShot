@@ -1,6 +1,12 @@
-#[cfg(test)]
-use std::marker::PhantomData;
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use hotshot_example_types::node_types::TestTypes;
+use hotshot_types::simple_vote::ViewSyncCommitVote;
+use hotshot_types::vote::Vote;
 use hotshot_types::{
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     signature_key::BLSPubKey,
@@ -8,12 +14,12 @@ use hotshot_types::{
     simple_vote::ViewSyncCommitData,
     traits::{node_implementation::ConsensusTime, signature_key::SignatureKey},
 };
+#[cfg(test)]
+use std::marker::PhantomData;
 use vbs::{
     version::{StaticVersion, Version},
     BinarySerializer, Serializer,
 };
-use hotshot_types::simple_vote::ViewSyncCommitVote;
-use hotshot_types::vote::Vote;
 
 #[test]
 // Checks that the current program protocol version
@@ -35,13 +41,13 @@ fn version_number_at_start_of_serialization() {
         relay: 37,
         round: view_number,
     };
-    let simple_certificate = SimpleCertificate {
-        data: data.clone(),
-        vote_commitment: <ViewSyncCommitVote<TestTypes> as Vote<TestTypes>>::commit(&data, view_number),
+    let simple_certificate = SimpleCertificate::new(
+        data.clone(),
+        <ViewSyncCommitVote<TestTypes> as Vote<TestTypes>>::commit(&data, view_number),
         view_number,
-        signatures: None,
-        _pd: PhantomData,
-    };
+        None,
+        PhantomData,
+    );
     let message = Message {
         sender,
         kind: MessageKind::Consensus(SequencingMessage::General(

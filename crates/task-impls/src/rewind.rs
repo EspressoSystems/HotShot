@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{fs::OpenOptions, io::Write, sync::Arc};
 
 use anyhow::Result;
@@ -20,8 +26,8 @@ pub struct RewindTaskState<TYPES: NodeType> {
 
 impl<TYPES: NodeType> RewindTaskState<TYPES> {
     /// Handles all events, storing them to the private state
-    pub fn handle(&mut self, event: Arc<HotShotEvent<TYPES>>) {
-        self.events.push(Arc::clone(&event));
+    pub fn handle(&mut self, event: &Arc<HotShotEvent<TYPES>>) {
+        self.events.push(Arc::clone(event));
     }
 }
 
@@ -35,7 +41,7 @@ impl<TYPES: NodeType> TaskState for RewindTaskState<TYPES> {
         _sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event);
+        self.handle(&event);
         Ok(())
     }
 

@@ -1,6 +1,12 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::time::Duration;
 
-use hotshot_example_types::node_types::{MemoryImpl, PushCdnImpl, TestTypes};
+use hotshot_example_types::node_types::{MemoryImpl, PushCdnImpl, TestTypes, TestVersions};
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
@@ -13,6 +19,7 @@ cross_tests!(
     TestName: test_with_builder_failures,
     Impls: [MemoryImpl, PushCdnImpl],
     Types: [TestTypes],
+    Versions: [TestVersions],
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_multiple_rounds();

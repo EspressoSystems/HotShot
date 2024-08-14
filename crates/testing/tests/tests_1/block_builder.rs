@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
@@ -7,7 +13,7 @@ use async_compatibility_layer::art::async_sleep;
 use hotshot_builder_api::v0_1::block_info::AvailableBlockData;
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::TestTypes,
+    node_types::{TestTypes, TestVersions},
 };
 use hotshot_orchestrator::config::RandomBuilderConfig;
 use hotshot_task_impls::builder::{BuilderClient, BuilderClientError};
@@ -15,7 +21,9 @@ use hotshot_testing::block_builder::{
     BuilderTask, RandomBuilderImplementation, TestBuilderImplementation,
 };
 use hotshot_types::traits::{
-    block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
+    block_contents::vid_commitment,
+    node_implementation::{NodeType, Versions},
+    signature_key::SignatureKey,
     BlockPayload,
 };
 use tide_disco::Url;
@@ -44,7 +52,7 @@ async fn test_random_block_builder() {
 
     let builder_started = Instant::now();
 
-    let client: BuilderClient<TestTypes, <TestTypes as NodeType>::Base> =
+    let client: BuilderClient<TestTypes, <TestVersions as Versions>::Base> =
         BuilderClient::new(api_url);
     assert!(client.connect(Duration::from_millis(100)).await);
 

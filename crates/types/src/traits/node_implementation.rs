@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 //! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -201,15 +207,6 @@ pub trait NodeType:
     + Sync
     + 'static
 {
-    /// The base version of HotShot this node is instantiated with.
-    type Base: StaticVersionType;
-
-    /// The version of HotShot this node may be upgraded to. Set equal to `Base` to disable upgrades.
-    type Upgrade: StaticVersionType;
-
-    /// The hash for the upgrade.
-    const UPGRADE_HASH: [u8; 32];
-
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `ValidatedState::Time` is using.
@@ -254,4 +251,19 @@ pub trait NodeType:
 
     /// The type builder uses to sign its messages
     type BuilderSignatureKey: BuilderSignatureKey;
+}
+
+/// Version information for HotShot
+pub trait Versions: Clone + Copy + Debug + Send + Sync + 'static {
+    /// The base version of HotShot this node is instantiated with.
+    type Base: StaticVersionType;
+
+    /// The version of HotShot this node may be upgraded to. Set equal to `Base` to disable upgrades.
+    type Upgrade: StaticVersionType;
+
+    /// The hash for the upgrade.
+    const UPGRADE_HASH: [u8; 32];
+
+    /// The version at which to switch over to marketplace logic
+    type Marketplace: StaticVersionType;
 }

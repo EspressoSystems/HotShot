@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{bail, ensure, Context, Result};
@@ -8,7 +14,7 @@ use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::{
-    dependency::{AndDependency, Dependency, EventDependency, OrDependency},
+    dependency::{AndDependency, Dependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::TaskState,
 };
@@ -16,13 +22,12 @@ use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, VidDisperseShare, ViewNumber},
     event::Event,
-    message::Proposal,
-    simple_certificate::{version, UpgradeCertificate},
+    message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData, QuorumVote},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
         ValidatedState,
@@ -34,7 +39,7 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use crate::{
     events::HotShotEvent,
@@ -54,12 +59,10 @@ enum VoteDependency {
     Dac,
     /// For the `VidShareRecv` event.
     Vid,
-    /// For the `VoteNow` event.
-    VoteNow,
 }
 
 /// Handler for the vote dependency.
-pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Public key.
     pub public_key: TYPES::SignatureKey,
     /// Private Key.
@@ -78,13 +81,15 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
     pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// The node's id
     pub id: u64,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHandle<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
+    VoteDependencyHandle<TYPES, I, V>
+{
     /// Updates the shared consensus state with the new voting data.
     #[instrument(skip_all, target = "VoteDependencyHandle", fields(id = self.id, view = *self.view_number))]
     async fn update_shared_state(
@@ -126,10 +131,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
 
         drop(consensus_reader);
 
-        let version = version(
-            self.view_number,
-            &self.decided_upgrade_certificate.read().await.clone(),
-        )?;
+        let version = self.upgrade_lock.version(self.view_number).await?;
+
         let (validated_state, state_delta) = parent_state
             .validate_and_apply_header(
                 &self.instance_state,
@@ -226,14 +229,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
-    for VoteDependencyHandle<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> HandleDepOutput
+    for VoteDependencyHandle<TYPES, I, V>
 {
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc_view_number = self.consensus.read().await.high_qc().view_number();
+
         // The validated state of a non-genesis high QC should exist in the state map.
         if *high_qc_view_number != *ViewNumber::genesis()
             && !self
@@ -306,10 +310,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                         payload_commitment = Some(vid_payload_commitment);
                     }
                 }
-                HotShotEvent::VoteNow(_, vote_dependency_data) => {
-                    leaf = Some(vote_dependency_data.parent_leaf.clone());
-                    vid_share = Some(vote_dependency_data.vid_share.clone());
-                }
                 _ => {}
             }
         }
@@ -352,7 +352,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
 /// The state for the quorum vote task.
 ///
 /// Contains all of the information for the quorum vote.
-pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Public key.
     pub public_key: TYPES::SignatureKey,
 
@@ -389,11 +389,11 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// An upgrade certificate that has been decided on, if any.
-    pub decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskState<TYPES, I, V> {
     /// Create an event dependency.
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote create event dependency", level = "error")]
     fn create_event_dependency(
@@ -424,13 +424,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                     VoteDependency::Vid => {
                         if let HotShotEvent::VidShareValidated(disperse) = event {
                             disperse.data.view_number
-                        } else {
-                            return false;
-                        }
-                    }
-                    VoteDependency::VoteNow => {
-                        if let HotShotEvent::VoteNow(view, _) = event {
-                            *view
                         } else {
                             return false;
                         }
@@ -473,36 +466,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
             self.create_event_dependency(VoteDependency::Dac, view_number, event_receiver.clone());
         let vid_dependency =
             self.create_event_dependency(VoteDependency::Vid, view_number, event_receiver.clone());
-        let mut vote_now_dependency = self.create_event_dependency(
-            VoteDependency::VoteNow,
-            view_number,
-            event_receiver.clone(),
-        );
-
         // If we have an event provided to us
         if let Some(event) = event {
-            match event.as_ref() {
-                HotShotEvent::VoteNow(..) => {
-                    vote_now_dependency.mark_as_completed(event);
-                }
-                HotShotEvent::QuorumProposalValidated(..) => {
-                    quorum_proposal_dependency.mark_as_completed(event);
-                }
-                _ => {}
+            if let HotShotEvent::QuorumProposalValidated(..) = event.as_ref() {
+                quorum_proposal_dependency.mark_as_completed(event);
             }
         }
 
         let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
-        let dependency_chain = OrDependency::from_deps(vec![
-            // Either we fulfill the dependencies individually.
-            AndDependency::from_deps(deps),
-            // Or we fulfill the single dependency that contains all the info that we need.
-            AndDependency::from_deps(vec![vote_now_dependency]),
-        ]);
+        let dependency_chain = AndDependency::from_deps(deps);
 
         let dependency_task = DependencyTask::new(
             dependency_chain,
-            VoteDependencyHandle::<TYPES, I> {
+            VoteDependencyHandle::<TYPES, I, V> {
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
@@ -512,7 +488,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
                 view_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
-                decided_upgrade_certificate: Arc::clone(&self.decided_upgrade_certificate),
+                upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
             },
         );
@@ -553,15 +529,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         match event.as_ref() {
-            HotShotEvent::VoteNow(view, ..) => {
-                info!("Vote NOW for view {:?}", *view);
-                self.create_dependency_task_if_new(
-                    *view,
-                    event_receiver,
-                    &event_sender,
-                    Some(event),
-                );
-            }
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
                 trace!("Received Proposal for view {}", *proposal.view_number());
 
@@ -678,7 +645,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> QuorumVoteTaskState<TYPES, I
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for QuorumVoteTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for QuorumVoteTaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

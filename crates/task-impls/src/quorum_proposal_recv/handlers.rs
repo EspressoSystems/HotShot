@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
+// This file is part of the HotShot repository.
+
+// You should have received a copy of the MIT License
+// along with the HotShot repository. If not, see <https://mit-license.org/>.
+
 #![allow(dead_code)]
 
 use std::sync::Arc;
@@ -29,25 +35,16 @@ use crate::{
         broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
         validate_proposal_view_and_certs, SEND_VIEW_CHANGE_EVENT,
     },
+    quorum_proposal_recv::{UpgradeLock, Versions},
 };
-
-/// Whether the proposal contained in `QuorumProposalRecv` is fully validated or only the liveness
-/// is checked.
-pub(crate) enum QuorumProposalValidity {
-    /// Fully validated.
-    Fully,
-    /// Not fully validated due to the parent information missing in the internal state, but the
-    /// liveness is validated.
-    Liveness,
-}
 
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
-async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> Result<QuorumProposalValidity> {
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
+) -> Result<()> {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
 
@@ -116,7 +113,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         bail!("Quorum Proposal failed the liveness check");
     }
 
-    Ok(QuorumProposalValidity::Liveness)
+    Ok(())
 }
 
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
@@ -128,12 +125,16 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 /// - The sequencer storage update fails.
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
-pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub(crate) async fn handle_quorum_proposal_recv<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     sender: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I>,
-) -> Result<QuorumProposalValidity> {
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
+) -> Result<()> {
     let sender = sender.clone();
     let cur_view = task_state.cur_view;
 
@@ -233,7 +234,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.decided_upgrade_certificate),
+        Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
         Arc::clone(&task_state.quorum_membership),
         event_sender.clone(),
         sender,
@@ -260,5 +261,5 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         debug!("Full Branch - Failed to update view; error = {e:#}");
     }
 
-    Ok(QuorumProposalValidity::Fully)
+    Ok(())
 }
