@@ -292,7 +292,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         for bundle in join_all(futures).await {
             match bundle {
                 Ok(Ok(b)) => bundles.push(b),
-                _ => continue,
+                Ok(Err(e)) => {
+                    tracing::debug!("Failed to retrieve bundle: {e}");
+                    continue;
+                }
+                Err(e) => {
+                    tracing::debug!("Failed to retrieve bundle: {e}");
+                    continue;
+                }
             }
         }
 
