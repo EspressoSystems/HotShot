@@ -165,6 +165,9 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -183,8 +186,11 @@
 <span class="kw">use </span>libp2p_swarm_derive::NetworkBehaviour;
 <span class="kw">use </span>tracing::{debug, error};
 
-<span class="kw">use </span><span class="kw">super</span>::NetworkEventInternal;
-<span class="kw">use </span>hotshot_types::request_response::{Request, Response};
+<span class="kw">use super</span>::{behaviours::dht::store::ValidatedStore, NetworkEventInternal};
+<span class="kw">use </span>hotshot_types::{
+    request_response::{Request, Response},
+    traits::signature_key::SignatureKey,
+};
 
 <span class="doccomment">/// Overarching network behaviour performing:
 /// - network topology discovoery
@@ -193,7 +199,7 @@
 /// - connection management
 </span><span class="attr">#[derive(NetworkBehaviour, custom_debug::Debug)]
 #[behaviour(to_swarm = <span class="string">"NetworkEventInternal"</span>)]
-</span><span class="kw">pub struct </span>NetworkDef {
+</span><span class="kw">pub struct </span>NetworkDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
@@ -204,7 +210,7 @@
     <span class="doccomment">/// purpose: peer routing
     /// purpose: storing pub key &lt;-&gt; peer id bijection
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;MemoryStore&gt;,
+    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
 
     <span class="doccomment">/// purpose: identifying the addresses from an outside POV
     </span><span class="attr">#[debug(skip)]
@@ -224,17 +230,17 @@
     </span><span class="kw">pub </span>autonat: libp2p::autonat::Behaviour,
 }
 
-<span class="kw">impl </span>NetworkDef {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
     <span class="doccomment">/// Create a new instance of a `NetworkDef`
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         gossipsub: GossipBehaviour,
-        dht: libp2p::kad::Behaviour&lt;MemoryStore&gt;,
+        dht: libp2p::kad::Behaviour&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
         identify: IdentifyBehaviour,
         direct_message: cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         request_response: cbor::Behaviour&lt;Request, Response&gt;,
         autonat: autonat::Behaviour,
-    ) -&gt; NetworkDef {
+    ) -&gt; NetworkDef&lt;K&gt; {
         <span class="self">Self </span>{
             gossipsub,
             dht,
@@ -247,7 +253,7 @@
 }
 
 <span class="doccomment">/// Address functions
-</span><span class="kw">impl </span>NetworkDef {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
     <span class="doccomment">/// Add an address
     </span><span class="kw">pub fn </span>add_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, address: Multiaddr) {
         <span class="comment">// NOTE to get this address to play nice with the other
@@ -261,7 +267,7 @@
 }
 
 <span class="doccomment">/// Gossip functions
-</span><span class="kw">impl </span>NetworkDef {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
     <span class="doccomment">/// Publish a given gossip
     </span><span class="kw">pub fn </span>publish_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: IdentTopic, contents: Vec&lt;u8&gt;) {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.publish(topic, contents) {
@@ -284,7 +290,7 @@
 }
 
 <span class="doccomment">/// Request/response functions
-</span><span class="kw">impl </span>NetworkDef {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
     <span class="doccomment">/// Add a direct request for a given peer
     </span><span class="kw">pub fn </span>add_direct_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, data: Vec&lt;u8&gt;) -&gt; OutboundRequestId {
         <span class="self">self</span>.direct_message.send_request(<span class="kw-2">&amp;</span>peer_id, data)

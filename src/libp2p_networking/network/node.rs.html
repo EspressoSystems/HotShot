@@ -815,6 +815,18 @@
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
 <a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -831,6 +843,7 @@
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     iter,
+    marker::PhantomData,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
@@ -880,7 +893,10 @@
     },
 };
 <span class="kw">use super</span>::{
-    behaviours::dht::bootstrap::{<span class="self">self</span>, DHTBootstrapTask, InputEvent},
+    behaviours::dht::{
+        bootstrap::{<span class="self">self</span>, DHTBootstrapTask, InputEvent},
+        store::ValidatedStore,
+    },
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
     NetworkNodeType,
@@ -910,7 +926,7 @@
     </span>peer_id: PeerId,
     <span class="doccomment">/// the swarm of networkbehaviours
     </span><span class="attr">#[debug(skip)]
-    </span>swarm: Swarm&lt;NetworkDef&gt;,
+    </span>swarm: Swarm&lt;NetworkDef&lt;K&gt;&gt;,
     <span class="doccomment">/// the configuration parameters of the netework
     </span>config: NetworkNodeConfig&lt;K&gt;,
     <span class="doccomment">/// the listener id we are listening on, if it exists
@@ -920,11 +936,14 @@
     <span class="doccomment">/// Handler for direct messages
     </span>direct_message_state: DMBehaviour,
     <span class="doccomment">/// Handler for DHT Events
-    </span>dht_handler: DHTBehaviour,
+    </span>dht_handler: DHTBehaviour&lt;K&gt;,
     <span class="doccomment">/// Channel to resend requests, set to Some when we call `spawn_listeners`
     </span>resend_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ClientRequest&gt;&gt;,
     <span class="doccomment">/// Send to the bootstrap task to tell it to start a bootstrap
     </span>bootstrap_tx: <span class="prelude-ty">Option</span>&lt;mpsc::Sender&lt;bootstrap::InputEvent&gt;&gt;,
+
+    <span class="doccomment">/// Phantom data to hold the key type
+    </span>pd: PhantomData&lt;K&gt;,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkNode&lt;K&gt; {
@@ -1005,7 +1024,7 @@
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// Generate the swarm
-        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&gt; = {
+        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&lt;K&gt;&gt; = {
             <span class="comment">// Use the hash of the message's contents as the ID
             // Use blake3 for much paranoia at very high speeds
             </span><span class="kw">let </span>message_id_fn = |message: <span class="kw-2">&amp;</span>GossipsubMessage| {
@@ -1103,7 +1122,11 @@
                 <span class="macro">panic!</span>(<span class="string">"Replication factor not set"</span>);
             }
 
-            <span class="kw">let </span><span class="kw-2">mut </span>kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
+            <span class="kw">let </span><span class="kw-2">mut </span>kadem = Behaviour::with_config(
+                peer_id,
+                ValidatedStore::new(MemoryStore::new(peer_id)),
+                kconfig,
+            );
             <span class="kw">if </span>config.server_mode {
                 kadem.set_mode(<span class="prelude-val">Some</span>(Mode::Server));
             }
@@ -1179,6 +1202,7 @@
             ),
             resend_tx: <span class="prelude-val">None</span>,
             bootstrap_tx: <span class="prelude-val">None</span>,
+            pd: PhantomData,
         })
     }
 
@@ -1274,7 +1298,7 @@
                         notify,
                         retry_count,
                     } =&gt; {
-                        <span class="self">self</span>.dht_handler.record(
+                        <span class="self">self</span>.dht_handler.get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),

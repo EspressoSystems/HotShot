@@ -1147,8 +1147,6 @@
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
 <a href="#1147" id="1147">1147</a>
-<a href="#1148" id="1148">1148</a>
-<a href="#1149" id="1149">1149</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1216,6 +1214,7 @@
 };
 <span class="kw">use </span>libp2p_networking::{
     network::{
+        behaviours::dht::record::{Namespace, RecordKey, RecordValue},
         spawn_network_node,
         transport::construct_auth_message,
         MeshParams,
@@ -1227,7 +1226,7 @@
 };
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
 
 <span class="kw">use </span><span class="kw">crate</span>::BroadcastDelay;
 
@@ -1406,6 +1405,19 @@
                 </span><span class="kw">let </span>privkey =
                     TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
                 <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
+
+                <span class="comment">// Derive the Libp2p keypair from the private key
+                </span><span class="kw">let </span>libp2p_keypair = derive_libp2p_keypair::&lt;TYPES::SignatureKey&gt;(<span class="kw-2">&amp;</span>privkey)
+                    .expect(<span class="string">"Failed to derive libp2p keypair"</span>);
+
+                <span class="comment">// Sign the lookup record
+                </span><span class="kw">let </span>lookup_record_value = RecordValue::new_signed(
+                    <span class="kw-2">&amp;</span>RecordKey::new(Namespace::Lookup, pubkey.to_bytes()),
+                    libp2p_keypair.public().to_peer_id().to_bytes(),
+                    <span class="kw-2">&amp;</span>privkey,
+                )
+                .expect(<span class="string">"Failed to sign DHT lookup record"</span>);
+
                 <span class="comment">// we want the majority of peers to have this lying around.
                 </span><span class="kw">let </span>replication_factor = NonZeroUsize::new(<span class="number">2 </span>* expected_node_count / <span class="number">3</span>).unwrap();
                 <span class="kw">let </span>config = <span class="kw">if </span>node_id &lt; num_bootstrap <span class="kw">as </span>u64 {
@@ -1420,6 +1432,7 @@
                             </span>mesh_n: (expected_node_count / <span class="number">2 </span>+ <span class="number">3</span>),
                         }))
                         .server_mode(<span class="bool-val">true</span>)
+                        .identity(libp2p_keypair)
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(<span class="prelude-val">Some</span>(addr))
@@ -1441,6 +1454,7 @@
                             mesh_n: <span class="number">8</span>,
                         }))
                         .server_mode(<span class="bool-val">true</span>)
+                        .identity(libp2p_keypair)
                         .replication_factor(replication_factor)
                         .node_type(NetworkNodeType::Regular)
                         .bound_addr(<span class="prelude-val">Some</span>(addr))
@@ -1455,6 +1469,7 @@
                 <span class="kw">let </span>node_ids_ref = Arc::clone(<span class="kw-2">&amp;</span>node_ids);
                 <span class="kw">let </span>da = da_keys.clone();
                 <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
+
                 Box::pin(<span class="kw">async move </span>{
                     <span class="comment">// If it's the second time we are starting this network, clear the bootstrap info
                     </span><span class="kw">let </span><span class="kw-2">mut </span>write_ids = node_ids_ref.write().<span class="kw">await</span>;
@@ -1469,6 +1484,7 @@
                             Libp2pMetricsValue::default(),
                             config,
                             pubkey.clone(),
+                            lookup_record_value,
                             bootstrap_addrs_ref,
                             usize::try_from(node_id).unwrap(),
                             <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -1588,6 +1604,15 @@
         ))
         .with_context(|| <span class="string">"Failed to calculate replication factor"</span>)<span class="question-mark">?</span>;
 
+        <span class="comment">// Sign our DHT lookup record
+        </span><span class="kw">let </span>lookup_record_value = RecordValue::new_signed(
+            <span class="kw-2">&amp;</span>RecordKey::new(Namespace::Lookup, pub_key.to_bytes()),
+            <span class="comment">// The value is our Libp2p Peer ID
+            </span>keypair.public().to_peer_id().to_bytes(),
+            priv_key,
+        )
+        .with_context(|| <span class="string">"Failed to sign DHT lookup record"</span>)<span class="question-mark">?</span>;
+
         config_builder
             .server_mode(libp2p_config.server_mode)
             .identity(keypair)
@@ -1628,6 +1653,7 @@
             metrics,
             node_config,
             pub_key.clone(),
+            lookup_record_value,
             Arc::new(RwLock::new(bootstrap_nodes)),
             usize::try_from(config.node_index)<span class="question-mark">?</span>,
             <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -1670,12 +1696,13 @@
         metrics: Libp2pMetricsValue,
         config: NetworkNodeConfig&lt;K&gt;,
         pk: K,
+        lookup_record_value: RecordValue&lt;K&gt;,
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
-        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node(config.clone(), id)
+        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;K&gt;(config.clone(), id)
             .<span class="kw">await
             </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>;
         <span class="comment">// Make bootstrap mappings known
@@ -1739,7 +1766,7 @@
 
         result.handle_event_generator(sender, requests_tx, rx);
         result.spawn_node_lookup(node_lookup_recv);
-        result.spawn_connect(id);
+        result.spawn_connect(id, lookup_record_value);
 
         <span class="prelude-val">Ok</span>(result)
     }
@@ -1759,19 +1786,12 @@
                 </span><span class="attr">#[allow(clippy::cast_possible_truncation)]
                 </span><span class="kw">const </span>THRESHOLD: u64 = (LOOK_AHEAD <span class="kw">as </span>f64 * <span class="number">0.8</span>) <span class="kw">as </span>u64;
 
-                <span class="macro">debug!</span>(<span class="string">"Performing lookup for peer {:?}"</span>, pk);
+                <span class="macro">trace!</span>(<span class="string">"Performing lookup for peer {:?}"</span>, pk);
 
                 <span class="comment">// only run if we are not too close to the next view number
                 </span><span class="kw">if </span>latest_seen_view.load(Ordering::Relaxed) + THRESHOLD &lt;= <span class="kw-2">*</span>view_number {
-                    <span class="kw">let </span>pk_bytes = <span class="kw">match </span>bincode::serialize(<span class="kw-2">&amp;</span>pk) {
-                        <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
-                        <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize public key; this should never happen. Error: {e}"</span>);
-                            <span class="kw">return</span>;
-                        }
-                    };
                     <span class="comment">// look up
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle.lookup_node(<span class="kw-2">&amp;</span>pk_bytes, dht_timeout).<span class="kw">await </span>{
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = handle.lookup_node(<span class="kw-2">&amp;</span>pk.to_bytes(), dht_timeout).<span class="kw">await </span>{
                         <span class="macro">warn!</span>(<span class="string">"Failed to perform lookup for key {:?}: {}"</span>, pk, err);
                     };
                 }
@@ -1780,7 +1800,7 @@
     }
 
     <span class="doccomment">/// Initiates connection to the outside world
-    </span><span class="kw">fn </span>spawn_connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize) {
+    </span><span class="kw">fn </span>spawn_connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize, lookup_record_value: RecordValue&lt;K&gt;) {
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.pk.clone();
         <span class="kw">let </span>bootstrap_ref = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.bootstrap_addrs);
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
@@ -1811,34 +1831,18 @@
                     handle.subscribe(<span class="string">"DA"</span>.to_string()).<span class="kw">await</span>.unwrap();
                 }
 
-                <span class="comment">// we want our records published before
-                // we begin participating in consensus
-                //
-                // Note: this serialization should never fail,
-                // and if it does the error is unrecoverable.
+                <span class="comment">// Map our staking key to our Libp2p Peer ID so we can properly
+                // route direct messages
                 </span><span class="kw">while </span>handle
                     .put_record(
-                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>pk).unwrap(),
-                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>handle.peer_id()).unwrap(),
+                        RecordKey::new(Namespace::Lookup, pk.to_bytes()),
+                        lookup_record_value.clone(),
                     )
                     .<span class="kw">await
                     </span>.is_err()
                 {
                     async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
-
-                <span class="kw">while </span>handle
-                    .put_record(
-                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>handle.peer_id()).unwrap(),
-                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>pk).unwrap(),
-                    )
-                    .<span class="kw">await
-                    </span>.is_err()
-                {
-                    async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
-                }
-
-                <span class="macro">info!</span>(<span class="string">"Finished putting Kademlia records"</span>);
 
                 <span class="comment">// Wait for the network to connect to the required number of peers
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle.wait_to_connect(<span class="number">4</span>, id).<span class="kw">await </span>{
@@ -1977,11 +1981,7 @@
         <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
             </span>.inner
             .handle
-            .lookup_node(
-                <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>recipient)
-                    .map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>,
-                <span class="self">self</span>.inner.dht_timeout,
-            )
+            .lookup_node(<span class="kw-2">&amp;</span>recipient.to_bytes(), <span class="self">self</span>.inner.dht_timeout)
             .<span class="kw">await
         </span>{
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
@@ -2194,11 +2194,7 @@
         <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
             </span>.inner
             .handle
-            .lookup_node(
-                <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>recipient)
-                    .map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>,
-                <span class="self">self</span>.inner.dht_timeout,
-            )
+            .lookup_node(<span class="kw-2">&amp;</span>recipient.to_bytes(), <span class="self">self</span>.inner.dht_timeout)
             .<span class="kw">await
         </span>{
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
