@@ -414,7 +414,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
-                if cert.vote().data.decide_by >= self.cur_view + 3 {
+                if cert.data().decide_by >= self.cur_view + 3 {
                     debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
@@ -484,7 +484,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 // If we have a decided upgrade certificate, the protocol version may also have
                 // been upgraded.
                 if let Some(cert) = self.decided_upgrade_certificate.read().await.clone() {
-                    if new_view == cert.vote().data.new_version_first_view {
+                    if new_view == cert.data().new_version_first_view {
                         error!(
                             "Version upgraded based on a decided upgrade cert: {:?}",
                             cert
@@ -630,7 +630,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
                 if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
                     error!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.vote().data()
+                        certificate.data()
                     );
                     return;
                 }

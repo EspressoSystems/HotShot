@@ -168,7 +168,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
         .read()
         .await
         .saved_leaves()
-        .get(&justify_qc.vote().data.leaf_commit)
+        .get(&justify_qc.data.leaf_commit)
         .cloned();
 
     parent_leaf = match parent_leaf {
@@ -223,7 +223,7 @@ pub(crate) async fn handle_quorum_proposal_recv<TYPES: NodeType, I: NodeImplemen
     let Some((parent_leaf, _parent_state)) = parent else {
         warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
-            justify_qc.vote().data.leaf_commit
+            justify_qc.data().leaf_commit
         );
         return validate_proposal_liveness(proposal, event_sender, task_state).await;
     };

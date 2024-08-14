@@ -100,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
             .read()
             .await
             .saved_leaves()
-            .get(&justify_qc.vote().data().leaf_commit)
+            .get(&justify_qc.data().leaf_commit)
             .cloned();
         maybe_parent = match maybe_parent {
             Some(p) => Some(p),
@@ -115,7 +115,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> VoteDependencyHand
         };
         let parent = maybe_parent.context(format!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
-            justify_qc.vote().data().leaf_commit,
+            justify_qc.data().leaf_commit,
             proposed_leaf.view_number(),
         ))?;
         let consensus_reader = self.consensus.read().await;
@@ -284,7 +284,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HandleDepOutput
                     leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
-                    let cert_payload_comm = cert.vote().data().payload_commit;
+                    let cert_payload_comm = cert.data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");

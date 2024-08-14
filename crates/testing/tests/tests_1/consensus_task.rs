@@ -476,7 +476,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
 
     // Force this to fail by making the cert happen for a view we've never seen. This will
     // intentionally skip the proposal for this node so we can get the proposal and fail to vote.
-    cert.vote.view_number = ViewNumber::new(10);
+    cert.view_number = ViewNumber::new(10);
 
     // Get a good proposal first.
     let good_proposal = proposals[0].clone();
@@ -484,7 +484,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     // Now We introduce an error by setting a different view number as well, this makes the task check
     // for a view sync or timeout cert. This value could be anything as long as it is not the
     // previous view number.
-    proposals[0].data.justify_qc.vote.view_number = proposals[3].data.justify_qc.view_number();
+    proposals[0].data.justify_qc.view_number = proposals[3].data.justify_qc.view_number;
 
     let inputs = vec![
         random![

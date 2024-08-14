@@ -126,7 +126,7 @@ pub fn build_cert<
     TYPES: NodeType<SignatureKey = BLSPubKey>,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Data = DATAType> + Clone,
-    CERT: Certificate<TYPES, Voteable = VOTE>,
+    CERT: Certificate<TYPES, Vote = VOTE>,
 >(
     data: DATAType,
     membership: &TYPES::Membership,
@@ -138,7 +138,13 @@ pub fn build_cert<
 
     let vote = VOTE::create_signed_vote(data, view, public_key, private_key)
         .expect("Failed to sign data!");
-    CERT::create_signed_certificate(vote.clone(), real_qc_sig)
+    let cert = CERT::create_signed_certificate(
+        vote.commit(),
+        vote.data().clone(),
+        real_qc_sig,
+        vote.view_number(),
+    );
+    cert
 }
 
 pub fn vid_share<TYPES: NodeType>(
@@ -161,7 +167,7 @@ pub fn vid_share<TYPES: NodeType>(
 pub fn build_assembled_sig<
     TYPES: NodeType<SignatureKey = BLSPubKey>,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE>,
+    CERT: Certificate<TYPES, Vote = VOTE>,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
@@ -189,7 +195,7 @@ pub fn build_assembled_sig<
         )
         .expect("Failed to sign data!");
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
-            vote.signature().expect("Vote without a signature!");
+            vote.signature();
         sig_lists.push(original_signature);
     }
 

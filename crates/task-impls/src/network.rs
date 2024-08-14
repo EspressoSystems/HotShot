@@ -266,184 +266,146 @@ impl<
         membership: &TYPES::Membership,
     ) {
         let mut maybe_action = None;
-        let (sender, message_kind, transmit): (_, _, TransmitType<TYPES>) = match event
-            .as_ref()
-            .clone()
-        {
-            HotShotEvent::QuorumProposalSend(proposal, sender) => {
-                maybe_action = Some(HotShotAction::Propose);
-                (
-                    sender,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Proposal(proposal),
-                    )),
-                    TransmitType::Broadcast,
-                )
-            }
+        let (sender, message_kind, transmit): (_, _, TransmitType<TYPES>) =
+            match event.as_ref().clone() {
+                HotShotEvent::QuorumProposalSend(proposal, sender) => {
+                    maybe_action = Some(HotShotAction::Propose);
+                    (
+                        sender,
+                        MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                            GeneralConsensusMessage::Proposal(proposal),
+                        )),
+                        TransmitType::Broadcast,
+                    )
+                }
 
-            // ED Each network task is subscribed to all these message types.  Need filters per network task
-            HotShotEvent::QuorumVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
+                // ED Each network task is subscribed to all these message types.  Need filters per network task
+                HotShotEvent::QuorumVoteSend(vote) => {
+                    maybe_action = Some(HotShotAction::Vote);
+                    (
+                        vote.signing_key(),
+                        MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                            GeneralConsensusMessage::Vote(vote.clone()),
+                        )),
+                        TransmitType::Direct(membership.leader(vote.view_number() + 1)),
+                    )
+                }
+                HotShotEvent::VidDisperseSend(proposal, sender) => {
+                    self.handle_vid_disperse_proposal(proposal, &sender);
                     return;
-                };
-                maybe_action = Some(HotShotAction::Vote);
-                (
-                    signing_key,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Vote(vote.clone()),
-                    )),
-                    TransmitType::Direct(membership.leader(vote.view_number() + 1)),
-                )
-            }
-            HotShotEvent::VidDisperseSend(proposal, sender) => {
-                self.handle_vid_disperse_proposal(proposal, &sender);
-                return;
-            }
-            HotShotEvent::DaProposalSend(proposal, sender) => {
-                maybe_action = Some(HotShotAction::DaPropose);
-                (
-                    sender,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaProposal(proposal),
-                    )),
-                    TransmitType::DaCommitteeBroadcast,
-                )
-            }
-            HotShotEvent::DaVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
-                    return;
-                };
-                maybe_action = Some(HotShotAction::DaVote);
-                (
-                    signing_key,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaVote(vote.clone()),
-                    )),
-                    TransmitType::Direct(membership.leader(vote.view_number())),
-                )
-            }
-            // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
-            HotShotEvent::DacSend(certificate, sender) => {
-                maybe_action = Some(HotShotAction::DaCert);
-                (
-                    sender,
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaCertificate(certificate),
-                    )),
-                    TransmitType::Broadcast,
-                )
-            }
-            HotShotEvent::ViewSyncPreCommitVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
-                    return;
-                };
-                (
-                    signing_key,
+                }
+                HotShotEvent::DaProposalSend(proposal, sender) => {
+                    maybe_action = Some(HotShotAction::DaPropose);
+                    (
+                        sender,
+                        MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                            DaConsensusMessage::DaProposal(proposal),
+                        )),
+                        TransmitType::DaCommitteeBroadcast,
+                    )
+                }
+                HotShotEvent::DaVoteSend(vote) => {
+                    maybe_action = Some(HotShotAction::DaVote);
+                    (
+                        vote.signing_key(),
+                        MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                            DaConsensusMessage::DaVote(vote.clone()),
+                        )),
+                        TransmitType::Direct(membership.leader(vote.view_number())),
+                    )
+                }
+                // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
+                HotShotEvent::DacSend(certificate, sender) => {
+                    maybe_action = Some(HotShotAction::DaCert);
+                    (
+                        sender,
+                        MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                            DaConsensusMessage::DaCertificate(certificate),
+                        )),
+                        TransmitType::Broadcast,
+                    )
+                }
+                HotShotEvent::ViewSyncPreCommitVoteSend(vote) => (
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
                     )),
                     TransmitType::Direct(membership.leader(vote.view_number() + vote.data().relay)),
-                )
-            }
-            HotShotEvent::ViewSyncCommitVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
-                    return;
-                };
-                (
-                    signing_key,
+                ),
+                HotShotEvent::ViewSyncCommitVoteSend(vote) => (
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
                     )),
                     TransmitType::Direct(membership.leader(vote.view_number() + vote.data().relay)),
-                )
-            }
-            HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
-                    return;
-                };
-                (
-                    signing_key,
+                ),
+                HotShotEvent::ViewSyncFinalizeVoteSend(vote) => (
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
                     )),
                     TransmitType::Direct(membership.leader(vote.view_number() + vote.data().relay)),
-                )
-            }
-            HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => (
-                sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
-                )),
-                TransmitType::Broadcast,
-            ),
-            HotShotEvent::ViewSyncCommitCertificate2Send(certificate, sender) => (
-                sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncCommitCertificate(certificate),
-                )),
-                TransmitType::Broadcast,
-            ),
-            HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) => (
-                sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),
-                )),
-                TransmitType::Broadcast,
-            ),
-            HotShotEvent::TimeoutVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
-                    return;
-                };
-                (
-                    signing_key,
+                ),
+                HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => (
+                    sender,
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
+                    )),
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::ViewSyncCommitCertificate2Send(certificate, sender) => (
+                    sender,
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncCommitCertificate(certificate),
+                    )),
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) => (
+                    sender,
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),
+                    )),
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::TimeoutVoteSend(vote) => (
+                    vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
                     TransmitType::Direct(membership.leader(vote.view_number() + 1)),
-                )
-            }
-            HotShotEvent::UpgradeProposalSend(proposal, sender) => (
-                sender,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::UpgradeProposal(proposal),
-                )),
-                TransmitType::Broadcast,
-            ),
-            HotShotEvent::UpgradeVoteSend(vote) => {
-                let Some(signing_key) = vote.signing_key() else {
-                    warn!("A vote without a signing key, it should not happen.");
-                    return;
-                };
-                error!("Sending upgrade vote!");
-                (
-                    signing_key,
+                ),
+                HotShotEvent::UpgradeProposalSend(proposal, sender) => (
+                    sender,
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::UpgradeVote(vote.clone()),
+                        GeneralConsensusMessage::UpgradeProposal(proposal),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number())),
-                )
-            }
-            HotShotEvent::ViewChange(view) => {
-                self.view = view;
-                self.channel
-                    .update_view::<TYPES>(self.view.u64(), membership)
-                    .await;
-                return;
-            }
-            HotShotEvent::UpgradeDecided(cert) => {
-                self.decided_upgrade_certificate = Some(cert.clone());
-                return;
-            }
-            _ => {
-                return;
-            }
-        };
+                    TransmitType::Broadcast,
+                ),
+                HotShotEvent::UpgradeVoteSend(vote) => {
+                    error!("Sending upgrade vote!");
+                    (
+                        vote.signing_key(),
+                        MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                            GeneralConsensusMessage::UpgradeVote(vote.clone()),
+                        )),
+                        TransmitType::Direct(membership.leader(vote.view_number())),
+                    )
+                }
+                HotShotEvent::ViewChange(view) => {
+                    self.view = view;
+                    self.channel
+                        .update_view::<TYPES>(self.view.u64(), membership)
+                        .await;
+                    return;
+                }
+                HotShotEvent::UpgradeDecided(cert) => {
+                    self.decided_upgrade_certificate = Some(cert.clone());
+                    return;
+                }
+                _ => {
+                    return;
+                }
+            };
         let broadcast_delay = match &message_kind {
             MessageKind::Consensus(
                 SequencingMessage::General(GeneralConsensusMessage::Vote(_))

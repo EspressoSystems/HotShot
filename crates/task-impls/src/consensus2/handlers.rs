@@ -132,7 +132,7 @@ pub(crate) async fn handle_view_change<TYPES: NodeType, I: NodeImplementation<TY
     let decided_upgrade_certificate_read =
         task_state.decided_upgrade_certificate.read().await.clone();
     if let Some(cert) = decided_upgrade_certificate_read {
-        if new_view_number == cert.vote().data().new_version_first_view {
+        if new_view_number == cert.data().new_version_first_view {
             error!(
                 "Version upgraded based on a decided upgrade cert: {:?}",
                 cert
