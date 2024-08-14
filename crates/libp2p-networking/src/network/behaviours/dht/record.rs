@@ -24,16 +24,21 @@ pub enum Namespace {
     Lookup = 0,
 
     /// An authenticated namespace useful for testing
+    #[cfg(test)]
     Testing = 254,
 
     /// An unauthenticated namespace useful for testing
+    #[cfg(test)]
     TestingUnauthenticated = 255,
 }
 
 /// Require certain namespaces to be authenticated
 fn requires_authentication(namespace: Namespace) -> bool {
     match namespace {
-        Namespace::Lookup | Namespace::Testing => true,
+        Namespace::Lookup => true,
+        #[cfg(test)]
+        Namespace::Testing => true,
+        #[cfg(test)]
         Namespace::TestingUnauthenticated => false,
     }
 }
@@ -45,7 +50,9 @@ impl TryFrom<u8> for Namespace {
     fn try_from(value: u8) -> Result<Self> {
         match value {
             0 => Ok(Self::Lookup),
+            #[cfg(test)]
             254 => Ok(Self::Testing),
+            #[cfg(test)]
             255 => Ok(Self::TestingUnauthenticated),
             _ => bail!("Unknown namespace"),
         }
@@ -299,7 +306,7 @@ mod test {
         let value = vec![5, 6, 7, 8];
 
         // Create a record key
-        let record_key = RecordKey::new(Namespace::Lookup, vec![1, 2, 3, 4]);
+        let record_key = RecordKey::new(Namespace::TestingUnauthenticated, vec![1, 2, 3, 4]);
 
         // Create an unsigned record
         let record_value: RecordValue<BLSPubKey> = RecordValue::new(value.clone());
