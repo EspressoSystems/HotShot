@@ -233,6 +233,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// Produce a block by fetching auction results from the solver and bundles from builders.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the solver cannot be contacted, or if none of the builders respond.
     pub async fn produce_block_marketplace(
         &mut self,
         parent_view: TYPES::Time,
@@ -299,7 +303,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
         let validated_state = self.consensus.read().await.decided_state();
 
-        let sequencing_fees = Vec1::try_from_vec(sequencing_fees)?;
+        let sequencing_fees = Vec1::try_from_vec(sequencing_fees)
+            .context("Failed to receive a bundle from any builder.")?;
         let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(
             transactions,
             &validated_state,
