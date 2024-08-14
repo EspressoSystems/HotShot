@@ -10,9 +10,11 @@ use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, time::Duration};
 
-use async_compatibility_layer::channel::TrySendError;
+use anyhow::anyhow;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::{art::async_sleep, art::async_spawn};
+use async_compatibility_layer::{art::async_timeout, channel::TrySendError};
+use async_lock::Mutex;
 use async_trait::async_trait;
 use bincode::config::Options;
 use cdn_broker::reexports::{
@@ -27,12 +29,13 @@ use cdn_client::{
     reexports::{
         connection::protocols::Quic,
         crypto::signature::{Serializable, SignatureScheme},
-        message::{Broadcast, Direct, Message as PushCdnMessage},
+        message::{self, Broadcast, Direct, Message as PushCdnMessage},
     },
     Client, Config as ClientConfig,
 };
 #[cfg(feature = "hotshot-testing")]
 use cdn_marshal::{Config as MarshalConfig, Marshal};
+use futures::channel::mpsc::{self, channel};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -40,15 +43,21 @@ use hotshot_types::traits::network::{
 use hotshot_types::{
     boxed_sync,
     data::ViewNumber,
+    message::{DataMessage::DataResponse, Message, MessageKind},
+    request_response::{NetworkMsgResponseChannel, NetworkMsgTakeReceiver, TakeReceiver},
     traits::{
         metrics::{Counter, Metrics, NoMetrics},
-        network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError, Topic as HotShotTopic},
+        network::{
+            BroadcastDelay, ConnectedNetwork, DataRequest, PushCdnNetworkError, ResponseMessage,
+            Topic as HotShotTopic,
+        },
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     utils::bincode_opts,
     BoxSyncFuture,
 };
+use libp2p_networking::network::behaviours::direct_message;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
@@ -169,20 +178,24 @@ impl<K: SignatureKey + 'static> RunDef for TestingDef<K> {
     type Topic = Topic;
 }
 
+pub struct PushCdnNetworkInner<K: SignatureKey + 'static> {
+    /// The underlying client
+    client: Client<ClientDef<K>>,
+}
+
 /// A communication channel to the Push CDN, which is a collection of brokers and a marshal
 /// that helps organize them all.
 #[derive(Clone)]
 /// Is generic over both the type of key and the network protocol.
 pub struct PushCdnNetwork<K: SignatureKey + 'static> {
-    /// The underlying client
-    client: Client<ClientDef<K>>,
     /// The CDN-specific metrics
     metrics: Arc<CdnMetricsValue>,
     /// Whether or not the underlying network is supposed to be paused
     #[cfg(feature = "hotshot-testing")]
     is_paused: Arc<AtomicBool>,
-    // The receiver channel for
-    // request_receiver_channel: TakeReceiver,
+
+    /// The inner (clone-able) inner state
+    inner: Arc<PushCdnNetworkInner<K>>,
 }
 
 /// The enum for the topics we can subscribe to in the Push CDN
@@ -224,11 +237,11 @@ impl<K: SignatureKey + 'static> PushCdnNetwork<K> {
         let client = Client::new(config);
 
         Ok(Self {
-            client,
             metrics: Arc::from(metrics),
             // Start unpaused
             #[cfg(feature = "hotshot-testing")]
             is_paused: Arc::from(AtomicBool::new(false)),
+            inner: Arc::new(PushCdnNetworkInner { client }),
         })
     }
 
@@ -247,6 +260,7 @@ impl<K: SignatureKey + 'static> PushCdnNetwork<K> {
         // Send the message
         // TODO: check if we need to print this error
         if self
+            .inner
             .client
             .send_broadcast_message(vec![topic as u8], message)
             .await
@@ -414,12 +428,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             use_local_authority: true,
                         };
 
-                    // Create our client
+                    // Create our network instance from the test values.
                     Arc::new(PushCdnNetwork {
-                        client: Client::new(client_config),
                         metrics: Arc::new(CdnMetricsValue::default()),
                         #[cfg(feature = "hotshot-testing")]
                         is_paused: Arc::from(AtomicBool::new(false)),
+                        inner: Arc::new(PushCdnNetworkInner {
+                            client: Client::new(client_config),
+                        }),
                     })
                 })
             }
@@ -434,21 +450,137 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
 #[async_trait]
 impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
-    // async fn request_data<ReqDataTYPES: NodeType>(
-    //     &self,
-    //     request: Vec<u8>,
-    //     recipient: ReqDataK,
-    // ) -> Result<Vec<u8>, NetworkError> {
-    //     self.client.send_direct_message(recipient, request).await;
+    async fn request_data<TYPES: NodeType>(
+        &self,
+        request: Vec<u8>,
+        recipient: &K,
+    ) -> Result<Vec<u8>, NetworkError> {
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(vec![]);
+        }
 
-    //     Ok(vec![])
-    // }
+        // PushCDN message/PushCDN response, etc
+        // let whatever = Msg {
+        //     id: whatever,
+        //     PushCdnDirect {
+        //         data: request
+        //     }
+        // };
 
-    // async fn spawn_request_receiver_task(
-    //     &self,
-    // ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
-    //     None
-    // }
+        let deserialized: hotshot_types::message::Message = bincode::deserialize(&request).unwrap();
+
+        let sender = deserialized.sender;
+
+        if let Err(e) = self
+            .inner
+            .client
+            .send_direct_message(&WrappedSignatureKey(recipient.clone()), request)
+            .await
+        {
+            self.metrics.num_failed_messages.add(1);
+            return Err(NetworkError::PushCdnNetwork {
+                source: PushCdnNetworkError::FailedToSend,
+            });
+        }
+
+        tracing::error!("MESSAGE SENT");
+
+        // Cannot correlate currently, we need a way to correlate a message with a particular
+        // user. Request ID/Response ID?
+        //
+        // Avoiding draining the pool: Associate the message (each time we receive it), associate it
+        // with some response
+        //
+        // DDoS vector: Tell everyone to spam the leader.
+        //
+        // When we send a request, make a u64, when we send the request we need
+        // a sender-receiver pair
+        //
+        // What if: Instead of doing the channel stuff, we can potentially just
+        // make QuorumProposalRequest a direct message and the recipient checks
+        // the filter in the Request task which handles this event, then it checks
+        // if it has it.
+        //
+        // Dont need to spawn a specific task in the network layer, but we do need
+        // the response task. Can make a HotShotEvent called RequestForData and
+        //
+        // 
+        let result = match self.inner.client.receive_message().await {
+            Ok(msg) => match msg {
+                PushCdnMessage::Direct(direct_msg) => direct_msg.message,
+                _ => {
+                    return Err(NetworkError::PushCdnNetwork {
+                        source: PushCdnNetworkError::UnexpectedMessageType,
+                    })
+                }
+            },
+            Err(e) => {
+                self.metrics.num_failed_messages.add(1);
+                return Err(NetworkError::PushCdnNetwork {
+                    source: PushCdnNetworkError::FailedToReceive,
+                });
+            }
+        };
+
+        tracing::error!("MESSAGE RECEIVED");
+
+        Ok(vec![])
+    }
+
+    async fn spawn_request_receiver_task(
+        &self,
+    ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
+        // Receiver
+        let mut inner = Arc::clone(&self.inner);
+        // Sender
+        // mpsc::Sender<Vec<u8>>
+        // let mut internal_tx = self.inner.request_sender_channel.lock().await.take()?;
+        let (mut tx, rx) = mpsc::channel(100);
+
+        // The client will receive messages until the queue is exhausted, or the time is up.
+        async_spawn(async move {
+            while let Ok(message) = inner.client.receive_message().await {
+                tracing::error!("MESSAGE RECEIVED {:?}", message);
+                let (response_tx, response_rx) = futures::channel::oneshot::channel();
+
+                // Filter non direct messages
+                let PushCdnMessage::Direct(direct_msg) = message else {
+                    continue;
+                };
+
+                // Are we the intended recipient?
+                let recipient: WrappedSignatureKey<K> =
+                    match bincode::deserialize(&direct_msg.recipient) {
+                        Ok(r) => r,
+                        Err(e) => continue,
+                    };
+
+
+                // Direct Msg -> recipient == Me
+                // Diect Msg -> Message.sender == Them
+
+                if tx
+                    .try_send((
+                        message_content,
+                        NetworkMsgResponseChannel {
+                            sender: response_tx,
+                        },
+                    ))
+                    .is_err()
+                {
+                    continue;
+                }
+
+                let Ok(response) = response_rx.await else {
+                    continue;
+                };
+            }
+        })
+        .await;
+
+        Some(rx)
+    }
 
     /// Pause sending and receiving on the PushCDN network.
     fn pause(&self) {
@@ -464,7 +596,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
 
     /// Wait for the client to initialize the connection
     async fn wait_for_ready(&self) {
-        self.client.ensure_initialized().await;
+        self.inner.client.ensure_initialized().await;
     }
 
     /// TODO: shut down the networks. Unneeded for testing.
@@ -528,6 +660,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         // Send the message
         // TODO: check if we need to print this error
         if self
+            .inner
             .client
             .send_direct_message(&WrappedSignatureKey(recipient), message)
             .await
@@ -547,7 +680,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
     /// - If we fail to receive messages. Will trigger a retry automatically.
     async fn recv_msgs(&self) -> Result<Vec<Vec<u8>>, NetworkError> {
         // Receive a message
-        let message = self.client.receive_message().await;
+        let message = self.inner.client.receive_message().await;
 
         // If we're paused, receive but don't process messages
         #[cfg(feature = "hotshot-testing")]

@@ -73,6 +73,8 @@ pub enum PushCdnNetworkError {
     FailedToReceive,
     /// Failed to send a message to the server
     FailedToSend,
+    /// The received message was not the expected type
+    UnexpectedMessageType,
 }
 
 /// the type of transmission

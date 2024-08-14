@@ -39,3 +39,8 @@ pub type RequestReceiver = Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>
 /// Locked Option of a receiver for moving the value out of the option. This
 /// type takes any `Response` type depending on the underlying network impl.
 pub type TakeReceiver = Mutex<Option<Receiver<(Vec<u8>, ResponseChannel<Response>)>>>;
+
+/// Locked Option of a receiver for moving the value out of the option. This
+/// type takes any `Response` type depending on the underlying network impl.
+pub type NetworkMsgTakeReceiver =
+    Mutex<Option<Receiver<(Vec<u8>, NetworkMsgResponseChannel<Response>)>>>;
