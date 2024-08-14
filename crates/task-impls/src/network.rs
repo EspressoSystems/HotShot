@@ -119,6 +119,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             GeneralConsensusMessage::Proposal(proposal) => {
                                 HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
+                            GeneralConsensusMessage::ProposalRequested(view, sender) => {
+                                HotShotEvent::QuorumProposalRequestRecv(view, sender)
+                            }
                             GeneralConsensusMessage::Vote(vote) => {
                                 HotShotEvent::QuorumVoteRecv(vote.clone())
                             }
@@ -298,6 +301,13 @@ impl<
                         TransmitType::Direct(membership.leader(vote.view_number() + 1)),
                     )
                 }
+                HotShotEvent::QuorumProposalRequestSend(view_number, sender_key) => (
+                    sender_key.clone(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ProposalRequested(view_number, sender_key),
+                    )),
+                    TransmitType::Direct(membership.leader(view_number)),
+                ),
                 HotShotEvent::VidDisperseSend(proposal, sender) => {
                     self.handle_vid_disperse_proposal(proposal, &sender).await;
                     return;

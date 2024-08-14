@@ -220,7 +220,7 @@ where
 {
     let info = "QuorumProposalRequest".to_string();
     let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
-        matches!(*e.clone(), QuorumProposalRequest(..))
+        matches!(*e.clone(), QuorumProposalRequestSend(..))
     });
     Box::new(EventPredicate { check, info })
 }
