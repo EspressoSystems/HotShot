@@ -742,6 +742,59 @@
 <a href="#740" id="740">740</a>
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -753,7 +806,7 @@
     time::{Duration, Instant},
 };
 
-<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_timeout};
 <span class="kw">use </span>async_trait::async_trait;
@@ -778,7 +831,7 @@
 };
 <span class="kw">use </span>tracing::{debug, error, instrument, warn};
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>vbs::version::StaticVersionType;
+<span class="kw">use </span>vbs::version::{StaticVersionType, Version};
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use crate</span>::{
@@ -976,127 +1029,118 @@
         <span class="kw">return </span><span class="prelude-val">None</span>;
     }
 
-    <span class="attr">#[allow(clippy::too_many_lines)]
-    </span><span class="doccomment">/// marketplace view change handler
-    </span><span class="kw">pub async fn </span>handle_view_change_marketplace(
+    <span class="doccomment">/// Produce a block by fetching auction results from the solver and bundles from builders.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the solver cannot be contacted, or if none of the builders respond.
+    </span><span class="kw">async fn </span>produce_block_marketplace(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::Time,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
-            <span class="prelude-val">Ok</span>(v) =&gt; v,
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Upgrade certificate requires unsupported version, refusing to request blocks: {}"</span>, err);
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            }
-        };
+        task_start_time: Instant,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
+        <span class="macro">ensure!</span>(
+            !<span class="self">self
+                </span>.upgrade_lock
+                .decided_upgrade_certificate
+                .read()
+                .<span class="kw">await
+                </span>.as_ref()
+                .is_some_and(|cert| cert.upgrading_in(block_view)),
+            <span class="string">"Not requesting block because we are upgrading"</span>,
+        );
 
-        <span class="comment">// Only request bundles and propose with a nonempty block if we are not between versions.
-        </span><span class="kw">if </span>!<span class="self">self
-            </span>.upgrade_lock
-            .decided_upgrade_certificate
-            .read()
+        <span class="kw">let </span>(parent_view, parent_hash) = <span class="self">self
+            </span>.last_vid_commitment_retry(block_view, task_start_time)
             .<span class="kw">await
-            </span>.as_ref()
-            .is_some_and(|cert| cert.upgrading_in(block_view))
-        {
-            <span class="kw">let </span>start = Instant::now();
+            </span>.context(<span class="string">"Failed to find parent hash in time"</span>)<span class="question-mark">?</span>;
 
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(maybe_auction_result) = async_timeout(
-                <span class="self">self</span>.builder_timeout,
-                <span class="self">self</span>.auction_results_provider
-                    .fetch_auction_result(block_view),
-            )
-            .<span class="kw">await
-            </span>{
-                <span class="kw">let </span>auction_result = maybe_auction_result
-                    .map_err(|e| <span class="macro">warn!</span>(<span class="string">"Failed to get auction results: {e:#}"</span>))
-                    .unwrap_or_default(); <span class="comment">// We continue here, as we still have fallback builder URL
+        <span class="kw">let </span>start = Instant::now();
 
-                </span><span class="kw">let </span><span class="kw-2">mut </span>futures = Vec::new();
+        <span class="kw">let </span>maybe_auction_result = async_timeout(
+            <span class="self">self</span>.builder_timeout,
+            <span class="self">self</span>.auction_results_provider
+                .fetch_auction_result(block_view),
+        )
+        .<span class="kw">await
+        </span>.context(<span class="string">"Timeout while getting auction result"</span>)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span><span class="kw-2">mut </span>builder_urls = auction_result.clone().urls();
-                builder_urls.push(<span class="self">self</span>.fallback_builder_url.clone());
+        <span class="kw">let </span>auction_result = maybe_auction_result
+            .map_err(|e| <span class="macro">warn!</span>(<span class="string">"Failed to get auction results: {e:#}"</span>))
+            .unwrap_or_default(); <span class="comment">// We continue here, as we still have fallback builder URL
 
-                <span class="kw">for </span>url <span class="kw">in </span>builder_urls {
-                    futures.push(async_timeout(
-                        <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
-                        <span class="kw">async </span>{
-                            <span class="kw">let </span>client = BuilderClientMarketplace::new(url);
-                            client.bundle(<span class="kw-2">*</span>block_view).<span class="kw">await
-                        </span>},
-                    ));
+        </span><span class="kw">let </span><span class="kw-2">mut </span>futures = Vec::new();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>builder_urls = auction_result.clone().urls();
+        builder_urls.push(<span class="self">self</span>.fallback_builder_url.clone());
+
+        <span class="kw">for </span>url <span class="kw">in </span>builder_urls {
+            futures.push(async_timeout(
+                <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
+                <span class="kw">async </span>{
+                    <span class="kw">let </span>client = BuilderClientMarketplace::new(url);
+                    client.bundle(<span class="kw-2">*</span>parent_view, parent_hash, <span class="kw-2">*</span>block_view).<span class="kw">await
+                </span>},
+            ));
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>bundles = Vec::new();
+
+        <span class="kw">for </span>bundle <span class="kw">in </span>join_all(futures).<span class="kw">await </span>{
+            <span class="kw">match </span>bundle {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(b)) =&gt; bundles.push(b),
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Failed to retrieve bundle: {e}"</span>);
+                    <span class="kw">continue</span>;
                 }
-
-                <span class="kw">let </span><span class="kw-2">mut </span>bundles = Vec::new();
-
-                <span class="kw">for </span>bundle <span class="kw">in </span>join_all(futures).<span class="kw">await </span>{
-                    <span class="kw">match </span>bundle {
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(b)) =&gt; bundles.push(b),
-                        <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
-                    }
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Failed to retrieve bundle: {e}"</span>);
+                    <span class="kw">continue</span>;
                 }
-
-                <span class="kw">let </span><span class="kw-2">mut </span>sequencing_fees = Vec::new();
-                <span class="kw">let </span><span class="kw-2">mut </span>transactions: Vec&lt;
-                    &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction,
-                &gt; = Vec::new();
-
-                <span class="kw">for </span>bundle <span class="kw">in </span>bundles {
-                    sequencing_fees.push(bundle.sequencing_fee);
-                    transactions.extend(bundle.transactions);
-                }
-
-                <span class="kw">let </span>validated_state = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_state();
-
-                <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(sequencing_fees), <span class="prelude-val">Ok</span>((block_payload, metadata))) = (
-                    Vec1::try_from_vec(sequencing_fees),
-                    TYPES::BlockPayload::from_transactions(
-                        transactions,
-                        <span class="kw-2">&amp;</span>validated_state,
-                        <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
-                    )
-                    .<span class="kw">await</span>,
-                ) {
-                    broadcast_event(
-                        Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
-                            block_payload.encode(),
-                            metadata,
-                            block_view,
-                            sequencing_fees,
-                            <span class="prelude-val">None</span>,
-                            <span class="prelude-val">Some</span>(auction_result),
-                        ))),
-                        event_stream,
-                    )
-                    .<span class="kw">await</span>;
-
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-            } <span class="kw">else </span>{
-                <span class="macro">warn!</span>(<span class="string">"Timeout while getting auction results"</span>);
             }
         }
 
-        <span class="comment">// If we couldn't get any bundles (due to either all of the builders or solver failing to return a result), send an empty block
-        </span><span class="macro">warn!</span>(
-            <span class="string">"Failed to get a block for view {:?}, proposing empty block"</span>,
-            block_view
-        );
+        <span class="kw">let </span><span class="kw-2">mut </span>sequencing_fees = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>transactions: Vec&lt;&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction&gt; =
+            Vec::new();
 
-        <span class="comment">// Increment the metric for number of empty blocks proposed
-        </span><span class="self">self</span>.consensus
-            .write()
-            .<span class="kw">await
-            </span>.metrics
-            .number_of_empty_blocks_proposed
-            .add(<span class="number">1</span>);
+        <span class="kw">for </span>bundle <span class="kw">in </span>bundles {
+            sequencing_fees.push(bundle.sequencing_fee);
+            transactions.extend(bundle.transactions);
+        }
 
+        <span class="kw">let </span>validated_state = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_state();
+
+        <span class="kw">let </span>sequencing_fees = Vec1::try_from_vec(sequencing_fees)
+            .context(<span class="string">"Failed to receive a bundle from any builder."</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(block_payload, metadata) = TYPES::BlockPayload::from_transactions(
+            transactions,
+            <span class="kw-2">&amp;</span>validated_state,
+            <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
+        )
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(PackedBundle::new(
+            block_payload.encode(),
+            metadata,
+            block_view,
+            sequencing_fees,
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(auction_result),
+        ))
+    }
+
+    <span class="doccomment">/// Produce a null block
+    </span><span class="kw">pub fn </span>null_block(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_view: TYPES::Time,
+        version: Version,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.total_nodes();
         <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) =
             null_block::builder_fee::&lt;TYPES, V&gt;(<span class="self">self</span>.membership.total_nodes(), version)
         <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"Failed to get null fee"</span>);
+            <span class="macro">error!</span>(<span class="string">"Failed to calculate null block fee."</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
 
@@ -1105,16 +1149,61 @@
 
         <span class="kw">let </span>(<span class="kw">_</span>, precompute_data) = precompute_vid_commitment(<span class="kw-2">&amp;</span>[], membership_total_nodes);
 
-        <span class="comment">// Broadcast the empty block
-        </span>broadcast_event(
-            Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
-                <span class="macro">vec!</span>[].into(),
-                metadata,
-                block_view,
-                <span class="macro">vec1::vec1!</span>[null_fee],
-                <span class="prelude-val">Some</span>(precompute_data),
-                <span class="prelude-val">Some</span>(TYPES::AuctionResult::default()),
-            ))),
+        <span class="prelude-val">Some</span>(PackedBundle::new(
+            <span class="macro">vec!</span>[].into(),
+            metadata,
+            block_view,
+            <span class="macro">vec1::vec1!</span>[null_fee],
+            <span class="prelude-val">Some</span>(precompute_data),
+            <span class="prelude-val">Some</span>(TYPES::AuctionResult::default()),
+        ))
+    }
+
+    <span class="attr">#[allow(clippy::too_many_lines)]
+    </span><span class="doccomment">/// marketplace view change handler
+    </span><span class="kw">pub async fn </span>handle_view_change_marketplace(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        block_view: TYPES::Time,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">let </span>task_start_time = Instant::now();
+
+        <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
+            <span class="prelude-val">Ok</span>(v) =&gt; v,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">error!</span>(<span class="string">"Upgrade certificate requires unsupported version, refusing to request blocks: {}"</span>, err);
+                <span class="kw">return </span><span class="prelude-val">None</span>;
+            }
+        };
+
+        <span class="kw">let </span>packed_bundle = <span class="kw">match </span><span class="self">self
+            </span>.produce_block_marketplace(block_view, task_start_time)
+            .<span class="kw">await
+        </span>{
+            <span class="prelude-val">Ok</span>(b) =&gt; b,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::info!</span>(
+                    <span class="string">"Failed to get a block for view {:?}: {}. Continuing with empty block."</span>,
+                    block_view,
+                    e
+                );
+
+                <span class="kw">let </span>null_block = <span class="self">self</span>.null_block(block_view, version)<span class="question-mark">?</span>;
+
+                <span class="comment">// Increment the metric for number of empty blocks proposed
+                </span><span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.metrics
+                    .number_of_empty_blocks_proposed
+                    .add(<span class="number">1</span>);
+
+                null_block
+            }
+        };
+
+        broadcast_event(
+            Arc::new(HotShotEvent::BlockRecv(packed_bundle)),
             event_stream,
         )
         .<span class="kw">await</span>;
@@ -1184,35 +1273,56 @@
     <span class="doccomment">/// Get VID commitment for the last successful view before `block_view`.
     /// Returns None if we don't have said commitment recorded.
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view))]
+    </span><span class="kw">async fn </span>last_vid_commitment_retry(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_view: TYPES::Time,
+        task_start_time: Instant,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(TYPES::Time, VidCommitment)&gt; {
+        <span class="kw">loop </span>{
+            <span class="kw">match </span><span class="self">self</span>.last_vid_commitment(block_view).<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>((view, comm)) =&gt; <span class="kw">break </span><span class="prelude-val">Ok</span>((view, comm)),
+                <span class="prelude-val">Err</span>(e) <span class="kw">if </span>task_start_time.elapsed() &gt;= <span class="self">self</span>.builder_timeout =&gt; <span class="kw">break </span><span class="prelude-val">Err</span>(e),
+                <span class="kw">_ </span>=&gt; {
+                    <span class="comment">// We still have time, will re-try in a bit
+                    </span>async_sleep(RETRY_DELAY).<span class="kw">await</span>;
+                    <span class="kw">continue</span>;
+                }
+            }
+        }
+    }
+
+    <span class="doccomment">/// Get VID commitment for the last successful view before `block_view`.
+    /// Returns None if we don't have said commitment recorded.
+    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view))]
     </span><span class="kw">async fn </span>last_vid_commitment(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_view: TYPES::Time,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;(TYPES::Time, VidCommitment)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(TYPES::Time, VidCommitment)&gt; {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>target_view = TYPES::Time::new(block_view.saturating_sub(<span class="number">1</span>));
 
         <span class="kw">loop </span>{
-            <span class="kw">let </span><span class="prelude-val">Some</span>(view_data) = consensus.validated_state_map().get(<span class="kw-2">&amp;</span>target_view) <span class="kw">else </span>{
-                <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>target_view, <span class="string">"Missing record for view in validated state"</span>);
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            };
+            <span class="kw">let </span>view_data = consensus
+                .validated_state_map()
+                .get(<span class="kw-2">&amp;</span>target_view)
+                .context(<span class="string">"Missing record for view {?target_view} in validated state"</span>)<span class="question-mark">?</span>;
+
             <span class="kw">match </span>view_data.view_inner {
                 ViewInner::Da { payload_commitment } =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Some</span>((target_view, payload_commitment))
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, payload_commitment))
                 }
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
                     ..
                 } =&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves().get(<span class="kw-2">&amp;</span>leaf_commitment) <span class="kw">else </span>{
-                        <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>target_view, %leaf_commitment, <span class="string">"Missing leaf in saved_leaves"</span>);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    };
-                    <span class="kw">return </span><span class="prelude-val">Some</span>((target_view, leaf.payload_commitment()));
+                    <span class="kw">let </span>leaf = consensus.saved_leaves().get(<span class="kw-2">&amp;</span>leaf_commitment).context
+                        (<span class="string">"Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves"</span>)<span class="question-mark">?</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, leaf.payload_commitment()));
                 }
                 ViewInner::Failed =&gt; {
                     <span class="comment">// For failed views, backtrack
-                    </span>target_view = TYPES::Time::new(target_view.checked_sub(<span class="number">1</span>)<span class="question-mark">?</span>);
+                    </span>target_view =
+                        TYPES::Time::new(target_view.checked_sub(<span class="number">1</span>).context(<span class="string">"Reached genesis"</span>)<span class="question-mark">?</span>);
                     <span class="kw">continue</span>;
                 }
             }
@@ -1224,18 +1334,14 @@
         <span class="kw">let </span>task_start_time = Instant::now();
 
         <span class="comment">// Find commitment to the block we want to build upon
-        </span><span class="kw">let </span>(parent_view, parent_comm) = <span class="kw">loop </span>{
-            <span class="kw">match </span><span class="self">self</span>.last_vid_commitment(block_view).<span class="kw">await </span>{
-                <span class="prelude-val">Some</span>((view, comm)) =&gt; <span class="kw">break </span>(view, comm),
-                <span class="prelude-val">None </span><span class="kw">if </span>task_start_time.elapsed() &lt; <span class="self">self</span>.builder_timeout =&gt; {
-                    <span class="comment">// We still have time, will re-try in a bit
-                    </span>async_sleep(RETRY_DELAY).<span class="kw">await</span>;
-                    <span class="kw">continue</span>;
-                }
-                <span class="kw">_ </span>=&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Failed to find commitment in time"</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+        </span><span class="kw">let </span>(parent_view, parent_comm) = <span class="kw">match </span><span class="self">self
+            </span>.last_vid_commitment_retry(block_view, task_start_time)
+            .<span class="kw">await
+        </span>{
+            <span class="prelude-val">Ok</span>((v, c)) =&gt; (v, c),
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::warn!</span>(<span class="string">"Failed to find last vid commitment in time: {e}"</span>);
+                <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         };
 

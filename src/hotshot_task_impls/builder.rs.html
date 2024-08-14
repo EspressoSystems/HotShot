@@ -228,6 +228,13 @@
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -433,7 +440,9 @@
 <span class="doccomment">/// Version 0.3: marketplace. Bundles.
 </span><span class="kw">pub mod </span>v0_3 {
     <span class="kw">pub use </span>hotshot_builder_api::v0_3::Version;
-    <span class="kw">use </span>hotshot_types::{bundle::Bundle, traits::node_implementation::NodeType};
+    <span class="kw">use </span>hotshot_types::{
+        bundle::Bundle, traits::node_implementation::NodeType, vid::VidCommitment,
+    };
     <span class="kw">use </span>vbs::version::StaticVersion;
 
     <span class="kw">pub use </span><span class="kw">super</span>::BuilderClientError;
@@ -447,9 +456,14 @@
         /// # Errors
         /// - [`BuilderClientError::NotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
-        </span><span class="kw">pub async fn </span>bundle(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Bundle&lt;TYPES&gt;, BuilderClientError&gt; {
+        </span><span class="kw">pub async fn </span>bundle(
+            <span class="kw-2">&amp;</span><span class="self">self</span>,
+            parent_view: u64,
+            parent_hash: VidCommitment,
+            view_number: u64,
+        ) -&gt; <span class="prelude-ty">Result</span>&lt;Bundle&lt;TYPES&gt;, BuilderClientError&gt; {
             <span class="self">self</span>.inner
-                .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"bundle/{view_number}"</span>))
+                .get(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"bundle/{parent_view}/{parent_hash}/{view_number}"</span>))
                 .send()
                 .<span class="kw">await
                 </span>.map_err(Into::into)

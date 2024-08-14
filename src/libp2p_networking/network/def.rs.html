@@ -174,7 +174,11 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>libp2p::{
+</span><span class="kw">use </span>hotshot_types::{
+    request_response::{Request, Response},
+    traits::signature_key::SignatureKey,
+};
+<span class="kw">use </span>libp2p::{
     autonat,
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
@@ -187,10 +191,6 @@
 <span class="kw">use </span>tracing::{debug, error};
 
 <span class="kw">use super</span>::{behaviours::dht::store::ValidatedStore, NetworkEventInternal};
-<span class="kw">use </span>hotshot_types::{
-    request_response::{Request, Response},
-    traits::signature_key::SignatureKey,
-};
 
 <span class="doccomment">/// Overarching network behaviour performing:
 /// - network topology discovoery
