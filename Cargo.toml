@@ -38,7 +38,7 @@ async-compatibility-layer = { version = "1.2.1", default-features = false, featu
   "logging-utils",
 ] }
 task = { git = "https://github.com/EspressoSystems/HotShotTasks.git" }
-async-lock = "2"
+async-lock = "3"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
 bincode = "1"
