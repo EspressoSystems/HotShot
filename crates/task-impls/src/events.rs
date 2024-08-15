@@ -217,9 +217,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 3. The justify QC is valid
     QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
 
-    /// Request a heartbeat from all tasks
-    HeartBeatRequest,
-    /// Handle health check event
+    /// Periodic heart beat event for health checking
     HeartBeat(usize),
 }
 
@@ -467,9 +465,6 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     "QuorumProposalPreliminarilyValidated(view_number={:?}",
                     proposal.data.view_number()
                 )
-            }
-            HotShotEvent::HeartBeatRequest => {
-                write!(f, "HeartBeatRequest")
             }
             HotShotEvent::HeartBeat(task_id) => {
                 write!(f, "HealthCheckResponse(task_id={task_id:?}")

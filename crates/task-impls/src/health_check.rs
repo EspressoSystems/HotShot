@@ -41,7 +41,7 @@ impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
             _phantom: std::marker::PhantomData,
         }
     }
-    /// Handles all events, storing them to the private state
+    /// Handles only HeartBeats and updates the timestamp for a task
     pub fn handle(
         &mut self,
         event: &Arc<HotShotEvent<TYPES>>,

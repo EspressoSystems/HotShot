@@ -106,7 +106,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
         // We will send only one event for a vector of transactions.
         let mut transactions = Vec::new();
         for message in messages {
-            // tracing::error!("Received message from network:\n\n{message:?}");
+            tracing::trace!("Received message from network:\n\n{message:?}");
             let sender = message.sender;
             match message.kind {
                 MessageKind::Consensus(consensus_message) => {

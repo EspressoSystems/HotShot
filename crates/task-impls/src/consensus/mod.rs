@@ -417,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     }
 
                     if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
-                        tracing::debug!("{e:?}");
+                        tracing::error!("{e:?}");
                     }
                     debug!(
                         "Attempting to publish proposal after forming a QC for view {}",

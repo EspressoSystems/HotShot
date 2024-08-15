@@ -10,14 +10,14 @@ use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::{spawn, JoinHandle};
-#[cfg(async_executor_impl = "async-std")]
-use futures::StreamExt;
 use async_trait::async_trait;
 #[cfg(async_executor_impl = "async-std")]
 use futures::future::join_all;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
 use futures::future::FutureExt;
+#[cfg(async_executor_impl = "async-std")]
+use futures::StreamExt;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn, JoinHandle};
 

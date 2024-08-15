@@ -379,12 +379,6 @@ where
         add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
         self.add_network_tasks(&mut handle).await;
 
-        tracing::error!(
-            "{} {}",
-            handle.consensus_registry.task_handles.len(),
-            handle.network_registry.handles.len()
-        );
-
         handle
     }
 
