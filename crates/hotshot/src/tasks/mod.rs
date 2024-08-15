@@ -152,14 +152,18 @@ pub fn add_network_message_task<
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
         #[cfg(async_executor_impl = "async-std")]
-        {
-            let heartbeat_interval =
-                async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
-            futures::pin_mut!(heartbeat_interval);
-            loop {
+        let heartbeat_interval =
+            &mut async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
+        #[cfg(async_executor_impl = "tokio")]
+        let heartbeat_interval =
+            tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+        futures::pin_mut!(heartbeat_interval);
+        loop {
+            #[cfg(async_executor_impl = "async-std")]
+            {
                 futures::select! {
                     () = shutdown_signal => {
-                        // tracing::error!("Shutting down network message task");
+                        tracing::error!("Shutting down network message task");
                         return;
                     }
                     msgs_option = fused_recv_stream.next() => {
@@ -182,16 +186,11 @@ pub fn add_network_message_task<
                     }
                 }
             }
-        }
-        #[cfg(async_executor_impl = "tokio")]
-        {
-            let heartbeat_interval =
-                tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
-            futures::pin_mut!(heartbeat_interval);
-            loop {
+            #[cfg(async_executor_impl = "tokio")]
+            {
                 futures::select! {
                     () = shutdown_signal => {
-                        // tracing::error!("Shutting down network message task");
+                        tracing::error!("Shutting down network message task");
                         return;
                     }
                     msgs_option = fused_recv_stream.next() => {

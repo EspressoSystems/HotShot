@@ -96,12 +96,15 @@ impl<S: TaskState + Send + 'static> Task<S> {
         let periodic_delay_in_seconds = 5;
         let handle = spawn(async move {
             #[cfg(async_executor_impl = "async-std")]
-            {
-                let heartbeat_interval =
-                    async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds))
-                        .fuse();
-                futures::pin_mut!(heartbeat_interval);
-                loop {
+            let periodic_interval =
+                async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
+            #[cfg(async_executor_impl = "tokio")]
+            let periodic_interval =
+                tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+            futures::pin_mut!(periodic_interval);
+            loop {
+                #[cfg(async_executor_impl = "async-std")]
+                {
                     futures::select! {
                         input = self.receiver.recv_direct().fuse() => {
                             match input {
@@ -125,18 +128,13 @@ impl<S: TaskState + Send + 'static> Task<S> {
                                 }
                             }
                         }
-                        _ = heartbeat_interval.next() => {
+                        _ = periodic_interval.next() => {
                             self.state.periodic_task(task_id, &self.sender).await;
                         }
                     }
                 }
-            }
-            #[cfg(async_executor_impl = "tokio")]
-            {
-                let heartbeat_interval =
-                    tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
-                futures::pin_mut!(heartbeat_interval);
-                loop {
+                #[cfg(async_executor_impl = "tokio")]
+                {
                     futures::select! {
                         input = self.receiver.recv_direct().fuse() => {
                             match input {
@@ -160,7 +158,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
                                 }
                             }
                         }
-                        _ = heartbeat_interval.tick().fuse() => {
+                        _ = periodic_interval.tick().fuse() => {
                             self.state.periodic_task(task_id, &self.sender).await;
                         }
                     }

@@ -467,7 +467,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 )
             }
             HotShotEvent::HeartBeat(task_id) => {
-                write!(f, "HealthCheckResponse(task_id={task_id:?}")
+                write!(f, "HeartBeat(task_id={task_id:?}")
             }
         }
     }
