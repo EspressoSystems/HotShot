@@ -40,6 +40,13 @@
 <a href="#38" id="38">38</a>
 <a href="#39" id="39">39</a>
 <a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>snafu::ResultExt;
@@ -68,10 +75,17 @@
     api.with_version(<span class="string">"0.0.3"</span>.parse().unwrap())
         .get(<span class="string">"bundle"</span>, |req, state| {
             <span class="kw">async move </span>{
+                <span class="kw">let </span>parent_view = req.integer_param(<span class="string">"parent_view"</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>parent_hash = req.blob_param(<span class="string">"parent_hash"</span>)<span class="question-mark">?</span>;
                 <span class="kw">let </span>view_number = req.integer_param(<span class="string">"view_number"</span>)<span class="question-mark">?</span>;
-                state.bundle(view_number).<span class="kw">await</span>.context(BlockClaimSnafu {
-                    resource: view_number.to_string(),
-                })
+                state
+                    .bundle(parent_view, <span class="kw-2">&amp;</span>parent_hash, view_number)
+                    .<span class="kw">await
+                    </span>.with_context(|<span class="kw">_</span>| BlockClaimSnafu {
+                        resource: <span class="macro">format!</span>(
+                            <span class="string">"Block for parent {parent_hash}@{parent_view} and view {view_number}"
+                        </span>),
+                    })
             }
             .boxed()
         })<span class="question-mark">?

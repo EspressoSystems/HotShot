@@ -1146,7 +1146,6 @@
 <a href="#1144" id="1144">1144</a>
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
-<a href="#1147" id="1147">1147</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1188,12 +1187,16 @@
     FutureExt, StreamExt,
 };
 <span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
+<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+</span><span class="kw">use </span>hotshot_types::traits::network::{
+    AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
+};
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
-    request_response::{NetworkMsgResponseChannel, Request, Response},
+    request_response::{NetworkMsgResponseChannel, Request, Response, TakeReceiver},
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
@@ -1202,11 +1205,6 @@
         signature_key::SignatureKey,
     },
     BoxSyncFuture,
-};
-<span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">use </span>hotshot_types::{
-    request_response::TakeReceiver,
-    traits::network::{AsyncGenerator, NetworkReliability, TestableNetworkingImplementation},
 };
 <span class="kw">use </span>libp2p_identity::{
     ed25519::{<span class="self">self</span>, SecretKey},
