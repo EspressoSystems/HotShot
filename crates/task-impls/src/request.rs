@@ -19,7 +19,10 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use hotshot_task::task::TaskState;
+use hotshot_task::{
+    dependency::{Dependency, EventDependency},
+    task::TaskState,
+};
 use hotshot_types::{
     consensus::OuterConsensus,
     data::QuorumProposal,
@@ -44,6 +47,7 @@ use tracing::{debug, error, info, instrument, warn};
 use crate::{
     events::{HotShotEvent, ProposalMissing},
     helpers::broadcast_event,
+    quorum_proposal,
 };
 
 /// Amount of time to try for a request before timing out.
@@ -98,7 +102,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         &mut self,
         event: Arc<Self::Event>,
         sender: &Sender<Arc<Self::Event>>,
-        _receiver: &Receiver<Arc<Self::Event>>,
+        receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
@@ -120,7 +124,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                     view,
                     response_chan: chan,
                 } = missing;
-                self.run_proposal(&RequestKind::Proposal(*view), chan.clone(), *view);
+                self.run_proposal(
+                    &RequestKind::Proposal(*view),
+                    chan.clone(),
+                    *view,
+                    sender.clone(),
+                    receiver.clone(),
+                );
+
+                Ok(())
+            }
+            HotShotEvent::QuorumProposalRequestRecv(view_number, sender_key) => {
+                if let Some(quorum_proposal) =
+                    self.state.read().await.last_proposals().get(&view_number)
+                {
+                    broadcast_event(
+                        HotShotEvent::QuorumProposalResponseSend(
+                            view_number.clone(),
+                            sender_key.clone(),
+                            quorum_proposal.clone(),
+                        )
+                        .into(),
+                        &sender,
+                    )
+                    .await;
+                }
+
                 Ok(())
             }
             _ => Ok(()),
@@ -230,12 +259,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         request: &RequestKind<TYPES>,
         response_chan: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
         view: TYPES::Time,
+        sender: Sender<Arc<HotShotEvent<TYPES>>>,
+        receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
         let leader = self.da_membership.leader(view);
         let requester = ProposalRequester::<TYPES, I> {
             network: Arc::clone(&self.network),
             sender: response_chan,
             leader,
+            event_sender: sender,
+            event_receiver: receiver,
         };
         let Some(signature) = self.serialize_and_sign(request) else {
             return;
@@ -243,7 +276,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
         let pub_key = self.public_key.clone();
         async_spawn(async move {
-            requester.do_proposal(view, signature, pub_key).await;
+            requester.do_proposal2(view, signature, pub_key).await;
+            // requester.do_proposal(view, signature, pub_key).await;
         });
     }
 
@@ -284,6 +318,9 @@ struct ProposalRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     sender: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
     /// Leader for the view of the request
     leader: TYPES::SignatureKey,
+
+    event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> {
@@ -336,6 +373,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProposalRequester<TYPES, I> 
             Err(e) => {
                 debug!("request for proposal timed out with error {:?}", e);
                 broadcast_event(None, &self.sender).await;
+            }
+        }
+    }
+
+    async fn do_proposal2(
+        &self,
+        view: TYPES::Time,
+        signature: Signature<TYPES>,
+        sender_key: TYPES::SignatureKey,
+    ) {
+        // First, broadcast that we need a proposal to the current leader
+        broadcast_event(
+            HotShotEvent::QuorumProposalRequestSend(view, sender_key).into(),
+            &self.event_sender,
+        )
+        .await;
+        // Hard-block waiting for the arrival of the event
+        let event = EventDependency::new(
+            self.event_receiver.clone(),
+            Box::new(move |event| {
+                let event = event.as_ref();
+                if let HotShotEvent::QuorumProposalResponseRecv(view_number, quorum_proposal) =
+                    event
+                {
+                    *view_number == view
+                } else {
+                    false
+                }
+            }),
+        )
+        .completed()
+        .await;
+
+        if let Some(hs_event) = event.as_ref() {
+            if let HotShotEvent::QuorumProposalResponseRecv(view_number, quorum_proposal) =
+                hs_event.as_ref()
+            {
+                broadcast_event(Some(quorum_proposal.clone()), &self.sender).await;
+                return;
             }
         }
     }

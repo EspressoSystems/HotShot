@@ -162,8 +162,11 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with a quorum proposal.
     Proposal(Proposal<TYPES, QuorumProposal<TYPES>>),
 
-    /// A peer node needs a proposal to be able to publish
+    /// A peer node needs a proposal from the leader.
     ProposalRequested(TYPES::Time, TYPES::SignatureKey),
+
+    /// The leader has responded with a valid proposal.
+    LeaderProposalAvailable(Proposal<TYPES, QuorumProposal<TYPES>>),
 
     /// Message with a quorum vote.
     Vote(QuorumVote<TYPES>),
@@ -239,6 +242,9 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                         p.data.view_number()
                     }
                     GeneralConsensusMessage::ProposalRequested(view_number, _) => *view_number,
+                    GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
+                        proposal.data.view_number()
+                    }
                     GeneralConsensusMessage::Vote(vote_message) => vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) => message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) => {
@@ -281,7 +287,10 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
         match &self {
             SequencingMessage::General(general_message) => match general_message {
                 GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
-                GeneralConsensusMessage::ProposalRequested(_, _) => MessagePurpose::LatestProposal,
+                GeneralConsensusMessage::ProposalRequested(_, _)
+                | GeneralConsensusMessage::LeaderProposalAvailable(_) => {
+                    MessagePurpose::LatestProposal
+                }
                 GeneralConsensusMessage::Vote(_) | GeneralConsensusMessage::TimeoutVote(_) => {
                     MessagePurpose::Vote
                 }
