@@ -531,4 +531,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
             handle.abort();
         }
     }
+
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
 }

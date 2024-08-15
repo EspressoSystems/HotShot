@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use futures::future::join_all;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
+use futures::future::FutureExt;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn, JoinHandle};
 
@@ -43,6 +44,9 @@ pub trait TaskState: Send {
         _sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()>;
+
+    /// Runs a specified job in the main task every so often
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>);
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
@@ -58,15 +62,23 @@ pub struct Task<S: TaskState> {
     sender: Sender<Arc<S::Event>>,
     /// Receives events that are broadcast from any task, including itself
     receiver: Receiver<Arc<S::Event>>,
+    /// The generated task id
+    task_id: usize,
 }
 
 impl<S: TaskState + Send + 'static> Task<S> {
     /// Create a new task
-    pub fn new(state: S, sender: Sender<Arc<S::Event>>, receiver: Receiver<Arc<S::Event>>) -> Self {
+    pub fn new(
+        state: S,
+        sender: Sender<Arc<S::Event>>,
+        receiver: Receiver<Arc<S::Event>>,
+        task_id: usize,
+    ) -> Self {
         Task {
             state,
             sender,
             receiver,
+            task_id,
         }
     }
 
@@ -77,36 +89,96 @@ impl<S: TaskState + Send + 'static> Task<S> {
 
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
-    pub fn run(mut self) -> JoinHandle<Box<dyn TaskState<Event = S::Event>>> {
-        spawn(async move {
-            loop {
-                match self.receiver.recv_direct().await {
-                    Ok(input) => {
-                        if *input == S::Event::shutdown_event() {
-                            self.state.cancel_subtasks().await;
+    pub fn run(mut self) -> WrappedHandle<S::Event> {
+        let task_id = self.task_id;
+        let periodic_delay_in_seconds = 5;
+        let handle = spawn(async move {
+            #[cfg(async_executor_impl = "async-std")]
+            {
+                let heartbeat_interval = async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
+                futures::pin_mut!(heartbeat_interval);
+                loop {
+                    futures::select! {
+                        input = self.receiver.recv_direct().fuse() => {
+                            match input {
+                                Ok(input) => {
+                                    if *input == S::Event::shutdown_event() {
+                                        self.state.cancel_subtasks().await;
 
-                            break self.boxed_state();
+                                        break self.boxed_state();
+                                    }
+                                    let _ = S::handle_event(
+                                        &mut self.state,
+                                        input,
+                                        &self.sender,
+                                        &self.receiver,
+                                    )
+                                    .await
+                                    .inspect_err(|e| tracing::info!("{e}"));
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to receive from event stream Error: {}", e);
+                                }
+                            }
                         }
-
-                        let _ =
-                            S::handle_event(&mut self.state, input, &self.sender, &self.receiver)
-                                .await
-                                .inspect_err(|e| tracing::info!("{e}"));
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to receive from event stream Error: {}", e);
+                        _ = heartbeat_interval.next() => {
+                            self.state.periodic_task(task_id, &self.sender).await;
+                        }
                     }
                 }
             }
-        })
+            #[cfg(async_executor_impl = "tokio")]
+            {
+                let heartbeat_interval = tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+                futures::pin_mut!(heartbeat_interval);
+                loop {
+                    futures::select! {
+                        input = self.receiver.recv_direct().fuse() => {
+                            match input {
+                                Ok(input) => {
+                                    if *input == S::Event::shutdown_event() {
+                                        self.state.cancel_subtasks().await;
+
+                                        break self.boxed_state();
+                                    }
+                                    let _ = S::handle_event(
+                                        &mut self.state,
+                                        input,
+                                        &self.sender,
+                                        &self.receiver,
+                                    )
+                                    .await
+                                    .inspect_err(|e| tracing::info!("{e}"));
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to receive from event stream Error: {}", e);
+                                }
+                            }
+                        }
+                        _ = heartbeat_interval.tick().fuse() => {
+                            self.state.periodic_task(task_id, &self.sender).await;
+                        }
+                    }
+                }
+            }
+        });
+        WrappedHandle { handle, task_id }
     }
+}
+
+/// Wrapper to have the task id as well as the join handle so we can map
+pub struct WrappedHandle<EVENT> {
+    /// handle for the task
+    pub handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>,
+    /// given task id
+    pub task_id: usize,
 }
 
 #[derive(Default)]
 /// A collection of tasks which can handle shutdown
 pub struct ConsensusTaskRegistry<EVENT> {
     /// Tasks this registry controls
-    pub task_handles: Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>,
+    pub task_handles: Vec<WrappedHandle<EVENT>>,
 }
 
 impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
@@ -117,8 +189,9 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
             task_handles: vec![],
         }
     }
+
     /// Add a task to the registry
-    pub fn register(&mut self, handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>) {
+    pub fn register(&mut self, handle: WrappedHandle<EVENT>) {
         self.task_handles.push(handle);
     }
     /// Try to cancel/abort the task this registry has
@@ -129,11 +202,11 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     pub async fn shutdown(&mut self) {
         let handles = &mut self.task_handles;
 
-        while let Some(handle) = handles.pop() {
+        while let Some(wrapped_handle) = handles.pop() {
             #[cfg(async_executor_impl = "async-std")]
-            let mut task_state = handle.await;
+            let mut task_state = wrapped_handle.handle.await;
             #[cfg(async_executor_impl = "tokio")]
-            let mut task_state = handle.await.unwrap();
+            let mut task_state = wrapped_handle.handle.await.unwrap();
 
             task_state.cancel_subtasks().await;
         }
@@ -150,10 +223,15 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     /// # Panics
     /// Panics if one of the tasks panicked
     pub async fn join_all(self) -> Vec<Box<dyn TaskState<Event = EVENT>>> {
+        let handles: Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>> = self
+            .task_handles
+            .into_iter()
+            .map(|wrapped| wrapped.handle)
+            .collect();
         #[cfg(async_executor_impl = "async-std")]
-        let states = join_all(self.task_handles).await;
+        let states = join_all(handles).await;
         #[cfg(async_executor_impl = "tokio")]
-        let states = try_join_all(self.task_handles).await.unwrap();
+        let states = try_join_all(handles).await.unwrap();
 
         states
     }

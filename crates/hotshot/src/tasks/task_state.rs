@@ -389,10 +389,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
     for HealthCheckTaskState<TYPES>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
-        Self {
-            view: handle.cur_view().await,
-            last_health_check_view: handle.cur_view().await,
-            broadcast_health_event: 50,
-        }
+        HealthCheckTaskState::new(
+            handle.hotshot.id,
+            handle.network_registry.handles.len() + handle.consensus_registry.task_handles.len(),
+        )
     }
 }

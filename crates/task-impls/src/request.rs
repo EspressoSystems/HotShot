@@ -146,6 +146,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
             }
         }
     }
+
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {

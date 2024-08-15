@@ -74,7 +74,7 @@ async fn test_network_task() {
     let (tx, rx) = async_broadcast::broadcast(10);
     let mut task_reg = ConsensusTaskRegistry::new();
 
-    let task = Task::new(network_state, tx.clone(), rx);
+    let task = Task::new(network_state, tx.clone(), rx, 0);
     task_reg.run_task(task);
 
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);
@@ -150,7 +150,7 @@ async fn test_network_storage_fail() {
     let (tx, rx) = async_broadcast::broadcast(10);
     let mut task_reg = ConsensusTaskRegistry::new();
 
-    let task = Task::new(network_state, tx.clone(), rx);
+    let task = Task::new(network_state, tx.clone(), rx, 0);
     task_reg.run_task(task);
 
     let mut generator = TestViewGenerator::generate(membership.clone(), membership);

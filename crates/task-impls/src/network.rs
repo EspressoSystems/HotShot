@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{any::Any, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -259,6 +259,10 @@ impl<
     }
 
     async fn cancel_subtasks(&mut self) {}
+
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
 }
 
 impl<

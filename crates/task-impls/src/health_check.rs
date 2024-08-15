@@ -4,64 +4,56 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::sync::Arc;
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
+use chrono::Utc;
 use hotshot_task::task::TaskState;
 use hotshot_types::traits::node_implementation::NodeType;
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
-pub enum ConsensusLifetimeTasks {
-    Network,
-    Da,
-    Res,
-}
-
-/// health event
+/// Health event task, recieve heart beats from other tasks
 pub struct HealthCheckTaskState<TYPES: NodeType> {
-    /// current view
-    pub view: TYPES::Time,
-    /// last view the health check was broadcasted
-    pub last_health_check_view: TYPES::Time,
-    /// how many views until we broadcast again
-    pub broadcast_health_event: u64,
+    /// Node id
+    pub node_id: u64,
+    /// Map of the task id to timestamp of last heartbeat
+    pub task_id_last_seen: HashMap<usize, i64>,
+    /// phantom
+    pub _phantom: PhantomData<TYPES>,
 }
 
 impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
+    /// Create a new instance of task state with task ids pre populated
+    #[must_use]
+    pub fn new(node_id: u64, total_tasks: usize) -> Self {
+        let time = Utc::now().timestamp();
+        let mut task_id_last_seen: HashMap<usize, i64> = HashMap::new();
+        for task_id in 0..total_tasks {
+            task_id_last_seen.insert(task_id, time);
+        }
+
+        HealthCheckTaskState {
+            node_id,
+            task_id_last_seen,
+            _phantom: std::marker::PhantomData,
+        }
+    }
     /// Handles all events, storing them to the private state
-    pub async fn handle(
+    pub fn handle(
         &mut self,
         event: &Arc<HotShotEvent<TYPES>>,
-        sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+        _sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::ViewChange(view) => {
-                let view = *view;
-                if view > self.view {
-                    self.view = view;
+            HotShotEvent::HeartBeat(task_id) => {
+                if self.node_id == 0 {
+                    tracing::error!("heart beat recieved {} {}", task_id, self.node_id);
                 }
-                if *self.view - *self.last_health_check_view > self.broadcast_health_event {
-                    tracing::error!(
-                        "sending health check probe: {:?} {:?} {:?}",
-                        self.view,
-                        self.last_health_check_view,
-                        sender
-                    );
-                    broadcast_event(Arc::new(HotShotEvent::HealthCheckProbe(self.view)), sender)
-                        .await;
-
-                    self.last_health_check_view = self.view;
-                    self.broadcast_health_event = 5000;
-                }
-            }
-            HotShotEvent::HealthCheckResponse => {
-                tracing::error!("probe recieved");
+                self.task_id_last_seen
+                    .insert(*task_id, Utc::now().timestamp());
             }
             HotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted);
@@ -82,10 +74,26 @@ impl<TYPES: NodeType> TaskState for HealthCheckTaskState<TYPES> {
         sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(&event, sender).await;
+        self.handle(&event, sender);
 
         Ok(())
     }
 
     async fn cancel_subtasks(&mut self) {}
+
+    async fn periodic_task(&self, _task_id: usize, _sender: &Sender<Arc<Self::Event>>) {
+        let current_time = Utc::now().timestamp();
+        let max_time_no_heartbeat_in_seconds = 6;
+
+        for (task_id, timestamp) in &self.task_id_last_seen {
+            let time_diff = current_time - timestamp;
+            if time_diff > max_time_no_heartbeat_in_seconds {
+                tracing::error!(
+                    "Task ID {} has not been updated for more than {} seconds",
+                    task_id,
+                    max_time_no_heartbeat_in_seconds
+                );
+            }
+        }
+    }
 }

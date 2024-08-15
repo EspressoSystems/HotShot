@@ -36,7 +36,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    data::{QuorumProposal, ViewNumber},
+    data::QuorumProposal,
     message::{Messages, Proposal},
     request_response::RequestReceiver,
     traits::{
@@ -75,6 +75,7 @@ pub async fn add_request_network_task<
         state,
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
+        handle.get_next_task_id(),
     );
     handle.consensus_registry.run_task(task);
 }
@@ -119,6 +120,7 @@ pub fn add_network_message_task<
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
     let stream = handle.internal_event_stream.0.clone();
+    let task_id = handle.get_next_task_id();
     let task_handle = async_spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
@@ -146,12 +148,13 @@ pub fn add_network_message_task<
             Some((msgs, ()))
         });
 
+        let periodic_delay_in_seconds = 5;
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
-        // #[cfg(async_executor_impl = "async-std")]
+        #[cfg(async_executor_impl = "async-std")]
         {
-            let interval = async_std::stream::interval(Duration::from_secs(5)).fuse();
-            futures::pin_mut!(interval);
+            let heartbeat_interval = async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
+            futures::pin_mut!(heartbeat_interval);
             loop {
                 futures::select! {
                     () = shutdown_signal => {
@@ -173,17 +176,16 @@ pub fn add_network_message_task<
                             return;
                         }
                     }
-                    _ = interval.next() => {
-                        // tracing::error!("logging async");
-                        broadcast_event(Arc::new(HotShotEvent::HealthCheckResponse), &stream).await;
+                    _ = heartbeat_interval.next() => {
+                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), &stream).await;
                     }
                 }
             }
         }
         #[cfg(async_executor_impl = "tokio")]
         {
-            let interval = tokio::time::interval(Duration::from_secs(5));
-            futures::pin_mut!(interval);
+            let heartbeat_interval = tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+            futures::pin_mut!(heartbeat_interval);
             loop {
                 futures::select! {
                     () = shutdown_signal => {
@@ -205,9 +207,8 @@ pub fn add_network_message_task<
                             return;
                         }
                     }
-                    _ = interval.tick().fuse() => {
-                        tracing::error!("logging tokio");
-                        broadcast_event(event, sender)
+                    _ = heartbeat_interval.tick().fuse() => {
+                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), &stream).await;
                     }
                 }
             }
@@ -240,6 +241,7 @@ pub fn add_network_event_task<
         network_state,
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
+        handle.get_next_task_id(),
     );
     handle.consensus_registry.run_task(task);
 }
@@ -374,6 +376,12 @@ where
 
         add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
         self.add_network_tasks(&mut handle).await;
+
+        tracing::error!(
+            "{} {}",
+            handle.consensus_registry.task_handles.len(),
+            handle.network_registry.handles.len()
+        );
 
         handle
     }

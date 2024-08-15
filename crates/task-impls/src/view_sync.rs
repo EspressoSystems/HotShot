@@ -120,6 +120,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ViewSyncTaskSt
     }
 
     async fn cancel_subtasks(&mut self) {}
+
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
 }
 
 /// State of a view sync replica task
@@ -169,6 +173,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
     }
 
     async fn cancel_subtasks(&mut self) {}
+
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewSyncTaskState<TYPES, I> {

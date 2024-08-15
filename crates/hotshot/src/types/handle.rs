@@ -72,9 +72,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             task_state,
             self.internal_event_stream.0.clone(),
             self.internal_event_stream.1.activate_cloned(),
+            self.get_next_task_id(),
         );
 
         self.consensus_registry.run_task(task);
+    }
+
+    /// TODO make this better
+    #[must_use]
+    pub fn get_next_task_id(&self) -> usize {
+        self.consensus_registry.task_handles.len() + self.network_registry.handles.len()
     }
 
     /// obtains a stream to expose to the user

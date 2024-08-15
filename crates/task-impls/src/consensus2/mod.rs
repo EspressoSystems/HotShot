@@ -31,7 +31,9 @@ use tracing::instrument;
 use self::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
-use crate::{events::HotShotEvent, vote_collection::VoteCollectionTaskState};
+use crate::{
+    events::HotShotEvent, helpers::broadcast_event, vote_collection::VoteCollectionTaskState,
+};
 
 /// Alias for Optional type for Vote Collectors
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
@@ -172,4 +174,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
 
     /// Joins all subtasks.
     async fn cancel_subtasks(&mut self) {}
+
+    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
 }
