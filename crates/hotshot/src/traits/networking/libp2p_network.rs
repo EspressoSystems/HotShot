@@ -39,7 +39,6 @@ use futures::{
     FutureExt, StreamExt,
 };
 use hotshot_orchestrator::config::NetworkConfig;
-use hotshot_types::request_response::TakeReceiver;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -49,7 +48,7 @@ use hotshot_types::{
     constants::LOOK_AHEAD,
     data::ViewNumber,
     message::{DataMessage::DataResponse, Message, MessageKind},
-    request_response::{NetworkMsgResponseChannel, Request, Response},
+    request_response::{NetworkMsgResponseChannel, Request, Response, TakeReceiver},
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
