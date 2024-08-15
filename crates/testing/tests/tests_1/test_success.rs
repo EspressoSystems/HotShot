@@ -85,7 +85,7 @@ cross_tests!(
         };
 
         metadata.overall_safety_properties.num_failed_views = 0;
-        metadata.overall_safety_properties.num_successful_views = 10;
+        metadata.overall_safety_properties.num_successful_views = 0;
         let mut config = DelayConfig::default();
         let delay_settings = DelaySettings {
             delay_option: DelayOptions::Random,

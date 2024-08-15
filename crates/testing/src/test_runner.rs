@@ -208,7 +208,7 @@ where
         let consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
             safety_properties: self.launcher.metadata.overall_safety_properties,
-            ensure_upgrade: matches!(self.launcher.metadata.upgrade_view, Some(_)),
+            ensure_upgrade: self.launcher.metadata.upgrade_view.is_some(),
         };
 
         let consistency_task = TestTask::<ConsistencyTask<TYPES>>::new(
