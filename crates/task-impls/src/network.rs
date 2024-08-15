@@ -317,7 +317,7 @@ impl<
                     )),
                     TransmitType::Direct(membership.leader(view_number)),
                 ),
-                HotShotEvent::QuorumProposalResponseSend(view_number, sender_key, proposal) => (
+                HotShotEvent::QuorumProposalResponseSend(_view_number, sender_key, proposal) => (
                     sender_key.clone(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::LeaderProposalAvailable(proposal),
