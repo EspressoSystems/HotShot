@@ -661,7 +661,6 @@
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -712,8 +711,7 @@
 <span class="kw">use crate</span>::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
     ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, UpgradeLock,
-    Versions,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
 };
 
 <span class="doccomment">/// event for global event stream
@@ -857,7 +855,7 @@
         membership,
         filter,
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
-        upgrade_lock: UpgradeLock::new(),
+        upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
     <span class="kw">let </span>task = Task::new(
         network_state,
