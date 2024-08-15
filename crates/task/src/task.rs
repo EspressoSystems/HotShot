@@ -10,6 +10,8 @@ use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::{spawn, JoinHandle};
+#[cfg(async_executor_impl = "async-std")]
+use futures::StreamExt;
 use async_trait::async_trait;
 #[cfg(async_executor_impl = "async-std")]
 use futures::future::join_all;
@@ -95,7 +97,9 @@ impl<S: TaskState + Send + 'static> Task<S> {
         let handle = spawn(async move {
             #[cfg(async_executor_impl = "async-std")]
             {
-                let heartbeat_interval = async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
+                let heartbeat_interval =
+                    async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds))
+                        .fuse();
                 futures::pin_mut!(heartbeat_interval);
                 loop {
                     futures::select! {
@@ -129,7 +133,8 @@ impl<S: TaskState + Send + 'static> Task<S> {
             }
             #[cfg(async_executor_impl = "tokio")]
             {
-                let heartbeat_interval = tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+                let heartbeat_interval =
+                    tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
                 futures::pin_mut!(heartbeat_interval);
                 loop {
                     futures::select! {

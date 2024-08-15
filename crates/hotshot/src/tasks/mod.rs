@@ -153,7 +153,8 @@ pub fn add_network_message_task<
         futures::pin_mut!(fused_recv_stream);
         #[cfg(async_executor_impl = "async-std")]
         {
-            let heartbeat_interval = async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
+            let heartbeat_interval =
+                async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
             futures::pin_mut!(heartbeat_interval);
             loop {
                 futures::select! {
@@ -184,7 +185,8 @@ pub fn add_network_message_task<
         }
         #[cfg(async_executor_impl = "tokio")]
         {
-            let heartbeat_interval = tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+            let heartbeat_interval =
+                tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
             futures::pin_mut!(heartbeat_interval);
             loop {
                 futures::select! {
