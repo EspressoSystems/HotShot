@@ -145,9 +145,7 @@ fn sanitize_view_map<TYPES: NodeType>(
         );
 
         if let Some(leaf) = node_leaves.first() {
-            result
-                .insert(*view, leaf.1.clone())
-                .context("Failed to insert leaf into map. This should be impossible.")?;
+            result.insert(*view, leaf.1.clone());
         }
     }
 
