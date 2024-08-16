@@ -89,7 +89,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
         state,
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
-        handle.generate_task_id("NetworkResponse"),
+        handle.generate_task_id("NetworkResponseTask"),
     ));
 }
 
@@ -143,7 +143,8 @@ pub fn add_network_message_task<
             Some((msgs, ()))
         });
 
-        let mut heartbeat_interval = get_periodic_interval_in_secs(10);
+        let heartbeat_interval = get_periodic_interval_in_secs(10);
+        futures::pin_mut!(heartbeat_interval);
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
         loop {

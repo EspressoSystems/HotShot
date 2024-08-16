@@ -152,7 +152,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
     }
 
     fn get_task_name(&self) -> String {
-        "NetworkRequestState".to_string()
+        "NetworkRequesTask".to_string()
     }
 }
 

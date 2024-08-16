@@ -85,23 +85,21 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         task_name: String,
     ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
-        let mut heartbeat_interval = get_periodic_interval_in_secs(10);
+        let heartbeat_interval = get_periodic_interval_in_secs(3);
+        futures::pin_mut!(heartbeat_interval);
         loop {
-            {
-                // #[cfg(async_executor_impl = "async-std")]
-                futures::select! {
-                    req = self.receiver.next() => {
-                        match req {
-                            Some((msg, chan)) => self.handle_message(msg, chan).await,
-                            None => return,
-                        }
-                    },
-                    _ = handle_periodic_delay(&mut heartbeat_interval) => {
-                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_name.clone())), &sender).await;
-                    },
-                    _ = shutdown => {
-                        return;
+            futures::select! {
+                req = self.receiver.next() => {
+                    match req {
+                        Some((msg, chan)) => self.handle_message(msg, chan).await,
+                        None => return,
                     }
+                },
+                _ = handle_periodic_delay(&mut heartbeat_interval) => {
+                    broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_name.clone())), &sender).await;
+                },
+                _ = shutdown => {
+                    return;
                 }
             }
         }
