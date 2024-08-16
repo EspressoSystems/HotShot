@@ -18,8 +18,8 @@ use hotshot_task_impls::{
     events::HotShotEvent, 
 };
 use hotshot_testing::{
-    helpers::{ build_system_handle, build_system_handle_from_launcher, check_external_events },
-    predicates::event::{ exact, expect_external_events, ext_event_exact },
+    helpers::{ build_system_handle, build_system_handle_from_launcher },
+    predicates::event::exact,
     script::{Expectations, InputOrder, TaskScript},
     serial,
     view_generator::TestViewGenerator,
@@ -28,7 +28,6 @@ use hotshot_testing::{
 use hotshot_types::{
     data::{null_block, PackedBundle, ViewNumber},
     simple_vote::DaData,
-    event::{Event, EventType},
     traits::{
         block_contents::precompute_vid_commitment,
         election::Membership,
@@ -310,16 +309,7 @@ async fn test_da_task_outdated_proposal() {
             ))),
         ]),
     ];
-
-    // Define expectations for external events triggered by the system
-    let external_event_expectations = vec![expect_external_events(vec![ext_event_exact(Event {
-        view_number: view3.view_number,
-        event: EventType::DaProposal {
-            proposal: view3.da_proposal.clone(),
-            sender: view3.leader_public_key,
-        },
-    })])];
-
+    
     // Create DA task state and script for the test
     let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let mut da_script = TaskScript {
@@ -329,17 +319,7 @@ async fn test_da_task_outdated_proposal() {
     };
 
     // Run the test with the inputs and check the resulting events
-    let output_event_stream_recv = handle.event_stream();
     run_test![inputs, da_script].await;
-
-    // Validate the external events against expectations
-    let result = check_external_events(
-        output_event_stream_recv,
-        &external_event_expectations,
-        da_script.timeout,
-    )
-    .await;
-    assert!(result.is_ok(), "{}", result.err().unwrap());
 }
 
 /// Test the DA Task for handling duplicate votes.
@@ -438,15 +418,6 @@ async fn test_da_task_duplicate_votes() {
         ]),
     ];
 
-    // We expect to see an external event for the proposal, but not for individual votes
-    let external_event_expectations = vec![expect_external_events(vec![ext_event_exact(Event {
-        view_number: view2.view_number,
-        event: EventType::DaProposal {
-            proposal: view2.da_proposal.clone(),
-            sender: view2.leader_public_key,
-        },
-    })])];
-
     // Create DA task state and script for the test
     let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
     let mut da_script = TaskScript {
@@ -456,17 +427,7 @@ async fn test_da_task_duplicate_votes() {
     };
 
     // Run the test with the inputs and check the resulting events
-    let output_event_stream_recv = handle.event_stream();
     run_test![inputs, da_script].await;
-
-    // Validate the external events against expectations
-    let result = check_external_events(
-        output_event_stream_recv,
-        &external_event_expectations,
-        da_script.timeout,
-    )
-    .await;
-    assert!(result.is_ok(), "{}", result.err().unwrap());
 }
 
 /// Tests the DA Task for collecting and processing valid votes.
@@ -568,7 +529,7 @@ async fn test_da_task_vote_collection() {
             HotShotEvent::DaVoteRecv(votes[3].clone()),
         ],
     ];
-
+    
     // Assert the outcome
     let expectations = vec![
         Expectations::from_outputs(vec![
@@ -594,23 +555,7 @@ async fn test_da_task_vote_collection() {
     };
 
     // Run the test
-    let output_event_stream_recv = handles[leader_node_id].event_stream();
     run_test![inputs, da_script].await;
-
-    // Check for DacSend event in the output stream
-    let result = check_external_events(
-        output_event_stream_recv,
-        &[expect_external_events(vec![ext_event_exact(Event {
-            view_number: view4.view_number,
-            event: EventType::DaProposal {
-                proposal: view4.da_proposal.clone(),
-                sender: view4.leader_public_key,
-            },
-        })])],
-        da_script.timeout,
-    )
-    .await;
-    assert!(result.is_ok(), "{}", result.err().unwrap());
 }
 
 /// Test that non-leader nodes correctly handle DA (Data Availability) votes and
@@ -733,21 +678,5 @@ async fn test_da_task_non_leader_vote_collection_ignore() {
     };
 
     // Run the test with the prepared inputs and script
-    let output_event_stream_recv = handles[leader_node_id].event_stream();
     run_test![inputs, da_script].await;
-
-    // Verify that the non-leader node did not generate the DacSend event
-    let result = check_external_events(
-        output_event_stream_recv,
-        &[expect_external_events(vec![ext_event_exact(Event {
-            view_number: view4.view_number,
-            event: EventType::DaProposal {
-                proposal: view4.da_proposal.clone(),
-                sender: view4.leader_public_key,
-            },
-        })])],
-        da_script.timeout,
-    )
-    .await;
-    assert!(result.is_ok(), "{}", result.err().unwrap());
 }

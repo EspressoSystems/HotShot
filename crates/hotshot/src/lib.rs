@@ -637,10 +637,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
 
         handle
     }
-}
 
-#[cfg(feature = "hotshot-testing")]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<TYPES, I, V> {
     /// Creates a lightweight version of the system handle for task state testing.
     ///
     /// This method provides a minimal context for task state tests, omitting the full
@@ -648,7 +645,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     ///
     /// # Returns
     /// A `SystemContextHandle<TYPES, I, V>` with minimal setup for task state testing.
-    pub fn create_lean_test_handle(&self) -> SystemContextHandle<TYPES, I, V> {
+    #[cfg(feature = "hotshot-testing")]
+    pub fn build_inactive_handle(&self) -> SystemContextHandle<TYPES, I, V> {
         let (internal_sender, internal_receiver) = broadcast(EVENT_CHANNEL_SIZE);
 
         SystemContextHandle {

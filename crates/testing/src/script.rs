@@ -7,7 +7,7 @@
 use std::{sync::Arc, time::Duration};
 
 use hotshot_task_impls::events::HotShotEvent;
-use hotshot_types::{event::Event, traits::node_implementation::NodeType};
+use hotshot_types::traits::node_implementation::NodeType;
 
 use crate::predicates::{Predicate, PredicateResult};
 
@@ -63,16 +63,6 @@ impl<TYPES: NodeType, S> Expectations<TYPES, S> {
             output_asserts,
             task_state_asserts,
         }
-    }
-}
-
-pub struct ExternalEventsExpectations<TYPES: NodeType> {
-    pub output_asserts: Vec<Box<dyn Predicate<Arc<Event<TYPES>>>>>,
-}
-
-impl<TYPES: NodeType> ExternalEventsExpectations<TYPES> {
-    pub fn from_outputs(output_asserts: Vec<Box<dyn Predicate<Arc<Event<TYPES>>>>>) -> Self {
-        Self { output_asserts }
     }
 }
 

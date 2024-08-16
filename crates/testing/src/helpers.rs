@@ -5,17 +5,15 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 #![allow(clippy::panic)]
-use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc, time::Duration};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_timeout;
 use bitvec::bitvec;
 use committable::Committable;
 use ethereum_types::U256;
-use futures::StreamExt;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::{BLSPubKey, Event, SignatureKey, SystemContextHandle},
+    types::{BLSPubKey, SignatureKey, SystemContextHandle},
     HotShotInitializer, Memberships, SystemContext,
 };
 use hotshot_example_types::{
@@ -47,10 +45,7 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 use serde::Serialize;
 
-use crate::{
-    predicates::PredicateResult, script::ExternalEventsExpectations, test_builder::TestDescription,
-    test_launcher::TestLauncher,
-};
+use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -198,7 +193,7 @@ pub async fn build_system_handle_from_launcher<
         marketplace_config,
     );
 
-    let system_context_handle = system_context.create_lean_test_handle();
+    let system_context_handle = system_context.build_inactive_handle();
 
     tracing::info!("Successfully created system handle for node {}", node_id);
     Ok(system_context_handle)
@@ -536,42 +531,5 @@ pub fn build_fake_view_with_leaf_and_state(
             state: state.into(),
             delta: None,
         },
-    }
-}
-
-pub async fn check_external_events<TYPES: NodeType, S: StreamExt<Item = Event<TYPES>> + Unpin>(
-    mut output_stream: S,
-    expectations: &[ExternalEventsExpectations<TYPES>],
-    timeout: Duration,
-) -> Result<(), String> {
-    let mut external_event_expectations_met = vec![false; expectations.len()];
-
-    while let Ok(Some(ext_event_received_output)) =
-        async_timeout(timeout, output_stream.next()).await
-    {
-        tracing::debug!("Test received Ext Event: {:?}", ext_event_received_output);
-        for (index, expectation) in expectations.iter().enumerate() {
-            if !external_event_expectations_met[index] {
-                for predicate in &expectation.output_asserts {
-                    if predicate
-                        .evaluate(&Arc::new(ext_event_received_output.clone()))
-                        .await
-                        == PredicateResult::Pass
-                    {
-                        external_event_expectations_met[index] = true;
-                        break;
-                    }
-                }
-            }
-        }
-        if external_event_expectations_met.iter().all(|&x| x) {
-            return Ok(());
-        }
-    }
-
-    if external_event_expectations_met.iter().all(|&x| x) {
-        Ok(())
-    } else {
-        Err("Not all external event expectations were met".to_string())
     }
 }

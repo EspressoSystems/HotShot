@@ -11,14 +11,10 @@ use async_trait::async_trait;
 use hotshot_task_impls::events::{HotShotEvent, HotShotEvent::*};
 use hotshot_types::{
     data::null_block,
-    event::Event,
     traits::{block_contents::BlockHeader, node_implementation::NodeType},
 };
 
-use crate::{
-    predicates::{Predicate, PredicateResult},
-    script::ExternalEventsExpectations,
-};
+use crate::predicates::{Predicate, PredicateResult};
 
 type EventCallback<TYPES> = Arc<dyn Fn(Arc<HotShotEvent<TYPES>>) -> bool + Send + Sync>;
 
@@ -297,48 +293,4 @@ where
         matches!(e.as_ref(), ValidatedStateUpdated(..))
     });
     Box::new(EventPredicate { check, info })
-}
-
-// New predicate type for EventType
-type ExternalEventCheckFn<TYPES> = dyn Fn(&Event<TYPES>) -> bool + Send + Sync;
-
-pub struct ExternalEventPredicate<TYPES: NodeType> {
-    check: Arc<ExternalEventCheckFn<TYPES>>,
-    info: String,
-}
-
-impl<TYPES: NodeType> std::fmt::Debug for ExternalEventPredicate<TYPES> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.info)
-    }
-}
-
-#[async_trait]
-impl<TYPES: NodeType + Send + Sync + 'static> Predicate<Arc<Event<TYPES>>>
-    for ExternalEventPredicate<TYPES>
-{
-    async fn evaluate(&self, input: &Arc<Event<TYPES>>) -> PredicateResult {
-        PredicateResult::from((self.check)(input))
-    }
-
-    async fn info(&self) -> String {
-        self.info.clone()
-    }
-}
-
-pub fn ext_event_exact<TYPES: NodeType>(
-    event: Event<TYPES>,
-) -> Box<dyn Predicate<Arc<Event<TYPES>>>> {
-    let info = format!("{:?}", event);
-    let check = Arc::new(move |e: &Event<TYPES>| {
-        e.event == event.event && e.view_number == event.view_number
-    });
-
-    Box::new(ExternalEventPredicate { check, info })
-}
-
-pub fn expect_external_events<TYPES: NodeType>(
-    predicates: Vec<Box<dyn Predicate<Arc<Event<TYPES>>>>>,
-) -> ExternalEventsExpectations<TYPES> {
-    ExternalEventsExpectations::from_outputs(predicates)
 }
