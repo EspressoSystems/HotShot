@@ -181,6 +181,9 @@ pub(crate) async fn handle_quorum_proposal_recv<
             event_receiver.clone(),
             Arc::clone(&task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+            // Note that we explicitly use the node key here instead of the provided key in the signature.
+            // This is because the key that we receive is for the prior leader, so the payload would be routed
+            // incorrectly.
             task_state.public_key.clone(),
         )
         .await

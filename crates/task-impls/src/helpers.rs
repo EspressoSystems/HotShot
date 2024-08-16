@@ -40,7 +40,7 @@ use tracing::{debug, error, info, instrument, warn};
 
 use crate::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 
-/// Trigger a request to the network for a proposal for a view and wait for the response
+/// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 #[instrument(skip_all)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     view_number: TYPES::Time,
@@ -57,9 +57,11 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     )
     .await;
 
-    // Hard-block waiting for the arrival of the event
+    // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) = async_spawn(async move {
+        // We want to explicitly timeout here so we aren't waiting around for the data.
         async_timeout(REQUEST_TIMEOUT, async move {
+            // First, capture the output from the event dependency
             let event = EventDependency::new(
                 event_receiver.clone(),
                 Box::new(move |event| {
@@ -78,6 +80,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
             .completed()
             .await;
 
+            // Then, if it's `Some`, make sure that the data is correct
             if let Some(hs_event) = event.as_ref() {
                 if let HotShotEvent::QuorumProposalResponseRecv(_view_number, quorum_proposal) =
                     hs_event.as_ref()

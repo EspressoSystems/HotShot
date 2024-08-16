@@ -119,7 +119,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                                 HotShotEvent::QuorumProposalRequestRecv(view, sender)
                             }
                             GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
-                                tracing::error!("LEADER PROPOSAL AVAILABLE");
                                 HotShotEvent::QuorumProposalResponseRecv(
                                     proposal.data.view_number,
                                     proposal,
