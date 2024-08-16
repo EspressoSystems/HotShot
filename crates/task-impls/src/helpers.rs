@@ -58,7 +58,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     .await;
 
     // Make a background task to await the arrival of the event data.
-    let Ok(Some(proposal)) = async_spawn(async move {
+    let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
         async_timeout(REQUEST_TIMEOUT, async move {
             // First, capture the output from the event dependency
@@ -92,8 +92,6 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
             None
         })
         .await
-    })
-    .await
     else {
         bail!("Request for proposal failed");
     };
