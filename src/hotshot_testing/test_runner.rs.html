@@ -722,6 +722,13 @@
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -932,6 +939,7 @@
         <span class="kw">let </span>consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
             safety_properties: <span class="self">self</span>.launcher.metadata.overall_safety_properties,
+            ensure_upgrade: <span class="self">self</span>.launcher.metadata.upgrade_view.is_some(),
         };
 
         <span class="kw">let </span>consistency_task = TestTask::&lt;ConsistencyTask&lt;TYPES&gt;&gt;::new(
@@ -1127,6 +1135,9 @@
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..total {
             <span class="kw">let </span><span class="kw-2">mut </span>config = config.clone();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(upgrade_view) = <span class="self">self</span>.launcher.metadata.upgrade_view {
+                config.set_view_upgrade(upgrade_view);
+            }
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
             <span class="self">self</span>.next_node_id += <span class="number">1</span>;
             <span class="macro">tracing::debug!</span>(<span class="string">"launch node {}"</span>, i);
@@ -1175,6 +1186,8 @@
                 marketplace_config.auction_results_provider = new_auction_results_provider.into();
             }
 
+            marketplace_config.fallback_builder_url = builder_urls.first().unwrap().clone();
+
             <span class="kw">let </span>network_clone = network.clone();
             <span class="kw">let </span>networks_ready_future = <span class="kw">async move </span>{
                 network_clone.wait_for_ready().<span class="kw">await</span>;
@@ -1211,6 +1224,7 @@
                     <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
                     </span><span class="kw">let </span>validator_config =
                         ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
+
                     <span class="kw">let </span>hotshot = <span class="self">Self</span>::add_node_with_config(
                         node_id,
                         network.clone(),

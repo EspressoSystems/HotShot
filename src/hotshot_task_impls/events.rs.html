@@ -449,11 +449,6 @@
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -639,8 +634,6 @@
     </span>UpgradeVoteSend(UpgradeVote&lt;TYPES&gt;),
     <span class="doccomment">/// Upgrade certificate has been sent to the network
     </span>UpgradeCertificateFormed(UpgradeCertificate&lt;TYPES&gt;),
-    <span class="doccomment">/// A HotShot upgrade was decided
-    </span>UpgradeDecided(UpgradeCertificate&lt;TYPES&gt;),
 
     <span class="comment">/* Consensus State Update Events */
     </span><span class="doccomment">/// A undecided view has been created and added to the validated state storage.
@@ -877,9 +870,6 @@
                 <span class="string">"UpgradeCertificateFormed(view_number={:?})"</span>,
                 cert.view_number()
             ),
-            HotShotEvent::UpgradeDecided(cert) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"UpgradeDecided(view_number{:?})"</span>, cert.view_number())
-            }
             HotShotEvent::QuorumProposalRequest(view_number) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"QuorumProposalRequest(view_number={view_number:?})"</span>)
             }

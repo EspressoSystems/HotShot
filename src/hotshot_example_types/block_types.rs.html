@@ -386,6 +386,8 @@
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -417,6 +419,7 @@
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
+    auction_results_provider_types::TestAuctionResult,
     node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
     testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay},
@@ -662,6 +665,7 @@
             BlockHeader = <span class="self">Self</span>,
             BlockPayload = TestBlockPayload,
             InstanceState = TestInstanceState,
+            AuctionResult = TestAuctionResult,
         &gt;,
     &gt; BlockHeader&lt;TYPES&gt; <span class="kw">for </span>TestBlockHeader
 {
@@ -737,7 +741,7 @@
     }
 
     <span class="kw">fn </span>get_auction_results(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt; {
-        <span class="macro">unimplemented!</span>()
+        <span class="prelude-val">Some</span>(TYPES::AuctionResult { urls: <span class="macro">vec!</span>[] })
     }
 }
 
