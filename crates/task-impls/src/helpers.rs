@@ -16,6 +16,9 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+#[cfg(async_executor_impl = "async-std")]
+use futures::StreamExt;
+
 use chrono::Utc;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
@@ -741,4 +744,18 @@ impl<T> AnyhowTracing for anyhow::Result<T> {
     fn err_as_debug(self) {
         let _ = self.inspect_err(|e| tracing::debug!("{}", format!("{:?}", e)));
     }
+}
+
+#[cfg(async_executor_impl = "async-std")]
+/// Periodic delay
+pub fn get_periodic_interval_in_secs(
+    periodic_delay: u64,
+) -> futures::stream::Fuse<async_std::stream::Interval> {
+    async_std::stream::interval(Duration::from_secs(periodic_delay)).fuse()
+}
+
+#[cfg(async_executor_impl = "tokio")]
+/// Periodic delay
+pub fn get_periodic_interval_in_secs(periodic_delay: u64) -> tokio::time::Interval {
+    tokio::time::interval(Duration::from_secs(periodic_delay))
 }

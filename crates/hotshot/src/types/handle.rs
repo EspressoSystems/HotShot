@@ -86,7 +86,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let random = rand::thread_rng().gen_range(0..=9999);
         let tasks_spawned =
             self.consensus_registry.task_handles.len() + self.network_registry.handles.len();
-        format!("{task_name}_{tasks_spawned}{random}")
+        format!("{task_name}_{tasks_spawned}_{random}")
+    }
+
+    #[must_use]
+    /// Get a list of all the running tasks ids
+    pub fn get_task_ids(&self) -> Vec<String> {
+        let mut task_ids = self.consensus_registry.get_task_ids();
+        task_ids.extend(self.network_registry.get_task_ids());
+        task_ids
     }
 
     /// obtains a stream to expose to the user

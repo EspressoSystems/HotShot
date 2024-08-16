@@ -8,6 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
+use hotshot_task::task::NetworkHandle;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
@@ -18,14 +19,13 @@ use futures::{
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
-use hotshot_task::task::{Task, TaskState};
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
     health_check::HealthCheckTaskState,
-    helpers::broadcast_event,
+    helpers::{broadcast_event, get_periodic_interval_in_secs},
     network::{self, NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
@@ -69,16 +69,7 @@ pub async fn add_request_network_task<
 >(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
-    let state = NetworkRequestState::<TYPES, I>::create_from(handle).await;
-
-    let task_name = state.get_task_name();
-    let task = Task::new(
-        state,
-        handle.internal_event_stream.0.clone(),
-        handle.internal_event_stream.1.activate_cloned(),
-        handle.generate_task_id(&task_name),
-    );
-    handle.consensus_registry.run_task(task);
+    handle.add_task(NetworkRequestState::<TYPES, I>::create_from(handle).await);
 }
 
 /// Add a task which responds to requests on the network.
@@ -96,7 +87,9 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     );
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
+        handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
+        handle.generate_task_id("NetworkResponse"),
     ));
 }
 
@@ -122,6 +115,7 @@ pub fn add_network_message_task<
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
     let stream = handle.internal_event_stream.0.clone();
     let task_id = handle.generate_task_id("NetworkMessageTask");
+    let handle_task_id = task_id.clone();
     let task_handle = async_spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
@@ -149,19 +143,13 @@ pub fn add_network_message_task<
             Some((msgs, ()))
         });
 
-        let periodic_delay_in_seconds = 5;
+        let heartbeat_interval = get_periodic_interval_in_secs(10);
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
-        #[cfg(async_executor_impl = "async-std")]
-        let heartbeat_interval =
-            async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
-        #[cfg(async_executor_impl = "tokio")]
-        let heartbeat_interval =
-            tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
         futures::pin_mut!(heartbeat_interval);
         loop {
-            #[cfg(async_executor_impl = "async-std")]
             {
+                #[cfg(async_executor_impl = "async-std")]
                 futures::select! {
                     () = shutdown_signal => {
                         tracing::error!("Shutting down network message task");
@@ -183,12 +171,12 @@ pub fn add_network_message_task<
                         }
                     }
                     _ = heartbeat_interval.next() => {
-                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id.clone())), &stream).await;
+                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
                     }
                 }
             }
-            #[cfg(async_executor_impl = "tokio")]
             {
+                #[cfg(async_executor_impl = "tokio")]
                 futures::select! {
                     () = shutdown_signal => {
                         tracing::error!("Shutting down network message task");
@@ -210,13 +198,16 @@ pub fn add_network_message_task<
                         }
                     }
                     _ = heartbeat_interval.tick().fuse() => {
-                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id.clone())), &stream).await;
+                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
                     }
                 }
             }
         }
     });
-    handle.network_registry.register(task_handle);
+    handle.network_registry.register(NetworkHandle {
+        handle: task_handle,
+        task_id,
+    });
 }
 
 /// Add the network task to handle events and send messages.
@@ -239,14 +230,7 @@ pub fn add_network_event_task<
         storage: Arc::clone(&handle.storage()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
-    let task_name = network_state.get_task_name();
-    let task = Task::new(
-        network_state,
-        handle.internal_event_stream.0.clone(),
-        handle.internal_event_stream.1.activate_cloned(),
-        handle.generate_task_id(&task_name),
-    );
-    handle.consensus_registry.run_task(task);
+    handle.add_task(network_state);
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
@@ -515,8 +499,15 @@ where
             }
         });
 
-        handle.network_registry.register(send_handle);
-        handle.network_registry.register(recv_handle);
+        let task_id = "EventTransformer";
+        handle.network_registry.register(NetworkHandle {
+            handle: send_handle,
+            task_id: handle.generate_task_id(task_id),
+        });
+        handle.network_registry.register(NetworkHandle {
+            handle: recv_handle,
+            task_id: handle.generate_task_id(task_id),
+        });
     }
 }
 

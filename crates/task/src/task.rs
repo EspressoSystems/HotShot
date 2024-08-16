@@ -92,18 +92,26 @@ impl<S: TaskState + Send + 'static> Task<S> {
         Box::new(self.state) as Box<dyn TaskState<Event = S::Event>>
     }
 
+    #[cfg(async_executor_impl = "async-std")]
+    /// Periodic delay
+    fn get_periodic_interval_in_secs(
+        periodic_delay: u64,
+    ) -> futures::stream::Fuse<async_std::stream::Interval> {
+        async_std::stream::interval(Duration::from_secs(periodic_delay)).fuse()
+    }
+
+    #[cfg(async_executor_impl = "tokio")]
+    /// Periodic delay
+    fn get_periodic_interval_in_secs(periodic_delay: u64) -> tokio::time::Interval {
+        tokio::time::interval(Duration::from_secs(periodic_delay))
+    }
+
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
-    pub fn run(mut self) -> WrappedHandle<S::Event> {
+    pub fn run(mut self) -> ConsensusHandle<S::Event> {
         let task_id = self.task_id.clone();
-        let periodic_delay_in_seconds = 5;
         let handle = spawn(async move {
-            #[cfg(async_executor_impl = "async-std")]
-            let periodic_interval =
-                async_std::stream::interval(Duration::from_secs(periodic_delay_in_seconds)).fuse();
-            #[cfg(async_executor_impl = "tokio")]
-            let periodic_interval =
-                tokio::time::interval(Duration::from_secs(periodic_delay_in_seconds));
+            let periodic_interval = Self::get_periodic_interval_in_secs(10);
             futures::pin_mut!(periodic_interval);
             loop {
                 #[cfg(async_executor_impl = "async-std")]
@@ -168,15 +176,15 @@ impl<S: TaskState + Send + 'static> Task<S> {
                 }
             }
         });
-        WrappedHandle { handle, task_id }
+        ConsensusHandle { handle, task_id }
     }
 }
 
-/// Wrapper to have the task id as well as the join handle so we can map
-pub struct WrappedHandle<EVENT> {
-    /// handle for the task
+/// Wrapper around handle and task id so we can map
+pub struct ConsensusHandle<EVENT> {
+    /// Handle for the task
     pub handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>,
-    /// given task id
+    /// Generated task id
     pub task_id: String,
 }
 
@@ -184,7 +192,7 @@ pub struct WrappedHandle<EVENT> {
 /// A collection of tasks which can handle shutdown
 pub struct ConsensusTaskRegistry<EVENT> {
     /// Tasks this registry controls
-    pub task_handles: Vec<WrappedHandle<EVENT>>,
+    pub task_handles: Vec<ConsensusHandle<EVENT>>,
 }
 
 impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
@@ -197,7 +205,7 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     }
 
     /// Add a task to the registry
-    pub fn register(&mut self, handle: WrappedHandle<EVENT>) {
+    pub fn register(&mut self, handle: ConsensusHandle<EVENT>) {
         self.task_handles.push(handle);
     }
 
@@ -206,7 +214,7 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     pub fn get_task_ids(&self) -> Vec<String> {
         self.task_handles
             .iter()
-            .map(|wrapped_handle| wrapped_handle.task_id.to_string())
+            .map(|wrapped_handle| wrapped_handle.task_id.clone())
             .collect()
     }
 
@@ -253,11 +261,19 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     }
 }
 
+/// Wrapper around join handle and task id for network tasks
+pub struct NetworkHandle {
+    /// Task handle
+    pub handle: JoinHandle<()>,
+    /// Generated task id
+    pub task_id: String,
+}
+
 #[derive(Default)]
 /// A collection of tasks which can handle shutdown
 pub struct NetworkTaskRegistry {
     /// Tasks this registry controls
-    pub handles: Vec<JoinHandle<()>>,
+    pub handles: Vec<NetworkHandle>,
 }
 
 impl NetworkTaskRegistry {
@@ -265,6 +281,15 @@ impl NetworkTaskRegistry {
     /// Create a new task registry
     pub fn new() -> Self {
         NetworkTaskRegistry { handles: vec![] }
+    }
+
+    #[must_use]
+    /// Get all task ids from registry
+    pub fn get_task_ids(&self) -> Vec<String> {
+        self.handles
+            .iter()
+            .map(|wrapped_handle| wrapped_handle.task_id.clone())
+            .collect()
     }
 
     #[allow(clippy::unused_async)]
@@ -278,16 +303,18 @@ impl NetworkTaskRegistry {
     /// tasks being joined return an error.
     pub async fn shutdown(&mut self) {
         let handles = std::mem::take(&mut self.handles);
+        let task_handles: Vec<JoinHandle<()>> =
+            handles.into_iter().map(|wrapped| wrapped.handle).collect();
         #[cfg(async_executor_impl = "async-std")]
-        join_all(handles).await;
+        join_all(task_handles).await;
         #[cfg(async_executor_impl = "tokio")]
-        try_join_all(handles)
+        try_join_all(task_handles)
             .await
             .expect("Failed to join all tasks during shutdown");
     }
 
     /// Add a task to the registry
-    pub fn register(&mut self, handle: JoinHandle<()>) {
+    pub fn register(&mut self, handle: NetworkHandle) {
         self.handles.push(handle);
     }
 }

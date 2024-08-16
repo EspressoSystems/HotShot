@@ -389,6 +389,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
     for HealthCheckTaskState<TYPES>
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
-        HealthCheckTaskState::new(handle.hotshot.id, handle.consensus_registry.get_task_ids())
+        let heartbeat_timeout_duration_in_secs = 30;
+        HealthCheckTaskState::new(
+            handle.hotshot.id,
+            handle.get_task_ids(),
+            heartbeat_timeout_duration_in_secs,
+        )
     }
 }
