@@ -8,7 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use hotshot_task::task::NetworkHandle;
+use hotshot_task::task::{NetworkHandle, Task};
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
@@ -25,7 +25,7 @@ use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
     health_check::HealthCheckTaskState,
-    helpers::{broadcast_event, get_periodic_interval_in_secs, handle_periodic_delay},
+    helpers::broadcast_event,
     network::{self, NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
@@ -143,7 +143,8 @@ pub fn add_network_message_task<
             Some((msgs, ()))
         });
 
-        let heartbeat_interval = get_periodic_interval_in_secs(10);
+        let heartbeat_interval =
+            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs(10);
         futures::pin_mut!(heartbeat_interval);
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
@@ -168,7 +169,7 @@ pub fn add_network_message_task<
                         return;
                     }
                 }
-                _ = handle_periodic_delay(&mut heartbeat_interval) => {
+                _ = Task::<HealthCheckTaskState<TYPES>>::handle_periodic_delay(&mut heartbeat_interval) => {
                     broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
                 }
             }

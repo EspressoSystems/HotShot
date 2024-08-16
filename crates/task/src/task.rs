@@ -101,7 +101,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
     }
 
     #[cfg(async_executor_impl = "async-std")]
-    /// stuff
+    /// Handle periodic delay interval
     pub fn handle_periodic_delay(
         periodic_interval: &mut futures::stream::Fuse<async_std::stream::Interval>,
     ) -> futures::stream::Next<'_, futures::stream::Fuse<async_std::stream::Interval>> {
@@ -116,7 +116,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
     }
 
     #[cfg(async_executor_impl = "tokio")]
-    /// stuff
+    /// Handle periodic delay interval
     pub fn handle_periodic_delay(
         periodic_interval: &mut tokio::time::Interval,
     ) -> futures::future::Fuse<impl futures::Future<Output = tokio::time::Instant> + '_> {

@@ -11,7 +11,7 @@ use async_compatibility_layer::art::{async_sleep, async_spawn};
 use futures::{FutureExt, StreamExt};
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
-    task::NetworkHandle,
+    task::{NetworkHandle, Task},
 };
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
@@ -31,10 +31,7 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 use tracing::instrument;
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, get_periodic_interval_in_secs, handle_periodic_delay},
-};
+use crate::{events::HotShotEvent, health_check::HealthCheckTaskState, helpers::broadcast_event};
 /// Time to wait for txns before sending `ResponseMessage::NotFound`
 const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 
@@ -85,7 +82,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         task_name: String,
     ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
-        let heartbeat_interval = get_periodic_interval_in_secs(3);
+        let heartbeat_interval =
+            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs(10);
         futures::pin_mut!(heartbeat_interval);
         loop {
             futures::select! {
@@ -95,7 +93,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                         None => return,
                     }
                 },
-                _ = handle_periodic_delay(&mut heartbeat_interval) => {
+                _ = Task::<HealthCheckTaskState<TYPES>>::handle_periodic_delay(&mut heartbeat_interval) => {
                     broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_name.clone())), &sender).await;
                 },
                 _ = shutdown => {
