@@ -22,6 +22,8 @@ use futures::StreamExt;
 use chrono::Utc;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
+#[cfg(async_executor_impl = "tokio")]
+use futures::FutureExt;
 use hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -754,8 +756,25 @@ pub fn get_periodic_interval_in_secs(
     async_std::stream::interval(Duration::from_secs(periodic_delay)).fuse()
 }
 
+#[cfg(async_executor_impl = "async-std")]
+/// Handle periodic delay interval
+pub fn handle_periodic_delay(
+    periodic_interval: &mut futures::stream::Fuse<async_std::stream::Interval>,
+) -> futures::stream::Next<'_, futures::stream::Fuse<async_std::stream::Interval>> {
+    periodic_interval.next()
+}
+
 #[cfg(async_executor_impl = "tokio")]
+#[must_use]
 /// Periodic delay
 pub fn get_periodic_interval_in_secs(periodic_delay: u64) -> tokio::time::Interval {
     tokio::time::interval(Duration::from_secs(periodic_delay))
+}
+
+#[cfg(async_executor_impl = "tokio")]
+/// Handle periodic delay interval
+pub fn handle_periodic_delay(
+    periodic_interval: &mut tokio::time::Interval,
+) -> futures::future::Fuse<impl futures::Future<Output = tokio::time::Instant> + '_> {
+    periodic_interval.tick().fuse()
 }

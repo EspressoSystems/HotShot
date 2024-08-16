@@ -94,16 +94,33 @@ impl<S: TaskState + Send + 'static> Task<S> {
 
     #[cfg(async_executor_impl = "async-std")]
     /// Periodic delay
-    fn get_periodic_interval_in_secs(
+    pub fn get_periodic_interval_in_secs(
         periodic_delay: u64,
     ) -> futures::stream::Fuse<async_std::stream::Interval> {
         async_std::stream::interval(Duration::from_secs(periodic_delay)).fuse()
     }
 
+    #[cfg(async_executor_impl = "async-std")]
+    /// stuff
+    pub fn handle_periodic_delay(
+        periodic_interval: &mut futures::stream::Fuse<async_std::stream::Interval>,
+    ) -> futures::stream::Next<'_, futures::stream::Fuse<async_std::stream::Interval>> {
+        periodic_interval.next()
+    }
+
     #[cfg(async_executor_impl = "tokio")]
+    #[must_use]
     /// Periodic delay
-    fn get_periodic_interval_in_secs(periodic_delay: u64) -> tokio::time::Interval {
+    pub fn get_periodic_interval_in_secs(periodic_delay: u64) -> tokio::time::Interval {
         tokio::time::interval(Duration::from_secs(periodic_delay))
+    }
+
+    #[cfg(async_executor_impl = "tokio")]
+    /// stuff
+    pub fn handle_periodic_delay(
+        periodic_interval: &mut tokio::time::Interval,
+    ) -> futures::future::Fuse<impl futures::Future<Output = tokio::time::Instant> + '_> {
+        periodic_interval.tick().fuse()
     }
 
     /// Spawn the task loop, consuming self.  Will continue until
@@ -114,65 +131,32 @@ impl<S: TaskState + Send + 'static> Task<S> {
             let periodic_interval = Self::get_periodic_interval_in_secs(10);
             futures::pin_mut!(periodic_interval);
             loop {
-                #[cfg(async_executor_impl = "async-std")]
-                {
-                    futures::select! {
-                        input = self.receiver.recv_direct().fuse() => {
-                            match input {
-                                Ok(input) => {
-                                    if *input == S::Event::shutdown_event() {
-                                        self.state.cancel_subtasks().await;
+                futures::select! {
+                    input = self.receiver.recv_direct().fuse() => {
+                        match input {
+                            Ok(input) => {
+                                if *input == S::Event::shutdown_event() {
+                                    self.state.cancel_subtasks().await;
 
-                                        break self.boxed_state();
-                                    }
-                                    let _ = S::handle_event(
-                                        &mut self.state,
-                                        input,
-                                        &self.sender,
-                                        &self.receiver,
-                                    )
-                                    .await
-                                    .inspect_err(|e| tracing::info!("{e}"));
+                                    break self.boxed_state();
                                 }
-                                Err(e) => {
-                                    tracing::error!("Failed to receive from event stream Error: {}", e);
-                                }
+                                let _ = S::handle_event(
+                                    &mut self.state,
+                                    input,
+                                    &self.sender,
+                                    &self.receiver,
+                                )
+                                .await
+                                .inspect_err(|e| tracing::info!("{e}"));
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to receive from event stream Error: {}", e);
                             }
                         }
-                        _ = periodic_interval.next() => {
-                            self.state.periodic_task(self.task_id.clone(), &self.sender).await;
-                        }
                     }
-                }
-                #[cfg(async_executor_impl = "tokio")]
-                {
-                    futures::select! {
-                        input = self.receiver.recv_direct().fuse() => {
-                            match input {
-                                Ok(input) => {
-                                    if *input == S::Event::shutdown_event() {
-                                        self.state.cancel_subtasks().await;
-
-                                        break self.boxed_state();
-                                    }
-                                    let _ = S::handle_event(
-                                        &mut self.state,
-                                        input,
-                                        &self.sender,
-                                        &self.receiver,
-                                    )
-                                    .await
-                                    .inspect_err(|e| tracing::info!("{e}"));
-                                }
-                                Err(e) => {
-                                    tracing::error!("Failed to receive from event stream Error: {}", e);
-                                }
-                            }
-                        }
-                        _ = periodic_interval.tick().fuse() => {
-                            self.state.periodic_task(self.task_id.clone(), &self.sender).await;
-                        }
-                    }
+                    _ = Self::handle_periodic_delay(&mut periodic_interval) => {
+                        self.state.periodic_task(self.task_id.clone(), &self.sender).await;
+                    },
                 }
             }
         });

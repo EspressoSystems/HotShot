@@ -25,7 +25,7 @@ use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
     health_check::HealthCheckTaskState,
-    helpers::{broadcast_event, get_periodic_interval_in_secs},
+    helpers::{broadcast_event, get_periodic_interval_in_secs, handle_periodic_delay},
     network::{self, NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
@@ -143,63 +143,32 @@ pub fn add_network_message_task<
             Some((msgs, ()))
         });
 
-        let heartbeat_interval = get_periodic_interval_in_secs(10);
+        let mut heartbeat_interval = get_periodic_interval_in_secs(10);
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream);
-        futures::pin_mut!(heartbeat_interval);
         loop {
-            {
-                #[cfg(async_executor_impl = "async-std")]
-                futures::select! {
-                    () = shutdown_signal => {
-                        tracing::error!("Shutting down network message task");
-                        return;
-                    }
-                    msgs_option = fused_recv_stream.next() => {
-                        if let Some(msgs) = msgs_option {
-                            if msgs.0.is_empty() {
-                                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                                async_sleep(Duration::from_millis(100)).await;
-                            } else {
-                                state.handle_messages(msgs.0).await;
-                            }
+            futures::select! {
+                () = shutdown_signal => {
+                    tracing::error!("Shutting down network message task");
+                    return;
+                }
+                msgs_option = fused_recv_stream.next() => {
+                    if let Some(msgs) = msgs_option {
+                        if msgs.0.is_empty() {
+                            // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
+                            async_sleep(Duration::from_millis(100)).await;
                         } else {
-                            // Stream has ended, which shouldn't happen in this case.
-                            // You might want to handle this situation, perhaps by breaking the loop or logging an error.
-                            tracing::error!("Network message stream unexpectedly ended");
-                            return;
+                            state.handle_messages(msgs.0).await;
                         }
-                    }
-                    _ = heartbeat_interval.next() => {
-                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
+                    } else {
+                        // Stream has ended, which shouldn't happen in this case.
+                        // You might want to handle this situation, perhaps by breaking the loop or logging an error.
+                        tracing::error!("Network message stream unexpectedly ended");
+                        return;
                     }
                 }
-            }
-            {
-                #[cfg(async_executor_impl = "tokio")]
-                futures::select! {
-                    () = shutdown_signal => {
-                        tracing::error!("Shutting down network message task");
-                        return;
-                    }
-                    msgs_option = fused_recv_stream.next() => {
-                        if let Some(msgs) = msgs_option {
-                            if msgs.0.is_empty() {
-                                // TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                                async_sleep(Duration::from_millis(100)).await;
-                            } else {
-                                state.handle_messages(msgs.0).await;
-                            }
-                        } else {
-                            // Stream has ended, which shouldn't happen in this case.
-                            // You might want to handle this situation, perhaps by breaking the loop or logging an error.
-                            tracing::error!("Network message stream unexpectedly ended");
-                            return;
-                        }
-                    }
-                    _ = heartbeat_interval.tick().fuse() => {
-                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
-                    }
+                _ = handle_periodic_delay(&mut heartbeat_interval) => {
+                    broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
                 }
             }
         }

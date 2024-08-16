@@ -33,7 +33,7 @@ use tracing::instrument;
 
 use crate::{
     events::HotShotEvent,
-    helpers::{broadcast_event, get_periodic_interval_in_secs},
+    helpers::{broadcast_event, get_periodic_interval_in_secs, handle_periodic_delay},
 };
 /// Time to wait for txns before sending `ResponseMessage::NotFound`
 const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
@@ -85,11 +85,10 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         task_name: String,
     ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
-        let heartbeat_interval = get_periodic_interval_in_secs(10);
-        futures::pin_mut!(heartbeat_interval);
+        let mut heartbeat_interval = get_periodic_interval_in_secs(10);
         loop {
             {
-                #[cfg(async_executor_impl = "async-std")]
+                // #[cfg(async_executor_impl = "async-std")]
                 futures::select! {
                     req = self.receiver.next() => {
                         match req {
@@ -97,24 +96,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                             None => return,
                         }
                     },
-                    _ = heartbeat_interval.next() => {
-                        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_name.clone())), &sender).await;
-                    },
-                    _ = shutdown => {
-                        return;
-                    }
-                }
-            }
-            {
-                #[cfg(async_executor_impl = "tokio")]
-                futures::select! {
-                    req = self.receiver.next() => {
-                        match req {
-                            Some((msg, chan)) => self.handle_message(msg, chan).await,
-                            None => return,
-                        }
-                    },
-                    _ = heartbeat_interval.tick().fuse() => {
+                    _ = handle_periodic_delay(&mut heartbeat_interval) => {
                         broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_name.clone())), &sender).await;
                     },
                     _ = shutdown => {
