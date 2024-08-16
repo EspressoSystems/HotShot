@@ -93,11 +93,11 @@ impl TestView {
             &metadata,
         );
 
-        let (private_key, public_key) = key_pair_for_id(*genesis_view);
+        let (private_key, public_key) = key_pair_for_id::<TestTypes>(*genesis_view);
 
         let leader_public_key = public_key;
 
-        let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
+        let payload_commitment = da_payload_commitment::<TestTypes>(quorum_membership, transactions.clone());
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
@@ -209,9 +209,9 @@ impl TestView {
             leaf_commit: old.leaf.commit(),
         };
 
-        let (old_private_key, old_public_key) = key_pair_for_id(*old_view);
+        let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
 
-        let (private_key, public_key) = key_pair_for_id(*next_view);
+        let (private_key, public_key) = key_pair_for_id::<TestTypes>(*next_view);
 
         let leader_public_key = public_key;
 
@@ -228,7 +228,7 @@ impl TestView {
             &metadata,
         );
 
-        let payload_commitment = da_payload_commitment(quorum_membership, transactions.clone());
+        let payload_commitment = da_payload_commitment::<TestTypes>(quorum_membership, transactions.clone());
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
@@ -237,7 +237,7 @@ impl TestView {
             &private_key,
         );
 
-        let da_certificate = build_da_certificate(
+        let da_certificate = build_da_certificate::<TestTypes, TestVersions>(
             quorum_membership,
             da_membership,
             next_view,

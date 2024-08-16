@@ -14,20 +14,20 @@ use committable::Committable;
 use ethereum_types::U256;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::{BLSPubKey, SignatureKey, SystemContextHandle},
+    types::{SignatureKey, SystemContextHandle},
     HotShotInitializer, Memberships, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestTransaction,
-    node_types::{MemoryImpl, TestTypes, TestVersions},
+    node_types::{TestTypes},
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
+    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal},
     simple_certificate::DaCertificate,
     simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
@@ -36,7 +36,7 @@ use hotshot_types::{
         consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{NodeType, Versions},
     },
     utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
@@ -133,7 +133,7 @@ pub async fn build_system_handle<
 /// # Panics
 /// if we fail to sign the data
 pub fn build_cert<
-    TYPES: NodeType<SignatureKey = BLSPubKey>,
+    TYPES: NodeType,
     V: Versions,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Commitment = DATAType>,
@@ -178,7 +178,7 @@ pub fn vid_share<TYPES: NodeType>(
 /// # Panics
 /// if fails to convert node id into keypair
 pub fn build_assembled_sig<
-    TYPES: NodeType<SignatureKey = BLSPubKey>,
+    TYPES: NodeType,
     V: Versions,
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
@@ -201,7 +201,7 @@ pub fn build_assembled_sig<
 
     // assemble the vote
     for node_id in 0..total_nodes {
-        let (private_key_i, public_key_i) = key_pair_for_id(node_id.try_into().unwrap());
+        let (private_key_i, public_key_i) = key_pair_for_id::<TYPES>(node_id.try_into().unwrap());
         let vote: SimpleVote<TYPES, DATAType> = SimpleVote::<TYPES, DATAType>::create_signed_vote(
             data.clone(),
             view,
@@ -226,10 +226,10 @@ pub fn build_assembled_sig<
 
 /// get the keypair for a node id
 #[must_use]
-pub fn key_pair_for_id(node_id: u64) -> (<BLSPubKey as SignatureKey>::PrivateKey, BLSPubKey) {
+pub fn key_pair_for_id<TYPES: NodeType>(node_id: u64) -> (<TYPES::SignatureKey as SignatureKey>::PrivateKey, TYPES::SignatureKey) {
     let private_key =
-        <BLSPubKey as SignatureKey>::generated_from_seed_indexed([0u8; 32], node_id).1;
-    let public_key = <TestTypes as NodeType>::SignatureKey::from_private(&private_key);
+        TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
+    let public_key = <TYPES as NodeType>::SignatureKey::from_private(&private_key);
     (private_key, public_key)
 }
 
@@ -245,20 +245,20 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     vid_scheme(num_storage_nodes)
 }
 
-pub fn vid_payload_commitment(
-    quorum_membership: &<TestTypes as NodeType>::Membership,
-    view_number: ViewNumber,
+pub fn vid_payload_commitment<TYPES: NodeType>(
+    quorum_membership: &<TYPES as NodeType>::Membership,
+    view_number: TYPES::Time,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(&transactions);
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
     vid_disperse.commit
 }
 
-pub fn da_payload_commitment(
-    quorum_membership: &<TestTypes as NodeType>::Membership,
+pub fn da_payload_commitment<TYPES: NodeType>(
+    quorum_membership: &<TYPES as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(&transactions);
@@ -266,29 +266,29 @@ pub fn da_payload_commitment(
     vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
 }
 
-pub fn build_payload_commitment(
-    membership: &<TestTypes as NodeType>::Membership,
-    view: ViewNumber,
+pub fn build_payload_commitment<TYPES: NodeType>(
+    membership: &<TYPES as NodeType>::Membership,
+    view: TYPES::Time,
 ) -> <VidSchemeType as VidScheme>::Commit {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(membership, view);
+    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view);
     let encoded_transactions = Vec::new();
     vid.commit_only(&encoded_transactions).unwrap()
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
 #[allow(clippy::type_complexity)]
-pub fn build_vid_proposal(
-    quorum_membership: &<TestTypes as NodeType>::Membership,
-    view_number: ViewNumber,
+pub fn build_vid_proposal<TYPES: NodeType>(
+    quorum_membership: &<TYPES as NodeType>::Membership,
+    view_number: TYPES::Time,
     transactions: Vec<TestTransaction>,
-    private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
+    private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
 ) -> (
-    Proposal<TestTypes, VidDisperse<TestTypes>>,
-    Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
+    Proposal<TYPES, VidDisperse<TYPES>>,
+    Vec<Proposal<TYPES, VidDisperseShare<TYPES>>>,
 ) {
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(quorum_membership, view_number);
+    let mut vid = vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number);
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let vid_disperse = VidDisperse::from_membership(
@@ -298,7 +298,7 @@ pub fn build_vid_proposal(
     );
 
     let signature =
-        <BLSPubKey as SignatureKey>::sign(private_key, vid_disperse.payload_commitment.as_ref())
+        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment.as_ref())
             .expect("Failed to sign VID commitment");
     let vid_disperse_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -319,15 +319,15 @@ pub fn build_vid_proposal(
     )
 }
 
-pub fn build_da_certificate(
-    quorum_membership: &<TestTypes as NodeType>::Membership,
-    da_membership: &<TestTypes as NodeType>::Membership,
-    view_number: ViewNumber,
+pub fn build_da_certificate<TYPES: NodeType, V: Versions>(
+    quorum_membership: &<TYPES as NodeType>::Membership,
+    da_membership: &<TYPES as NodeType>::Membership,
+    view_number: TYPES::Time,
     transactions: Vec<TestTransaction>,
-    public_key: &<TestTypes as NodeType>::SignatureKey,
-    private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-    upgrade_lock: &UpgradeLock<TestTypes, TestVersions>,
-) -> DaCertificate<TestTypes> {
+    public_key: &TYPES::SignatureKey,
+    private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    upgrade_lock: &UpgradeLock<TYPES, V>,
+) -> DaCertificate<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let da_payload_commitment =
@@ -337,7 +337,7 @@ pub fn build_da_certificate(
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::<TestTypes, TestVersions, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
+    build_cert::<TYPES, V, DaData, DaVote<TYPES>, DaCertificate<TYPES>>(
         da_data,
         da_membership,
         view_number,
@@ -347,14 +347,14 @@ pub fn build_da_certificate(
     )
 }
 
-pub async fn build_vote(
-    handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
-    proposal: QuorumProposal<TestTypes>,
-) -> GeneralConsensusMessage<TestTypes> {
-    let view = ViewNumber::new(*proposal.view_number);
+pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &SystemContextHandle<TYPES, I, V>,
+    proposal: QuorumProposal<TYPES>,
+) -> GeneralConsensusMessage<TYPES> {
+    let view = proposal.view_number;
 
     let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
-    let vote = QuorumVote::<TestTypes>::create_signed_vote(
+    let vote = QuorumVote::<TYPES>::create_signed_vote(
         QuorumData {
             leaf_commit: leaf.commit(),
         },
@@ -364,7 +364,7 @@ pub async fn build_vote(
         &handle.hotshot.upgrade_lock,
     )
     .expect("Failed to create quorum vote");
-    GeneralConsensusMessage::<TestTypes>::Vote(vote)
+    GeneralConsensusMessage::<TYPES>::Vote(vote)
 }
 
 /// This function permutes the provided input vector `inputs`, given some order provided within the

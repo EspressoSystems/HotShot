@@ -215,7 +215,7 @@ async fn test_view_sync_finalize_propose() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4)
         .await
         .0;
-    let (priv_key, pub_key) = key_pair_for_id(4);
+    let (priv_key, pub_key) = key_pair_for_id::<TestTypes>(4);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
