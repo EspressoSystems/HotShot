@@ -7,7 +7,6 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use hotshot_types::message::UpgradeLock;
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -20,7 +19,7 @@ use hotshot::{
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestTransaction,
-    node_types::{TestTypes},
+    node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -28,7 +27,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
-    message::{GeneralConsensusMessage, Proposal},
+    message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
     simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
     traits::{
@@ -146,11 +145,21 @@ pub fn build_cert<
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> CERT {
-    let real_qc_sig = build_assembled_sig::<TYPES, V, VOTE, CERT, DATAType>(&data, membership, view, upgrade_lock);
+    let real_qc_sig = build_assembled_sig::<TYPES, V, VOTE, CERT, DATAType>(
+        &data,
+        membership,
+        view,
+        upgrade_lock,
+    );
 
-    let vote =
-        SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key, upgrade_lock)
-            .expect("Failed to sign data!");
+    let vote = SimpleVote::<TYPES, DATAType>::create_signed_vote(
+        data,
+        view,
+        public_key,
+        private_key,
+        upgrade_lock,
+    )
+    .expect("Failed to sign data!");
     let cert = CERT::create_signed_certificate(
         vote.date_commitment(),
         vote.date().clone(),
@@ -226,9 +235,13 @@ pub fn build_assembled_sig<
 
 /// get the keypair for a node id
 #[must_use]
-pub fn key_pair_for_id<TYPES: NodeType>(node_id: u64) -> (<TYPES::SignatureKey as SignatureKey>::PrivateKey, TYPES::SignatureKey) {
-    let private_key =
-        TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
+pub fn key_pair_for_id<TYPES: NodeType>(
+    node_id: u64,
+) -> (
+    <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    TYPES::SignatureKey,
+) {
+    let private_key = TYPES::SignatureKey::generated_from_seed_indexed([0u8; 32], node_id).1;
     let public_key = <TYPES as NodeType>::SignatureKey::from_private(&private_key);
     (private_key, public_key)
 }

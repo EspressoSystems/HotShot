@@ -12,8 +12,6 @@ use std::{
     time::Duration,
 };
 
-use hotshot_types::traits::node_implementation::Versions;
-use hotshot_types::message::UpgradeLock;
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -23,7 +21,7 @@ use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    message::GeneralConsensusMessage,
+    message::{GeneralConsensusMessage, UpgradeLock},
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
@@ -33,7 +31,7 @@ use hotshot_types::{
     },
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber, Vote},
@@ -110,7 +108,9 @@ pub struct ViewSyncTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: V
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for ViewSyncTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for ViewSyncTaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
@@ -472,7 +472,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncReplicaTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
+    ViewSyncReplicaTaskState<TYPES, I, V>
+{
     #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(
@@ -699,7 +701,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncReplica
                     view_number,
                     &self.public_key,
                     &self.private_key,
-                    &self.upgrade_lock
+                    &self.upgrade_lock,
                 ) else {
                     error!("Failed to sign pre commit vote!");
                     return None;

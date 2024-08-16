@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use hotshot_types::message::UpgradeLock;
+
 use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
@@ -25,7 +25,7 @@ use hotshot_types::{
         DaProposal, Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewChangeEvidence,
         ViewNumber,
     },
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{
         DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
@@ -97,7 +97,8 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let payload_commitment = da_payload_commitment::<TestTypes>(quorum_membership, transactions.clone());
+        let payload_commitment =
+            da_payload_commitment::<TestTypes>(quorum_membership, transactions.clone());
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
@@ -228,7 +229,8 @@ impl TestView {
             &metadata,
         );
 
-        let payload_commitment = da_payload_commitment::<TestTypes>(quorum_membership, transactions.clone());
+        let payload_commitment =
+            da_payload_commitment::<TestTypes>(quorum_membership, transactions.clone());
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
@@ -259,7 +261,7 @@ impl TestView {
             old_view,
             &old_public_key,
             &old_private_key,
-            &self.upgrade_lock
+            &self.upgrade_lock,
         );
 
         let upgrade_certificate = if let Some(ref data) = self.upgrade_data {
@@ -275,7 +277,7 @@ impl TestView {
                 next_view,
                 &public_key,
                 &private_key,
-                &self.upgrade_lock
+                &self.upgrade_lock,
             );
 
             Some(cert)
@@ -317,7 +319,7 @@ impl TestView {
                 next_view,
                 &public_key,
                 &private_key,
-                &self.upgrade_lock
+                &self.upgrade_lock,
             );
 
             Some(cert)

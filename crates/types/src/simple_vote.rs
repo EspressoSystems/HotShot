@@ -12,12 +12,13 @@ use committable::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
 
-use crate::traits::node_implementation::Versions;
-use crate::message::UpgradeLock;
-
 use crate::{
     data::Leaf,
-    traits::{node_implementation::NodeType, signature_key::SignatureKey},
+    message::UpgradeLock,
+    traits::{
+        node_implementation::{NodeType, Versions},
+        signature_key::SignatureKey,
+    },
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };

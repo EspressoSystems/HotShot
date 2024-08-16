@@ -275,7 +275,7 @@ async fn test_view_sync_finalize_propose() {
         ViewNumber::new(2),
         &pub_key,
         &priv_key,
-        &handle.hotshot.upgrade_lock
+        &handle.hotshot.upgrade_lock,
     )
     .unwrap();
 
@@ -286,7 +286,7 @@ async fn test_view_sync_finalize_propose() {
         ViewNumber::new(3),
         &pub_key,
         &priv_key,
-        &handle.hotshot.upgrade_lock
+        &handle.hotshot.upgrade_lock,
     )
     .unwrap();
 

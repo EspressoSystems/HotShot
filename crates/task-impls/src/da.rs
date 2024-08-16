@@ -6,8 +6,6 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use hotshot_types::traits::node_implementation::Versions;
-use hotshot_types::message::UpgradeLock;
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
@@ -20,14 +18,14 @@ use hotshot_types::{
     consensus::{Consensus, OuterConsensus, View},
     data::{DaProposal, PackedBundle},
     event::{Event, EventType},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
     simple_vote::{DaData, DaVote},
     traits::{
         block_contents::vid_commitment,
         election::Membership,
         network::ConnectedNetwork,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -370,7 +368,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
 #[async_trait]
 /// task state implementation for DA Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for DaTaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for DaTaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(
