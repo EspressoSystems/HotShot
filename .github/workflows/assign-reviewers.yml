@@ -1,0 +1,21 @@
+name: Choose random assignees
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Choose random assignees
+        run: |
+          chosen=$(perl \
+            -e 'use List::Util qw(shuffle head);' \
+            -e 'my @assignees = grep { "${{ github.event.actor }}" ne $_ } shuffle split /\s+/, $ENV{ASSIGNEES};' \
+            -e 'print join ",", head $ENV{NUM_ASSIGNEES}, @assignees' \
+          )
+          gh pr edit ${{ github.event.number }} --add-assignee $chosen --repo ${{ github.repository }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      NUM_ASSIGNEES: 2
+      ASSIGNEES: jparr721 rob-maron ss-es bfish713 QuentinI shenkeyao lukaszrzasik lukeiannucci
