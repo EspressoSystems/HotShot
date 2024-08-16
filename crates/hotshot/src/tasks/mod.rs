@@ -145,9 +145,8 @@ pub fn add_network_message_task<
 
         let heartbeat_interval =
             Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs(10);
-        futures::pin_mut!(heartbeat_interval);
         let fused_recv_stream = recv_stream.boxed().fuse();
-        futures::pin_mut!(fused_recv_stream);
+        futures::pin_mut!(fused_recv_stream, heartbeat_interval);
         loop {
             futures::select! {
                 () = shutdown_signal => {
@@ -379,8 +378,6 @@ where
         // and broadcast the transformed events to the replacement event stream we just created.
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let send_handle = async_spawn(async move {
-            futures::pin_mut!(shutdown_signal);
-
             let recv_stream = stream::unfold(original_receiver, |mut recv| async move {
                 match recv.recv().await {
                     Ok(event) => Some((Ok(event), recv)),
@@ -391,7 +388,7 @@ where
             .boxed();
 
             let fused_recv_stream = recv_stream.fuse();
-            futures::pin_mut!(fused_recv_stream);
+            futures::pin_mut!(fused_recv_stream, shutdown_signal);
 
             loop {
                 futures::select! {
@@ -427,8 +424,6 @@ where
         // and broadcast the transformed events to the original internal event stream
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let recv_handle = async_spawn(async move {
-            futures::pin_mut!(shutdown_signal);
-
             let network_recv_stream =
                 stream::unfold(receiver_from_network, |mut recv| async move {
                     match recv.recv().await {
@@ -439,7 +434,7 @@ where
                 });
 
             let fused_network_recv_stream = network_recv_stream.boxed().fuse();
-            futures::pin_mut!(fused_network_recv_stream);
+            futures::pin_mut!(fused_network_recv_stream, shutdown_signal);
 
             loop {
                 futures::select! {
