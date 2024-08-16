@@ -158,7 +158,7 @@ async fn test_upgrade_task_with_proposal() {
         random![
             QcFormed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment(&quorum_membership, ViewNumber::new(1)),
+                build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(1)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(1),
@@ -175,7 +175,7 @@ async fn test_upgrade_task_with_proposal() {
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
             QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment(&quorum_membership, ViewNumber::new(2)),
+                build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(2),
@@ -193,7 +193,7 @@ async fn test_upgrade_task_with_proposal() {
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
             QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment(&quorum_membership, ViewNumber::new(3)),
+                build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
                 TestMetadata,
                 ViewNumber::new(3),
