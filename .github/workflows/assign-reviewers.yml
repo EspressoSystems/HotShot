@@ -1,4 +1,4 @@
-name: Assign reviewers
+name: Choose random assignees
 on:
   pull_request:
     types: [opened, ready_for_review, reopened]
@@ -7,7 +7,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Assign reviewers
+      - name: Choose random assignees
         run: |
           chosen=$(perl \
             -e 'use List::Util qw(shuffle head);' \
