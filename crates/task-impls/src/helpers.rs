@@ -11,13 +11,14 @@ use std::{
 };
 
 use anyhow::{bail, ensure, Context, Result};
-use async_broadcast::{broadcast, SendError, Sender};
+use async_broadcast::{Receiver, SendError, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::{Commitment, Committable};
+use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -37,32 +38,63 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{
-    events::{HotShotEvent, ProposalMissing},
-    request::REQUEST_TIMEOUT,
-};
+use crate::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 
 /// Trigger a request to the network for a proposal for a view and wait for the response
 #[instrument(skip_all)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType>(
-    view: TYPES::Time,
-    event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
+    view_number: TYPES::Time,
+    event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
+    sender_key: TYPES::SignatureKey,
 ) -> Result<Leaf<TYPES>> {
-    let (tx, mut rx) = broadcast(1);
-    let event = ProposalMissing {
-        view,
-        response_chan: tx,
-    };
+    // First, broadcast that we need a proposal to the current leader
     broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalRequest(event)),
-        &event_stream,
+        HotShotEvent::QuorumProposalRequestSend(view_number, sender_key).into(),
+        &event_sender,
     )
     .await;
-    let Ok(Ok(Some(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).await else {
+
+    // Hard-block waiting for the arrival of the event
+    let Ok(Some(proposal)) = async_spawn(async move {
+        async_timeout(REQUEST_TIMEOUT, async move {
+            let event = EventDependency::new(
+                event_receiver.clone(),
+                Box::new(move |event| {
+                    let event = event.as_ref();
+                    if let HotShotEvent::QuorumProposalResponseRecv(
+                        qpr_view_number,
+                        _quorum_proposal,
+                    ) = event
+                    {
+                        *qpr_view_number == view_number
+                    } else {
+                        false
+                    }
+                }),
+            )
+            .completed()
+            .await;
+
+            if let Some(hs_event) = event.as_ref() {
+                if let HotShotEvent::QuorumProposalResponseRecv(_view_number, quorum_proposal) =
+                    hs_event.as_ref()
+                {
+                    return Some(quorum_proposal.clone());
+                }
+            }
+
+            None
+        })
+        .await
+    })
+    .await
+    else {
         bail!("Request for proposal failed");
     };
+
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
 
@@ -89,7 +121,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType>(
     consensus_write.update_saved_leaves(leaf.clone());
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
-        &event_stream,
+        &event_sender,
     )
     .await;
     Ok(leaf)
@@ -287,7 +319,8 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 #[instrument(skip_all)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     next_proposal_view_number: TYPES::Time,
-    event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+    event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     consensus: OuterConsensus<TYPES>,
@@ -305,9 +338,11 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType>(
     {
         let _ = fetch_proposal(
             parent_view_number,
-            event_stream.clone(),
+            event_sender.clone(),
+            event_receiver.clone(),
             quorum_membership,
             consensus.clone(),
+            public_key.clone(),
         )
         .await
         .context("Failed to fetch proposal")?;

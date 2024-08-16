@@ -19,14 +19,10 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use hotshot_task::{
-    dependency::{Dependency, EventDependency},
-    task::TaskState,
-};
+use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::QuorumProposal,
-    message::{DaConsensusMessage, DataMessage, Message, MessageKind, Proposal, SequencingMessage},
+    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
@@ -41,10 +37,7 @@ use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{
-    events::{HotShotEvent, ProposalMissing},
-    helpers::broadcast_event,
-};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Amount of time to try for a request before timing out.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
@@ -98,7 +91,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         &mut self,
         event: Arc<Self::Event>,
         sender: &Sender<Arc<Self::Event>>,
-        receiver: &Receiver<Arc<Self::Event>>,
+        _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
@@ -113,21 +106,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                 if view > self.view {
                     self.view = view;
                 }
-                Ok(())
-            }
-            HotShotEvent::QuorumProposalRequest(missing) => {
-                let ProposalMissing {
-                    view,
-                    response_chan: chan,
-                } = missing;
-                self.run_proposal(
-                    &RequestKind::Proposal(*view),
-                    chan.clone(),
-                    *view,
-                    sender.clone(),
-                    receiver.clone(),
-                );
-
                 Ok(())
             }
             HotShotEvent::QuorumProposalRequestRecv(view_number, sender_key) => {
@@ -249,30 +227,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
-    /// Spawns a task to send a request for the proposal and send the response on a channel
-    fn run_proposal(
-        &mut self,
-        request: &RequestKind<TYPES>,
-        response_chan: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
-        view: TYPES::Time,
-        sender: Sender<Arc<HotShotEvent<TYPES>>>,
-        receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    ) {
-        let requester = ProposalRequester::<TYPES> {
-            sender: response_chan,
-            event_sender: sender,
-            event_receiver: receiver,
-        };
-        let Some(signature) = self.serialize_and_sign(request) else {
-            return;
-        };
-
-        let pub_key = self.public_key.clone();
-        async_spawn(async move {
-            requester.do_proposal(view, signature, pub_key).await;
-        });
-    }
-
     /// Signals delayed requesters to finish
     pub fn set_shutdown_flag(&self) {
         self.shutdown_flag.store(true, Ordering::Relaxed);
@@ -299,61 +253,6 @@ struct DelayedRequester<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     shutdown_flag: Arc<AtomicBool>,
     /// The node's id
     id: u64,
-}
-
-/// A task the requests some data immediately from one peer
-
-struct ProposalRequester<TYPES: NodeType> {
-    /// Channel to send the event when we receive a response
-    sender: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
-
-    /// The sender stream from the `handle` method.
-    event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-
-    /// The receiver stream from the `handle` method.
-    event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-}
-
-impl<TYPES: NodeType> ProposalRequester<TYPES> {
-    /// Handle sending a request for proposal for a view, does
-    /// not delay
-    async fn do_proposal(
-        &self,
-        view: TYPES::Time,
-        _signature: Signature<TYPES>,
-        sender_key: TYPES::SignatureKey,
-    ) {
-        // First, broadcast that we need a proposal to the current leader
-        broadcast_event(
-            HotShotEvent::QuorumProposalRequestSend(view, sender_key).into(),
-            &self.event_sender,
-        )
-        .await;
-        // Hard-block waiting for the arrival of the event
-        let event = EventDependency::new(
-            self.event_receiver.clone(),
-            Box::new(move |event| {
-                let event = event.as_ref();
-                if let HotShotEvent::QuorumProposalResponseRecv(view_number, _quorum_proposal) =
-                    event
-                {
-                    *view_number == view
-                } else {
-                    false
-                }
-            }),
-        )
-        .completed()
-        .await;
-
-        if let Some(hs_event) = event.as_ref() {
-            if let HotShotEvent::QuorumProposalResponseRecv(_view_number, quorum_proposal) =
-                hs_event.as_ref()
-            {
-                broadcast_event(Some(quorum_proposal.clone()), &self.sender).await;
-            }
-        }
-    }
 }
 
 /// Wrapper for the info in a VID request
