@@ -172,7 +172,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VidTaskState<T
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>) {
+    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>) {
         broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
+    }
+
+    fn get_task_name(&self) -> String {
+        "VidTask".to_string()
     }
 }

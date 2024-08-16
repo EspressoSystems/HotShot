@@ -4,10 +4,15 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    marker::PhantomData,
+    sync::Arc,
+};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
+use async_lock::Mutex;
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task::task::TaskState;
@@ -20,7 +25,7 @@ pub struct HealthCheckTaskState<TYPES: NodeType> {
     /// Node id
     pub node_id: u64,
     /// Map of the task id to timestamp of last heartbeat
-    pub task_id_last_seen: HashMap<usize, i64>,
+    pub task_ids_heartbeat: Mutex<HashMap<String, i64>>,
     /// phantom
     pub _phantom: PhantomData<TYPES>,
 }
@@ -28,21 +33,21 @@ pub struct HealthCheckTaskState<TYPES: NodeType> {
 impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
     /// Create a new instance of task state with task ids pre populated
     #[must_use]
-    pub fn new(node_id: u64, total_tasks: usize) -> Self {
+    pub fn new(node_id: u64, task_ids: Vec<String>) -> Self {
         let time = Utc::now().timestamp();
-        let mut task_id_last_seen: HashMap<usize, i64> = HashMap::new();
-        for task_id in 0..total_tasks {
-            task_id_last_seen.insert(task_id, time);
+        let mut task_ids_heartbeat: HashMap<String, i64> = HashMap::new();
+        for task_id in task_ids {
+            task_ids_heartbeat.insert(task_id, time);
         }
 
         HealthCheckTaskState {
             node_id,
-            task_id_last_seen,
+            task_ids_heartbeat: Mutex::new(task_ids_heartbeat),
             _phantom: std::marker::PhantomData,
         }
     }
     /// Handles only HeartBeats and updates the timestamp for a task
-    pub fn handle(
+    pub async fn handle(
         &mut self,
         event: &Arc<HotShotEvent<TYPES>>,
         _sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -52,8 +57,16 @@ impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
                 if self.node_id == 0 {
                     tracing::error!("heart beat recieved {} {}", task_id, self.node_id);
                 }
-                self.task_id_last_seen
-                    .insert(*task_id, Utc::now().timestamp());
+
+                let mut task_ids_heartbeat = self.task_ids_heartbeat.lock().await;
+                match task_ids_heartbeat.entry(task_id.clone()) {
+                    Entry::Occupied(mut heartbeat_timestamp) => {
+                        *heartbeat_timestamp.get_mut() = Utc::now().timestamp();
+                    }
+                    Entry::Vacant(_) => {
+                        // TODO: is this expected? how to handle?
+                    }
+                }
             }
             HotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted);
@@ -74,26 +87,34 @@ impl<TYPES: NodeType> TaskState for HealthCheckTaskState<TYPES> {
         sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(&event, sender);
+        self.handle(&event, sender).await;
 
         Ok(())
     }
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, _task_id: usize, _sender: &Sender<Arc<Self::Event>>) {
+    async fn periodic_task(&self, _task_id: String, _sender: &Sender<Arc<Self::Event>>) {
         let current_time = Utc::now().timestamp();
-        let max_time_no_heartbeat_in_seconds = 6;
+        let max_time_no_heartbeat_in_seconds = 30;
 
-        for (task_id, timestamp) in &self.task_id_last_seen {
-            let time_diff = current_time - timestamp;
-            if time_diff > max_time_no_heartbeat_in_seconds {
+        let task_ids_heartbeat = self.task_ids_heartbeat.lock().await;
+        for (task_id, heartbeat_timestamp) in task_ids_heartbeat.iter() {
+            let last_heartbeat_time_diff = current_time - heartbeat_timestamp;
+            if last_heartbeat_time_diff > max_time_no_heartbeat_in_seconds {
                 tracing::error!(
-                    "Task ID {} has not been updated for more than {} seconds",
+                    "Node Id {} has no recieved a heartbeat for task id {} for {} seconds",
+                    self.node_id,
                     task_id,
                     max_time_no_heartbeat_in_seconds
                 );
+
+                // TODO: Do we want to remove the task from our heartbeat cache after a few minutes to stop logging?
             }
         }
+    }
+
+    fn get_task_name(&self) -> String {
+        "HealthCheckTask".to_string()
     }
 }

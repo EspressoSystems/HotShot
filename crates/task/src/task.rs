@@ -48,7 +48,10 @@ pub trait TaskState: Send {
     ) -> Result<()>;
 
     /// Runs a specified job in the main task every so often
-    async fn periodic_task(&self, task_id: usize, sender: &Sender<Arc<Self::Event>>);
+    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>);
+
+    /// Gets the name of the current task
+    fn get_task_name(&self) -> String;
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
@@ -65,7 +68,7 @@ pub struct Task<S: TaskState> {
     /// Receives events that are broadcast from any task, including itself
     receiver: Receiver<Arc<S::Event>>,
     /// The generated task id
-    task_id: usize,
+    task_id: String,
 }
 
 impl<S: TaskState + Send + 'static> Task<S> {
@@ -74,7 +77,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
         state: S,
         sender: Sender<Arc<S::Event>>,
         receiver: Receiver<Arc<S::Event>>,
-        task_id: usize,
+        task_id: String,
     ) -> Self {
         Task {
             state,
@@ -92,7 +95,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
     pub fn run(mut self) -> WrappedHandle<S::Event> {
-        let task_id = self.task_id;
+        let task_id = self.task_id.clone();
         let periodic_delay_in_seconds = 5;
         let handle = spawn(async move {
             #[cfg(async_executor_impl = "async-std")]
@@ -129,7 +132,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
                             }
                         }
                         _ = periodic_interval.next() => {
-                            self.state.periodic_task(task_id, &self.sender).await;
+                            self.state.periodic_task(self.task_id.clone(), &self.sender).await;
                         }
                     }
                 }
@@ -159,7 +162,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
                             }
                         }
                         _ = periodic_interval.tick().fuse() => {
-                            self.state.periodic_task(task_id, &self.sender).await;
+                            self.state.periodic_task(self.task_id.clone(), &self.sender).await;
                         }
                     }
                 }
@@ -174,7 +177,7 @@ pub struct WrappedHandle<EVENT> {
     /// handle for the task
     pub handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>,
     /// given task id
-    pub task_id: usize,
+    pub task_id: String,
 }
 
 #[derive(Default)]
@@ -197,6 +200,16 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     pub fn register(&mut self, handle: WrappedHandle<EVENT>) {
         self.task_handles.push(handle);
     }
+
+    #[must_use]
+    /// Get all task ids from registry
+    pub fn get_task_ids(&self) -> Vec<String> {
+        self.task_handles
+            .iter()
+            .map(|wrapped_handle| wrapped_handle.task_id.to_string())
+            .collect()
+    }
+
     /// Try to cancel/abort the task this registry has
     ///
     /// # Panics

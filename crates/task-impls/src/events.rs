@@ -218,7 +218,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
 
     /// Periodic heart beat event for health checking
-    HeartBeat(usize),
+    HeartBeat(String),
 }
 
 impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
