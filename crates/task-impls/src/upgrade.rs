@@ -210,6 +210,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     view,
                     &self.public_key,
                     &self.private_key,
+                    &self.upgrade_lock,
                 ) else {
                     error!("Failed to sign UpgradeVote!");
                     return None;

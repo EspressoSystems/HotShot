@@ -7,6 +7,7 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
+use hotshot_types::message::UpgradeLock;
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -133,6 +134,7 @@ pub async fn build_system_handle<
 /// if we fail to sign the data
 pub fn build_cert<
     TYPES: NodeType<SignatureKey = BLSPubKey>,
+    V: Versions,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Commitment = DATAType>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
@@ -142,11 +144,12 @@ pub fn build_cert<
     view: TYPES::Time,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> CERT {
-    let real_qc_sig = build_assembled_sig::<TYPES, VOTE, CERT, DATAType>(&data, membership, view);
+    let real_qc_sig = build_assembled_sig::<TYPES, V, VOTE, CERT, DATAType>(&data, membership, view, upgrade_lock);
 
     let vote =
-        SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key)
+        SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key, upgrade_lock)
             .expect("Failed to sign data!");
     let cert = CERT::create_signed_certificate(
         vote.date_commitment(),
@@ -176,6 +179,7 @@ pub fn vid_share<TYPES: NodeType>(
 /// if fails to convert node id into keypair
 pub fn build_assembled_sig<
     TYPES: NodeType<SignatureKey = BLSPubKey>,
+    V: Versions,
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
@@ -183,6 +187,7 @@ pub fn build_assembled_sig<
     data: &DATAType,
     membership: &TYPES::Membership,
     view: TYPES::Time,
+    upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
     let stake_table = membership.committee_qc_stake_table();
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
@@ -202,6 +207,7 @@ pub fn build_assembled_sig<
             view,
             &public_key_i,
             &private_key_i,
+            upgrade_lock,
         )
         .expect("Failed to sign data!");
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
@@ -320,6 +326,7 @@ pub fn build_da_certificate(
     transactions: Vec<TestTransaction>,
     public_key: &<TestTypes as NodeType>::SignatureKey,
     private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
+    upgrade_lock: &UpgradeLock<TestTypes, TestVersions>,
 ) -> DaCertificate<TestTypes> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
@@ -330,12 +337,13 @@ pub fn build_da_certificate(
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::<TestTypes, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
+    build_cert::<TestTypes, TestVersions, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
         da_data,
         da_membership,
         view_number,
         public_key,
         private_key,
+        upgrade_lock,
     )
 }
 
@@ -353,6 +361,7 @@ pub async fn build_vote(
         view,
         &handle.public_key(),
         handle.private_key(),
+        &handle.hotshot.upgrade_lock,
     )
     .expect("Failed to create quorum vote");
     GeneralConsensusMessage::<TestTypes>::Vote(vote)

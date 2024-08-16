@@ -206,9 +206,9 @@ pub fn add_network_event_task<
 pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
-    handle.add_task(ViewSyncTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(ViewSyncTaskState::<TYPES, I, V>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(DaTaskState::<TYPES, I>::create_from(handle).await);
+    handle.add_task(DaTaskState::<TYPES, I, V>::create_from(handle).await);
     handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.

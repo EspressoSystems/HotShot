@@ -36,6 +36,7 @@ async fn test_view_sync_task() {
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::Time::new(4),
         hotshot_types::traits::consensus_api::ConsensusApi::public_key(&handle),
         hotshot_types::traits::consensus_api::ConsensusApi::private_key(&handle),
+        &handle.hotshot.upgrade_lock,
     )
     .expect("Failed to create a ViewSyncPreCommitVote!");
 
@@ -52,6 +53,6 @@ async fn test_view_sync_task() {
     output.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
     output.push(HotShotEvent::ViewSyncPreCommitVoteSend(vote.clone()));
 
-    let view_sync_state = ViewSyncTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let view_sync_state = ViewSyncTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     run_harness(input, output, view_sync_state, false).await;
 }

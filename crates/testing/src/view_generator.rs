@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
-
+use hotshot_types::message::UpgradeLock;
 use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
@@ -66,6 +66,7 @@ pub struct TestView {
     formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
     view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
     timeout_cert_data: Option<TimeoutData<TestTypes>>,
+    upgrade_lock: UpgradeLock<TestTypes, TestVersions>,
 }
 
 impl TestView {
@@ -74,6 +75,7 @@ impl TestView {
         da_membership: &<TestTypes as NodeType>::Membership,
     ) -> Self {
         let genesis_view = ViewNumber::new(1);
+        let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();
 
@@ -111,6 +113,7 @@ impl TestView {
             transactions.clone(),
             &public_key,
             &private_key,
+            &upgrade_lock,
         );
 
         let block_header = TestBlockHeader {
@@ -180,6 +183,7 @@ impl TestView {
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
+            upgrade_lock,
         }
     }
 
@@ -240,10 +244,12 @@ impl TestView {
             transactions.clone(),
             &public_key,
             &private_key,
+            &self.upgrade_lock,
         );
 
         let quorum_certificate = build_cert::<
             TestTypes,
+            TestVersions,
             QuorumData<TestTypes>,
             QuorumVote<TestTypes>,
             QuorumCertificate<TestTypes>,
@@ -253,11 +259,13 @@ impl TestView {
             old_view,
             &old_public_key,
             &old_private_key,
+            &self.upgrade_lock
         );
 
         let upgrade_certificate = if let Some(ref data) = self.upgrade_data {
             let cert = build_cert::<
                 TestTypes,
+                TestVersions,
                 UpgradeProposalData<TestTypes>,
                 UpgradeVote<TestTypes>,
                 UpgradeCertificate<TestTypes>,
@@ -267,6 +275,7 @@ impl TestView {
                 next_view,
                 &public_key,
                 &private_key,
+                &self.upgrade_lock
             );
 
             Some(cert)
@@ -277,6 +286,7 @@ impl TestView {
         let view_sync_certificate = if let Some(ref data) = self.view_sync_finalize_data {
             let cert = build_cert::<
                 TestTypes,
+                TestVersions,
                 ViewSyncFinalizeData<TestTypes>,
                 ViewSyncFinalizeVote<TestTypes>,
                 ViewSyncFinalizeCertificate2<TestTypes>,
@@ -286,6 +296,7 @@ impl TestView {
                 next_view,
                 &public_key,
                 &private_key,
+                &self.upgrade_lock,
             );
 
             Some(cert)
@@ -296,6 +307,7 @@ impl TestView {
         let timeout_certificate = if let Some(ref data) = self.timeout_cert_data {
             let cert = build_cert::<
                 TestTypes,
+                TestVersions,
                 TimeoutData<TestTypes>,
                 TimeoutVote<TestTypes>,
                 TimeoutCertificate<TestTypes>,
@@ -305,6 +317,7 @@ impl TestView {
                 next_view,
                 &public_key,
                 &private_key,
+                &self.upgrade_lock
             );
 
             Some(cert)
@@ -365,6 +378,8 @@ impl TestView {
             _pd: PhantomData,
         };
 
+        let upgrade_lock = UpgradeLock::new();
+
         TestView {
             quorum_proposal,
             leaf,
@@ -385,6 +400,7 @@ impl TestView {
             view_sync_finalize_data: None,
             timeout_cert_data: None,
             da_proposal,
+            upgrade_lock,
         }
     }
 
@@ -403,6 +419,7 @@ impl TestView {
             self.view_number,
             &handle.public_key(),
             handle.private_key(),
+            &handle.hotshot.upgrade_lock,
         )
         .expect("Failed to generate a signature on QuorumVote")
     }
@@ -417,6 +434,7 @@ impl TestView {
             self.view_number,
             &handle.public_key(),
             handle.private_key(),
+            &handle.hotshot.upgrade_lock,
         )
         .expect("Failed to generate a signature on UpgradVote")
     }
@@ -431,6 +449,7 @@ impl TestView {
             self.view_number,
             &handle.public_key(),
             handle.private_key(),
+            &handle.hotshot.upgrade_lock,
         )
         .expect("Failed to sign DaData")
     }

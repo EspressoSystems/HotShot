@@ -548,6 +548,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     view,
                     &self.public_key,
                     &self.private_key,
+                    &self.upgrade_lock,
                 ) else {
                     error!("Failed to sign TimeoutData!");
                     return;

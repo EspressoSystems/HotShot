@@ -6,6 +6,8 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+use hotshot_types::traits::node_implementation::Versions;
+use hotshot_types::message::UpgradeLock;
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
@@ -49,7 +51,7 @@ use crate::{
 type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
 
 /// Tracks state of a DA task
-pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
@@ -84,9 +86,12 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
+
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYPES, I, V> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
@@ -195,6 +200,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
                     view_number,
                     &self.public_key,
                     &self.private_key,
+                    &self.upgrade_lock,
                 ) else {
                     error!("Failed to sign DA Vote!");
                     return None;
@@ -364,7 +370,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DaTaskState<TYPES, I> {
 
 #[async_trait]
 /// task state implementation for DA Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for DaTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState for DaTaskState<TYPES, I, V> {
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

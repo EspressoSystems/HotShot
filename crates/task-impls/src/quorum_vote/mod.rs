@@ -210,6 +210,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             self.view_number,
             &self.public_key,
             &self.private_key,
+            &self.upgrade_lock,
         )
         .context("Failed to sign vote")?;
         debug!(

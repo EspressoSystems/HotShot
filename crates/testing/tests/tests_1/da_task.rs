@@ -99,7 +99,7 @@ async fn test_da_task() {
         serial![DaProposalRecv(proposals[1].clone(), leaders[1])],
     ];
 
-    let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let da_state = DaTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut da_script = TaskScript {
         timeout: Duration::from_millis(35),
         state: da_state,
@@ -200,7 +200,7 @@ async fn test_da_task_storage_failure() {
         Expectations::from_outputs(vec![]),
     ];
 
-    let da_state = DaTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let da_state = DaTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut da_script = TaskScript {
         timeout: Duration::from_millis(35),
         state: da_state,

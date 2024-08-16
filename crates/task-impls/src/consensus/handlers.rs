@@ -794,6 +794,7 @@ pub async fn update_state_and_vote_if_able<
             view,
             &public_key,
             &vote_info.0,
+            &vote_info.1,
         ) {
             GeneralConsensusMessage::<TYPES>::Vote(vote)
         } else {

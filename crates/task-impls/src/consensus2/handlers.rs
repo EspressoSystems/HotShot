@@ -250,6 +250,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         view_number,
         &task_state.public_key,
         &task_state.private_key,
+        &task_state.upgrade_lock,
     )
     .context("Failed to sign TimeoutData")?;
 
