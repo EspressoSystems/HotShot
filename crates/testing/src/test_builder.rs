@@ -512,7 +512,7 @@ where
                 config,
                 marketplace_config: Box::new(|_| MarketplaceConfig::<TYPES, I> {
                     auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
-                    fallback_builder_url: Url::parse("http://localhost").unwrap(),
+                    fallback_builder_url: Url::parse("http://localhost:9999").unwrap(),
                 }),
             },
             metadata: self,

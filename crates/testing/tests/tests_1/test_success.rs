@@ -49,7 +49,7 @@ cross_tests!(
     Versions: [MarketplaceUpgradeTestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription {
+        TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
@@ -58,12 +58,7 @@ cross_tests!(
                                          ),
             upgrade_view: Some(5),
             ..TestDescription::default()
-        };
-
-
-        metadata.overall_safety_properties.num_failed_views = 10;
-
-        metadata
+        }
     },
 );
 

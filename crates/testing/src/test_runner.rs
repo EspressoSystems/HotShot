@@ -455,6 +455,8 @@ where
                 marketplace_config.auction_results_provider = new_auction_results_provider.into();
             }
 
+            marketplace_config.fallback_builder_url = builder_urls.first().unwrap().clone();
+
             let network_clone = network.clone();
             let networks_ready_future = async move {
                 network_clone.wait_for_ready().await;
