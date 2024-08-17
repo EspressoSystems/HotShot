@@ -117,8 +117,6 @@ pub fn add_network_message_task<
     let task_id = handle.generate_task_id("NetworkMessageTask");
     let handle_task_id = task_id.clone();
     let task_handle = async_spawn(async move {
-        futures::pin_mut!(shutdown_signal);
-
         let recv_stream = stream::unfold((), |()| async {
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => {
@@ -146,7 +144,7 @@ pub fn add_network_message_task<
         let heartbeat_interval =
             Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs(10);
         let fused_recv_stream = recv_stream.boxed().fuse();
-        futures::pin_mut!(fused_recv_stream, heartbeat_interval);
+        futures::pin_mut!(fused_recv_stream, heartbeat_interval, shutdown_signal);
         loop {
             futures::select! {
                 () = shutdown_signal => {

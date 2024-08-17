@@ -56,10 +56,6 @@ impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::HeartBeat(task_id) => {
-                if self.node_id == 0 {
-                    // tracing::error!("heart beat recieved {} {}", task_id, self.node_id);
-                }
-
                 let mut task_ids_heartbeat_timestamp =
                     self.task_ids_heartbeat_timestamp.lock().await;
                 match task_ids_heartbeat_timestamp.entry(task_id.clone()) {
@@ -67,8 +63,7 @@ impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
                         *heartbeat_timestamp.get_mut() = Utc::now().timestamp();
                     }
                     Entry::Vacant(_) => {
-                        // TODO: is this expected? how to handle?
-                        tracing::error!("no task heart beat recieved {} {}", task_id, self.node_id);
+                        // On startup of this task we populate the map with all task ids
                     }
                 }
             }
@@ -110,8 +105,6 @@ impl<TYPES: NodeType> TaskState for HealthCheckTaskState<TYPES> {
                     task_id,
                     self.heartbeat_timeout_duration
                 );
-
-                // TODO: Do we want to remove the task from our heartbeat cache after a few minutes to stop logging?
             }
         }
     }
