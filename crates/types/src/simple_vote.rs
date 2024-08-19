@@ -180,6 +180,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// A wrapper for vote data that carries a view number and an `upgrade_lock`, allowing switching the commitment calculation dynamically depending on the version
 pub struct VersionedVoteData<TYPES: NodeType, DATA: Voteable, V: Versions> {
     /// underlying vote data

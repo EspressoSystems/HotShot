@@ -9,7 +9,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
-use committable::Committable;
+use committable::{Commitment, Committable};
 use ethereum_types::U256;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
@@ -29,7 +29,7 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
+    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -162,8 +162,16 @@ pub async fn build_cert<
     )
     .await
     .expect("Failed to sign data!");
+
+    let vote_commitment: [u8; 32] =
+        VersionedVoteData::new(vote.date().clone(), vote.view_number(), upgrade_lock)
+            .await
+            .unwrap()
+            .commit()
+            .into();
+
     let cert = CERT::create_signed_certificate(
-        vote.date_commitment(),
+        Commitment::from_raw(vote_commitment),
         vote.date().clone(),
         real_qc_sig,
         vote.view_number(),

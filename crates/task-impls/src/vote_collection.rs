@@ -99,7 +99,7 @@ impl<
         }
 
         let accumulator = self.accumulator.as_mut()?;
-        match accumulator.accumulate(vote, &self.membership) {
+        match accumulator.accumulate(vote, &self.membership).await {
             Either::Left(()) => None,
             Either::Right(cert) => {
                 debug!("Certificate Formed! {:?}", cert);

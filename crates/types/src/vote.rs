@@ -12,7 +12,7 @@ use std::{
 };
 
 use bitvec::{bitvec, vec::BitVec};
-use committable::Commitment;
+use committable::{Commitment, Committable};
 use either::Either;
 use ethereum_types::U256;
 use tracing::error;
@@ -20,7 +20,7 @@ use tracing::error;
 use crate::{
     message::UpgradeLock,
     simple_certificate::Threshold,
-    simple_vote::Voteable,
+    simple_vote::{VersionedVoteData, Voteable},
     traits::{
         election::Membership,
         node_implementation::{NodeType, Versions},
@@ -88,6 +88,8 @@ type SignersMap<COMMITMENT, KEY> = HashMap<
         Vec<<KEY as SignatureKey>::PureAssembledSignatureType>,
     ),
 >;
+
+#[allow(clippy::type_complexity)]
 /// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
 pub struct VoteAccumulator<
     TYPES: NodeType,
@@ -97,13 +99,16 @@ pub struct VoteAccumulator<
 > {
     /// Map of all signatures accumulated so far
     pub vote_outcomes: VoteMap2<
-        Commitment<VOTE::Commitment>,
+        Commitment<VersionedVoteData<TYPES, <VOTE as Vote<TYPES>>::Commitment, V>>,
         TYPES::SignatureKey,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     >,
     /// A bitvec to indicate which node is active and send out a valid signature for certificate aggregation, this automatically do uniqueness check
     /// And a list of valid signatures for certificate aggregation
-    pub signers: SignersMap<Commitment<VOTE::Commitment>, TYPES::SignatureKey>,
+    pub signers: SignersMap<
+        Commitment<VersionedVoteData<TYPES, <VOTE as Vote<TYPES>>::Commitment, V>>,
+        TYPES::SignatureKey,
+    >,
     /// Phantom data to specify the types this accumulator is for
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
     /// version information
@@ -119,10 +124,27 @@ impl<
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.
-    pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
+    pub async fn accumulate(
+        &mut self,
+        vote: &VOTE,
+        membership: &TYPES::Membership,
+    ) -> Either<(), CERT> {
         let key = vote.signing_key();
 
-        let vote_commitment = vote.date_commitment();
+        let vote_commitment = match VersionedVoteData::new(
+            vote.date().clone(),
+            vote.view_number(),
+            &self.upgrade_lock,
+        )
+        .await
+        {
+            Ok(data) => data.commit(),
+            Err(e) => {
+                tracing::warn!("Failed to generate versioned vote data: {e}");
+                return Either::Left(());
+            }
+        };
+
         if !key.validate(&vote.signature(), vote_commitment.as_ref()) {
             error!("Invalid vote! Vote Data {:?}", vote.date());
             return Either::Left(());
@@ -164,7 +186,7 @@ impl<
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.stake();
-        total_vote_map.insert(key, (vote.signature(), vote.date_commitment()));
+        total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC
@@ -180,8 +202,10 @@ impl<
                 &sig_list[..],
             );
 
+            let certificate_commitment_bytes: [u8; 32] = vote_commitment.into();
+
             let cert = CERT::create_signed_certificate(
-                vote.date_commitment(),
+                Commitment::from_raw(certificate_commitment_bytes),
                 vote.date().clone(),
                 real_qc_sig,
                 vote.view_number(),
