@@ -116,6 +116,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, THRESHOLD: Threshold<TYPES>> Committabl
         };
         committable::RawCommitmentBuilder::new("Certificate")
             .field("data", self.data.commit())
+            .field("vote_commitment", self.vote_commitment)
             .field("view number", self.view_number.commit())
             .var_size_field("signatures", &signature_bytes)
             .finalize()
