@@ -88,7 +88,7 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     // TODO: Make this a static ratio of the total stake of `Membership`
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
     /// Get the data
-    fn data(&self) -> &<<Self as Certificate<TYPES>>::Vote as Vote<TYPES>>::Data;
+    fn data(&self) -> &<Self::Vote as Vote<TYPES>>::Data;
     /// Get the vote commitment which the votes commit to
     fn vote_commitment(&self) -> Commitment<Self::Vote>;
 }

@@ -160,7 +160,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES> + 'static, THRESHOLD: Threshold<TYPES>> 
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
         THRESHOLD::threshold(membership)
     }
-    fn data(&self) -> &<<Self as Certificate<TYPES>>::Vote as Vote<TYPES>>::Data {
+    fn data(&self) -> &VOTE::Data {
         &self.data
     }
     fn vote_commitment(&self) -> Commitment<Self::Vote> {
