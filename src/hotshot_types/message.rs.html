@@ -460,6 +460,20 @@
 <a href="#458" id="458">458</a>
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -624,6 +638,12 @@
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 
+    <span class="doccomment">/// A peer node needs a proposal from the leader.
+    </span>ProposalRequested(TYPES::Time, TYPES::SignatureKey),
+
+    <span class="doccomment">/// The leader has responded with a valid proposal.
+    </span>LeaderProposalAvailable(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
+
     <span class="doccomment">/// Message with a quorum vote.
     </span>Vote(QuorumVote&lt;TYPES&gt;),
 
@@ -697,6 +717,10 @@
                         // this should match replica upon receipt
                         </span>p.data.view_number()
                     }
+                    GeneralConsensusMessage::ProposalRequested(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
+                    GeneralConsensusMessage::LeaderProposalAvailable(proposal) =&gt; {
+                        proposal.data.view_number()
+                    }
                     GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) =&gt; {
@@ -739,6 +763,10 @@
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             SequencingMessage::General(general_message) =&gt; <span class="kw">match </span>general_message {
                 GeneralConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; MessagePurpose::Proposal,
+                GeneralConsensusMessage::ProposalRequested(<span class="kw">_</span>, <span class="kw">_</span>)
+                | GeneralConsensusMessage::LeaderProposalAvailable(<span class="kw">_</span>) =&gt; {
+                    MessagePurpose::LatestProposal
+                }
                 GeneralConsensusMessage::Vote(<span class="kw">_</span>) | GeneralConsensusMessage::TimeoutVote(<span class="kw">_</span>) =&gt; {
                     MessagePurpose::Vote
                 }

@@ -740,6 +740,45 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -781,7 +820,7 @@
 <span class="kw">use crate</span>::{
     consensus::handlers::{
         handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
-        update_state_and_vote_if_able,
+        update_state_and_vote_if_able, VoteInfo,
     },
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
@@ -939,11 +978,13 @@
     </span><span class="kw">async fn </span>publish_proposal(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
-        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
             view,
-            event_stream,
+            event_sender,
+            event_receiver,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
@@ -972,7 +1013,8 @@
     </span><span class="kw">async fn </span>spawn_vote_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
-        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self</span>.current_proposal.clone() <span class="kw">else </span>{
             <span class="kw">return</span>;
@@ -998,7 +1040,13 @@
                 storage,
                 quorum_mem,
                 instance_state,
-                (priv_key, upgrade, da_mem, event_stream),
+                VoteInfo {
+                    private_key: priv_key,
+                    upgrade_lock: upgrade,
+                    da_membership: da_mem,
+                    event_sender,
+                    event_receiver,
+                },
                 id,
             )
             .<span class="kw">await</span>;
@@ -1011,18 +1059,26 @@
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-        event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"proposal recv view: {:?}"</span>, proposal.data.view_number());
-                <span class="kw">match </span>handle_quorum_proposal_recv(proposal, sender, event_stream.clone(), <span class="self">self</span>)
-                    .<span class="kw">await
+                <span class="kw">match </span>handle_quorum_proposal_recv(
+                    proposal,
+                    sender,
+                    event_sender.clone(),
+                    event_receiver.clone(),
+                    <span class="self">self</span>,
+                )
+                .<span class="kw">await
                 </span>{
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(current_proposal)) =&gt; {
                         <span class="kw">let </span>view = current_proposal.view_number();
                         <span class="self">self</span>.current_proposal = <span class="prelude-val">Some</span>(current_proposal);
-                        <span class="self">self</span>.spawn_vote_task(view, event_stream).<span class="kw">await</span>;
+                        <span class="self">self</span>.spawn_vote_task(view, event_sender, event_receiver)
+                            .<span class="kw">await</span>;
                     }
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {}
                     <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(<span class="string">"Failed to propose {e:#}"</span>),
@@ -1030,8 +1086,13 @@
             }
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"proposal validated view: {:?}"</span>, proposal.view_number());
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
-                    handle_quorum_proposal_validated(proposal, event_stream.clone(), <span class="self">self</span>).<span class="kw">await
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_quorum_proposal_validated(
+                    proposal,
+                    event_sender.clone(),
+                    event_receiver.clone(),
+                    <span class="self">self</span>,
+                )
+                .<span class="kw">await
                 </span>{
                     <span class="macro">warn!</span>(<span class="string">"Failed to handle QuorumProposalValidated event {e:#}"</span>);
                 }
@@ -1060,13 +1121,13 @@
                         TYPES,
                         QuorumVote&lt;TYPES&gt;,
                         QuorumCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream)
+                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_sender)
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
+                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_sender)
                         .<span class="kw">await</span>;
 
                     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
@@ -1099,13 +1160,13 @@
                         TYPES,
                         TimeoutVote&lt;TYPES&gt;,
                         TimeoutCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream)
+                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_sender)
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>result = collector
                         .as_mut()
                         .unwrap()
-                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
+                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_sender)
                         .<span class="kw">await</span>;
 
                     <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
@@ -1125,7 +1186,7 @@
                     );
 
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
-                        </span>.publish_proposal(qc.view_number + <span class="number">1</span>, event_stream)
+                        </span>.publish_proposal(qc.view_number + <span class="number">1</span>, event_sender, event_receiver)
                         .<span class="kw">await
                     </span>{
                         <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
@@ -1145,7 +1206,7 @@
                     );
 
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
-                        </span>.publish_proposal(qc.view_number + <span class="number">1</span>, event_stream)
+                        </span>.publish_proposal(qc.view_number + <span class="number">1</span>, event_sender, event_receiver)
                         .<span class="kw">await
                     </span>{
                         <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
@@ -1180,7 +1241,8 @@
                 <span class="kw">if </span>proposal.view_number() != view {
                     <span class="kw">return</span>;
                 }
-                <span class="self">self</span>.spawn_vote_task(view, event_stream).<span class="kw">await</span>;
+                <span class="self">self</span>.spawn_vote_task(view, event_sender, event_receiver)
+                    .<span class="kw">await</span>;
             }
             HotShotEvent::VidShareRecv(disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
@@ -1219,7 +1281,8 @@
                 <span class="kw">if </span>proposal.view_number() != view {
                     <span class="kw">return</span>;
                 }
-                <span class="self">self</span>.spawn_vote_task(view, event_stream.clone()).<span class="kw">await</span>;
+                <span class="self">self</span>.spawn_vote_task(view, event_sender.clone(), event_receiver.clone())
+                    .<span class="kw">await</span>;
             }
             HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="kw">let </span>new_view = <span class="kw-2">*</span>new_view;
@@ -1255,7 +1318,7 @@
                 // Returns if the view does not need updating.
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES&gt;(
                     new_view,
-                    <span class="kw-2">&amp;</span>event_stream,
+                    <span class="kw-2">&amp;</span>event_sender,
                     <span class="self">self</span>.timeout,
                     OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.cur_view,
@@ -1295,7 +1358,7 @@
                     <span class="kw">return</span>;
                 };
 
-                broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), <span class="kw-2">&amp;</span>event_sender).<span class="kw">await</span>;
                 broadcast_event(
                     Event {
                         view_number: view,
@@ -1347,7 +1410,10 @@
                 <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view) == <span class="self">self</span>.public_key
                     &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number() + <span class="number">1 </span>== view
                 {
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream.clone()).<span class="kw">await </span>{
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                        </span>.publish_proposal(view, event_sender.clone(), event_receiver.clone())
+                        .<span class="kw">await
+                    </span>{
                         <span class="macro">error!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                     };
                 }
@@ -1363,14 +1429,20 @@
                             <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(tc.view_number() + <span class="number">1</span>)
                                 == <span class="self">self</span>.public_key
                             {
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
+                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                                    </span>.publish_proposal(view, event_sender, event_receiver)
+                                    .<span class="kw">await
+                                </span>{
                                     <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                                 };
                             }
                         }
                         ViewChangeEvidence::ViewSync(vsc) =&gt; {
                             <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(vsc.view_number()) == <span class="self">self</span>.public_key {
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
+                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                                    </span>.publish_proposal(view, event_sender, event_receiver)
+                                    .<span class="kw">await
+                                </span>{
                                     <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                                 };
                             }
@@ -1397,7 +1469,10 @@
                         <span class="kw-2">*</span>certificate.view_number
                     );
 
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(view, event_stream).<span class="kw">await </span>{
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                        </span>.publish_proposal(view, event_sender, event_receiver)
+                        .<span class="kw">await
+                    </span>{
                         <span class="macro">debug!</span>(<span class="string">"Failed to propose; error = {e:?}"</span>);
                     };
                 }
@@ -1417,7 +1492,10 @@
                         <span class="string">"Attempting to publish proposal after voting; now in view: {}"</span>,
                         <span class="kw-2">*</span>new_view
                     );
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_proposal(new_view, event_stream.clone()).<span class="kw">await </span>{
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                        </span>.publish_proposal(new_view, event_sender.clone(), event_receiver.clone())
+                        .<span class="kw">await
+                    </span>{
                         <span class="macro">debug!</span>(<span class="string">"failed to propose e = {:?}"</span>, e);
                     }
                 }
@@ -1458,9 +1536,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;<span class="self">Self</span>::Event&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
-        _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
+        receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await</span>;
+        <span class="self">self</span>.handle(event, sender.clone(), receiver.clone()).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(())
     }

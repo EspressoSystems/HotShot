@@ -708,6 +708,42 @@
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -721,13 +757,14 @@
 };
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>async_broadcast::{broadcast, SendError, Sender};
+<span class="kw">use </span>async_broadcast::{Receiver, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
+<span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
 <span class="kw">use </span>hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -747,32 +784,64 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, ProposalMissing},
-    request::REQUEST_TIMEOUT,
-};
+<span class="kw">use crate</span>::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 
-<span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response
+<span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType&gt;(
-    view: TYPES::Time,
-    event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    view_number: TYPES::Time,
+    event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
+    sender_key: TYPES::SignatureKey,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
-    <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = broadcast(<span class="number">1</span>);
-    <span class="kw">let </span>event = ProposalMissing {
-        view,
-        response_chan: tx,
-    };
-    broadcast_event(
-        Arc::new(HotShotEvent::QuorumProposalRequest(event)),
-        <span class="kw-2">&amp;</span>event_stream,
+    <span class="comment">// First, broadcast that we need a proposal to the current leader
+    </span>broadcast_event(
+        HotShotEvent::QuorumProposalRequestSend(view_number, sender_key).into(),
+        <span class="kw-2">&amp;</span>event_sender,
     )
     .<span class="kw">await</span>;
-    <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposal))) = async_timeout(REQUEST_TIMEOUT, rx.recv_direct()).<span class="kw">await else </span>{
+
+    <span class="comment">// Make a background task to await the arrival of the event data.
+    </span><span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposal)) =
+        <span class="comment">// We want to explicitly timeout here so we aren't waiting around for the data.
+        </span>async_timeout(REQUEST_TIMEOUT, <span class="kw">async move </span>{
+            <span class="comment">// First, capture the output from the event dependency
+            </span><span class="kw">let </span>event = EventDependency::new(
+                event_receiver.clone(),
+                Box::new(<span class="kw">move </span>|event| {
+                    <span class="kw">let </span>event = event.as_ref();
+                    <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(
+                        qpr_view_number,
+                        _quorum_proposal,
+                    ) = event
+                    {
+                        <span class="kw-2">*</span>qpr_view_number == view_number
+                    } <span class="kw">else </span>{
+                        <span class="bool-val">false
+                    </span>}
+                }),
+            )
+            .completed()
+            .<span class="kw">await</span>;
+
+            <span class="comment">// Then, if it's `Some`, make sure that the data is correct
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(hs_event) = event.as_ref() {
+                <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(_view_number, quorum_proposal) =
+                    hs_event.as_ref()
+                {
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(quorum_proposal.clone());
+                }
+            }
+
+            <span class="prelude-val">None
+        </span>})
+        .<span class="kw">await
+    else </span>{
         <span class="macro">bail!</span>(<span class="string">"Request for proposal failed"</span>);
     };
+
     <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
@@ -799,7 +868,7 @@
     consensus_write.update_saved_leaves(leaf.clone());
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
-        <span class="kw-2">&amp;</span>event_stream,
+        <span class="kw-2">&amp;</span>event_sender,
     )
     .<span class="kw">await</span>;
     <span class="prelude-val">Ok</span>(leaf)
@@ -997,7 +1066,8 @@
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType&gt;(
     next_proposal_view_number: TYPES::Time,
-    event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
     consensus: OuterConsensus&lt;TYPES&gt;,
@@ -1015,9 +1085,11 @@
     {
         <span class="kw">let _ </span>= fetch_proposal(
             parent_view_number,
-            event_stream.clone(),
+            event_sender.clone(),
+            event_receiver.clone(),
             quorum_membership,
             consensus.clone(),
+            public_key.clone(),
         )
         .<span class="kw">await
         </span>.context(<span class="string">"Failed to fetch proposal"</span>)<span class="question-mark">?</span>;

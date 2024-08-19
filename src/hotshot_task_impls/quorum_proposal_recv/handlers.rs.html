@@ -265,6 +265,12 @@
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -276,7 +282,7 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>async_broadcast::{broadcast, Sender};
+<span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
@@ -398,11 +404,12 @@
     V: Versions,
 &gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
-    sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+    quorum_proposal_sender_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>sender = sender.clone();
+    <span class="kw">let </span>quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
     <span class="kw">let </span>cur_view = task_state.cur_view;
 
     validate_proposal_view_and_certs(
@@ -444,8 +451,13 @@
         <span class="prelude-val">None </span>=&gt; fetch_proposal(
             justify_qc.view_number(),
             event_sender.clone(),
+            event_receiver.clone(),
             Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
+            <span class="comment">// Note that we explicitly use the node key here instead of the provided key in the signature.
+            // This is because the key that we receive is for the prior leader, so the payload would be routed
+            // incorrectly.
+            </span>task_state.public_key.clone(),
         )
         .<span class="kw">await
         </span>.ok(),
@@ -504,7 +516,7 @@
         Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
         Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
         event_sender.clone(),
-        sender,
+        quorum_proposal_sender_key,
         task_state.output_event_stream.clone(),
         task_state.id,
     )
