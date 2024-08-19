@@ -25,7 +25,6 @@ use cdn_broker::{Broker, Config as BrokerConfig};
 pub use cdn_client::reexports::crypto::signature::KeyPair;
 use cdn_client::{
     reexports::{
-        connection::protocols::Quic,
         crypto::signature::{Serializable, SignatureScheme},
         message::{Broadcast, Direct, Message as PushCdnMessage},
     },
@@ -138,7 +137,7 @@ impl<K: SignatureKey + 'static> RunDef for ProductionDef<K> {
 pub struct UserDef<K: SignatureKey + 'static>(PhantomData<K>);
 impl<K: SignatureKey + 'static> ConnectionDef for UserDef<K> {
     type Scheme = WrappedSignatureKey<K>;
-    type Protocol = Quic;
+    type Protocol = Tcp;
 }
 
 /// The broker definition for the Push CDN.
@@ -156,7 +155,7 @@ impl<K: SignatureKey> ConnectionDef for BrokerDef<K> {
 pub struct ClientDef<K: SignatureKey + 'static>(PhantomData<K>);
 impl<K: SignatureKey> ConnectionDef for ClientDef<K> {
     type Scheme = WrappedSignatureKey<K>;
-    type Protocol = Quic;
+    type Protocol = Tcp;
 }
 
 /// The testing run definition for the Push CDN.
