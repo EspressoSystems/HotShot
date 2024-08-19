@@ -22,12 +22,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data::serialize_signature2,
     simple_vote::{
-        DaData, QuorumData, TimeoutData, UpgradeProposalData, ViewSyncCommitData,
-        ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
+        DaData, QuorumData, TimeoutData, UpgradeProposalData, VersionedVoteData,
+        ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
     },
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber},
@@ -107,15 +107,17 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     type Voteable = VOTEABLE;
     type Threshold = THRESHOLD;
 
-    fn create_signed_certificate(
-        vote_commitment: Commitment<VOTEABLE>,
+    fn create_signed_certificate<V: Versions>(
+        vote_commitment: Commitment<VersionedVoteData<TYPES, VOTEABLE, V>>,
         data: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
     ) -> Self {
+        let vote_commitment_bytes: [u8; 32] = vote_commitment.into();
+
         SimpleCertificate {
             data,
-            vote_commitment,
+            vote_commitment: Commitment::from_raw(vote_commitment_bytes),
             view_number: view,
             signatures: Some(sig),
             _pd: PhantomData,

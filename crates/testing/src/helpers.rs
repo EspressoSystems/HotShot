@@ -9,7 +9,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
-use committable::{Commitment, Committable};
+use committable::Committable;
 use ethereum_types::U256;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
@@ -163,15 +163,14 @@ pub async fn build_cert<
     .await
     .expect("Failed to sign data!");
 
-    let vote_commitment: [u8; 32] =
+    let vote_commitment =
         VersionedVoteData::new(vote.date().clone(), vote.view_number(), upgrade_lock)
             .await
-            .unwrap()
-            .commit()
-            .into();
+            .expect("Failed to create VersionedVoteData!")
+            .commit();
 
     let cert = CERT::create_signed_certificate(
-        Commitment::from_raw(vote_commitment),
+        vote_commitment,
         vote.date().clone(),
         real_qc_sig,
         vote.view_number(),

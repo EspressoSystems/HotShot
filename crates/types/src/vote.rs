@@ -63,8 +63,8 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     type Threshold: Threshold<TYPES>;
 
     /// Build a certificate from the data commitment and the quorum of signers
-    fn create_signed_certificate(
-        vote_commitment: Commitment<Self::Voteable>,
+    fn create_signed_certificate<V: Versions>(
+        vote_commitment: Commitment<VersionedVoteData<TYPES, Self::Voteable, V>>,
         data: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
@@ -202,10 +202,8 @@ impl<
                 &sig_list[..],
             );
 
-            let certificate_commitment_bytes: [u8; 32] = vote_commitment.into();
-
-            let cert = CERT::create_signed_certificate(
-                Commitment::from_raw(certificate_commitment_bytes),
+            let cert = CERT::create_signed_certificate::<V>(
+                vote_commitment,
                 vote.date().clone(),
                 real_qc_sig,
                 vote.view_number(),
