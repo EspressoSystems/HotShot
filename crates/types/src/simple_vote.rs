@@ -142,10 +142,6 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
         &self.data
     }
 
-    fn vote_commitment(&self) -> Commitment<Self> {
-        self.commit()
-    }
-
     fn create_signed_vote(
         data: DATA,
         view: TYPES::Time,
@@ -154,7 +150,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
     ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError> {
         match TYPES::SignatureKey::sign(
             private_key,
-            <SimpleVote<TYPES, DATA> as Vote<TYPES>>::commit(&data, view).as_ref(),
+            <Self as Vote<TYPES>>::commit(&data, view).as_ref(),
         ) {
             Ok(signature) => Ok(Self {
                 signature: (pub_key.clone(), signature),

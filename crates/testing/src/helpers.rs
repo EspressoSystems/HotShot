@@ -148,7 +148,7 @@ pub fn build_cert<
     let vote = VOTE::create_signed_vote(data, view, public_key, private_key)
         .expect("Failed to sign data!");
     let cert = CERT::create_signed_certificate(
-        vote.commit(),
+        vote.data().commit(),
         vote.data().clone(),
         real_qc_sig,
         vote.view_number(),

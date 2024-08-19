@@ -34,12 +34,11 @@ use tokio::task::spawn_blocking;
 use tracing::error;
 use vec1::Vec1;
 
-use crate::simple_certificate::SimpleCertificate;
-use crate::simple_vote::QuorumVote;
 use crate::{
     message::Proposal,
     simple_certificate::{
-        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        QuorumCertificate, SimpleCertificate, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{QuorumData, UpgradeProposalData},
     traits::{
@@ -55,7 +54,7 @@ use crate::{
     },
     utils::bincode_opts,
     vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
-    vote::{Certificate, HasViewNumber, Vote},
+    vote::{Certificate, HasViewNumber},
 };
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -489,7 +488,7 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
                 .commit(),
         };
         let view = <TYPES::Time as ConsensusTime>::genesis();
-        let commit = <QuorumVote<TYPES> as Vote<TYPES>>::commit(&data, view);
+        let commit = data.commit();
         SimpleCertificate::new(data, commit, view, None, PhantomData)
     }
 }
@@ -526,7 +525,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let null_quorum_data = QuorumData {
             leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
         };
-        let commit = <QuorumVote<TYPES> as Vote<TYPES>>::commit(&null_quorum_data, view);
+        let commit = null_quorum_data.commit();
 
         let justify_qc =
             QuorumCertificate::new(null_quorum_data.clone(), commit, view, None, PhantomData);

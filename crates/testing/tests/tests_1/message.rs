@@ -4,9 +4,8 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use committable::Committable;
 use hotshot_example_types::node_types::TestTypes;
-use hotshot_types::simple_vote::ViewSyncCommitVote;
-use hotshot_types::vote::Vote;
 use hotshot_types::{
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     signature_key::BLSPubKey,
@@ -41,13 +40,8 @@ fn version_number_at_start_of_serialization() {
         relay: 37,
         round: view_number,
     };
-    let simple_certificate = SimpleCertificate::new(
-        data.clone(),
-        <ViewSyncCommitVote<TestTypes> as Vote<TestTypes>>::commit(&data, view_number),
-        view_number,
-        None,
-        PhantomData,
-    );
+    let simple_certificate =
+        SimpleCertificate::new(data.clone(), data.commit(), view_number, None, PhantomData);
     let message = Message {
         sender,
         kind: MessageKind::Consensus(SequencingMessage::General(

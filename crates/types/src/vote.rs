@@ -36,8 +36,6 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> + Committable {
     fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
     /// Gets the data which was voted on by this vote
     fn data(&self) -> &Self::Data;
-    /// Gets the (Data + view number) commitment of the vote
-    fn vote_commitment(&self) -> Commitment<Self>;
 
     /// Gets the public signature key of the votes creator/sender
     fn signing_key(&self) -> TYPES::SignatureKey;
@@ -78,8 +76,8 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
 
     /// Build a certificate from the data commitment and the quorum of signers
     fn create_signed_certificate(
-        vote_commitment: Commitment<Self::Vote>,
-        data: <<Self as Certificate<TYPES>>::Vote as Vote<TYPES>>::Data,
+        vote_commitment: Commitment<<Self::Vote as Vote<TYPES>>::Data>,
+        data: <Self::Vote as Vote<TYPES>>::Data,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
     ) -> Self;
@@ -105,7 +103,7 @@ type SignersMap<COMMITMENT, KEY> = HashMap<
 /// Accumulates votes until a certificate is formed.  This implementation works for all simple vote and certificate pairs
 pub struct VoteAccumulator<
     TYPES: NodeType,
-    VOTE: Vote<TYPES> + Committable,
+    VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, Vote = VOTE>,
 > {
     /// Map of all signatures accumulated so far
@@ -121,18 +119,15 @@ pub struct VoteAccumulator<
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
 }
 
-impl<
-        TYPES: NodeType,
-        VOTE: Vote<TYPES> + Committable + Clone,
-        CERT: Certificate<TYPES, Vote = VOTE>,
-    > VoteAccumulator<TYPES, VOTE, CERT>
+impl<TYPES: NodeType, VOTE: Vote<TYPES> + Clone, CERT: Certificate<TYPES, Vote = VOTE>>
+    VoteAccumulator<TYPES, VOTE, CERT>
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.
     pub fn accumulate(&mut self, vote: &VOTE, membership: &TYPES::Membership) -> Either<(), CERT> {
         let key = vote.signing_key();
 
-        let vote_commitment = vote.vote_commitment();
+        let vote_commitment = vote.commit();
         if !key.validate(&vote.signature(), vote_commitment.as_ref()) {
             error!(
                 "Invalid vote! Vote signature invalid. Vote Data {:?}",
@@ -177,7 +172,7 @@ impl<
 
         // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.stake();
-        total_vote_map.insert(key, (vote.signature(), vote.vote_commitment()));
+        total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
         if *total_stake_casted >= CERT::threshold(membership).into() {
             // Assemble QC
@@ -194,7 +189,7 @@ impl<
             );
 
             let cert = CERT::create_signed_certificate(
-                vote.commit(),
+                vote.data().commit(),
                 vote.data().clone(),
                 real_qc_sig,
                 vote.view_number(),

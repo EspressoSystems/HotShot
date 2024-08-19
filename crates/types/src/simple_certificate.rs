@@ -76,7 +76,7 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTE: Vote<TYPES>, THRESHOLD: Thre
     pub data: VOTE::Data,
     /// commitment of all the votes this cert should be signed over
     /// Do not use this field, the commitment needs to be calculated instead
-    vote_commitment: Commitment<VOTE>,
+    vote_commitment: Commitment<VOTE::Data>,
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
@@ -91,7 +91,7 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES>, THRESHOLD: Threshold<TYPES>>
     /// Create a new certificate
     pub fn new(
         data: VOTE::Data,
-        vote_commitment: Commitment<VOTE>,
+        vote_commitment: Commitment<VOTE::Data>,
         view_number: TYPES::Time,
         signatures: Option<<TYPES::SignatureKey as SignatureKey>::QcType>,
         pd: PhantomData<(TYPES, THRESHOLD)>,
@@ -129,8 +129,8 @@ impl<TYPES: NodeType, VOTE: Vote<TYPES> + 'static, THRESHOLD: Threshold<TYPES>> 
     type Threshold = THRESHOLD;
 
     fn create_signed_certificate(
-        vote_commitment: Commitment<Self::Vote>,
-        data: <<Self as Certificate<TYPES>>::Vote as Vote<TYPES>>::Data,
+        vote_commitment: Commitment<VOTE::Data>,
+        data: VOTE::Data,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::Time,
     ) -> Self {
