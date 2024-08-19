@@ -9,5 +9,12 @@ updates:
   directory: "/"
   schedule:
     interval: daily
-  ignore:
-    - dependency-name: "hotshot-types"
+  groups:
+    all:
+      patterns:
+        - "*"
+      exclude-patterns:
+        - "cdn-*"
+    cdn:
+      patterns:
+        - "cdn-*"
