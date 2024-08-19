@@ -96,7 +96,7 @@ async fn test_upgrade_task_with_proposal() {
 
     for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         dacs.push(view.da_certificate.clone());
         vid_dispersals.push(view.vid_disperse.clone());
         leaders.push(view.leader_public_key);
@@ -115,7 +115,7 @@ async fn test_upgrade_task_with_proposal() {
 
     for view in generator.take(4).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         dacs.push(view.da_certificate.clone());
         vid_dispersals.push(view.vid_disperse.clone());
         leaders.push(view.leader_public_key);
@@ -143,16 +143,23 @@ async fn test_upgrade_task_with_proposal() {
         <TestVersions as Versions>::Base::VERSION,
     )
     .unwrap();
-    let upgrade_votes = other_handles
-        .iter()
-        .map(|h| views[2].create_upgrade_vote(upgrade_data.clone(), &h.0));
+
+    let mut upgrade_votes = Vec::new();
+
+    for handle in other_handles {
+        upgrade_votes.push(
+            views[2]
+                .create_upgrade_vote(upgrade_data.clone(), &handle.0)
+                .await,
+        );
+    }
 
     let proposal_state =
         QuorumProposalTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let upgrade_state =
         UpgradeTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
 
-    let upgrade_vote_recvs: Vec<_> = upgrade_votes.map(UpgradeVoteRecv).collect();
+    let upgrade_vote_recvs: Vec<_> = upgrade_votes.into_iter().map(UpgradeVoteRecv).collect();
 
     let inputs = vec![
         random![
