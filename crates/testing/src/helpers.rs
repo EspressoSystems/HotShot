@@ -131,7 +131,7 @@ pub async fn build_system_handle<
 /// create certificate
 /// # Panics
 /// if we fail to sign the data
-pub fn build_cert<
+pub async fn build_cert<
     TYPES: NodeType,
     V: Versions,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
@@ -150,7 +150,8 @@ pub fn build_cert<
         membership,
         view,
         upgrade_lock,
-    );
+    )
+    .await;
 
     let vote = SimpleVote::<TYPES, DATAType>::create_signed_vote(
         data,
@@ -159,6 +160,7 @@ pub fn build_cert<
         private_key,
         upgrade_lock,
     )
+    .await
     .expect("Failed to sign data!");
     let cert = CERT::create_signed_certificate(
         vote.date_commitment(),
@@ -186,7 +188,7 @@ pub fn vid_share<TYPES: NodeType>(
 /// create signature
 /// # Panics
 /// if fails to convert node id into keypair
-pub fn build_assembled_sig<
+pub async fn build_assembled_sig<
     TYPES: NodeType,
     V: Versions,
     VOTE: Vote<TYPES>,
@@ -218,6 +220,7 @@ pub fn build_assembled_sig<
             &private_key_i,
             upgrade_lock,
         )
+        .await
         .expect("Failed to sign data!");
         let original_signature: <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType =
             vote.signature();
@@ -332,7 +335,7 @@ pub fn build_vid_proposal<TYPES: NodeType>(
     )
 }
 
-pub fn build_da_certificate<TYPES: NodeType, V: Versions>(
+pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     da_membership: &<TYPES as NodeType>::Membership,
     view_number: TYPES::Time,
@@ -358,6 +361,7 @@ pub fn build_da_certificate<TYPES: NodeType, V: Versions>(
         private_key,
         upgrade_lock,
     )
+    .await
 }
 
 pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
@@ -376,6 +380,7 @@ pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
         handle.private_key(),
         &handle.hotshot.upgrade_lock,
     )
+    .await
     .expect("Failed to create quorum vote");
     GeneralConsensusMessage::<TYPES>::Vote(vote)
 }

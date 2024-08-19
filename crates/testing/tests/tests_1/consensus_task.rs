@@ -85,7 +85,7 @@ async fn test_consensus_task() {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
@@ -170,7 +170,7 @@ async fn test_consensus_vote() {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }
@@ -243,7 +243,7 @@ async fn test_view_sync_finalize_propose() {
     let view = generator.current_view.clone().unwrap();
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
-    votes.push(view.create_quorum_vote(&handle));
+    votes.push(view.create_quorum_vote(&handle).await);
     vids.push(view.vid_proposal.clone());
     dacs.push(view.da_certificate.clone());
 
@@ -258,7 +258,7 @@ async fn test_view_sync_finalize_propose() {
     let view = generator.current_view.unwrap();
     proposals.push(view.quorum_proposal.clone());
     leaders.push(view.leader_public_key);
-    votes.push(view.create_quorum_vote(&handle));
+    votes.push(view.create_quorum_vote(&handle).await);
     vids.push(view.vid_proposal);
 
     // Handle the view sync finalize cert, get the requisite data, propose.
@@ -277,6 +277,7 @@ async fn test_view_sync_finalize_propose() {
         &priv_key,
         &handle.hotshot.upgrade_lock,
     )
+    .await
     .unwrap();
 
     let timeout_vote_view_3 = TimeoutVote::create_signed_vote(
@@ -288,6 +289,7 @@ async fn test_view_sync_finalize_propose() {
         &priv_key,
         &handle.hotshot.upgrade_lock,
     )
+    .await
     .unwrap();
 
     let inputs = vec![
@@ -377,7 +379,7 @@ async fn test_view_sync_finalize_vote() {
     for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -388,7 +390,7 @@ async fn test_view_sync_finalize_vote() {
     for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -475,7 +477,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     for view in (&mut generator).take(3).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -486,7 +488,7 @@ async fn test_view_sync_finalize_vote_fail_view_number() {
     for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         vids.push(view.vid_proposal.clone());
         dacs.push(view.da_certificate.clone());
     }
@@ -577,7 +579,7 @@ async fn test_vid_disperse_storage_failure() {
     for view in (&mut generator).take(1).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
-        votes.push(view.create_quorum_vote(&handle));
+        votes.push(view.create_quorum_vote(&handle).await);
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
     }

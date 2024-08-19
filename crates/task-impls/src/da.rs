@@ -199,7 +199,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     &self.public_key,
                     &self.private_key,
                     &self.upgrade_lock,
-                ) else {
+                )
+                .await
+                else {
                     error!("Failed to sign DA Vote!");
                     return None;
                 };

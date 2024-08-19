@@ -115,7 +115,8 @@ impl TestView {
             &public_key,
             &private_key,
             &upgrade_lock,
-        );
+        )
+        .await;
 
         let block_header = TestBlockHeader {
             block_number: 1,
@@ -247,7 +248,8 @@ impl TestView {
             &public_key,
             &private_key,
             &self.upgrade_lock,
-        );
+        )
+        .await;
 
         let quorum_certificate = build_cert::<
             TestTypes,
@@ -262,7 +264,8 @@ impl TestView {
             &old_public_key,
             &old_private_key,
             &self.upgrade_lock,
-        );
+        )
+        .await;
 
         let upgrade_certificate = if let Some(ref data) = self.upgrade_data {
             let cert = build_cert::<
@@ -278,7 +281,8 @@ impl TestView {
                 &public_key,
                 &private_key,
                 &self.upgrade_lock,
-            );
+            )
+            .await;
 
             Some(cert)
         } else {
@@ -299,7 +303,8 @@ impl TestView {
                 &public_key,
                 &private_key,
                 &self.upgrade_lock,
-            );
+            )
+            .await;
 
             Some(cert)
         } else {
@@ -320,7 +325,8 @@ impl TestView {
                 &public_key,
                 &private_key,
                 &self.upgrade_lock,
-            );
+            )
+            .await;
 
             Some(cert)
         } else {
@@ -410,7 +416,7 @@ impl TestView {
         self.next_view_from_ancestor(self.clone()).await
     }
 
-    pub fn create_quorum_vote(
+    pub async fn create_quorum_vote(
         &self,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     ) -> QuorumVote<TestTypes> {
@@ -423,10 +429,11 @@ impl TestView {
             handle.private_key(),
             &handle.hotshot.upgrade_lock,
         )
+        .await
         .expect("Failed to generate a signature on QuorumVote")
     }
 
-    pub fn create_upgrade_vote(
+    pub async fn create_upgrade_vote(
         &self,
         data: UpgradeProposalData<TestTypes>,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
@@ -438,10 +445,11 @@ impl TestView {
             handle.private_key(),
             &handle.hotshot.upgrade_lock,
         )
+        .await
         .expect("Failed to generate a signature on UpgradVote")
     }
 
-    pub fn create_da_vote(
+    pub async fn create_da_vote(
         &self,
         data: DaData,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
@@ -453,6 +461,7 @@ impl TestView {
             handle.private_key(),
             &handle.hotshot.upgrade_lock,
         )
+        .await
         .expect("Failed to sign DaData")
     }
 }

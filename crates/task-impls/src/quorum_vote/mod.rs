@@ -212,6 +212,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             &self.private_key,
             &self.upgrade_lock,
         )
+        .await
         .context("Failed to sign vote")?;
         debug!(
             "sending vote to next quorum leader {:?}",

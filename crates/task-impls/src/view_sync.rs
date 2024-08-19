@@ -519,7 +519,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     &self.public_key,
                     &self.private_key,
                     &self.upgrade_lock,
-                ) else {
+                )
+                .await
+                else {
                     error!("Failed to sign ViewSyncCommitData!");
                     return None;
                 };
@@ -596,7 +598,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     &self.public_key,
                     &self.private_key,
                     &self.upgrade_lock,
-                ) else {
+                )
+                .await
+                else {
                     error!("Failed to sign view sync finalized vote!");
                     return None;
                 };
@@ -702,7 +706,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     &self.public_key,
                     &self.private_key,
                     &self.upgrade_lock,
-                ) else {
+                )
+                .await
+                else {
                     error!("Failed to sign pre commit vote!");
                     return None;
                 };
@@ -758,7 +764,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                                 &self.public_key,
                                 &self.private_key,
                                 &self.upgrade_lock,
-                            ) else {
+                            )
+                            .await
+                            else {
                                 error!("Failed to sign ViewSyncPreCommitData!");
                                 return None;
                             };

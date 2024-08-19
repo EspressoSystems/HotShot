@@ -795,7 +795,9 @@ pub async fn update_state_and_vote_if_able<
             &public_key,
             &vote_info.0,
             &vote_info.1,
-        ) {
+        )
+        .await
+        {
             GeneralConsensusMessage::<TYPES>::Vote(vote)
         } else {
             error!("Unable to sign quorum vote!");

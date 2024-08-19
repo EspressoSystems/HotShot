@@ -8,6 +8,7 @@
 
 use std::{fmt::Debug, hash::Hash};
 
+use anyhow::Result;
 use committable::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::version::Version;
@@ -155,21 +156,23 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
     /// Creates and signs a simple vote
     /// # Errors
     /// If we are unable to sign the data
-    pub fn create_signed_vote<V: Versions>(
+    pub async fn create_signed_vote<V: Versions>(
         data: DATA,
         view: TYPES::Time,
         pub_key: &TYPES::SignatureKey,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
         upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) -> Result<Self, <TYPES::SignatureKey as SignatureKey>::SignError> {
-        match TYPES::SignatureKey::sign(private_key, data.commit().as_ref()) {
-            Ok(signature) => Ok(Self {
-                signature: (pub_key.clone(), signature),
-                data,
-                view_number: view,
-            }),
-            Err(e) => Err(e),
-        }
+    ) -> Result<Self> {
+        let signature = (
+            pub_key.clone(),
+            TYPES::SignatureKey::sign(private_key, data.commit().as_ref())?,
+        );
+
+        Ok(Self {
+            signature,
+            data,
+            view_number: view,
+        })
     }
 }
 

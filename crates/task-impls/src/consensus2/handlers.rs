@@ -252,6 +252,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         &task_state.private_key,
         &task_state.upgrade_lock,
     )
+    .await
     .context("Failed to sign TimeoutData")?;
 
     broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).await;
