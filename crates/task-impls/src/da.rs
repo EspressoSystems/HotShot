@@ -46,7 +46,8 @@ use crate::{
 };
 
 /// Alias for Optional type for Vote Collectors
-type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
+type VoteCollectorOption<TYPES, VOTE, CERT, V> =
+    Option<VoteCollectionTaskState<TYPES, VOTE, CERT, V>>;
 
 /// Tracks state of a DA task
 pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
@@ -71,7 +72,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
     pub network: Arc<I::Network>,
 
     /// The current vote collection task, if there is one.
-    pub vote_collector: RwLock<VoteCollectorOption<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>>,
+    pub vote_collector: RwLock<VoteCollectorOption<TYPES, DaVote<TYPES>, DaCertificate<TYPES>, V>>,
 
     /// This Nodes public key
     pub public_key: TYPES::SignatureKey,
@@ -276,11 +277,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                         view: vote.view_number(),
                         id: self.id,
                     };
-                    *collector = create_vote_accumulator::<
-                        TYPES,
-                        DaVote<TYPES>,
-                        DaCertificate<TYPES>,
-                    >(&info, event, &event_stream)
+                    *collector = create_vote_accumulator(
+                        &info,
+                        event,
+                        &event_stream,
+                        self.upgrade_lock.clone(),
+                    )
                     .await;
                 } else {
                     let result = collector

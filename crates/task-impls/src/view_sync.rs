@@ -61,8 +61,10 @@ pub enum ViewSyncPhase {
 }
 
 /// Type alias for a map from View Number to Relay to Vote Task
-type RelayMap<TYPES, VOTE, CERT> =
-    HashMap<<TYPES as NodeType>::Time, BTreeMap<u64, VoteCollectionTaskState<TYPES, VOTE, CERT>>>;
+type RelayMap<TYPES, VOTE, CERT, V> = HashMap<
+    <TYPES as NodeType>::Time,
+    BTreeMap<u64, VoteCollectionTaskState<TYPES, VOTE, CERT, V>>,
+>;
 
 /// Main view sync task state
 pub struct ViewSyncTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
@@ -88,14 +90,16 @@ pub struct ViewSyncTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: V
     pub replica_task_map: RwLock<HashMap<TYPES::Time, ViewSyncReplicaTaskState<TYPES, I, V>>>,
 
     /// Map of pre-commit vote accumulates for the relay
-    pub pre_commit_relay_map:
-        RwLock<RelayMap<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>>,
+    pub pre_commit_relay_map: RwLock<
+        RelayMap<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>, V>,
+    >,
     /// Map of commit vote accumulates for the relay
     pub commit_relay_map:
-        RwLock<RelayMap<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>>,
+        RwLock<RelayMap<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>, V>>,
     /// Map of finalize vote accumulates for the relay
-    pub finalize_relay_map:
-        RwLock<RelayMap<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>>,
+    pub finalize_relay_map: RwLock<
+        RelayMap<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>, V>,
+    >,
 
     /// Timeout duration for view sync rounds
     pub view_sync_timeout: Duration,
@@ -307,7 +311,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     view: vote_view,
                     id: self.id,
                 };
-                let vote_collector = create_vote_accumulator(&info, event, &event_stream).await;
+                let vote_collector =
+                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
+                        .await;
                 if let Some(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -344,7 +350,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     view: vote_view,
                     id: self.id,
                 };
-                let vote_collector = create_vote_accumulator(&info, event, &event_stream).await;
+                let vote_collector =
+                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
+                        .await;
                 if let Some(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -381,7 +389,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     view: vote_view,
                     id: self.id,
                 };
-                let vote_collector = create_vote_accumulator(&info, event, &event_stream).await;
+                let vote_collector =
+                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
+                        .await;
                 if let Some(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }

@@ -18,11 +18,12 @@ use ethereum_types::U256;
 use tracing::error;
 
 use crate::{
+    message::UpgradeLock,
     simple_certificate::Threshold,
     simple_vote::Voteable,
     traits::{
         election::Membership,
-        node_implementation::NodeType,
+        node_implementation::{NodeType, Versions},
         signature_key::{SignatureKey, StakeTableEntryType},
     },
 };
@@ -92,6 +93,7 @@ pub struct VoteAccumulator<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    V: Versions,
 > {
     /// Map of all signatures accumulated so far
     pub vote_outcomes: VoteMap2<
@@ -104,10 +106,16 @@ pub struct VoteAccumulator<
     pub signers: SignersMap<Commitment<VOTE::Commitment>, TYPES::SignatureKey>,
     /// Phantom data to specify the types this accumulator is for
     pub phantom: PhantomData<(TYPES, VOTE, CERT)>,
+    /// version information
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, VOTE: Vote<TYPES>, CERT: Certificate<TYPES, Voteable = VOTE::Commitment>>
-    VoteAccumulator<TYPES, VOTE, CERT>
+impl<
+        TYPES: NodeType,
+        VOTE: Vote<TYPES>,
+        CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+        V: Versions,
+    > VoteAccumulator<TYPES, VOTE, CERT, V>
 {
     /// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.

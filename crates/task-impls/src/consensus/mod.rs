@@ -52,7 +52,8 @@ use crate::{
 pub(crate) mod handlers;
 
 /// Alias for Optional type for Vote Collectors
-type VoteCollectorOption<TYPES, VOTE, CERT> = Option<VoteCollectionTaskState<TYPES, VOTE, CERT>>;
+type VoteCollectorOption<TYPES, VOTE, CERT, V> =
+    Option<VoteCollectionTaskState<TYPES, VOTE, CERT, V>>;
 
 /// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
@@ -92,11 +93,11 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
 
     /// Current Vote collection task, with it's view.
     pub vote_collector:
-        RwLock<VoteCollectorOption<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>>,
+        RwLock<VoteCollectorOption<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>, V>>,
 
     /// Current timeout vote collection task with its view
     pub timeout_vote_collector:
-        RwLock<VoteCollectorOption<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>>,
+        RwLock<VoteCollectorOption<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>, V>>,
 
     /// timeout task handle
     pub timeout_task: JoinHandle<()>,
@@ -314,11 +315,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                         view: vote.view_number(),
                         id: self.id,
                     };
-                    *collector = create_vote_accumulator::<
-                        TYPES,
-                        QuorumVote<TYPES>,
-                        QuorumCertificate<TYPES>,
-                    >(&info, event, &event_stream)
+                    *collector = create_vote_accumulator(
+                        &info,
+                        event,
+                        &event_stream,
+                        self.upgrade_lock.clone(),
+                    )
                     .await;
                 } else {
                     let result = collector
@@ -353,11 +355,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                         view: vote.view_number(),
                         id: self.id,
                     };
-                    *collector = create_vote_accumulator::<
-                        TYPES,
-                        TimeoutVote<TYPES>,
-                        TimeoutCertificate<TYPES>,
-                    >(&info, event, &event_stream)
+                    *collector = create_vote_accumulator(
+                        &info,
+                        event,
+                        &event_stream,
+                        self.upgrade_lock.clone(),
+                    )
                     .await;
                 } else {
                     let result = collector
