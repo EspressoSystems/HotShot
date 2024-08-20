@@ -607,15 +607,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
+                #[allow(clippy::no_effect)]
                 match vid_scheme(self.quorum_membership.total_nodes()).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     &payload_commitment,
                 ) {
-                    Ok(Err(_)) | Err(_) => {
+                    Ok(Err(())) | Err(_) => {
                         return;
                     }
-                    Ok(Ok(_)) => {
+                    Ok(Ok(())) => {
                         ();
                     }
                 }
