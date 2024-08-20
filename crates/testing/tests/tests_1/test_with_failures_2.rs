@@ -112,10 +112,9 @@ cross_tests!(
     },
 );
 
-#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: dishonest_da,
-    Impls: [MemoryImpl],
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
     Ignore: false,

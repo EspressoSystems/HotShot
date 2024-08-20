@@ -630,23 +630,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     }
 
     async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        match event {
-            HotShotEvent::DacSend(cert, sender) => {
-                self.total_da_certs_sent_from_node += 1;
-                if self
-                    .dishonest_at_da_cert_sent_numbers
-                    .contains(&self.total_da_certs_sent_from_node)
-                {
-                    let mut result = Vec::new();
-                    for i in 1..=self.total_views_add_to_cert {
-                        let mut bad_cert = cert.clone();
-                        bad_cert.view_number = cert.view_number + i;
-                        result.push(HotShotEvent::DacSend(bad_cert, sender.clone()));
-                    }
-                    return result;
+        if let HotShotEvent::DacSend(cert, sender) = event {
+            self.total_da_certs_sent_from_node += 1;
+            if self
+                .dishonest_at_da_cert_sent_numbers
+                .contains(&self.total_da_certs_sent_from_node)
+            {
+                let mut result = Vec::new();
+                for i in 1..=self.total_views_add_to_cert {
+                    let mut bad_cert = cert.clone();
+                    bad_cert.view_number = cert.view_number + i;
+                    result.push(HotShotEvent::DacSend(bad_cert, sender.clone()));
                 }
+                return result;
             }
-            _ => {}
         }
         vec![event.clone()]
     }
