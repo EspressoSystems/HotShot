@@ -605,16 +605,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                         return;
                     }
                 }
-                if vid_scheme(self.quorum_membership.total_nodes())
-                    .verify_share(
-                        &disperse.data.share,
-                        &disperse.data.common,
-                        &payload_commitment,
-                    )
-                    .is_err()
-                {
-                    debug!("Invalid VID share.");
-                    return;
+                // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
+                // and outer results
+                match vid_scheme(self.quorum_membership.total_nodes()).verify_share(
+                    &disperse.data.share,
+                    &disperse.data.common,
+                    &payload_commitment,
+                ) {
+                    Ok(inner) => {
+                        if inner.is_err() {
+                            return
+                        }
+                    }
+                    Err(_) => return
                 }
 
                 self.consensus
