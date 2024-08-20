@@ -76,13 +76,34 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Thr
     /// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
     pub data: VOTEABLE,
     /// commitment of all the votes this cert should be signed over
-    pub vote_commitment: Commitment<VOTEABLE>,
+    vote_commitment: Commitment<VOTEABLE>,
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
     pub signatures: Option<<TYPES::SignatureKey as SignatureKey>::QcType>,
     /// phantom data for `THRESHOLD` and `TYPES`
     pub _pd: PhantomData<(TYPES, THRESHOLD)>,
+}
+
+impl<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Threshold<TYPES>>
+    SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+{
+    /// Creates a new instance of `SimpleCertificate`
+    pub fn new(
+        data: VOTEABLE,
+        vote_commitment: Commitment<VOTEABLE>,
+        view_number: TYPES::Time,
+        signatures: Option<<TYPES::SignatureKey as SignatureKey>::QcType>,
+        pd: PhantomData<(TYPES, THRESHOLD)>,
+    ) -> Self {
+        Self {
+            data,
+            vote_commitment,
+            view_number,
+            signatures,
+            _pd: pd,
+        }
+    }
 }
 
 impl<TYPES: NodeType, VOTEABLE: Voteable + Committable, THRESHOLD: Threshold<TYPES>> Committable
