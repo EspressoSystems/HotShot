@@ -11,4 +11,6 @@ ignore = [
     "RUSTSEC-2024-0336",
     # Unfixed "Marvin" vulnerability in `RSA`, unused in sqlite dependency
     "RUSTSEC-2023-0071",
+    # sqlx is only used for CDN tests. No newer version available yet
+    "RUSTSEC-2024-0363",
 ]
