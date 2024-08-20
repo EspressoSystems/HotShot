@@ -40,11 +40,12 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
+    PeerConfig,
 };
 use jf_vid::VidScheme;
 use serde::Serialize;
 
-use crate::test_builder::TestDescription;
+use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -128,6 +129,105 @@ pub async fn build_system_handle<
     .expect("Could not init hotshot")
 }
 
+/// create the [`SystemContextHandle`] from a launcher
+/// # Panics
+/// if cannot create a [`HotShotInitializer`]
+pub async fn build_system_handle_from_launcher<
+    TYPES: NodeType<InstanceState = TestInstanceState>,
+    I: NodeImplementation<
+            TYPES,
+            Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
+        > + TestableNodeImplementation<TYPES>,
+    V: Versions,
+>(
+    node_id: u64,
+    launcher: TestLauncher<TYPES, I, V>,
+    membership_config: Option<Memberships<TYPES>>,
+) -> Result<SystemContextHandle<TYPES, I, V>, anyhow::Error> {
+    tracing::info!("Creating system handle for node {}", node_id);
+
+    let network = (launcher.resource_generator.channel_generator)(node_id).await;
+    let storage = (launcher.resource_generator.storage)(node_id);
+    let marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
+    let config = launcher.resource_generator.config.clone();
+
+    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
+    let private_key = config.my_own_validator_config.private_key.clone();
+    let public_key = config.my_own_validator_config.public_key.clone();
+
+    let memberships = membership_config.unwrap_or_else(|| {
+        let create_membership = |nodes: &[PeerConfig<TYPES::SignatureKey>], topic: Topic| {
+            TYPES::Membership::create_election(
+                known_nodes_with_stake.clone(),
+                nodes.to_vec(),
+                topic,
+                config.fixed_leader_for_gpuvid,
+            )
+        };
+
+        Memberships {
+            quorum_membership: create_membership(&known_nodes_with_stake, Topic::Global),
+            da_membership: create_membership(&config.known_da_nodes, Topic::Da),
+            vid_membership: create_membership(&known_nodes_with_stake, Topic::Global),
+            view_sync_membership: create_membership(&known_nodes_with_stake, Topic::Global),
+        }
+    });
+
+    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::new(
+        launcher.metadata.async_delay_config,
+    ))
+    .await
+    .unwrap();
+
+    let system_context = SystemContext::new(
+        public_key,
+        private_key,
+        node_id,
+        config,
+        memberships,
+        network,
+        initializer,
+        ConsensusMetricsValue::default(),
+        storage,
+        marketplace_config,
+    );
+
+    let system_context_handle = system_context.build_inactive_handle();
+
+    tracing::info!("Successfully created system handle for node {}", node_id);
+    Ok(system_context_handle)
+}
+
+/// create certificate
+/// # Panics
+/// if we fail to sign the data
+pub fn build_da_cert<
+    TYPES: NodeType<SignatureKey = BLSPubKey>,
+    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+    VOTE: Vote<TYPES, Commitment = DATAType>,
+    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+>(
+    data: DATAType,
+    membership: &TYPES::Membership,
+    view: TYPES::Time,
+    public_key: &TYPES::SignatureKey,
+    private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+) -> CERT {
+    let real_qc_sig =
+        build_da_assembled_sig::<TYPES, VOTE, CERT, DATAType>(&data, membership, view);
+
+    let vote =
+        SimpleVote::<TYPES, DATAType>::create_signed_vote(data, view, public_key, private_key)
+            .expect("Failed to sign data!");
+    CERT::create_signed_certificate(
+        vote.date_commitment(),
+        vote.date().clone(),
+        real_qc_sig,
+        vote.view_number(),
+    )
+}
+
 /// create certificate
 /// # Panics
 /// if we fail to sign the data
@@ -169,6 +269,46 @@ pub fn vid_share<TYPES: NodeType>(
         .first()
         .expect("No VID for key")
         .clone()
+}
+
+/// create DA signature
+/// # Panics
+/// if fails to convert node id into keypair
+pub fn build_da_assembled_sig<TYPES, VOTE, CERT, DATAType>(
+    data: &DATAType,
+    membership: &TYPES::Membership,
+    view: TYPES::Time,
+) -> <TYPES::SignatureKey as SignatureKey>::QcType
+where
+    TYPES: NodeType<SignatureKey = BLSPubKey>,
+    VOTE: Vote<TYPES>,
+    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+{
+    let stake_table = membership.committee_qc_stake_table();
+    let total_nodes = stake_table.len();
+    let threshold = CERT::threshold(membership) as usize;
+    let real_qc_pp =
+        TYPES::SignatureKey::public_parameter(stake_table.clone(), U256::from(threshold as u64));
+
+    let mut signers = bitvec![0; total_nodes];
+    let sig_lists: Vec<_> = (0..threshold)
+        .map(|node_id| {
+            let (private_key, public_key) = key_pair_for_id(node_id as u64);
+            let vote = SimpleVote::<TYPES, DATAType>::create_signed_vote(
+                data.clone(),
+                view,
+                &public_key,
+                &private_key,
+            )
+            .expect("Failed to sign data");
+
+            signers.set(node_id, true);
+            vote.signature()
+        })
+        .collect();
+
+    TYPES::SignatureKey::assemble(&real_qc_pp, signers.as_bitslice(), &sig_lists)
 }
 
 /// create signature
@@ -330,7 +470,7 @@ pub fn build_da_certificate(
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::<TestTypes, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
+    build_da_cert::<TestTypes, DaData, DaVote<TestTypes>, DaCertificate<TestTypes>>(
         da_data,
         da_membership,
         view_number,

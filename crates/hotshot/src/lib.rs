@@ -637,6 +637,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
 
         handle
     }
+
+    /// Creates a lightweight version of the system handle for task state testing.
+    ///
+    /// This method provides a minimal context for task state tests, omitting the full
+    /// consensus and network task launches. It results in fewer traces and simplifies debugging.
+    ///
+    /// # Returns
+    /// A `SystemContextHandle<TYPES, I, V>` with minimal setup for task state testing.
+    #[cfg(feature = "hotshot-testing")]
+    pub fn build_inactive_handle(&self) -> SystemContextHandle<TYPES, I, V> {
+        let (internal_sender, internal_receiver) = broadcast(EVENT_CHANNEL_SIZE);
+
+        SystemContextHandle {
+            consensus_registry: ConsensusTaskRegistry::new(),
+            network_registry: NetworkTaskRegistry::new(),
+            output_event_stream: self.external_event_stream.clone(),
+            internal_event_stream: (internal_sender, internal_receiver.deactivate()),
+            hotshot: self.clone().into(),
+            storage: Arc::clone(&self.storage),
+            network: Arc::clone(&self.network),
+            memberships: Arc::clone(&self.memberships),
+        }
+    }
 }
 
 /// An async broadcast channel
