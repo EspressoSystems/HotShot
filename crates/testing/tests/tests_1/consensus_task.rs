@@ -609,7 +609,6 @@ async fn test_vid_disperse_storage_failure() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 #[cfg(feature = "test-srs")]
-#[ignore]
 async fn test_invalid_vid_disperse() {
     use hotshot_testing::{
         helpers::{build_payload_commitment, build_vid_proposal},

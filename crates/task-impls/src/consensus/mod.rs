@@ -184,8 +184,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             &disperse.data.common,
             &payload_commitment,
         ) {
-            Ok(inner) => inner.is_ok(),
-            Err(_) => false,
+            Ok(Ok(_)) => true,
+            _ => false,
         }
     }
 

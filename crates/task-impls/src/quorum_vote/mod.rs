@@ -612,12 +612,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     &disperse.data.common,
                     &payload_commitment,
                 ) {
-                    Ok(inner) => {
-                        if inner.is_err() {
-                            return;
-                        }
+                    Ok(Err(_)) | Err(_) => {
+                        return;
                     }
-                    Err(_) => return,
+                    Ok(Ok(_)) => {
+                        ();
+                    }
                 }
 
                 self.consensus
