@@ -674,6 +674,10 @@
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1281,16 +1285,20 @@
                         <span class="kw">return</span>;
                     }
                 }
-                <span class="kw">if </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes())
-                    .verify_share(
-                        <span class="kw-2">&amp;</span>disperse.data.share,
-                        <span class="kw-2">&amp;</span>disperse.data.common,
-                        <span class="kw-2">&amp;</span>payload_commitment,
-                    )
-                    .is_err()
-                {
-                    <span class="macro">debug!</span>(<span class="string">"Invalid VID share."</span>);
-                    <span class="kw">return</span>;
+                <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
+                // and outer results
+                </span><span class="attr">#[allow(clippy::no_effect)]
+                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes()).verify_share(
+                    <span class="kw-2">&amp;</span>disperse.data.share,
+                    <span class="kw-2">&amp;</span>disperse.data.common,
+                    <span class="kw-2">&amp;</span>payload_commitment,
+                ) {
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(())) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                        <span class="kw">return</span>;
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {
+                        ();
+                    }
                 }
 
                 <span class="self">self</span>.consensus

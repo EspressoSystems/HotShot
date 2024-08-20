@@ -776,9 +776,6 @@
 <a href="#774" id="774">774</a>
 <a href="#775" id="775">775</a>
 <a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -958,20 +955,17 @@
         }
 
         <span class="comment">// Validate the VID share.
-        </span><span class="kw">if </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes())
-            .verify_share(
+        // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
+        // and outer results
+        </span><span class="macro">matches!</span>(
+            vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes()).verify_share(
                 <span class="kw-2">&amp;</span>disperse.data.share,
                 <span class="kw-2">&amp;</span>disperse.data.common,
                 <span class="kw-2">&amp;</span>payload_commitment,
-            )
-            .is_err()
-        {
-            <span class="macro">debug!</span>(<span class="string">"Invalid VID share."</span>);
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        }
-
-        <span class="bool-val">true
-    </span>}
+            ),
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))
+        )
+    }
 
     <span class="doccomment">/// Publishes a proposal
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"ConsensusTaskState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view))]
