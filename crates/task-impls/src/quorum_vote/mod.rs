@@ -614,10 +614,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 ) {
                     Ok(inner) => {
                         if inner.is_err() {
-                            return
+                            return;
                         }
                     }
-                    Err(_) => return
+                    Err(_) => return,
                 }
 
                 self.consensus
