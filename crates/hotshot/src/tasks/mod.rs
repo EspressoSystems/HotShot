@@ -610,6 +610,48 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     }
 }
 
+#[derive(Debug)]
+/// An `EventHandlerState` that modifies view number on `DacSend` to that of a a future view
+pub struct DishonestDa {
+    /// How many times current node has been elected leader and sent Da Cert
+    pub total_da_certs_sent_from_node: u64,
+    /// Which proposals to be dishonest at
+    pub dishonest_at_da_cert_sent_numbers: HashSet<u64>,
+    /// When leader how many times we will send DacSend and increment view number
+    pub total_views_add_to_cert: u64,
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
+    EventTransformerState<TYPES, I, V> for DishonestDa
+{
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        vec![event.clone()]
+    }
+
+    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        match event {
+            HotShotEvent::DacSend(cert, sender) => {
+                self.total_da_certs_sent_from_node += 1;
+                if self
+                    .dishonest_at_da_cert_sent_numbers
+                    .contains(&self.total_da_certs_sent_from_node)
+                {
+                    let mut result = Vec::new();
+                    for i in 1..=self.total_views_add_to_cert {
+                        let mut bad_cert = cert.clone();
+                        bad_cert.view_number = cert.view_number + i;
+                        result.push(HotShotEvent::DacSend(bad_cert, sender.clone()));
+                    }
+                    return result;
+                }
+            }
+            _ => {}
+        }
+        vec![event.clone()]
+    }
+}
+
 /// adds tasks for sending/receiving messages to/from the network.
 pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
