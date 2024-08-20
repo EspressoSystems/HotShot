@@ -8,13 +8,13 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     marker::PhantomData,
     sync::Arc,
+    time::Instant,
 };
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::Mutex;
 use async_trait::async_trait;
-use chrono::Utc;
 use hotshot_task::task::TaskState;
 use hotshot_types::traits::node_implementation::NodeType;
 
@@ -25,9 +25,9 @@ pub struct HealthCheckTaskState<TYPES: NodeType> {
     /// Node id
     pub node_id: u64,
     /// Map of the task id to timestamp of last heartbeat
-    pub task_ids_heartbeat_timestamp: Mutex<HashMap<String, i64>>,
+    pub task_ids_heartbeat_timestamp: Mutex<HashMap<String, Instant>>,
     /// Specify the time we start logging when no heartbeat received
-    pub heartbeat_timeout_duration: i64,
+    pub heartbeat_timeout_duration_in_secs: u64,
     /// phantom
     pub _phantom: PhantomData<TYPES>,
 }
@@ -35,9 +35,13 @@ pub struct HealthCheckTaskState<TYPES: NodeType> {
 impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
     /// Create a new instance of task state with task ids pre populated
     #[must_use]
-    pub fn new(node_id: u64, task_ids: Vec<String>, heartbeat_timeout_duration: i64) -> Self {
-        let time = Utc::now().timestamp();
-        let mut task_ids_heartbeat_timestamp: HashMap<String, i64> = HashMap::new();
+    pub fn new(
+        node_id: u64,
+        task_ids: Vec<String>,
+        heartbeat_timeout_duration_in_secs: u64,
+    ) -> Self {
+        let time = Instant::now();
+        let mut task_ids_heartbeat_timestamp: HashMap<String, Instant> = HashMap::new();
         for task_id in task_ids {
             task_ids_heartbeat_timestamp.insert(task_id, time);
         }
@@ -45,7 +49,7 @@ impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
         HealthCheckTaskState {
             node_id,
             task_ids_heartbeat_timestamp: Mutex::new(task_ids_heartbeat_timestamp),
-            heartbeat_timeout_duration,
+            heartbeat_timeout_duration_in_secs,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -60,7 +64,7 @@ impl<TYPES: NodeType> HealthCheckTaskState<TYPES> {
                     self.task_ids_heartbeat_timestamp.lock().await;
                 match task_ids_heartbeat_timestamp.entry(task_id.clone()) {
                     Entry::Occupied(mut heartbeat_timestamp) => {
-                        *heartbeat_timestamp.get_mut() = Utc::now().timestamp();
+                        *heartbeat_timestamp.get_mut() = Instant::now();
                     }
                     Entry::Vacant(_) => {
                         // On startup of this task we populate the map with all task ids
@@ -93,23 +97,25 @@ impl<TYPES: NodeType> TaskState for HealthCheckTaskState<TYPES> {
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, _task_id: String, _sender: &Sender<Arc<Self::Event>>) {
-        let current_time = Utc::now().timestamp();
+    async fn periodic_task(&self, _sender: &Sender<Arc<Self::Event>>, _task_id: String) {
+        let current_time = Instant::now();
 
         let task_ids_heartbeat = self.task_ids_heartbeat_timestamp.lock().await;
         for (task_id, heartbeat_timestamp) in task_ids_heartbeat.iter() {
-            if current_time - heartbeat_timestamp > self.heartbeat_timeout_duration {
+            if current_time.duration_since(*heartbeat_timestamp).as_secs()
+                > self.heartbeat_timeout_duration_in_secs
+            {
                 tracing::error!(
-                    "Node Id {} has no recieved a heartbeat for task id {} for {} seconds",
+                    "Node Id {} has not received a heartbeat for task id {} for {} seconds",
                     self.node_id,
                     task_id,
-                    self.heartbeat_timeout_duration
+                    self.heartbeat_timeout_duration_in_secs
                 );
             }
         }
     }
 
-    fn get_task_name(&self) -> String {
-        "HealthCheckTask".to_string()
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<HealthCheckTaskState<TYPES>>()
     }
 }

@@ -209,6 +209,12 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
             .await;
         }
     }
+
+    /// Gets the name of the current task
+    #[must_use]
+    pub fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<NetworkMessageTaskState<TYPES>>()
+    }
 }
 
 /// network event task state
@@ -260,12 +266,8 @@ impl<
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>) {
-        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
-    }
-
-    fn get_task_name(&self) -> String {
-        "NetworkEventTask".to_string()
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<NetworkEventTaskState<TYPES, V, COMMCHANNEL, S>>()
     }
 }
 

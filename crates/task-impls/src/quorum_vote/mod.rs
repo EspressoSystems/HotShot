@@ -672,11 +672,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         }
     }
 
-    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>) {
-        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
-    }
-
-    fn get_task_name(&self) -> String {
-        "QuorumVoteTask".to_string()
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<QuorumVoteTaskState<TYPES, I, V>>()
     }
 }

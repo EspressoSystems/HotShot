@@ -36,6 +36,10 @@ impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
     fn shutdown_event() -> Self {
         HotShotEvent::Shutdown
     }
+
+    fn heartbeat_event(task_id: String) -> Self {
+        HotShotEvent::HeartBeat(task_id)
+    }
 }
 
 /// Wrapper type for the event to notify tasks that a proposal for a view is missing

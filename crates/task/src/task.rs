@@ -28,11 +28,14 @@ pub trait TaskEvent: PartialEq {
     /// Note that this is necessarily uniform across all tasks.
     /// Exiting the task loop is handled by the task spawner, rather than the task individually.
     fn shutdown_event() -> Self;
+
+    /// The heartbeat event
+    fn heartbeat_event(task_id: String) -> Self;
 }
 
 #[async_trait]
 /// Type for mutable task state that can be used as the state for a `Task`
-pub trait TaskState: Send {
+pub trait TaskState: Send + Sync {
     /// Type of event sent and received by the task
     type Event: TaskEvent + Clone + Send + Sync;
 
@@ -47,11 +50,26 @@ pub trait TaskState: Send {
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()>;
 
-    /// Runs a specified job in the main task every so often
-    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>);
+    /// Runs a specified job in the main task every `Task::PERIODIC_INTERVAL_IN_SECS`
+    async fn periodic_task(&self, sender: &Sender<Arc<Self::Event>>, task_id: String) {
+        match sender
+            .broadcast_direct(Arc::new(Self::Event::heartbeat_event(task_id)))
+            .await
+        {
+            Ok(None) => (),
+            Ok(Some(_overflowed)) => {
+                tracing::error!(
+                    "Event sender queue overflow, Oldest event removed form queue: Heartbeat Event"
+                );
+            }
+            Err(async_broadcast::SendError(_e)) => {
+                tracing::warn!("Event: Heartbeat\n Sending failed, event stream probably shutdown");
+            }
+        }
+    }
 
     /// Gets the name of the current task
-    fn get_task_name(&self) -> String;
+    fn get_task_name(&self) -> &'static str;
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
@@ -72,6 +90,9 @@ pub struct Task<S: TaskState> {
 }
 
 impl<S: TaskState + Send + 'static> Task<S> {
+    /// Constant for how often we run our periodic tasks, such as broadcasting a hearbeat
+    const PERIODIC_INTERVAL_IN_SECS: u64 = 10;
+
     /// Create a new task
     pub fn new(
         state: S,
@@ -94,10 +115,8 @@ impl<S: TaskState + Send + 'static> Task<S> {
 
     #[cfg(async_executor_impl = "async-std")]
     /// Periodic delay
-    pub fn get_periodic_interval_in_secs(
-        periodic_delay: u64,
-    ) -> futures::stream::Fuse<async_std::stream::Interval> {
-        async_std::stream::interval(Duration::from_secs(periodic_delay)).fuse()
+    pub fn get_periodic_interval_in_secs() -> futures::stream::Fuse<async_std::stream::Interval> {
+        async_std::stream::interval(Duration::from_secs(Self::PERIODIC_INTERVAL_IN_SECS)).fuse()
     }
 
     #[cfg(async_executor_impl = "async-std")]
@@ -111,8 +130,8 @@ impl<S: TaskState + Send + 'static> Task<S> {
     #[cfg(async_executor_impl = "tokio")]
     #[must_use]
     /// Periodic delay
-    pub fn get_periodic_interval_in_secs(periodic_delay: u64) -> tokio::time::Interval {
-        tokio::time::interval(Duration::from_secs(periodic_delay))
+    pub fn get_periodic_interval_in_secs() -> tokio::time::Interval {
+        tokio::time::interval(Duration::from_secs(Self::PERIODIC_INTERVAL_IN_SECS))
     }
 
     #[cfg(async_executor_impl = "tokio")]
@@ -125,7 +144,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
 
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
-    pub fn run(mut self) -> ConsensusHandle<S::Event> {
+    pub fn run(mut self) -> HotShotTaskHandle<S::Event> {
         let task_id = self.task_id.clone();
         let handle = spawn(async move {
             let recv_stream =
@@ -138,7 +157,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
                 .boxed();
 
             let fused_recv_stream = recv_stream.fuse();
-            let periodic_interval = Self::get_periodic_interval_in_secs(10);
+            let periodic_interval = Self::get_periodic_interval_in_secs();
             futures::pin_mut!(periodic_interval, fused_recv_stream);
             loop {
                 futures::select! {
@@ -166,17 +185,17 @@ impl<S: TaskState + Send + 'static> Task<S> {
                         }
                     }
                     _ = Self::handle_periodic_delay(&mut periodic_interval) => {
-                        self.state.periodic_task(self.task_id.clone(), &self.sender).await;
+                        self.state.periodic_task(&self.sender, self.task_id.clone()).await;
                     },
                 }
             }
         });
-        ConsensusHandle { handle, task_id }
+        HotShotTaskHandle { handle, task_id }
     }
 }
 
 /// Wrapper around handle and task id so we can map
-pub struct ConsensusHandle<EVENT> {
+pub struct HotShotTaskHandle<EVENT> {
     /// Handle for the task
     pub handle: JoinHandle<Box<dyn TaskState<Event = EVENT>>>,
     /// Generated task id
@@ -187,7 +206,7 @@ pub struct ConsensusHandle<EVENT> {
 /// A collection of tasks which can handle shutdown
 pub struct ConsensusTaskRegistry<EVENT> {
     /// Tasks this registry controls
-    pub task_handles: Vec<ConsensusHandle<EVENT>>,
+    pub task_handles: Vec<HotShotTaskHandle<EVENT>>,
 }
 
 impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
@@ -200,7 +219,7 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     }
 
     /// Add a task to the registry
-    pub fn register(&mut self, handle: ConsensusHandle<EVENT>) {
+    pub fn register(&mut self, handle: HotShotTaskHandle<EVENT>) {
         self.task_handles.push(handle);
     }
 

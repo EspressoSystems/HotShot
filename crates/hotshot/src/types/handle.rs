@@ -74,7 +74,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             task_state,
             self.internal_event_stream.0.clone(),
             self.internal_event_stream.1.activate_cloned(),
-            self.generate_task_id(&task_name),
+            self.generate_task_id(task_name),
         );
 
         self.consensus_registry.run_task(task);

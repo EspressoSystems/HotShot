@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::traits::node_implementation::NodeType;
 
-use crate::{events::HotShotEvent, helpers::broadcast_event};
+use crate::events::HotShotEvent;
 
 /// The task state for the `Rewind` task is used to capture all events received
 /// by a particular node, in the order they've been received.
@@ -71,11 +71,7 @@ impl<TYPES: NodeType> TaskState for RewindTaskState<TYPES> {
         }
     }
 
-    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>) {
-        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
-    }
-
-    fn get_task_name(&self) -> String {
-        "RewindTask".to_string()
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<RewindTaskState<TYPES>>()
     }
 }

@@ -121,12 +121,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for ViewSyncTaskSt
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>) {
-        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
-    }
-
-    fn get_task_name(&self) -> String {
-        "ViewSyncTask".to_string()
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<ViewSyncTaskState<TYPES, I>>()
     }
 }
 
@@ -178,12 +174,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, task_id: String, sender: &Sender<Arc<Self::Event>>) {
-        broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_id)), sender).await;
-    }
-
-    fn get_task_name(&self) -> String {
-        "ViewSyncReplicaTask".to_string()
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<ViewSyncReplicaTaskState<TYPES, I>>()
     }
 }
 

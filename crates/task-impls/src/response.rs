@@ -83,7 +83,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
         let heartbeat_interval =
-            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs(10);
+            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs();
         futures::pin_mut!(heartbeat_interval);
         loop {
             futures::select! {
@@ -240,6 +240,11 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             )),
             None => ResponseMessage::NotFound,
         }
+    }
+
+    /// Get the task name
+    pub fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<NetworkResponseState<TYPES>>()
     }
 }
 

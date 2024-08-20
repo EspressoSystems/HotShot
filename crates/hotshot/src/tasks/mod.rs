@@ -85,11 +85,12 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
         handle.private_key().clone(),
         handle.hotshot.id,
     );
+    let task_name = state.get_task_name();
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
-        handle.generate_task_id("NetworkResponseTask"),
+        handle.generate_task_id(task_name),
     ));
 }
 
@@ -114,7 +115,7 @@ pub fn add_network_message_task<
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
     let stream = handle.internal_event_stream.0.clone();
-    let task_id = handle.generate_task_id("NetworkMessageTask");
+    let task_id = handle.generate_task_id(network_state.get_task_name());
     let handle_task_id = task_id.clone();
     let task_handle = async_spawn(async move {
         let recv_stream = stream::unfold((), |()| async {
@@ -142,7 +143,7 @@ pub fn add_network_message_task<
         });
 
         let heartbeat_interval =
-            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs(10);
+            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs();
         let fused_recv_stream = recv_stream.boxed().fuse();
         futures::pin_mut!(fused_recv_stream, heartbeat_interval, shutdown_signal);
         loop {
@@ -338,6 +339,7 @@ where
     /// Add byzantine network tasks with the trait
     #[allow(clippy::too_many_lines)]
     async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I, V>) {
+        let task_id = self.get_task_name();
         let state_in = Arc::new(RwLock::new(self));
         let state_out = Arc::clone(&state_in);
         // channels between the task spawned in this function and the network tasks.
@@ -463,7 +465,6 @@ where
             }
         });
 
-        let task_id = "EventTransformer";
         handle.network_registry.register(NetworkHandle {
             handle: send_handle,
             task_id: handle.generate_task_id(task_id),
@@ -472,6 +473,11 @@ where
             handle: recv_handle,
             task_id: handle.generate_task_id(task_id),
         });
+    }
+
+    /// Gets the name of the current task
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<dyn EventTransformerState<TYPES, I, V>>()
     }
 }
 
