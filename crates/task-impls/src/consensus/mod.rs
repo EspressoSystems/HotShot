@@ -177,19 +177,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         }
 
         // Validate the VID share.
-        if vid_scheme(self.quorum_membership.total_nodes())
-            .verify_share(
-                &disperse.data.share,
-                &disperse.data.common,
-                &payload_commitment,
-            )
-            .is_err()
-        {
-            debug!("Invalid VID share.");
-            return false;
+        // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
+        // and outer results
+        match vid_scheme(self.quorum_membership.total_nodes()).verify_share(
+            &disperse.data.share,
+            &disperse.data.common,
+            &payload_commitment,
+        ) {
+            Ok(inner) => inner.is_ok(),
+            Err(_) => false,
         }
-
-        true
     }
 
     /// Publishes a proposal

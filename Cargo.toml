@@ -177,3 +177,6 @@ rust_2018_idioms = "warn"
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
+
+[patch."https://github.com/EspressoSystems/jellyfish"]
+jf-vid = { path = "../jellyfish/vid"}
