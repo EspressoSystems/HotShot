@@ -504,7 +504,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 // If certificate is not valid, return current state
-                if !certificate.is_valid_cert(self.membership.as_ref()) {
+                if !certificate
+                    .is_valid_cert(self.membership.as_ref(), &self.upgrade_lock)
+                    .await
+                {
                     error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
@@ -583,7 +586,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 // If certificate is not valid, return current state
-                if !certificate.is_valid_cert(self.membership.as_ref()) {
+                if !certificate
+                    .is_valid_cert(self.membership.as_ref(), &self.upgrade_lock)
+                    .await
+                {
                     error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;
@@ -672,7 +678,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 // If certificate is not valid, return current state
-                if !certificate.is_valid_cert(self.membership.as_ref()) {
+                if !certificate
+                    .is_valid_cert(self.membership.as_ref(), &self.upgrade_lock)
+                    .await
+                {
                     error!("Not valid view sync cert! {:?}", certificate.date());
 
                     return None;

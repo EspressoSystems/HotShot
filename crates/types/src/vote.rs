@@ -11,6 +11,7 @@ use std::{
     marker::PhantomData,
 };
 
+use anyhow::Result;
 use bitvec::{bitvec, vec::BitVec};
 use committable::{Commitment, Committable};
 use either::Either;
@@ -71,14 +72,21 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     ) -> Self;
 
     /// Checks if the cert is valid
-    fn is_valid_cert<MEMBERSHIP: Membership<TYPES>>(&self, membership: &MEMBERSHIP) -> bool;
+    fn is_valid_cert<MEMBERSHIP: Membership<TYPES>, V: Versions>(
+        &self,
+        membership: &MEMBERSHIP,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> impl std::future::Future<Output = bool>;
     /// Returns the amount of stake needed to create this certificate
     // TODO: Make this a static ratio of the total stake of `Membership`
     fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
     /// Get the commitment which was voted on
     fn date(&self) -> &Self::Voteable;
     /// Get the vote commitment which the votes commit to
-    fn date_commitment(&self) -> Commitment<Self::Voteable>;
+    fn date_commitment<V: Versions>(
+        &self,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> impl std::future::Future<Output = Result<Commitment<VersionedVoteData<TYPES, Self::Voteable, V>>>>;
 }
 /// Mapping of vote commitment to signatures and bitvec
 type SignersMap<COMMITMENT, KEY> = HashMap<

@@ -19,6 +19,7 @@ use committable::{Commitment, Committable};
 use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 
+use crate::message::UpgradeLock;
 use crate::{
     data::serialize_signature2,
     simple_vote::{
@@ -123,7 +124,11 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
             _pd: PhantomData,
         }
     }
-    fn is_valid_cert<MEMBERSHIP: Membership<TYPES>>(&self, membership: &MEMBERSHIP) -> bool {
+    async fn is_valid_cert<MEMBERSHIP: Membership<TYPES>, V: Versions>(
+        &self,
+        membership: &MEMBERSHIP,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> bool {
         if self.view_number == TYPES::Time::genesis() {
             return true;
         }
@@ -131,9 +136,12 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
             membership.committee_qc_stake_table(),
             U256::from(Self::threshold(membership)),
         );
+        let Ok(commit) = self.date_commitment(upgrade_lock).await else {
+            return false;
+        };
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
-            self.vote_commitment.as_ref(),
+            commit.as_ref(),
             self.signatures.as_ref().unwrap(),
         )
     }
@@ -143,8 +151,15 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     fn date(&self) -> &Self::Voteable {
         &self.data
     }
-    fn date_commitment(&self) -> Commitment<Self::Voteable> {
-        self.vote_commitment
+    async fn date_commitment<V: Versions>(
+        &self,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Result<Commitment<VersionedVoteData<TYPES, VOTEABLE, V>>> {
+        Ok(
+            VersionedVoteData::new(self.data.clone(), self.view_number, upgrade_lock)
+                .await?
+                .commit(),
+        )
     }
 }
 
@@ -208,13 +223,14 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     /// Validate an upgrade certificate.
     /// # Errors
     /// Returns an error when the upgrade certificate is invalid.
-    pub fn validate(
+    pub async fn validate<V: Versions>(
         upgrade_certificate: &Option<Self>,
         quorum_membership: &TYPES::Membership,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         if let Some(ref cert) = upgrade_certificate {
             ensure!(
-                cert.is_valid_cert(quorum_membership),
+                cert.is_valid_cert(quorum_membership, upgrade_lock).await,
                 "Invalid upgrade certificate."
             );
             Ok(())
