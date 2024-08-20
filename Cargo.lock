@@ -4130,6 +4130,7 @@ dependencies = [
 [[package]]
 name = "jf-vid"
 version = "0.1.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -4226,7 +4227,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -6980,7 +6981,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d1e02fca405f6280643174a50c942219f0bbf4dbf7d480f1dd864d6f211ae5"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
  "syn 2.0.75",
