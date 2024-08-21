@@ -28,7 +28,6 @@ use hotshot_testing::{
     view_sync_task::ViewSyncTaskDescription,
 };
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
-#[cfg(async_executor_impl = "async-std")]
 use {hotshot::tasks::DishonestLeader, hotshot_testing::test_builder::Behaviour, std::rc::Rc};
 // Test that a good leader can succeed in the view directly after view sync
 cross_tests!(
