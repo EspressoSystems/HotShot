@@ -178,19 +178,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         }
 
         // Validate the VID share.
-        if vid_scheme(self.quorum_membership.total_nodes())
-            .verify_share(
+        // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
+        // and outer results
+        matches!(
+            vid_scheme(self.quorum_membership.total_nodes()).verify_share(
                 &disperse.data.share,
                 &disperse.data.common,
                 &payload_commitment,
-            )
-            .is_err()
-        {
-            debug!("Invalid VID share.");
-            return false;
-        }
-
-        true
+            ),
+            Ok(Ok(()))
+        )
     }
 
     /// Publishes a proposal
@@ -786,5 +783,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
                 handle.abort();
             }
         }
+    }
+
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<ConsensusTaskState<TYPES, I, V>>()
     }
 }
