@@ -13,7 +13,10 @@ use std::{
 
 use hotshot::tasks::DishonestDa;
 use hotshot_example_types::{
-    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
+    node_types::{
+        Libp2pImpl, MarketplaceTestVersions, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
+        TestVersions,
+    },
     state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
@@ -116,7 +119,7 @@ cross_tests!(
     TestName: dishonest_da,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
-    Versions: [TestVersions],
+    Versions: [MarketplaceTestVersions],
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| {
@@ -142,13 +145,7 @@ cross_tests!(
             ..TestDescription::default()
         };
 
-        metadata.overall_safety_properties.num_failed_views = 3;
-        metadata.num_nodes_with_stake = 5;
-        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
-            (ViewNumber::new(8), false),
-            (ViewNumber::new(10), false),
-            (ViewNumber::new(12), false),
-        ]);
+        metadata.num_nodes_with_stake = 10;
         metadata
     },
 );

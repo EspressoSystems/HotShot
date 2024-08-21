@@ -636,7 +636,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
                 .dishonest_at_da_cert_sent_numbers
                 .contains(&self.total_da_certs_sent_from_node)
             {
-                let mut result = Vec::new();
+                let mut result = vec![HotShotEvent::DacSend(cert.clone(), sender.clone())];
                 for i in 1..=self.total_views_add_to_cert {
                     let mut bad_cert = cert.clone();
                     bad_cert.view_number = cert.view_number + i;
