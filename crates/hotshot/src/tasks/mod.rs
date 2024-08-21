@@ -620,7 +620,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
 }
 
 #[derive(Debug)]
-/// An `EventHandlerState` that modifies view number on `DacSend` to that of a a future view
+/// An `EventHandlerState` that modifies view number on the certificate of `DacSend` event to that of a future view
 pub struct DishonestDa {
     /// How many times current node has been elected leader and sent Da Cert
     pub total_da_certs_sent_from_node: u64,
