@@ -252,6 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         let instance_state = Arc::clone(&self.instance_state);
         let id = self.id;
         let handle = async_spawn(async move {
+            let upgrade_lock = upgrade.clone();
             update_state_and_vote_if_able::<TYPES, I, V>(
                 view,
                 proposal,
@@ -268,6 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     event_receiver,
                 },
                 id,
+                &upgrade_lock,
             )
             .await;
         });
@@ -676,7 +678,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 }
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                if !certificate.is_valid_cert(self.quorum_membership.as_ref()) {
+                if !certificate
+                    .is_valid_cert(self.quorum_membership.as_ref(), &self.upgrade_lock)
+                    .await
+                {
                     error!(
                         "View Sync Finalize certificate {:?} was invalid",
                         certificate.date()
