@@ -256,7 +256,7 @@ pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPE
     // Create a future that completes when the `HotShotEvent::Shutdown` is received
     async move {
         loop {
-            match event_stream.recv_direct().await {
+            match event_stream.recv().await {
                 Ok(event) => {
                     if matches!(event.as_ref(), HotShotEvent::Shutdown) {
                         return;
@@ -264,6 +264,7 @@ pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPE
                 }
                 Err(e) => {
                     tracing::error!("Shutdown event monitor channel recv error: {}", e);
+                    return;
                 }
             }
         }
