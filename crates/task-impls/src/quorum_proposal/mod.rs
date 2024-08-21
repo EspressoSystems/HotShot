@@ -534,4 +534,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
             handle.abort();
         }
     }
+
+    fn get_task_name(&self) -> &'static str {
+        std::any::type_name::<QuorumProposalTaskState<TYPES, I, V>>()
+    }
 }
