@@ -261,6 +261,26 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -285,6 +305,7 @@
     error::HotShotError,
     traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
 };
+<span class="kw">use </span>rand::Rng;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
@@ -331,13 +352,32 @@
 {
     <span class="doccomment">/// Adds a hotshot consensus-related task to the `SystemContextHandle`.
     </span><span class="kw">pub fn </span>add_task&lt;S: TaskState&lt;Event = HotShotEvent&lt;TYPES&gt;&gt; + <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, task_state: S) {
+        <span class="kw">let </span>task_name = task_state.get_task_name();
         <span class="kw">let </span>task = Task::new(
             task_state,
             <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone(),
             <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+            <span class="self">self</span>.generate_task_id(task_name),
         );
 
         <span class="self">self</span>.consensus_registry.run_task(task);
+    }
+
+    <span class="attr">#[must_use]
+    </span><span class="doccomment">/// generate a task id for a task
+    </span><span class="kw">pub fn </span>generate_task_id(<span class="kw-2">&amp;</span><span class="self">self</span>, task_name: <span class="kw-2">&amp;</span>str) -&gt; String {
+        <span class="kw">let </span>random = rand::thread_rng().gen_range(<span class="number">0</span>..=<span class="number">9999</span>);
+        <span class="kw">let </span>tasks_spawned =
+            <span class="self">self</span>.consensus_registry.task_handles.len() + <span class="self">self</span>.network_registry.handles.len();
+        <span class="macro">format!</span>(<span class="string">"{task_name}_{tasks_spawned}_{random}"</span>)
+    }
+
+    <span class="attr">#[must_use]
+    </span><span class="doccomment">/// Get a list of all the running tasks ids
+    </span><span class="kw">pub fn </span>get_task_ids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>task_ids = <span class="self">self</span>.consensus_registry.get_task_ids();
+        task_ids.extend(<span class="self">self</span>.network_registry.get_task_ids());
+        task_ids
     }
 
     <span class="doccomment">/// obtains a stream to expose to the user

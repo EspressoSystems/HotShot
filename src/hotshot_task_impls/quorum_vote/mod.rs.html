@@ -678,6 +678,10 @@
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1354,6 +1358,10 @@
             <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
             </span>handle.abort();
         }
+    }
+
+    <span class="kw">fn </span>get_task_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+        std::any::type_name::&lt;QuorumVoteTaskState&lt;TYPES, I, V&gt;&gt;()
     }
 }
 </code></pre></div></section></main></body></html>
