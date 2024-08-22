@@ -116,10 +116,12 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let task_handle = async_spawn(async move {
         let shutdown_event = shutdown_event(internal_receiver).fuse();
-        let network_recv = network.recv_msgs().fuse();
+        pin_mut!(shutdown_event);
 
-        pin_mut!(shutdown_event, network_recv);
         loop {
+            let network_recv = network.recv_msgs().fuse();
+            pin_mut!(network_recv);
+
             futures::select! {
                 () = shutdown_event => {
                     tracing::error!("Shutting down network message task");
@@ -139,6 +141,7 @@ pub fn add_network_message_task<
                               };
                               deserialized_messages.push(deserialized_message);
                           }
+                          tracing::error!("{deserialized_messages:?}");
                           Messages(deserialized_messages)
                       }
                       Err(err) => {
@@ -146,6 +149,8 @@ pub fn add_network_message_task<
                           Messages(vec![])
                       }
                   };
+
+                  tracing::error!("Handling message!");
 
                   network_state.handle_messages(msgs.0).await;
             }}
@@ -350,11 +355,13 @@ where
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
         let send_handle = async_spawn(async move {
-            let original_recv_event = original_receiver.recv().fuse();
             let shutdown_event = shutdown_event(internal_event_stream).fuse();
+            pin_mut!(shutdown_event);
 
-            pin_mut!(shutdown_event, original_recv_event);
             loop {
+                let original_recv_event = original_receiver.recv().fuse();
+                pin_mut!(original_recv_event);
+
                 futures::select! {
                     () = shutdown_event => {
                         tracing::error!("Shutting down byzantine task");
@@ -386,10 +393,13 @@ where
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
         let recv_handle = async_spawn(async move {
-            let network_recv_event = receiver_from_network.recv().fuse();
             let shutdown_event = shutdown_event(internal_event_stream).fuse();
-            pin_mut!(shutdown_event, network_recv_event);
+            pin_mut!(shutdown_event);
+
             loop {
+                let network_recv_event = receiver_from_network.recv().fuse();
+                pin_mut!(network_recv_event);
+
                 futures::select! {
                     () = shutdown_event => {
                         tracing::error!("Shutting down byzantine receiver layer");
