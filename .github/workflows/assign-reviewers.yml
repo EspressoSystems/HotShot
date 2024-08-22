@@ -6,14 +6,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
       - name: Choose random assignees
         run: |
+          # Skip PRs that have assignees already
+          gh pr view ${{ github.event.number }} --repo ${{ github.repository }} --json assignees \
+            | jq '.assignees | length > 0' -e && \
+            exit 0
+
           chosen=$(perl \
             -e 'use List::Util qw(shuffle head);' \
             -e 'my @assignees = grep { "${{ github.event.actor }}" ne $_ } shuffle split /\s+/, $ENV{ASSIGNEES};' \
             -e 'print join ",", head $ENV{NUM_ASSIGNEES}, @assignees' \
           )
+
           gh pr edit ${{ github.event.number }} --add-assignee $chosen --repo ${{ github.repository }}
     env:
       GITHUB_TOKEN: ${{ github.token }}
