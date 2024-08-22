@@ -20,7 +20,6 @@ use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
-use hotshot_types::message::UpgradeLock;
 use hotshot_types::traits::node_implementation::Versions;
 use hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
@@ -32,33 +31,51 @@ use hotshot_types::{
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+use hotshot_types::{message::UpgradeLock, request_response::ProposalRequestPayload};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 
 /// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 #[instrument(skip_all)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     view_number: TYPES::Time,
     event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
-    sender_key: TYPES::SignatureKey,
+    sender_public_key: TYPES::SignatureKey,
+    sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> Result<Leaf<TYPES>> {
+    // We need to be able to sign this request before submitting it to the network. Compute the
+    // payload first.
+    let signed_proposal_request = ProposalRequestPayload {
+        view_number,
+        key: sender_public_key,
+    };
+
+    // Finally, compute the signature for the payload.
+    let signature = TYPES::SignatureKey::sign(
+        &sender_private_key,
+        signed_proposal_request.commit().as_ref(),
+    )?;
+
     // First, broadcast that we need a proposal to the current leader
     broadcast_event(
-        HotShotEvent::QuorumProposalRequestSend(view_number, sender_key).into(),
+        HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
         &event_sender,
     )
     .await;
 
+    let mem = Arc::clone(&quorum_membership);
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
@@ -69,11 +86,10 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                 Box::new(move |event| {
                     let event = event.as_ref();
                     if let HotShotEvent::QuorumProposalResponseRecv(
-                        qpr_view_number,
-                        _quorum_proposal,
+                        quorum_proposal,
                     ) = event
                     {
-                        *qpr_view_number == view_number
+                        quorum_proposal.data.view_number() == view_number
                     } else {
                         false
                     }
@@ -84,9 +100,14 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 
             // Then, if it's `Some`, make sure that the data is correct
             if let Some(hs_event) = event.as_ref() {
-                if let HotShotEvent::QuorumProposalResponseRecv(_view_number, quorum_proposal) =
+                if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
                     hs_event.as_ref()
                 {
+                    // Make sure that the quorum_proposal is valid
+                    if quorum_proposal.validate_signature(&mem).is_err() {
+                        return None
+                    }
+
                     return Some(quorum_proposal.clone());
                 }
             }
@@ -323,12 +344,14 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 
 /// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 #[instrument(skip_all)]
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     next_proposal_view_number: TYPES::Time,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: OuterConsensus<TYPES>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
@@ -350,6 +373,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
             quorum_membership,
             consensus.clone(),
             public_key.clone(),
+            private_key.clone(),
             upgrade_lock,
         )
         .await
