@@ -1318,7 +1318,7 @@ checksum = "41c270e7540d725e65ac7f1b212ac8ce349719624d7bcff99f8e2e488e8cf03f"
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.4#398b77fb2f461218a611294e1484b7e0bd571d64"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=ss/fix-shutdown#93eb15bc5e1a77ca0d89aa40b67c66b81bb8bdef"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1342,7 +1342,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.4#398b77fb2f461218a611294e1484b7e0bd571d64"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=ss/fix-shutdown#93eb15bc5e1a77ca0d89aa40b67c66b81bb8bdef"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1357,7 +1357,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.4#398b77fb2f461218a611294e1484b7e0bd571d64"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=ss/fix-shutdown#93eb15bc5e1a77ca0d89aa40b67c66b81bb8bdef"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1371,7 +1371,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.4#398b77fb2f461218a611294e1484b7e0bd571d64"
+source = "git+https://github.com/EspressoSystems/Push-CDN?branch=ss/fix-shutdown#93eb15bc5e1a77ca0d89aa40b67c66b81bb8bdef"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -4218,7 +4218,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.5",
 ]
 
 [[package]]
@@ -6968,7 +6968,7 @@ version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38d1e02fca405f6280643174a50c942219f0bbf4dbf7d480f1dd864d6f211ae5"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.74",
