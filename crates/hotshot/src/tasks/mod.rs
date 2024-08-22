@@ -8,10 +8,10 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use async_broadcast::{broadcast, Receiver};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_spawn, async_timeout};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{future::FutureExt, pin_mut};
@@ -119,7 +119,7 @@ pub fn add_network_message_task<
         pin_mut!(shutdown_event);
 
         loop {
-            let network_recv = network.recv_msgs().fuse();
+            let network_recv = async_timeout(Duration::from_secs(5), network.recv_msgs()).fuse();
             pin_mut!(network_recv);
 
             futures::select! {
@@ -129,7 +129,7 @@ pub fn add_network_message_task<
                 }
                 recv_msgs = network_recv => {
                   let msgs = match recv_msgs {
-                      Ok(msgs) => {
+                      Ok(Ok(msgs)) => {
                           let mut deserialized_messages = Vec::new();
                           for msg in msgs {
                               let deserialized_message = match upgrade_lock.deserialize(&msg).await {
@@ -148,6 +148,11 @@ pub fn add_network_message_task<
                           tracing::error!("failed to receive messages: {err}");
                           Messages(vec![])
                       }
+                      Ok(Err(err)) => {
+                          tracing::error!("failed to receive messages: {err}");
+                          Messages(vec![])
+                      }
+
                   };
 
                   tracing::error!("Handling message!");
