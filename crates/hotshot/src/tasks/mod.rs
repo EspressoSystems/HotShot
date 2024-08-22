@@ -125,6 +125,7 @@ pub fn add_network_message_task<
             futures::select! {
                 () = shutdown_event => {
                     tracing::error!("Shutting down network message task");
+                    network.shut_down().await;
                     return;
                 }
                 recv_msgs = network_recv => {
