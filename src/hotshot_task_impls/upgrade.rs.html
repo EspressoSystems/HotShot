@@ -408,7 +408,8 @@
 };
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
-</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
+</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT, V&gt; =
+    <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;;
 
 <span class="doccomment">/// Tracks state of a DA task
 </span><span class="kw">pub struct </span>UpgradeTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
@@ -425,7 +426,7 @@
 
     <span class="doccomment">/// The current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector:
-        RwLock&lt;VoteCollectorOption&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;&gt;&gt;,
+        RwLock&lt;VoteCollectorOption&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;, V&gt;&gt;,
 
     <span class="doccomment">/// This Nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -577,7 +578,10 @@
                     view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                ) <span class="kw">else </span>{
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to sign UpgradeVote!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
@@ -610,12 +614,8 @@
                         view: vote.view_number(),
                         id: <span class="self">self</span>.id,
                     };
-                    <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
-                        TYPES,
-                        UpgradeVote&lt;TYPES&gt;,
-                        UpgradeCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>tx)
-                    .<span class="kw">await</span>;
+                    <span class="kw-2">*</span>collector =
+                        create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>tx, <span class="self">self</span>.upgrade_lock.clone()).<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>result = collector
                         .as_mut()

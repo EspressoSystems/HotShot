@@ -365,6 +365,9 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -492,6 +495,7 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
             <span class="self">self</span>.public_key.clone(),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
+            <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -630,6 +634,7 @@
             <span class="kw">let </span>event_receiver = <span class="self">self</span>.receiver.clone();
             <span class="kw">let </span>sender_key = <span class="self">self</span>.public_key.clone();
             <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
+            <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
             async_spawn(<span class="kw">async move </span>{
                 fetch_proposal(
                     high_qc_view_number,
@@ -638,6 +643,7 @@
                     membership,
                     consensus,
                     sender_key,
+                    <span class="kw-2">&amp;</span>upgrade_lock,
                 )
                 .<span class="kw">await
             </span>});

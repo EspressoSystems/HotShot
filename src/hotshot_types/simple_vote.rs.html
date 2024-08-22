@@ -267,6 +267,73 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -275,15 +342,20 @@
 
 </span><span class="doccomment">//! Implementations of the simple vote types.
 
-</span><span class="kw">use </span>std::{fmt::Debug, hash::Hash};
+</span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
+<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
-<span class="kw">use </span>vbs::version::Version;
+<span class="kw">use </span>vbs::version::{StaticVersionType, Version};
 
 <span class="kw">use crate</span>::{
     data::Leaf,
-    traits::{node_implementation::NodeType, signature_key::SignatureKey},
+    message::UpgradeLock,
+    traits::{
+        node_implementation::{NodeType, Versions},
+        signature_key::SignatureKey,
+    },
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
@@ -420,19 +492,81 @@
     <span class="doccomment">/// Creates and signs a simple vote
     /// # Errors
     /// If we are unable to sign the data
-    </span><span class="kw">pub fn </span>create_signed_vote(
+    </span><span class="kw">pub async fn </span>create_signed_vote&lt;V: Versions&gt;(
         data: DATA,
         view: TYPES::Time,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::SignError&gt; {
-        <span class="kw">match </span>TYPES::SignatureKey::sign(private_key, data.commit().as_ref()) {
-            <span class="prelude-val">Ok</span>(signature) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-                signature: (pub_key.clone(), signature),
-                data,
-                view_number: view,
-            }),
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>commit = VersionedVoteData::new(data.clone(), view, upgrade_lock)
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.commit();
+
+        <span class="kw">let </span>signature = (
+            pub_key.clone(),
+            TYPES::SignatureKey::sign(private_key, commit.as_ref())<span class="question-mark">?</span>,
+        );
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            signature,
+            data,
+            view_number: view,
+        })
+    }
+}
+
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+</span><span class="doccomment">/// A wrapper for vote data that carries a view number and an `upgrade_lock`, allowing switching the commitment calculation dynamically depending on the version
+</span><span class="kw">pub struct </span>VersionedVoteData&lt;TYPES: NodeType, DATA: Voteable, V: Versions&gt; {
+    <span class="doccomment">/// underlying vote data
+    </span>data: DATA,
+
+    <span class="doccomment">/// view number
+    </span>view: TYPES::Time,
+
+    <span class="doccomment">/// version applied to the view number
+    </span>version: Version,
+
+    <span class="doccomment">/// phantom data
+    </span>_pd: PhantomData&lt;V&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable, V: Versions&gt; VersionedVoteData&lt;TYPES, DATA, V&gt; {
+    <span class="doccomment">/// Create a new `VersionedVoteData` struct
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `upgrade_lock.version(view)` is unable to return a version we support
+    </span><span class="kw">pub async fn </span>new(
+        data: DATA,
+        view: TYPES::Time,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>version = upgrade_lock.version(view).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            data,
+            view,
+            version,
+            _pd: PhantomData,
+        })
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable, V: Versions&gt; Committable
+    <span class="kw">for </span>VersionedVoteData&lt;TYPES, DATA, V&gt;
+{
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span><span class="self">self</span>.version &lt; V::Marketplace::VERSION {
+            <span class="kw">let </span>bytes: [u8; <span class="number">32</span>] = <span class="self">self</span>.data.commit().into();
+
+            Commitment::&lt;<span class="self">Self</span>&gt;::from_raw(bytes)
+        } <span class="kw">else </span>{
+            committable::RawCommitmentBuilder::new(<span class="string">"Vote"</span>)
+                .var_size_bytes(<span class="self">self</span>.data.commit().as_ref())
+                .u64(<span class="kw-2">*</span><span class="self">self</span>.view)
+                .finalize()
         }
     }
 }

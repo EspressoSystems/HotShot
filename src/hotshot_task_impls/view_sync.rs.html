@@ -807,6 +807,47 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -830,7 +871,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    message::GeneralConsensusMessage,
+    message::{GeneralConsensusMessage, UpgradeLock},
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
@@ -840,7 +881,7 @@
     },
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber, Vote},
@@ -870,11 +911,13 @@
 }
 
 <span class="doccomment">/// Type alias for a map from View Number to Relay to Vote Task
-</span><span class="kw">type </span>RelayMap&lt;TYPES, VOTE, CERT&gt; =
-    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, BTreeMap&lt;u64, VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;&gt;;
+</span><span class="kw">type </span>RelayMap&lt;TYPES, VOTE, CERT, V&gt; = HashMap&lt;
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+    BTreeMap&lt;u64, VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;,
+&gt;;
 
 <span class="doccomment">/// Main view sync task state
-</span><span class="kw">pub struct </span>ViewSyncTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>ViewSyncTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// View HotShot is currently in
     </span><span class="kw">pub </span>current_view: TYPES::Time,
     <span class="doccomment">/// View HotShot wishes to be in
@@ -894,27 +937,34 @@
     </span><span class="kw">pub </span>num_timeouts_tracked: u64,
 
     <span class="doccomment">/// Map of running replica tasks
-    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::Time, ViewSyncReplicaTaskState&lt;TYPES, I&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::Time, ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;&gt;&gt;,
 
     <span class="doccomment">/// Map of pre-commit vote accumulates for the relay
-    </span><span class="kw">pub </span>pre_commit_relay_map:
-        RwLock&lt;RelayMap&lt;TYPES, ViewSyncPreCommitVote&lt;TYPES&gt;, ViewSyncPreCommitCertificate2&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>pre_commit_relay_map: RwLock&lt;
+        RelayMap&lt;TYPES, ViewSyncPreCommitVote&lt;TYPES&gt;, ViewSyncPreCommitCertificate2&lt;TYPES&gt;, V&gt;,
+    &gt;,
     <span class="doccomment">/// Map of commit vote accumulates for the relay
     </span><span class="kw">pub </span>commit_relay_map:
-        RwLock&lt;RelayMap&lt;TYPES, ViewSyncCommitVote&lt;TYPES&gt;, ViewSyncCommitCertificate2&lt;TYPES&gt;&gt;&gt;,
+        RwLock&lt;RelayMap&lt;TYPES, ViewSyncCommitVote&lt;TYPES&gt;, ViewSyncCommitCertificate2&lt;TYPES&gt;, V&gt;&gt;,
     <span class="doccomment">/// Map of finalize vote accumulates for the relay
-    </span><span class="kw">pub </span>finalize_relay_map:
-        RwLock&lt;RelayMap&lt;TYPES, ViewSyncFinalizeVote&lt;TYPES&gt;, ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>finalize_relay_map: RwLock&lt;
+        RelayMap&lt;TYPES, ViewSyncFinalizeVote&lt;TYPES&gt;, ViewSyncFinalizeCertificate2&lt;TYPES&gt;, V&gt;,
+    &gt;,
 
     <span class="doccomment">/// Timeout duration for view sync rounds
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
 
     <span class="doccomment">/// Last view we garbage collected old tasks
     </span><span class="kw">pub </span>last_garbage_collected_view: TYPES::Time,
+
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, I, V&gt;
+{
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(
@@ -931,12 +981,12 @@
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 
     <span class="kw">fn </span>get_task_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-        std::any::type_name::&lt;ViewSyncTaskState&lt;TYPES, I&gt;&gt;()
+        std::any::type_name::&lt;ViewSyncTaskState&lt;TYPES, I, V&gt;&gt;()
     }
 }
 
 <span class="doccomment">/// State of a view sync replica task
-</span><span class="kw">pub struct </span>ViewSyncReplicaTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>ViewSyncReplicaTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Timeout for view sync rounds
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
     <span class="doccomment">/// Current round HotShot is in
@@ -962,11 +1012,13 @@
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState
-    <span class="kw">for </span>ViewSyncReplicaTaskState&lt;TYPES, I&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;
 {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
@@ -984,11 +1036,11 @@
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 
     <span class="kw">fn </span>get_task_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-        std::any::type_name::&lt;ViewSyncReplicaTaskState&lt;TYPES, I&gt;&gt;()
+        std::any::type_name::&lt;ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;&gt;()
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ViewSyncTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ViewSyncTaskState&lt;TYPES, I, V&gt; {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">"View Sync Main Task"</span>, level = <span class="string">"error"</span>)]
     #[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Handles incoming events for the main view sync task
@@ -1024,7 +1076,7 @@
         }
 
         <span class="comment">// We do not have a replica task already running, so start one
-        </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I&gt; = ViewSyncReplicaTaskState {
+        </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I, V&gt; = ViewSyncReplicaTaskState {
             current_view: view,
             next_view: view,
             relay: <span class="number">0</span>,
@@ -1037,6 +1089,7 @@
             private_key: <span class="self">self</span>.private_key.clone(),
             view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
             id: <span class="self">self</span>.id,
+            upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
         };
 
         <span class="kw">let </span>result = replica_state
@@ -1116,7 +1169,9 @@
                     view: vote_view,
                     id: <span class="self">self</span>.id,
                 };
-                <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                <span class="kw">let </span>vote_collector =
+                    create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>.upgrade_lock.clone())
+                        .<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -1153,7 +1208,9 @@
                     view: vote_view,
                     id: <span class="self">self</span>.id,
                 };
-                <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                <span class="kw">let </span>vote_collector =
+                    create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>.upgrade_lock.clone())
+                        .<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -1190,7 +1247,9 @@
                     view: vote_view,
                     id: <span class="self">self</span>.id,
                 };
-                <span class="kw">let </span>vote_collector = create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
+                <span class="kw">let </span>vote_collector =
+                    create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>.upgrade_lock.clone())
+                        .<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
@@ -1281,7 +1340,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ViewSyncReplicaTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
+    ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;
+{
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.current_view), name = <span class="string">"View Sync Replica Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="doccomment">/// Handle incoming events for the view sync replica task
     </span><span class="kw">pub async fn </span>handle(
@@ -1301,7 +1362,10 @@
                 }
 
                 <span class="comment">// If certificate is not valid, return current state
-                </span><span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.membership.as_ref()) {
+                </span><span class="kw">if </span>!certificate
+                    .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .<span class="kw">await
+                </span>{
                     <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1325,7 +1389,10 @@
                     <span class="self">self</span>.next_view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                ) <span class="kw">else </span>{
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to sign ViewSyncCommitData!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
@@ -1377,7 +1444,10 @@
                 }
 
                 <span class="comment">// If certificate is not valid, return current state
-                </span><span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.membership.as_ref()) {
+                </span><span class="kw">if </span>!certificate
+                    .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .<span class="kw">await
+                </span>{
                     <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1401,7 +1471,10 @@
                     <span class="self">self</span>.next_view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                ) <span class="kw">else </span>{
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to sign view sync finalized vote!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
@@ -1463,7 +1536,10 @@
                 }
 
                 <span class="comment">// If certificate is not valid, return current state
-                </span><span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.membership.as_ref()) {
+                </span><span class="kw">if </span>!certificate
+                    .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .<span class="kw">await
+                </span>{
                     <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1506,7 +1582,10 @@
                     view_number,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                ) <span class="kw">else </span>{
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to sign pre commit vote!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
@@ -1561,7 +1640,10 @@
                                 <span class="self">self</span>.next_view,
                                 <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                            ) <span class="kw">else </span>{
+                                <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                            )
+                            .<span class="kw">await
+                            else </span>{
                                 <span class="macro">error!</span>(<span class="string">"Failed to sign ViewSyncPreCommitData!"</span>);
                                 <span class="kw">return </span><span class="prelude-val">None</span>;
                             };

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CombinedImpl","Libp2pImpl","MarketplaceUpgradeTestVersions","MemoryImpl","PushCdnImpl","TestConsecutiveLeaderTypes","TestTypes","TestVersions","WebImpl"],"type":["StaticMembership"]};
+window.SIDEBAR_ITEMS = {"struct":["CombinedImpl","Libp2pImpl","MarketplaceTestVersions","MarketplaceUpgradeTestVersions","MemoryImpl","PushCdnImpl","TestConsecutiveLeaderTypes","TestTypes","TestVersions","WebImpl"],"type":["StaticMembership"]};

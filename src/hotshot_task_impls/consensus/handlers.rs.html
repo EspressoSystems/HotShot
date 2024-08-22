@@ -892,6 +892,25 @@
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1077,6 +1096,7 @@
         quorum_membership,
         public_key.clone(),
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
+        <span class="kw-2">&amp;</span>upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1217,13 +1237,21 @@
         task_state.cur_view,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
         <span class="kw-2">&amp;</span>task_state.timeout_membership,
+        <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
-    .context(<span class="string">"Failed to validate proposal view and attached certs"</span>)<span class="question-mark">?</span>;
+    .<span class="kw">await
+    </span>.context(<span class="string">"Failed to validate proposal view and attached certs"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>view = proposal.data.view_number();
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
-    <span class="kw">if </span>!justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
+    <span class="kw">if </span>!justify_qc
+        .is_valid_cert(
+            task_state.quorum_membership.as_ref(),
+            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+        )
+        .<span class="kw">await
+    </span>{
         <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
         consensus.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view);
@@ -1264,6 +1292,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
             task_state.public_key.clone(),
+            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
         )
         .<span class="kw">await
         </span>.ok(),
@@ -1415,6 +1444,7 @@
                 sender,
                 task_state.output_event_stream.clone(),
                 task_state.id,
+                task_state.upgrade_lock.clone(),
             )
             .map(AnyhowTracing::err_as_debug),
         ));
@@ -1585,6 +1615,7 @@
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
     vote_info: VoteInfo&lt;TYPES, V&gt;,
     id: u64,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; bool {
     <span class="kw">use </span>hotshot_types::simple_vote::QuorumVote;
 
@@ -1648,6 +1679,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>quorum_membership),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
             public_key.clone(),
+            upgrade_lock,
         )
         .<span class="kw">await
         </span>.ok(),
@@ -1701,7 +1733,10 @@
     }
 
     <span class="comment">// Validate the DAC.
-    </span><span class="kw">let </span>message = <span class="kw">if </span>cert.is_valid_cert(vote_info.da_membership.as_ref()) {
+    </span><span class="kw">let </span>message = <span class="kw">if </span>cert
+        .is_valid_cert(vote_info.da_membership.as_ref(), upgrade_lock)
+        .<span class="kw">await
+    </span>{
         <span class="comment">// Validate the block payload commitment for non-genesis DAC.
         </span><span class="kw">if </span>cert.date().payload_commit != proposal.block_header.payload_commitment() {
             <span class="macro">warn!</span>(
@@ -1717,7 +1752,10 @@
             view,
             <span class="kw-2">&amp;</span>public_key,
             <span class="kw-2">&amp;</span>vote_info.private_key,
-        ) {
+            <span class="kw-2">&amp;</span>vote_info.upgrade_lock,
+        )
+        .<span class="kw">await
+        </span>{
             GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote)
         } <span class="kw">else </span>{
             <span class="macro">error!</span>(<span class="string">"Unable to sign quorum vote!"</span>);

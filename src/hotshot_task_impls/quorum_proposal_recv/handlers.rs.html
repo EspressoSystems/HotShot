@@ -271,6 +271,16 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -417,13 +427,21 @@
         task_state.cur_view,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
         <span class="kw-2">&amp;</span>task_state.timeout_membership,
+        <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
-    .context(<span class="string">"Failed to validate proposal view or attached certs"</span>)<span class="question-mark">?</span>;
+    .<span class="kw">await
+    </span>.context(<span class="string">"Failed to validate proposal view or attached certs"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
-    <span class="kw">if </span>!justify_qc.is_valid_cert(task_state.quorum_membership.as_ref()) {
+    <span class="kw">if </span>!justify_qc
+        .is_valid_cert(
+            task_state.quorum_membership.as_ref(),
+            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+        )
+        .<span class="kw">await
+    </span>{
         <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
         consensus.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
@@ -458,6 +476,7 @@
             // This is because the key that we receive is for the prior leader, so the payload would be routed
             // incorrectly.
             </span>task_state.public_key.clone(),
+            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
         )
         .<span class="kw">await
         </span>.ok(),
@@ -519,6 +538,7 @@
         quorum_proposal_sender_key,
         task_state.output_event_stream.clone(),
         task_state.id,
+        task_state.upgrade_lock.clone(),
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 

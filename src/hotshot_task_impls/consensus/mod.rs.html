@@ -780,6 +780,17 @@
 <a href="#778" id="778">778</a>
 <a href="#779" id="779">779</a>
 <a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -834,7 +845,8 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>handlers;
 
 <span class="doccomment">/// Alias for Optional type for Vote Collectors
-</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT&gt; = <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT&gt;&gt;;
+</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT, V&gt; =
+    <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;;
 
 <span class="doccomment">/// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
@@ -874,11 +886,11 @@
 
     <span class="doccomment">/// Current Vote collection task, with it's view.
     </span><span class="kw">pub </span>vote_collector:
-        RwLock&lt;VoteCollectorOption&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;&gt;,
+        RwLock&lt;VoteCollectorOption&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;, V&gt;&gt;,
 
     <span class="doccomment">/// Current timeout vote collection task with its view
     </span><span class="kw">pub </span>timeout_vote_collector:
-        RwLock&lt;VoteCollectorOption&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;&gt;,
+        RwLock&lt;VoteCollectorOption&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;, V&gt;&gt;,
 
     <span class="doccomment">/// timeout task handle
     </span><span class="kw">pub </span>timeout_task: JoinHandle&lt;()&gt;,
@@ -1030,6 +1042,7 @@
         <span class="kw">let </span>instance_state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
         <span class="kw">let </span>id = <span class="self">self</span>.id;
         <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>upgrade_lock = upgrade.clone();
             update_state_and_vote_if_able::&lt;TYPES, I, V&gt;(
                 view,
                 proposal,
@@ -1046,6 +1059,7 @@
                     event_receiver,
                 },
                 id,
+                <span class="kw-2">&amp;</span>upgrade_lock,
             )
             .<span class="kw">await</span>;
         });
@@ -1115,11 +1129,12 @@
                         view: vote.view_number(),
                         id: <span class="self">self</span>.id,
                     };
-                    <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
-                        TYPES,
-                        QuorumVote&lt;TYPES&gt;,
-                        QuorumCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_sender)
+                    <span class="kw-2">*</span>collector = create_vote_accumulator(
+                        <span class="kw-2">&amp;</span>info,
+                        event,
+                        <span class="kw-2">&amp;</span>event_sender,
+                        <span class="self">self</span>.upgrade_lock.clone(),
+                    )
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>result = collector
@@ -1154,11 +1169,12 @@
                         view: vote.view_number(),
                         id: <span class="self">self</span>.id,
                     };
-                    <span class="kw-2">*</span>collector = create_vote_accumulator::&lt;
-                        TYPES,
-                        TimeoutVote&lt;TYPES&gt;,
-                        TimeoutCertificate&lt;TYPES&gt;,
-                    &gt;(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_sender)
+                    <span class="kw-2">*</span>collector = create_vote_accumulator(
+                        <span class="kw-2">&amp;</span>info,
+                        event,
+                        <span class="kw-2">&amp;</span>event_sender,
+                        <span class="self">self</span>.upgrade_lock.clone(),
+                    )
                     .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>result = collector
@@ -1351,7 +1367,10 @@
                     view,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                ) <span class="kw">else </span>{
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                else </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to sign TimeoutData!"</span>);
                     <span class="kw">return</span>;
                 };
@@ -1449,7 +1468,10 @@
                 }
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
-                <span class="kw">if </span>!certificate.is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref()) {
+                <span class="kw">if </span>!certificate
+                    .is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .<span class="kw">await
+                </span>{
                     <span class="macro">error!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
                         certificate.date()

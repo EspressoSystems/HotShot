@@ -395,6 +395,40 @@
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -410,29 +444,29 @@
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::{BLSPubKey, SignatureKey, SystemContextHandle},
+    types::{SignatureKey, SystemContextHandle},
     HotShotInitializer, Memberships, SystemContext,
 };
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestTransaction,
-    node_types::{MemoryImpl, TestTypes, TestVersions},
+    node_types::TestTypes,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewNumber},
-    message::{GeneralConsensusMessage, Proposal},
+    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
+    message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote},
+    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{NodeType, Versions},
     },
     utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidSchemeType},
@@ -528,8 +562,9 @@
 <span class="doccomment">/// create certificate
 /// # Panics
 /// if we fail to sign the data
-</span><span class="kw">pub fn </span>build_cert&lt;
-    TYPES: NodeType&lt;SignatureKey = BLSPubKey&gt;,
+</span><span class="kw">pub async fn </span>build_cert&lt;
+    TYPES: NodeType,
+    V: Versions,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + <span class="lifetime">'static</span>,
     VOTE: Vote&lt;TYPES, Commitment = DATAType&gt;,
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
@@ -539,14 +574,34 @@
     view: TYPES::Time,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; CERT {
-    <span class="kw">let </span>real_qc_sig = build_assembled_sig::&lt;TYPES, VOTE, CERT, DATAType&gt;(<span class="kw-2">&amp;</span>data, membership, view);
+    <span class="kw">let </span>real_qc_sig = build_assembled_sig::&lt;TYPES, V, VOTE, CERT, DATAType&gt;(
+        <span class="kw-2">&amp;</span>data,
+        membership,
+        view,
+        upgrade_lock,
+    )
+    .<span class="kw">await</span>;
 
-    <span class="kw">let </span>vote =
-        SimpleVote::&lt;TYPES, DATAType&gt;::create_signed_vote(data, view, public_key, private_key)
-            .expect(<span class="string">"Failed to sign data!"</span>);
+    <span class="kw">let </span>vote = SimpleVote::&lt;TYPES, DATAType&gt;::create_signed_vote(
+        data,
+        view,
+        public_key,
+        private_key,
+        upgrade_lock,
+    )
+    .<span class="kw">await
+    </span>.expect(<span class="string">"Failed to sign data!"</span>);
+
+    <span class="kw">let </span>vote_commitment =
+        VersionedVoteData::new(vote.date().clone(), vote.view_number(), upgrade_lock)
+            .<span class="kw">await
+            </span>.expect(<span class="string">"Failed to create VersionedVoteData!"</span>)
+            .commit();
+
     <span class="kw">let </span>cert = CERT::create_signed_certificate(
-        vote.date_commitment(),
+        vote_commitment,
         vote.date().clone(),
         real_qc_sig,
         vote.view_number(),
@@ -571,8 +626,9 @@
 <span class="doccomment">/// create signature
 /// # Panics
 /// if fails to convert node id into keypair
-</span><span class="kw">pub fn </span>build_assembled_sig&lt;
-    TYPES: NodeType&lt;SignatureKey = BLSPubKey&gt;,
+</span><span class="kw">pub async fn </span>build_assembled_sig&lt;
+    TYPES: NodeType,
+    V: Versions,
     VOTE: Vote&lt;TYPES&gt;,
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + <span class="lifetime">'static</span>,
@@ -580,6 +636,7 @@
     data: <span class="kw-2">&amp;</span>DATAType,
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view: TYPES::Time,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType {
     <span class="kw">let </span>stake_table = membership.committee_qc_stake_table();
     <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
@@ -593,14 +650,16 @@
 
     <span class="comment">// assemble the vote
     </span><span class="kw">for </span>node_id <span class="kw">in </span><span class="number">0</span>..total_nodes {
-        <span class="kw">let </span>(private_key_i, public_key_i) = key_pair_for_id(node_id.try_into().unwrap());
+        <span class="kw">let </span>(private_key_i, public_key_i) = key_pair_for_id::&lt;TYPES&gt;(node_id.try_into().unwrap());
         <span class="kw">let </span>vote: SimpleVote&lt;TYPES, DATAType&gt; = SimpleVote::&lt;TYPES, DATAType&gt;::create_signed_vote(
             data.clone(),
             view,
             <span class="kw-2">&amp;</span>public_key_i,
             <span class="kw-2">&amp;</span>private_key_i,
+            upgrade_lock,
         )
-        .expect(<span class="string">"Failed to sign data!"</span>);
+        .<span class="kw">await
+        </span>.expect(<span class="string">"Failed to sign data!"</span>);
         <span class="kw">let </span>original_signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType =
             vote.signature();
         sig_lists.push(original_signature);
@@ -617,10 +676,14 @@
 
 <span class="doccomment">/// get the keypair for a node id
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub fn </span>key_pair_for_id(node_id: u64) -&gt; (&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey, BLSPubKey) {
-    <span class="kw">let </span>private_key =
-        &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
-    <span class="kw">let </span>public_key = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
+</span><span class="kw">pub fn </span>key_pair_for_id&lt;TYPES: NodeType&gt;(
+    node_id: u64,
+) -&gt; (
+    &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    TYPES::SignatureKey,
+) {
+    <span class="kw">let </span>private_key = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
+    <span class="kw">let </span>public_key = &lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
     (private_key, public_key)
 }
 
@@ -636,20 +699,20 @@
     vid_scheme(num_storage_nodes)
 }
 
-<span class="kw">pub fn </span>vid_payload_commitment(
-    quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
-    view_number: ViewNumber,
+<span class="kw">pub fn </span>vid_payload_commitment&lt;TYPES: NodeType&gt;(
+    quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
+    view_number: TYPES::Time,
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
-    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
+    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
     <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap();
 
     vid_disperse.commit
 }
 
-<span class="kw">pub fn </span>da_payload_commitment(
-    quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
+<span class="kw">pub fn </span>da_payload_commitment&lt;TYPES: NodeType&gt;(
+    quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
@@ -657,29 +720,29 @@
     vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes())
 }
 
-<span class="kw">pub fn </span>build_payload_commitment(
-    membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
-    view: ViewNumber,
+<span class="kw">pub fn </span>build_payload_commitment&lt;TYPES: NodeType&gt;(
+    membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
+    view: TYPES::Time,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
     <span class="comment">// Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(membership, view);
+    </span><span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view);
     <span class="kw">let </span>encoded_transactions = Vec::new();
     vid.commit_only(<span class="kw-2">&amp;</span>encoded_transactions).unwrap()
 }
 
 <span class="doccomment">/// TODO: &lt;https://github.com/EspressoSystems/HotShot/issues/2821&gt;
 </span><span class="attr">#[allow(clippy::type_complexity)]
-</span><span class="kw">pub fn </span>build_vid_proposal(
-    quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
-    view_number: ViewNumber,
+</span><span class="kw">pub fn </span>build_vid_proposal&lt;TYPES: NodeType&gt;(
+    quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
+    view_number: TYPES::Time,
     transactions: Vec&lt;TestTransaction&gt;,
-    private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; (
-    Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
-    Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt;,
+    Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
+    Vec&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TestTypes&gt;(quorum_membership, view_number);
+    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(quorum_membership, view_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     <span class="kw">let </span>vid_disperse = VidDisperse::from_membership(
@@ -689,7 +752,7 @@
     );
 
     <span class="kw">let </span>signature =
-        &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(private_key, vid_disperse.payload_commitment.as_ref())
+        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment.as_ref())
             .expect(<span class="string">"Failed to sign VID commitment"</span>);
     <span class="kw">let </span>vid_disperse_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -710,14 +773,15 @@
     )
 }
 
-<span class="kw">pub fn </span>build_da_certificate(
-    quorum_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
-    da_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
-    view_number: ViewNumber,
+<span class="kw">pub async fn </span>build_da_certificate&lt;TYPES: NodeType, V: Versions&gt;(
+    quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
+    da_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
+    view_number: TYPES::Time,
     transactions: Vec&lt;TestTransaction&gt;,
-    public_key: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    private_key: <span class="kw-2">&amp;</span>&lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-) -&gt; DaCertificate&lt;TestTypes&gt; {
+    public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+    private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+) -&gt; DaCertificate&lt;TYPES&gt; {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     <span class="kw">let </span>da_payload_commitment =
@@ -727,32 +791,36 @@
         payload_commit: da_payload_commitment,
     };
 
-    build_cert::&lt;TestTypes, DaData, DaVote&lt;TestTypes&gt;, DaCertificate&lt;TestTypes&gt;&gt;(
+    build_cert::&lt;TYPES, V, DaData, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;&gt;(
         da_data,
         da_membership,
         view_number,
         public_key,
         private_key,
+        upgrade_lock,
     )
-}
+    .<span class="kw">await
+</span>}
 
-<span class="kw">pub async fn </span>build_vote(
-    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
-    proposal: QuorumProposal&lt;TestTypes&gt;,
-) -&gt; GeneralConsensusMessage&lt;TestTypes&gt; {
-    <span class="kw">let </span>view = ViewNumber::new(<span class="kw-2">*</span>proposal.view_number);
+<span class="kw">pub async fn </span>build_vote&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
+    handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I, V&gt;,
+    proposal: QuorumProposal&lt;TYPES&gt;,
+) -&gt; GeneralConsensusMessage&lt;TYPES&gt; {
+    <span class="kw">let </span>view = proposal.view_number;
 
     <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
-    <span class="kw">let </span>vote = QuorumVote::&lt;TestTypes&gt;::create_signed_vote(
+    <span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
         QuorumData {
             leaf_commit: leaf.commit(),
         },
         view,
         <span class="kw-2">&amp;</span>handle.public_key(),
         handle.private_key(),
+        <span class="kw-2">&amp;</span>handle.hotshot.upgrade_lock,
     )
-    .expect(<span class="string">"Failed to create quorum vote"</span>);
-    GeneralConsensusMessage::&lt;TestTypes&gt;::Vote(vote)
+    .<span class="kw">await
+    </span>.expect(<span class="string">"Failed to create quorum vote"</span>);
+    GeneralConsensusMessage::&lt;TYPES&gt;::Vote(vote)
 }
 
 <span class="doccomment">/// This function permutes the provided input vector `inputs`, given some order provided within the

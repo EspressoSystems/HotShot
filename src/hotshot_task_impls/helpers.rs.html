@@ -744,6 +744,29 @@
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -756,6 +779,7 @@
     sync::Arc,
 };
 
+<span class="kw">use crate</span>::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
@@ -765,6 +789,8 @@
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
+<span class="kw">use </span>hotshot_types::message::UpgradeLock;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::Versions;
 <span class="kw">use </span>hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -784,17 +810,16 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
-<span class="kw">use crate</span>::{events::HotShotEvent, request::REQUEST_TIMEOUT};
-
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 </span><span class="attr">#[instrument(skip_all)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType, V: Versions&gt;(
     view_number: TYPES::Time,
     event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
     sender_key: TYPES::SignatureKey,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
     <span class="comment">// First, broadcast that we need a proposal to the current leader
     </span>broadcast_event(
@@ -845,7 +870,10 @@
     <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
-    <span class="kw">if </span>!justify_qc.is_valid_cert(quorum_membership.as_ref()) {
+    <span class="kw">if </span>!justify_qc
+        .is_valid_cert(quorum_membership.as_ref(), upgrade_lock)
+        .<span class="kw">await
+    </span>{
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
     }
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = consensus.write().<span class="kw">await</span>;
@@ -1064,13 +1092,14 @@
 
 <span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 </span><span class="attr">#[instrument(skip_all)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType, V: Versions&gt;(
     next_proposal_view_number: TYPES::Time,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
     consensus: OuterConsensus&lt;TYPES&gt;,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
     <span class="macro">ensure!</span>(
         quorum_membership.leader(next_proposal_view_number) == public_key,
@@ -1090,6 +1119,7 @@
             quorum_membership,
             consensus.clone(),
             public_key.clone(),
+            upgrade_lock,
         )
         .<span class="kw">await
         </span>.context(<span class="string">"Failed to fetch proposal"</span>)<span class="question-mark">?</span>;
@@ -1150,7 +1180,7 @@
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all, fields(id = id, view = <span class="kw-2">*</span>proposal.data.view_number()))]
-</span><span class="kw">pub async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>validate_proposal_safety_and_liveness&lt;TYPES: NodeType, V: Versions&gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
@@ -1160,6 +1190,7 @@
     sender: TYPES::SignatureKey,
     event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
     id: u64,
+    upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
 
@@ -1199,7 +1230,12 @@
     )
     .<span class="kw">await</span>;
 
-    UpgradeCertificate::validate(<span class="kw-2">&amp;</span>proposal.data.upgrade_certificate, <span class="kw-2">&amp;</span>quorum_membership)<span class="question-mark">?</span>;
+    UpgradeCertificate::validate(
+        <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
+        <span class="kw-2">&amp;</span>quorum_membership,
+        <span class="kw-2">&amp;</span>upgrade_lock,
+    )
+    .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Validate that the upgrade certificate is re-attached, if we saw one on the parent
     </span>proposed_leaf
@@ -1275,11 +1311,12 @@
 ///
 /// # Errors
 /// If any validation or view number check fails.
-</span><span class="kw">pub fn </span>validate_proposal_view_and_certs&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>validate_proposal_view_and_certs&lt;TYPES: NodeType, V: Versions&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     cur_view: TYPES::Time,
     quorum_membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
     timeout_membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view = proposal.data.view_number();
     <span class="macro">ensure!</span>(
@@ -1307,7 +1344,9 @@
                     <span class="kw-2">*</span>view
                 );
                 <span class="macro">ensure!</span>(
-                    timeout_cert.is_valid_cert(timeout_membership.as_ref()),
+                    timeout_cert
+                        .is_valid_cert(timeout_membership.as_ref(), upgrade_lock)
+                        .<span class="kw">await</span>,
                     <span class="string">"Timeout certificate for view {} was invalid"</span>,
                     <span class="kw-2">*</span>view
                 );
@@ -1322,7 +1361,9 @@
 
                 <span class="comment">// View sync certs must also be valid.
                 </span><span class="macro">ensure!</span>(
-                    view_sync_cert.is_valid_cert(quorum_membership.as_ref()),
+                    view_sync_cert
+                        .is_valid_cert(quorum_membership.as_ref(), upgrade_lock)
+                        .<span class="kw">await</span>,
                     <span class="string">"Invalid view sync finalize cert provided"
                 </span>);
             }
@@ -1331,7 +1372,12 @@
 
     <span class="comment">// Validate the upgrade certificate -- this is just a signature validation.
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
-    </span>UpgradeCertificate::validate(<span class="kw-2">&amp;</span>proposal.data.upgrade_certificate, quorum_membership)<span class="question-mark">?</span>;
+    </span>UpgradeCertificate::validate(
+        <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
+        quorum_membership,
+        upgrade_lock,
+    )
+    .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }

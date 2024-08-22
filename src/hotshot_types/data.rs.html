@@ -1405,13 +1405,13 @@
                 </span>.commit(),
         };
         <span class="kw">let </span>commit = data.commit();
-        <span class="self">Self </span>{
+        <span class="self">Self</span>::new(
             data,
-            vote_commitment: commit,
-            view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
-            signatures: <span class="prelude-val">None</span>,
-            _pd: PhantomData,
-        }
+            commit,
+            &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            <span class="prelude-val">None</span>,
+            PhantomData,
+        )
     }
 }
 
@@ -1447,13 +1447,13 @@
             leaf_commit: Commitment::&lt;Leaf&lt;TYPES&gt;&gt;::default_commitment_no_preimage(),
         };
 
-        <span class="kw">let </span>justify_qc = QuorumCertificate {
-            data: null_quorum_data.clone(),
-            vote_commitment: null_quorum_data.commit(),
-            view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
-            signatures: <span class="prelude-val">None</span>,
-            _pd: PhantomData,
-        };
+        <span class="kw">let </span>justify_qc = QuorumCertificate::new(
+            null_quorum_data.clone(),
+            null_quorum_data.commit(),
+            &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            <span class="prelude-val">None</span>,
+            PhantomData,
+        );
 
         <span class="self">Self </span>{
             view_number: TYPES::Time::genesis(),
