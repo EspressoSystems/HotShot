@@ -17,7 +17,7 @@ jobs:
 
           chosen=$(perl \
             -e 'use List::Util qw(shuffle head);' \
-            -e 'my @assignees = grep { "${{ github.event.actor }}" ne $_ } shuffle split /\s+/, $ENV{ASSIGNEES};' \
+            -e 'my @assignees = grep { "${{ github.event.sender }}" ne $_ } shuffle split /\s+/, $ENV{ASSIGNEES};' \
             -e 'print join ",", head $ENV{NUM_ASSIGNEES}, @assignees' \
           )
 
