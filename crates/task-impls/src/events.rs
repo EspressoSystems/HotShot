@@ -102,19 +102,19 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 3. The justify QC is valid
     /// 4. The proposal passes either liveness or safety check.
     QuorumProposalValidated(QuorumProposal<TYPES>, Leaf<TYPES>),
-    /// A quorum proposal is missing for a view that we need. Also includes the sender key.
+    /// A quorum proposal is missing for a view that we need.
     QuorumProposalRequestSend(
         ProposalRequestPayload<TYPES>,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
-    /// A quorum proposal was requested by a node for a view. Also includes the sender key.
+    /// A quorum proposal was requested by a node for a view.
     QuorumProposalRequestRecv(
         ProposalRequestPayload<TYPES>,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
     /// A quorum proposal was missing for a view. As the leader, we send a reply to the recipient with their key.
     QuorumProposalResponseSend(TYPES::SignatureKey, Proposal<TYPES, QuorumProposal<TYPES>>),
-    /// A quorum proposal was requested by a node for a view. Also includes the sender key.
+    /// A quorum proposal was requested by a node for a view.
     QuorumProposalResponseRecv(Proposal<TYPES, QuorumProposal<TYPES>>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
