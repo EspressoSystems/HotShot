@@ -6,27 +6,17 @@
 
 // TODO: Remove this after integration
 #![allow(unused_imports)]
-use std::{
-    collections::{HashMap, HashSet},
-    rc::Rc,
-    sync::Arc,
-    time::Duration,
-};
+use std::collections::HashMap;
 
-use hotshot::tasks::{DishonestDa, DishonestLeader, DishonestVoting};
 use hotshot_example_types::{
-    node_types::{
-        Libp2pImpl, MarketplaceTestVersions, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
-        TestVersions,
-    },
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
     state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
-    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     spinning_task::{ChangeNode, SpinningTaskDescription, UpDown},
-    test_builder::{Behaviour, TestDescription},
+    test_builder::TestDescription,
     view_sync_task::ViewSyncTaskDescription,
 };
 use hotshot_types::message::{GeneralConsensusMessage, MessageKind, SequencingMessage};

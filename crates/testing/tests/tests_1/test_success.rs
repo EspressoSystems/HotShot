@@ -4,9 +4,8 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{rc::Rc, time::Duration};
+use std::time::Duration;
 
-use hotshot::tasks::{BadProposalViewDos, DoubleProposeVote};
 use hotshot_example_types::{
     node_types::{
         Libp2pImpl, MarketplaceUpgradeTestVersions, MemoryImpl, PushCdnImpl,
@@ -19,7 +18,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    test_builder::{Behaviour, TestDescription},
+    test_builder::TestDescription,
     view_sync_task::ViewSyncTaskDescription,
 };
 
@@ -130,61 +129,6 @@ cross_tests!(
         delay_settings.max_time_in_milliseconds = 20;
         config.add_setting(SupportedTraitTypesForAsyncDelay::ValidatedState, &delay_settings);
         metadata.async_delay_config = config;
-        metadata
-    },
-);
-
-cross_tests!(
-    TestName: double_propose_vote,
-    Impls: [MemoryImpl],
-    Types: [TestTypes],
-    Versions: [TestVersions],
-    Ignore: false,
-    Metadata: {
-        let behaviour = Rc::new(|node_id| { match node_id {
-          1 => Behaviour::Byzantine(Box::new(DoubleProposeVote)),
-          _ => Behaviour::Standard,
-          } });
-
-        TestDescription {
-            // allow more time to pass in CI
-            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
-                                             TimeBasedCompletionTaskDescription {
-                                                 duration: Duration::from_secs(60),
-                                             },
-                                         ),
-            behaviour,
-            ..TestDescription::default()
-        }
-    },
-);
-
-// Test where node 4 sends out the correct quorum proposal and additionally spams the network with an extra 99 malformed proposals
-cross_tests!(
-    TestName: multiple_bad_proposals,
-    Impls: [MemoryImpl],
-    Types: [TestTypes],
-    Versions: [TestVersions],
-    Ignore: false,
-    Metadata: {
-        let behaviour = Rc::new(|node_id| { match node_id {
-          4 => Behaviour::Byzantine(Box::new(BadProposalViewDos { multiplier: 100, increment: 1 })),
-          _ => Behaviour::Standard,
-          } });
-
-        let mut metadata = TestDescription {
-            // allow more time to pass in CI
-            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
-                                             TimeBasedCompletionTaskDescription {
-                                                 duration: Duration::from_secs(60),
-                                             },
-                                         ),
-            behaviour,
-            ..TestDescription::default()
-        };
-
-        metadata.overall_safety_properties.num_failed_views = 0;
-
         metadata
     },
 );

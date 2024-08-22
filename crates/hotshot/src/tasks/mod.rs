@@ -8,12 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
-use anyhow::Context;
+use std::{sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -44,8 +39,7 @@ use hotshot_task_impls::{
 use hotshot_types::message::UpgradeLock;
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    data::QuorumProposal,
-    message::{Messages, Proposal},
+    message::Messages,
     request_response::RequestReceiver,
     simple_vote::QuorumVote,
     traits::{
