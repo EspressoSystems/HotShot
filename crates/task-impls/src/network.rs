@@ -115,8 +115,8 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             GeneralConsensusMessage::Proposal(proposal) => {
                                 HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
-                            GeneralConsensusMessage::ProposalRequested(view, sender) => {
-                                HotShotEvent::QuorumProposalRequestRecv(view, sender)
+                            GeneralConsensusMessage::ProposalRequested(req, sig) => {
+                                HotShotEvent::QuorumProposalRequestRecv(req, sig)
                             }
                             GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
                                 HotShotEvent::QuorumProposalResponseRecv(proposal)
