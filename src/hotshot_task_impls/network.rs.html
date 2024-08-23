@@ -579,9 +579,6 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -699,14 +696,11 @@
                             GeneralConsensusMessage::Proposal(proposal) =&gt; {
                                 HotShotEvent::QuorumProposalRecv(proposal, sender)
                             }
-                            GeneralConsensusMessage::ProposalRequested(view, sender) =&gt; {
-                                HotShotEvent::QuorumProposalRequestRecv(view, sender)
+                            GeneralConsensusMessage::ProposalRequested(req, sig) =&gt; {
+                                HotShotEvent::QuorumProposalRequestRecv(req, sig)
                             }
                             GeneralConsensusMessage::LeaderProposalAvailable(proposal) =&gt; {
-                                HotShotEvent::QuorumProposalResponseRecv(
-                                    proposal.data.view_number,
-                                    proposal,
-                                )
+                                HotShotEvent::QuorumProposalResponseRecv(proposal)
                             }
                             GeneralConsensusMessage::Vote(vote) =&gt; {
                                 HotShotEvent::QuorumVoteRecv(vote.clone())
@@ -897,14 +891,14 @@
                         TransmitType::Direct(membership.leader(vote.view_number() + <span class="number">1</span>)),
                     )
                 }
-                HotShotEvent::QuorumProposalRequestSend(view_number, sender_key) =&gt; (
-                    sender_key.clone(),
+                HotShotEvent::QuorumProposalRequestSend(req, signature) =&gt; (
+                    req.key.clone(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::ProposalRequested(view_number, sender_key),
+                        GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
                     )),
-                    TransmitType::Direct(membership.leader(view_number)),
+                    TransmitType::Direct(membership.leader(req.view_number)),
                 ),
-                HotShotEvent::QuorumProposalResponseSend(_view_number, sender_key, proposal) =&gt; (
+                HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) =&gt; (
                     sender_key.clone(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::LeaderProposalAvailable(proposal),

@@ -368,6 +368,9 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -494,6 +497,7 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.receiver,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
             <span class="self">self</span>.public_key.clone(),
+            <span class="self">self</span>.private_key.clone(),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
         )
@@ -632,7 +636,8 @@
             </span><span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
             <span class="kw">let </span>event_sender = <span class="self">self</span>.sender.clone();
             <span class="kw">let </span>event_receiver = <span class="self">self</span>.receiver.clone();
-            <span class="kw">let </span>sender_key = <span class="self">self</span>.public_key.clone();
+            <span class="kw">let </span>sender_public_key = <span class="self">self</span>.public_key.clone();
+            <span class="kw">let </span>sender_private_key = <span class="self">self</span>.private_key.clone();
             <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
             <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
             async_spawn(<span class="kw">async move </span>{
@@ -642,7 +647,8 @@
                     event_receiver,
                     membership,
                     consensus,
-                    sender_key,
+                    sender_public_key,
+                    sender_private_key,
                     <span class="kw-2">&amp;</span>upgrade_lock,
                 )
                 .<span class="kw">await

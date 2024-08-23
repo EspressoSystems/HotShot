@@ -767,6 +767,33 @@
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
 <a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -789,7 +816,6 @@
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
-<span class="kw">use </span>hotshot_types::message::UpgradeLock;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::Versions;
 <span class="kw">use </span>hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
@@ -801,67 +827,92 @@
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>hotshot_types::{message::UpgradeLock, request_response::ProposalRequestPayload};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 </span><span class="attr">#[instrument(skip_all)]
+#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType, V: Versions&gt;(
     view_number: TYPES::Time,
     event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
-    sender_key: TYPES::SignatureKey,
+    sender_public_key: TYPES::SignatureKey,
+    sender_private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+    <span class="comment">// We need to be able to sign this request before submitting it to the network. Compute the
+    // payload first.
+    </span><span class="kw">let </span>signed_proposal_request = ProposalRequestPayload {
+        view_number,
+        key: sender_public_key,
+    };
+
+    <span class="comment">// Finally, compute the signature for the payload.
+    </span><span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+        <span class="kw-2">&amp;</span>sender_private_key,
+        signed_proposal_request.commit().as_ref(),
+    )<span class="question-mark">?</span>;
+
     <span class="comment">// First, broadcast that we need a proposal to the current leader
     </span>broadcast_event(
-        HotShotEvent::QuorumProposalRequestSend(view_number, sender_key).into(),
+        HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
         <span class="kw-2">&amp;</span>event_sender,
     )
     .<span class="kw">await</span>;
 
+    <span class="kw">let </span>mem = Arc::clone(<span class="kw-2">&amp;</span>quorum_membership);
     <span class="comment">// Make a background task to await the arrival of the event data.
     </span><span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposal)) =
         <span class="comment">// We want to explicitly timeout here so we aren't waiting around for the data.
         </span>async_timeout(REQUEST_TIMEOUT, <span class="kw">async move </span>{
-            <span class="comment">// First, capture the output from the event dependency
-            </span><span class="kw">let </span>event = EventDependency::new(
-                event_receiver.clone(),
-                Box::new(<span class="kw">move </span>|event| {
-                    <span class="kw">let </span>event = event.as_ref();
-                    <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(
-                        qpr_view_number,
-                        _quorum_proposal,
-                    ) = event
-                    {
-                        <span class="kw-2">*</span>qpr_view_number == view_number
-                    } <span class="kw">else </span>{
-                        <span class="bool-val">false
-                    </span>}
-                }),
-            )
-            .completed()
-            .<span class="kw">await</span>;
+            <span class="comment">// We want to iterate until the proposal is not None, or until we reach the timeout.
+            </span><span class="kw">let </span><span class="kw-2">mut </span>proposal = <span class="prelude-val">None</span>;
+            <span class="kw">while </span>proposal.is_none() {
+                <span class="comment">// First, capture the output from the event dependency
+                </span><span class="kw">let </span>event = EventDependency::new(
+                    event_receiver.clone(),
+                    Box::new(<span class="kw">move </span>|event| {
+                        <span class="kw">let </span>event = event.as_ref();
+                        <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(
+                            quorum_proposal,
+                        ) = event
+                        {
+                            quorum_proposal.data.view_number() == view_number
+                        } <span class="kw">else </span>{
+                            <span class="bool-val">false
+                        </span>}
+                    }),
+                )
+                    .completed()
+                    .<span class="kw">await</span>;
 
-            <span class="comment">// Then, if it's `Some`, make sure that the data is correct
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(hs_event) = event.as_ref() {
-                <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(_view_number, quorum_proposal) =
-                    hs_event.as_ref()
-                {
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(quorum_proposal.clone());
+                <span class="comment">// Then, if it's `Some`, make sure that the data is correct
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(hs_event) = event.as_ref() {
+                    <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
+                        hs_event.as_ref()
+                    {
+                        <span class="comment">// Make sure that the quorum_proposal is valid
+                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem).is_ok() {
+                            proposal = <span class="prelude-val">Some</span>(quorum_proposal.clone());
+                        }
+
+                    }
                 }
             }
 
-            <span class="prelude-val">None
-        </span>})
+            proposal
+        })
         .<span class="kw">await
     else </span>{
         <span class="macro">bail!</span>(<span class="string">"Request for proposal failed"</span>);
@@ -1092,12 +1143,14 @@
 
 <span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
 </span><span class="attr">#[instrument(skip_all)]
+#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType, V: Versions&gt;(
     next_proposal_view_number: TYPES::Time,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
+    private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     consensus: OuterConsensus&lt;TYPES&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
@@ -1119,6 +1172,7 @@
             quorum_membership,
             consensus.clone(),
             public_key.clone(),
+            private_key.clone(),
             upgrade_lock,
         )
         .<span class="kw">await

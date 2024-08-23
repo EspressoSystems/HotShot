@@ -474,6 +474,10 @@
 <a href="#472" id="472">472</a>
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -498,6 +502,7 @@
     BinarySerializer, Serializer,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::request_response::ProposalRequestPayload;
 <span class="kw">use crate</span>::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     simple_certificate::{
@@ -639,7 +644,10 @@
     </span>Proposal(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// A peer node needs a proposal from the leader.
-    </span>ProposalRequested(TYPES::Time, TYPES::SignatureKey),
+    </span>ProposalRequested(
+        ProposalRequestPayload&lt;TYPES&gt;,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ),
 
     <span class="doccomment">/// The leader has responded with a valid proposal.
     </span>LeaderProposalAvailable(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
@@ -717,7 +725,7 @@
                         // this should match replica upon receipt
                         </span>p.data.view_number()
                     }
-                    GeneralConsensusMessage::ProposalRequested(view_number, <span class="kw">_</span>) =&gt; <span class="kw-2">*</span>view_number,
+                    GeneralConsensusMessage::ProposalRequested(req, <span class="kw">_</span>) =&gt; req.view_number,
                     GeneralConsensusMessage::LeaderProposalAvailable(proposal) =&gt; {
                         proposal.data.view_number()
                     }

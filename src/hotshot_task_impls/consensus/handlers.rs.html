@@ -911,6 +911,10 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1095,6 +1099,7 @@
         <span class="kw-2">&amp;</span>receiver,
         quorum_membership,
         public_key.clone(),
+        private_key.clone(),
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
         <span class="kw-2">&amp;</span>upgrade_lock,
     )
@@ -1292,6 +1297,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
             task_state.public_key.clone(),
+            task_state.private_key.clone(),
             <span class="kw-2">&amp;</span>task_state.upgrade_lock,
         )
         .<span class="kw">await
@@ -1609,6 +1615,7 @@
     cur_view: TYPES::Time,
     proposal: QuorumProposal&lt;TYPES&gt;,
     public_key: TYPES::SignatureKey,
+    private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     consensus: OuterConsensus&lt;TYPES&gt;,
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1679,6 +1686,7 @@
             Arc::clone(<span class="kw-2">&amp;</span>quorum_membership),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
             public_key.clone(),
+            private_key.clone(),
             upgrade_lock,
         )
         .<span class="kw">await

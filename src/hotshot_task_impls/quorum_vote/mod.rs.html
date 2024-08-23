@@ -688,6 +688,7 @@
 <a href="#686" id="686">686</a>
 <a href="#687" id="687">687</a>
 <a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -806,6 +807,7 @@
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                 <span class="self">self</span>.public_key.clone(),
+                <span class="self">self</span>.private_key.clone(),
                 <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
             )
             .<span class="kw">await

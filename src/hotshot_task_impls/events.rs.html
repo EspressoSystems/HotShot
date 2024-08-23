@@ -478,6 +478,17 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -486,15 +497,18 @@
 
 </span><span class="kw">use </span>std::fmt::Display;
 
+<span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::task::TaskEvent;
+<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal, Leaf, PackedBundle, QuorumProposal, UpgradeProposal, VidDisperse,
         VidDisperseShare,
     },
     message::Proposal,
+    request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -509,8 +523,6 @@
     vote::HasViewNumber,
 };
 <span class="kw">use </span>vec1::Vec1;
-
-<span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskEvent <span class="kw">for </span>HotShotEvent&lt;TYPES&gt; {
     <span class="kw">fn </span>shutdown_event() -&gt; <span class="self">Self </span>{
@@ -581,18 +593,20 @@
     /// 3. The justify QC is valid
     /// 4. The proposal passes either liveness or safety check.
     </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;, Leaf&lt;TYPES&gt;),
-    <span class="doccomment">/// A quorum proposal is missing for a view that we need. Also includes the sender key.
-    </span>QuorumProposalRequestSend(TYPES::Time, TYPES::SignatureKey),
-    <span class="doccomment">/// A quorum proposal was requested by a node for a view. Also includes the sender key.
-    </span>QuorumProposalRequestRecv(TYPES::Time, TYPES::SignatureKey),
-    <span class="doccomment">/// A quorum proposal was missing for a view. As the leader, we send a reply to the recipient with their key.
-    </span>QuorumProposalResponseSend(
-        TYPES::Time,
-        TYPES::SignatureKey,
-        Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+    <span class="doccomment">/// A quorum proposal is missing for a view that we need.
+    </span>QuorumProposalRequestSend(
+        ProposalRequestPayload&lt;TYPES&gt;,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ),
-    <span class="doccomment">/// A quorum proposal was requested by a node for a view. Also includes the sender key.
-    </span>QuorumProposalResponseRecv(TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// A quorum proposal was requested by a node for a view.
+    </span>QuorumProposalRequestRecv(
+        ProposalRequestPayload&lt;TYPES&gt;,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ),
+    <span class="doccomment">/// A quorum proposal was missing for a view. As the leader, we send a reply to the recipient with their key.
+    </span>QuorumProposalResponseSend(TYPES::SignatureKey, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// A quorum proposal was requested by a node for a view.
+    </span>QuorumProposalResponseRecv(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     </span>DaProposalSend(Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -922,11 +936,19 @@
             HotShotEvent::QuorumProposalRequestRecv(view_number, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"QuorumProposalRequestRecv(view_number={view_number:?})"</span>)
             }
-            HotShotEvent::QuorumProposalResponseSend(view_number, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"QuorumProposalResponseSend(view_number={view_number:?})"</span>)
+            HotShotEvent::QuorumProposalResponseSend(<span class="kw">_</span>, proposal) =&gt; {
+                <span class="macro">write!</span>(
+                    f,
+                    <span class="string">"QuorumProposalResponseSend(view_number={:?})"</span>,
+                    proposal.data.view_number
+                )
             }
-            HotShotEvent::QuorumProposalResponseRecv(view_number, <span class="kw">_</span>) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"QuorumProposalResponseRecv(view_number={view_number:?})"</span>)
+            HotShotEvent::QuorumProposalResponseRecv(proposal) =&gt; {
+                <span class="macro">write!</span>(
+                    f,
+                    <span class="string">"QuorumProposalResponseRecv(view_number={:?})"</span>,
+                    proposal.data.view_number
+                )
             }
             HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"ValidatedStateUpdated(view_number={view_number:?})"</span>)
