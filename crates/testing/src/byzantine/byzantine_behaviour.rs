@@ -183,27 +183,111 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct HotShotEventInfo<TYPES: NodeType> {
+    pub event_name: String,
+    pub view_number: u64,
+    pub cached_event: HotShotEvent<TYPES>,
+}
+
 #[derive(Debug)]
 pub struct ViewDelay<TYPES: NodeType> {
     pub number_of_views_to_delay: u64,
-    pub rcv_events_to_last_seen_view: HashMap<String, (u64, HotShotEvent<TYPES>)>,
+    pub rcv_events_to_last_seen_view: HashMap<String, HotShotEventInfo<TYPES>>,
+    pub vote_rcv_count: HashMap<String, u64>,
+    pub num_nodes_with_stake: u64,
     pub node_id: u64,
 }
 
 impl<TYPES: NodeType> ViewDelay<TYPES> {
-    fn extract_view_number(&self, event_name: &str) -> Option<(String, u64)> {
-        // let full_name = &event.to_string();
-        let (sanitized_name, view_num) = event_name.split_once('(').unwrap_or((event_name, ""));
-        if view_num.starts_with("view_number=ViewNumber(") {
-            if let Some(start) = view_num.find('(') {
-                if let Some(end) = view_num.find(')') {
-                    let number_str = &view_num[start + 1..end];
-                    let view_num = number_str.parse().unwrap();
-                    return Some((sanitized_name.to_string(), view_num));
+    fn extract_view_number(&self, event: HotShotEvent<TYPES>) -> Option<HotShotEventInfo<TYPES>> {
+        let event_name = &event.to_string();
+        let (hotshot_event_name, view_number) =
+            event_name.split_once('(').unwrap_or((event_name, ""));
+        if view_number.starts_with("view_number=ViewNumber(") {
+            if let Some(start) = view_number.find('(') {
+                if let Some(end) = view_number.find(')') {
+                    let view_number_str = &view_number[start + 1..end];
+
+                    if let Ok(view_num) = view_number_str.parse::<u64>() {
+                        return Some(HotShotEventInfo {
+                            event_name: hotshot_event_name.to_string(),
+                            view_number: view_num,
+                            cached_event: event.clone(),
+                        });
+                    }
                 }
             }
         }
         None
+    }
+
+    fn compare_views(current_view: u64, cached_view: u64, number_of_views_to_delay: u64) -> bool {
+        if current_view <= cached_view {
+            return false;
+        }
+
+        if current_view - cached_view > number_of_views_to_delay {
+            return true;
+        }
+
+        false
+    }
+
+    async fn handle_event(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES> {
+        if let Some(event_info) = self.extract_view_number(event.clone()) {
+            match self
+                .rcv_events_to_last_seen_view
+                .entry(event_info.event_name.clone())
+            {
+                Entry::Occupied(mut event_info_entry) => {
+                    let cached_event_info = event_info_entry.get_mut();
+                    let cached_event = cached_event_info.cached_event.clone();
+
+                    match event {
+                        // we cant update the view number until all votes have been recieved
+                        HotShotEvent::QuorumVoteRecv(_) | HotShotEvent::DaVoteRecv(_) => {
+                            tracing::error!(
+                                "event: {}, {} - {}",
+                                cached_event_info.event_name.clone(),
+                                event_info.view_number,
+                                cached_event_info.view_number
+                            );
+                            if Self::compare_views(
+                                event_info.view_number,
+                                cached_event_info.clone().view_number,
+                                self.number_of_views_to_delay,
+                            ) {
+                                let count = self
+                                    .vote_rcv_count
+                                    .entry(event_info.event_name.clone())
+                                    .or_insert(0);
+                                if *count == self.num_nodes_with_stake - 2 {
+                                    *cached_event_info = event_info;
+                                    *count = 0;
+                                } else {
+                                    *count += 1;
+                                }
+                            }
+                        }
+                        _ => {
+                            if Self::compare_views(
+                                event_info.view_number,
+                                cached_event_info.clone().view_number,
+                                self.number_of_views_to_delay,
+                            ) {
+                                *cached_event_info = event_info;
+                            }
+                        }
+                    }
+                    return cached_event;
+                }
+                Entry::Vacant(vacant) => {
+                    vacant.insert(event_info);
+                }
+            }
+        }
+        event.clone()
     }
 }
 
@@ -212,39 +296,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     EventTransformerState<TYPES, I, V> for ViewDelay<TYPES>
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        match self.extract_view_number(&event.to_string()) {
-            Some(parsed_event) => {
-                match self
-                    .rcv_events_to_last_seen_view
-                    .entry(parsed_event.0.to_string())
-                {
-                    Entry::Occupied(mut entry) => {
-                        // tracing::error!("occupied: {:?} {:?}", entry.key(), entry.get());
-                        let value = entry.get_mut();
-                        let old = value.clone();
-                        tracing::error!(
-                            "event: {}, {} - {}",
-                            parsed_event.0,
-                            parsed_event.1,
-                            value.0
-                        );
-                        if parsed_event.1 - value.0 > self.number_of_views_to_delay {
-                            *value = (parsed_event.1, event.clone());
-                        }
-                        // tracing::error!("event: {:?} should be view {:?} but sending view {:?}", parsed_event.0, parsed_event.1, old.0);
-                        return vec![old.1.clone()];
-                    }
-                    Entry::Vacant(vacant) => {
-                        tracing::error!("vacant: {:?}", vacant.key());
-                        vacant.insert((parsed_event.1, event.clone()));
-                    }
-                }
-            }
-            None => {
-                tracing::error!("None");
-            }
-        }
-        vec![event.clone()]
+        vec![self.handle_event(event).await]
     }
 
     async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {

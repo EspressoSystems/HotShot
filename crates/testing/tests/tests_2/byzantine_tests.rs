@@ -81,7 +81,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let behaviour = Rc::new(|node_id| {
-                let dishonest_leader = DishonestLeader::<TestTypes> {
+                let dishonest_leader = DishonestLeader {
                     dishonest_at_proposal_numbers: HashSet::from([2, 3]),
                     validated_proposals: Vec::new(),
                     total_proposals_from_node: 0,
@@ -156,14 +156,17 @@ cross_tests!(
     Versions: [MarketplaceTestVersions],
     Ignore: false,
     Metadata: {
+        let num_nodes_with_stake = 10;
         let behaviour = Rc::new(|node_id| {
-                let view_delay = ViewDelay::<TestTypes> {
+                let view_delay = ViewDelay {
                     number_of_views_to_delay: 2,
                     rcv_events_to_last_seen_view: HashMap::new(),
+                    vote_rcv_count: HashMap::new(),
+                    num_nodes_with_stake: 10,
                     node_id: 2,
                 };
                 match node_id {
-                    2 => Behaviour::Byzantine(Box::new(view_delay)),
+                    8 => Behaviour::Byzantine(Box::new(view_delay)),
                     _ => Behaviour::Standard,
                 }
             });
@@ -179,8 +182,18 @@ cross_tests!(
             ..TestDescription::default()
         };
 
-        metadata.num_nodes_with_stake = 10;
-        metadata.overall_safety_properties.num_failed_views = 4;
+        metadata.num_nodes_with_stake = num_nodes_with_stake;
+        metadata.da_staked_committee_size = num_nodes_with_stake;
+        metadata.overall_safety_properties.num_failed_views = 6;
+        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
+            (ViewNumber::new(8), false),
+            (ViewNumber::new(18), false),
+            (ViewNumber::new(28), false),
+            (ViewNumber::new(38), false),
+            (ViewNumber::new(48), false),
+            (ViewNumber::new(58), false),
+        ]);
+        metadata.overall_safety_properties.num_successful_views = 40;
         metadata
     },
 );
