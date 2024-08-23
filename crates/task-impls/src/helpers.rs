@@ -80,39 +80,42 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
         async_timeout(REQUEST_TIMEOUT, async move {
-            // First, capture the output from the event dependency
-            let event = EventDependency::new(
-                event_receiver.clone(),
-                Box::new(move |event| {
-                    let event = event.as_ref();
-                    if let HotShotEvent::QuorumProposalResponseRecv(
-                        quorum_proposal,
-                    ) = event
+            // We want to iterate until the proposal is not None, or until we reach the timeout.
+            let mut proposal = None;
+            while proposal.is_none() {
+                // First, capture the output from the event dependency
+                let event = EventDependency::new(
+                    event_receiver.clone(),
+                    Box::new(move |event| {
+                        let event = event.as_ref();
+                        if let HotShotEvent::QuorumProposalResponseRecv(
+                            quorum_proposal,
+                        ) = event
+                        {
+                            quorum_proposal.data.view_number() == view_number
+                        } else {
+                            false
+                        }
+                    }),
+                )
+                    .completed()
+                    .await;
+
+                // Then, if it's `Some`, make sure that the data is correct
+                if let Some(hs_event) = event.as_ref() {
+                    if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
+                        hs_event.as_ref()
                     {
-                        quorum_proposal.data.view_number() == view_number
-                    } else {
-                        false
-                    }
-                }),
-            )
-            .completed()
-            .await;
+                        // Make sure that the quorum_proposal is valid
+                        if quorum_proposal.validate_signature(&mem).is_ok() {
+                            proposal = Some(quorum_proposal.clone());
+                        }
 
-            // Then, if it's `Some`, make sure that the data is correct
-            if let Some(hs_event) = event.as_ref() {
-                if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
-                    hs_event.as_ref()
-                {
-                    // Make sure that the quorum_proposal is valid
-                    if quorum_proposal.validate_signature(&mem).is_err() {
-                        return None
                     }
-
-                    return Some(quorum_proposal.clone());
                 }
             }
 
-            None
+            proposal
         })
         .await
     else {
