@@ -159,7 +159,9 @@ pub fn add_network_message_task<
                   tracing::error!("Handling message!");
 
                   network_state.handle_messages(msgs.0).await;
-            }}
+            }
+            complete => panic!("Shutting down network task"),
+            }
         }
     });
 
