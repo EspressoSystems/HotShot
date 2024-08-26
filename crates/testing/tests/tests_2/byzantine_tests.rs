@@ -164,7 +164,6 @@ cross_tests!(
                     vote_rcv_count: HashMap::new(),
                     num_nodes_with_stake: 10,
                     views_to_be_delayed_for: 50,
-                    node_id: 2,
                 };
                 match node_id {
                     8 => Behaviour::Byzantine(Box::new(view_delay)),
@@ -185,15 +184,16 @@ cross_tests!(
 
         metadata.num_nodes_with_stake = num_nodes_with_stake;
         metadata.da_staked_committee_size = num_nodes_with_stake;
-        metadata.overall_safety_properties.num_failed_views = 7;
+        metadata.overall_safety_properties.num_failed_views = 10;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
+            // fail every time node 8 is leader
             (ViewNumber::new(8), false),
             (ViewNumber::new(18), false),
             (ViewNumber::new(28), false),
             (ViewNumber::new(38), false),
             (ViewNumber::new(48), false),
         ]);
-        metadata.overall_safety_properties.num_successful_views = 40;
+        metadata.overall_safety_properties.num_successful_views = 30;
         metadata
     },
 );

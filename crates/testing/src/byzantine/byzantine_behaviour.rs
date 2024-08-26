@@ -207,8 +207,6 @@ pub struct ViewDelay<TYPES: NodeType> {
     pub num_nodes_with_stake: u64,
     /// Specify which view number to stop delaying
     pub views_to_be_delayed_for: u64,
-    /// Node id
-    pub node_id: u64,
 }
 
 impl<TYPES: NodeType> ViewDelay<TYPES> {
