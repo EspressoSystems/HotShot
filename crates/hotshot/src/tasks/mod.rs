@@ -8,9 +8,12 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use hotshot_task::task::{NetworkHandle, Task};
-use std::{collections::HashSet, sync::Arc, time::Duration};
-
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+};
+use anyhow::Context;
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -19,6 +22,7 @@ use futures::{
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
+use hotshot_task::task::{NetworkHandle, Task};
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
@@ -34,23 +38,20 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::message::UpgradeLock;
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     data::QuorumProposal,
     message::{Messages, Proposal},
     request_response::RequestReceiver,
+    simple_vote::QuorumVote,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use std::{collections::HashSet, sync::Arc, time::Duration};
 use vbs::version::StaticVersionType;
-
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -283,7 +284,13 @@ where
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
 
     /// modify outgoing messages from the network
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        public_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>>;
 
     #[allow(clippy::too_many_arguments)]
     /// Creates a `SystemContextHandle` with the given even transformer
@@ -377,6 +384,9 @@ where
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+        let public_key = handle.public_key();
+        let private_key = handle.private_key().clone();
+        let upgrade_lock = handle.hotshot.upgrade_lock.clone();
         let send_handle = async_spawn(async move {
             let recv_stream = stream::unfold(original_receiver, |mut recv| async move {
                 match recv.recv().await {
@@ -401,7 +411,13 @@ where
                         match event {
                             Some(Ok(msg)) => {
                                 let mut state = state_out.write().await;
-                                let mut results = state.send_handler(&msg).await;
+                                tracing::error!("lrzasik: about to change sent event: {msg:?}");
+                                let mut results = state.send_handler(
+                                    &msg,
+                                    &public_key,
+                                    &private_key,
+                                    &upgrade_lock,
+                                ).await;
                                 results.reverse();
                                 while let Some(event) = results.pop() {
                                     let _ = sender_to_network.broadcast(event.into()).await;
@@ -498,7 +514,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, signature) => {
                 let mut result = Vec::new();
@@ -533,7 +555,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(_, _) | HotShotEvent::QuorumVoteSend(_) => {
                 vec![event.clone(), event.clone()]
@@ -604,7 +632,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 self.total_proposals_from_node += 1;
@@ -638,7 +672,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         if let HotShotEvent::DacSend(cert, sender) = event {
             self.total_da_certs_sent_from_node += 1;
             if self
@@ -653,6 +693,47 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
                 }
                 return result;
             }
+        }
+        vec![event.clone()]
+    }
+}
+
+#[derive(Debug)]
+/// An `EventHandlerState` that modifies view number on the vote of `QuorumVoteSend` event to that of a future view and correctly signs the vote
+pub struct DishonestVoting {
+    /// Number added to the original vote's view number
+    pub view_increment: u64,
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
+    EventTransformerState<TYPES, I, V> for DishonestVoting
+{
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        vec![event.clone()]
+    }
+
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        public_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
+        if let HotShotEvent::QuorumVoteSend(vote) = event {
+            let new_view = vote.view_number + self.view_increment;
+            let spoofed_vote = QuorumVote::<TYPES>::create_signed_vote(
+                vote.data.clone(),
+                new_view,
+                public_key,
+                private_key,
+                upgrade_lock,
+            )
+            .await
+            .context("Failed to sign vote")
+            .unwrap();
+            tracing::debug!("Sending Quorum Vote for view: {new_view:?}");
+            return vec![HotShotEvent::QuorumVoteSend(spoofed_vote)];
         }
         vec![event.clone()]
     }
