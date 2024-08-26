@@ -219,6 +219,7 @@ impl<TYPES: NodeType> ViewDelay<TYPES> {
                 if let Some(end) = view_number.find(')') {
                     let view_number_str = &view_number[start + 1..end];
 
+                    // make sure we can parse the number, if not it will return None
                     if let Ok(view_num) = view_number_str.parse::<u64>() {
                         return Some(HotShotEventInfo {
                             event_name: hotshot_event_name.to_string(),
@@ -245,7 +246,7 @@ impl<TYPES: NodeType> ViewDelay<TYPES> {
     }
 
     async fn handle_event(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES> {
-        if let Some(event_info) = self.extract_hotshot_event_info(&event) {
+        if let Some(event_info) = self.extract_hotshot_event_info(event) {
             // Are we done with the view delay
             if event_info.view_number > self.stop_view_delay_at_view_number {
                 return event.clone();
