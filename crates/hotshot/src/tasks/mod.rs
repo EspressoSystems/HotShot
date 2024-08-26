@@ -34,6 +34,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use tracing::debug;
 use vbs::version::StaticVersionType;
 
 use crate::{tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi};
@@ -118,6 +119,7 @@ pub async fn add_network_message_task<
                         deserialized_messages.push(deserialized_message);
                     }
 
+                    debug!("received messages: {:?}", deserialized_messages);
                     Messages(deserialized_messages)
                 }
                 Err(err) => {
