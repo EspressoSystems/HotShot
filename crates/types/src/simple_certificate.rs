@@ -76,7 +76,7 @@ pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable, THRESHOLD: Thr
     /// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
     pub data: VOTEABLE,
     /// commitment of all the votes this cert should be signed over
-    vote_commitment: Commitment<VOTEABLE>,
+    pub vote_commitment: Commitment<VOTEABLE>,
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// assembled signature for certificate aggregation
