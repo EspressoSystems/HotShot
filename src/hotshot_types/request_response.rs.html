@@ -64,6 +64,7 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -79,8 +80,9 @@
 <span class="kw">use </span>libp2p::request_response::ResponseChannel;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::SignatureKey;
-<span class="kw">use </span><span class="kw">crate</span>::traits::{network::NetworkMsg, node_implementation::NodeType};
+<span class="kw">use </span><span class="kw">crate</span>::traits::{
+    network::NetworkMsg, node_implementation::NodeType, signature_key::SignatureKey,
+};
 
 <span class="doccomment">/// Request for Consenus data
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

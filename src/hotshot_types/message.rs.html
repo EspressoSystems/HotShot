@@ -502,9 +502,9 @@
     BinarySerializer, Serializer,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::request_response::ProposalRequestPayload;
 <span class="kw">use crate</span>::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -643,15 +643,6 @@
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 
-    <span class="doccomment">/// A peer node needs a proposal from the leader.
-    </span>ProposalRequested(
-        ProposalRequestPayload&lt;TYPES&gt;,
-        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-    ),
-
-    <span class="doccomment">/// The leader has responded with a valid proposal.
-    </span>LeaderProposalAvailable(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
-
     <span class="doccomment">/// Message with a quorum vote.
     </span>Vote(QuorumVote&lt;TYPES&gt;),
 
@@ -681,6 +672,15 @@
 
     <span class="doccomment">/// Message with an upgrade vote
     </span>UpgradeVote(UpgradeVote&lt;TYPES&gt;),
+
+    <span class="doccomment">/// A peer node needs a proposal from the leader.
+    </span>ProposalRequested(
+        ProposalRequestPayload&lt;TYPES&gt;,
+        &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ),
+
+    <span class="doccomment">/// The leader has responded with a valid proposal.
+    </span>LeaderProposalAvailable(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 }
 
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]

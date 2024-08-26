@@ -806,7 +806,6 @@
     sync::Arc,
 };
 
-<span class="kw">use crate</span>::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
@@ -816,27 +815,28 @@
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
-<span class="kw">use </span>hotshot_types::traits::node_implementation::Versions;
 <span class="kw">use </span>hotshot_types::{
     consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
+    request_response::ProposalRequestPayload,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>hotshot_types::{message::UpgradeLock, request_response::ProposalRequestPayload};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+
+<span class="kw">use crate</span>::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 </span><span class="attr">#[instrument(skip_all)]

@@ -489,6 +489,9 @@
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -497,11 +500,9 @@
 
 </span><span class="kw">use </span>std::fmt::Display;
 
-<span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::task::TaskEvent;
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal, Leaf, PackedBundle, QuorumProposal, UpgradeProposal, VidDisperse,
@@ -517,12 +518,17 @@
         DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
-    traits::{block_contents::BuilderFee, node_implementation::NodeType, BlockPayload},
+    traits::{
+        block_contents::BuilderFee, node_implementation::NodeType, signature_key::SignatureKey,
+        BlockPayload,
+    },
     utils::{BuilderCommitment, View},
     vid::VidCommitment,
     vote::HasViewNumber,
 };
 <span class="kw">use </span>vec1::Vec1;
+
+<span class="kw">use </span><span class="kw">crate</span>::view_sync::ViewSyncPhase;
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskEvent <span class="kw">for </span>HotShotEvent&lt;TYPES&gt; {
     <span class="kw">fn </span>shutdown_event() -&gt; <span class="self">Self </span>{

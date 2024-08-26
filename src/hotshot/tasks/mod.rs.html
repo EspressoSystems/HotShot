@@ -726,7 +726,6 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 </span><span class="kw">pub mod </span>task_state;
-<span class="kw">use </span>hotshot_task::task::{NetworkHandle, Task};
 <span class="kw">use </span>std::{collections::HashSet, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
@@ -737,6 +736,7 @@
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
+<span class="kw">use </span>hotshot_task::task::{NetworkHandle, Task};
 <span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
 </span><span class="kw">use </span>hotshot_task_impls::rewind::RewindTaskState;
 <span class="kw">use </span>hotshot_task_impls::{
