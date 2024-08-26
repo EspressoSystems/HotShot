@@ -111,24 +111,10 @@ pub fn add_network_message_task<
 
     let upgrade_lock = handle.hotshot.upgrade_lock.clone();
 
-    let internal_receiver = handle.internal_event_stream.1.activate_cloned();
-
     let network = Arc::clone(channel);
     let task_handle = async_spawn(async move {
-        let shutdown_event = shutdown_event(internal_receiver).fuse();
-        pin_mut!(shutdown_event);
-
         loop {
-            let network_recv = async_timeout(Duration::from_secs(5), network.recv_msgs()).fuse();
-            pin_mut!(network_recv);
-
-            futures::select! {
-                () = shutdown_event => {
-                    tracing::error!("Shutting down network message task");
-                    network.shut_down().await;
-                    return;
-                }
-                recv_msgs = network_recv => {
+            let recv_msgs = async_timeout(Duration::from_secs(5), network.recv_msgs()).await;
                   let msgs = match recv_msgs {
                       Ok(Ok(msgs)) => {
                           let mut deserialized_messages = Vec::new();
@@ -159,9 +145,6 @@ pub fn add_network_message_task<
                   tracing::error!("Handling message!");
 
                   network_state.handle_messages(msgs.0).await;
-            }
-            complete => panic!("Shutting down network task"),
-            }
         }
     });
 
