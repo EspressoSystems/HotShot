@@ -236,12 +236,12 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .heartbeat_interval(Duration::from_secs(1))
                 // Force all messages to have valid signatures
                 .validation_mode(ValidationMode::Strict)
-                .history_gossip(10)
+                .history_gossip(30)
                 .mesh_n_high(params.mesh_n_high)
                 .mesh_n_low(params.mesh_n_low)
                 .mesh_outbound_min(params.mesh_outbound_min)
                 .mesh_n(params.mesh_n)
-                .history_length(10)
+                .history_length(30)
                 .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
