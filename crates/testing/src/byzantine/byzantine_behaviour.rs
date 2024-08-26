@@ -210,7 +210,10 @@ pub struct ViewDelay<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> ViewDelay<TYPES> {
-    fn extract_hotshot_event_info(&self, event: &HotShotEvent<TYPES>) -> Option<HotShotEventInfo<TYPES>> {
+    fn extract_hotshot_event_info(
+        &self,
+        event: &HotShotEvent<TYPES>,
+    ) -> Option<HotShotEventInfo<TYPES>> {
         let event_name = &event.to_string();
         let (hotshot_event_name, view_number) =
             event_name.split_once('(').unwrap_or((event_name, ""));
