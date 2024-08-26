@@ -150,7 +150,7 @@ cross_tests!(
 );
 
 cross_tests!(
-    TestName: view_lagging,
+    TestName: view_delay,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
     Versions: [MarketplaceTestVersions],
@@ -163,7 +163,7 @@ cross_tests!(
                     received_events: HashMap::new(),
                     vote_rcv_count: HashMap::new(),
                     num_nodes_with_stake: 10,
-                    views_to_be_delayed_for: 50,
+                    stop_view_delay_at_view_number: 50,
                 };
                 match node_id {
                     8 => Behaviour::Byzantine(Box::new(view_delay)),

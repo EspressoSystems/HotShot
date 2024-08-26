@@ -206,11 +206,11 @@ pub struct ViewDelay<TYPES: NodeType> {
     /// Number of nodes with stake
     pub num_nodes_with_stake: u64,
     /// Specify which view number to stop delaying
-    pub views_to_be_delayed_for: u64,
+    pub stop_view_delay_at_view_number: u64,
 }
 
 impl<TYPES: NodeType> ViewDelay<TYPES> {
-    fn extract_view_number(&self, event: HotShotEvent<TYPES>) -> Option<HotShotEventInfo<TYPES>> {
+    fn extract_hotshot_event_info(&self, event: &HotShotEvent<TYPES>) -> Option<HotShotEventInfo<TYPES>> {
         let event_name = &event.to_string();
         let (hotshot_event_name, view_number) =
             event_name.split_once('(').unwrap_or((event_name, ""));
@@ -245,9 +245,9 @@ impl<TYPES: NodeType> ViewDelay<TYPES> {
     }
 
     async fn handle_event(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES> {
-        if let Some(event_info) = self.extract_view_number(event.clone()) {
-            // Are we done with the delay
-            if event_info.view_number > self.views_to_be_delayed_for {
+        if let Some(event_info) = self.extract_hotshot_event_info(&event) {
+            // Are we done with the view delay
+            if event_info.view_number > self.stop_view_delay_at_view_number {
                 return event.clone();
             }
 
@@ -257,35 +257,28 @@ impl<TYPES: NodeType> ViewDelay<TYPES> {
                     let cached_event = cached_event_info.cached_event.clone();
 
                     match event {
-                        // we cant update the view number until all votes have been recieved
                         HotShotEvent::QuorumVoteRecv(_) | HotShotEvent::DaVoteRecv(_) => {
-                            tracing::error!(
-                                "event: {}, {} - {}",
-                                cached_event_info.event_name.clone(),
-                                event_info.view_number,
-                                cached_event_info.view_number
-                            );
+                            // Ensure we delay all votes for a view
                             if Self::compare_views(
                                 event_info.view_number,
-                                cached_event_info.clone().view_number,
+                                cached_event_info.view_number,
                                 self.number_of_views_to_delay,
                             ) {
-                                let count = self
+                                let votes_received_count = self
                                     .vote_rcv_count
                                     .entry(event_info.event_name.clone())
                                     .or_insert(0);
-                                if *count == self.num_nodes_with_stake - 2 {
+                                *votes_received_count += 1;
+                                if *votes_received_count == self.num_nodes_with_stake - 1 {
                                     *cached_event_info = event_info;
-                                    *count = 0;
-                                } else {
-                                    *count += 1;
+                                    *votes_received_count = 0;
                                 }
                             }
                         }
                         _ => {
                             if Self::compare_views(
                                 event_info.view_number,
-                                cached_event_info.clone().view_number,
+                                cached_event_info.view_number,
                                 self.number_of_views_to_delay,
                             ) {
                                 *cached_event_info = event_info;
