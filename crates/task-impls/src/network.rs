@@ -22,7 +22,7 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::{error, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -437,13 +437,16 @@ impl<
 
             let transmit_result = match transmit {
                 TransmitType::Direct(recipient) => {
+                    debug!("Directly sending message: {:?}", message);
                     net.direct_message(serialized_message, recipient).await
                 }
                 TransmitType::Broadcast => {
+                    debug!("Broadcasting message: {:?}", message);
                     net.broadcast_message(serialized_message, committee, broadcast_delay)
                         .await
                 }
                 TransmitType::DaCommitteeBroadcast => {
+                    debug!("Direct-broadcasting message: {:?}", message);
                     net.da_broadcast_message(serialized_message, committee, broadcast_delay)
                         .await
                 }
