@@ -119,7 +119,7 @@ pub async fn add_network_message_task<
                         deserialized_messages.push(deserialized_message);
                     }
 
-                    debug!("received messages: {:?}", deserialized_messages);
+                    debug!("Received messages: {:?}", deserialized_messages);
                     Messages(deserialized_messages)
                 }
                 Err(err) => {

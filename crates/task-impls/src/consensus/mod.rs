@@ -273,6 +273,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusTaskState<TYPES, I>
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         let version = *self.version.read().await;
+
+        // Print the event in debug
+        debug!("Processing event: {:?}", event);
+
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!("proposal recv view: {:?}", proposal.data.view_number());
