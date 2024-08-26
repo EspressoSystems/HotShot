@@ -8,6 +8,7 @@
 #![allow(unused_imports)]
 #![cfg(feature = "dependency-tasks")]
 
+use committable::Committable;
 use futures::StreamExt;
 use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
@@ -27,7 +28,13 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::ViewNumber,
-    traits::{node_implementation::ConsensusTime, ValidatedState},
+    request_response::ProposalRequestPayload,
+    traits::{
+        consensus_api::ConsensusApi,
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
+        ValidatedState,
+    },
 };
 
 #[cfg(test)]
@@ -198,6 +205,17 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         leaders[2]
     )]];
 
+    // make the request payload
+    let req = ProposalRequestPayload {
+        view_number: ViewNumber::new(2),
+        key: handle.public_key(),
+    };
+
+    // make the signed commitment
+    let signature =
+        <TestTypes as NodeType>::SignatureKey::sign(handle.private_key(), req.commit().as_ref())
+            .unwrap();
+
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(QuorumProposalPreliminarilyValidated(proposals[2].clone())),
         exact(ViewChange(ViewNumber::new(3))),
@@ -210,10 +228,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
                 ),
             ),
         )),
-        exact(QuorumProposalRequestSend(
-            ViewNumber::new(2),
-            handle.public_key()
-        )),
+        exact(QuorumProposalRequestSend(req, signature)),
         exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
     ])];
 
