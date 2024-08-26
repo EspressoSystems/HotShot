@@ -183,19 +183,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     }
 }
 
+/// Information about the hotshot event after parsing
 #[derive(Debug, Clone)]
 pub struct HotShotEventInfo<TYPES: NodeType> {
+    /// Friendly event name
     pub event_name: String,
+    /// View number
     pub view_number: u64,
+    /// The cached event
     pub cached_event: HotShotEvent<TYPES>,
 }
 
+/// View delay configuration
 #[derive(Debug)]
 pub struct ViewDelay<TYPES: NodeType> {
+    /// How many views the node will be delayed
     pub number_of_views_to_delay: u64,
-    pub rcv_events_to_last_seen_view: HashMap<String, HotShotEventInfo<TYPES>>,
+    /// A map to received events friendly event name to previous event info
+    pub received_events: HashMap<String, HotShotEventInfo<TYPES>>,
+    /// When leader how many votes were received
     pub vote_rcv_count: HashMap<String, u64>,
+    /// Number of nodes with stake
     pub num_nodes_with_stake: u64,
+    /// Specify which view number to stop delaying
+    pub views_to_be_delayed_for: u64,
+    /// Node id
     pub node_id: u64,
 }
 
@@ -236,10 +248,12 @@ impl<TYPES: NodeType> ViewDelay<TYPES> {
 
     async fn handle_event(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES> {
         if let Some(event_info) = self.extract_view_number(event.clone()) {
-            match self
-                .rcv_events_to_last_seen_view
-                .entry(event_info.event_name.clone())
-            {
+            // Are we done with the delay
+            if event_info.view_number > self.views_to_be_delayed_for {
+                return event.clone();
+            }
+
+            match self.received_events.entry(event_info.event_name.clone()) {
                 Entry::Occupied(mut event_info_entry) => {
                     let cached_event_info = event_info_entry.get_mut();
                     let cached_event = cached_event_info.cached_event.clone();
