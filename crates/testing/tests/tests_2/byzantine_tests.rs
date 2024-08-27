@@ -156,17 +156,15 @@ cross_tests!(
     Versions: [MarketplaceTestVersions],
     Ignore: false,
     Metadata: {
-        let num_nodes_with_stake = 10;
+
         let behaviour = Rc::new(|node_id| {
                 let view_delay = ViewDelay {
-                    number_of_views_to_delay: 2,
-                    received_events: HashMap::new(),
-                    vote_rcv_count: HashMap::new(),
-                    num_nodes_with_stake: 10,
+                    number_of_views_to_delay: node_id/3,
+                    events_for_view: HashMap::new(),
                     stop_view_delay_at_view_number: 50,
                 };
                 match node_id {
-                    8 => Behaviour::Byzantine(Box::new(view_delay)),
+                    6|10|14 => Behaviour::Byzantine(Box::new(view_delay)),
                     _ => Behaviour::Standard,
                 }
             });
@@ -182,18 +180,11 @@ cross_tests!(
             ..TestDescription::default()
         };
 
+        let num_nodes_with_stake = 15;
         metadata.num_nodes_with_stake = num_nodes_with_stake;
         metadata.da_staked_committee_size = num_nodes_with_stake;
-        metadata.overall_safety_properties.num_failed_views = 10;
-        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
-            // fail every time node 8 is leader
-            (ViewNumber::new(8), false),
-            (ViewNumber::new(18), false),
-            (ViewNumber::new(28), false),
-            (ViewNumber::new(38), false),
-            (ViewNumber::new(48), false),
-        ]);
-        metadata.overall_safety_properties.num_successful_views = 30;
+        metadata.overall_safety_properties.num_failed_views = 20;
+        metadata.overall_safety_properties.num_successful_views = 20;
         metadata
     },
 );

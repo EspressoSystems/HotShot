@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use hotshot::tasks::EventTransformerState;
 use hotshot_task_impls::events::HotShotEvent;
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     data::QuorumProposal,
     message::Proposal,
     traits::node_implementation::{NodeImplementation, NodeType, Versions},
 };
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 /// An `EventTransformerState` that multiplies `QuorumProposalSend` events, incrementing the view number of the proposal
@@ -183,121 +184,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     }
 }
 
-/// Information about the hotshot event after parsing
-#[derive(Debug, Clone)]
-pub struct HotShotEventInfo<TYPES: NodeType> {
-    /// Friendly event name
-    pub event_name: String,
-    /// View number
-    pub view_number: u64,
-    /// The cached event
-    pub cached_event: HotShotEvent<TYPES>,
-}
-
 /// View delay configuration
 #[derive(Debug)]
 pub struct ViewDelay<TYPES: NodeType> {
     /// How many views the node will be delayed
     pub number_of_views_to_delay: u64,
-    /// A map to received events friendly event name to previous event info
-    pub received_events: HashMap<String, HotShotEventInfo<TYPES>>,
-    /// When leader how many votes were received
-    pub vote_rcv_count: HashMap<String, u64>,
-    /// Number of nodes with stake
-    pub num_nodes_with_stake: u64,
+    /// A map that is from view number to vector of events
+    pub events_for_view: HashMap<TYPES::Time, Vec<HotShotEvent<TYPES>>>,
     /// Specify which view number to stop delaying
     pub stop_view_delay_at_view_number: u64,
-}
-
-impl<TYPES: NodeType> ViewDelay<TYPES> {
-    fn extract_hotshot_event_info(
-        &self,
-        event: &HotShotEvent<TYPES>,
-    ) -> Option<HotShotEventInfo<TYPES>> {
-        let event_name = &event.to_string();
-        let (hotshot_event_name, view_number) =
-            event_name.split_once('(').unwrap_or((event_name, ""));
-        if view_number.starts_with("view_number=ViewNumber(") {
-            if let Some(start) = view_number.find('(') {
-                if let Some(end) = view_number.find(')') {
-                    let view_number_str = &view_number[start + 1..end];
-
-                    // make sure we can parse the number, if not it will return None
-                    if let Ok(view_num) = view_number_str.parse::<u64>() {
-                        return Some(HotShotEventInfo {
-                            event_name: hotshot_event_name.to_string(),
-                            view_number: view_num,
-                            cached_event: event.clone(),
-                        });
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    fn compare_views(current_view: u64, cached_view: u64, number_of_views_to_delay: u64) -> bool {
-        if current_view <= cached_view {
-            return false;
-        }
-
-        if current_view - cached_view > number_of_views_to_delay {
-            return true;
-        }
-
-        false
-    }
-
-    async fn handle_event(&mut self, event: &HotShotEvent<TYPES>) -> HotShotEvent<TYPES> {
-        if let Some(event_info) = self.extract_hotshot_event_info(event) {
-            // Are we done with the view delay
-            if event_info.view_number > self.stop_view_delay_at_view_number {
-                return event.clone();
-            }
-
-            match self.received_events.entry(event_info.event_name.clone()) {
-                Entry::Occupied(mut event_info_entry) => {
-                    let cached_event_info = event_info_entry.get_mut();
-                    let cached_event = cached_event_info.cached_event.clone();
-
-                    match event {
-                        HotShotEvent::QuorumVoteRecv(_) | HotShotEvent::DaVoteRecv(_) => {
-                            // Ensure we delay all votes for a view
-                            if Self::compare_views(
-                                event_info.view_number,
-                                cached_event_info.view_number,
-                                self.number_of_views_to_delay,
-                            ) {
-                                let votes_received_count = self
-                                    .vote_rcv_count
-                                    .entry(event_info.event_name.clone())
-                                    .or_insert(0);
-                                *votes_received_count += 1;
-                                if *votes_received_count == self.num_nodes_with_stake - 1 {
-                                    *cached_event_info = event_info;
-                                    *votes_received_count = 0;
-                                }
-                            }
-                        }
-                        _ => {
-                            if Self::compare_views(
-                                event_info.view_number,
-                                cached_event_info.view_number,
-                                self.number_of_views_to_delay,
-                            ) {
-                                *cached_event_info = event_info;
-                            }
-                        }
-                    }
-                    return cached_event;
-                }
-                Entry::Vacant(vacant) => {
-                    vacant.insert(event_info);
-                }
-            }
-        }
-        event.clone()
-    }
 }
 
 #[async_trait]
@@ -305,7 +200,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     EventTransformerState<TYPES, I, V> for ViewDelay<TYPES>
 {
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        vec![self.handle_event(event).await]
+        let correct_event = vec![event.clone()];
+        if let Some(view_number) = event.view_number() {
+            if *view_number >= self.stop_view_delay_at_view_number {
+                return correct_event;
+            }
+
+            // add current view or push event to the map if view number has been added
+            let events_for_current_view = self.events_for_view.entry(view_number).or_insert(vec![]);
+            events_for_current_view.push(event.clone());
+
+            // ensure we are actually able to lookback enough views
+            let view_diff = (*view_number).saturating_sub(self.number_of_views_to_delay);
+            if view_diff >= self.number_of_views_to_delay {
+                return match self
+                    .events_for_view
+                    .get(&<TYPES as NodeType>::Time::new(view_diff))
+                {
+                    Some(lookback_events) => lookback_events.clone(),
+                    None => correct_event,
+                };
+            }
+        }
+
+        correct_event
     }
 
     async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
