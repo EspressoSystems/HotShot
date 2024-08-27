@@ -207,16 +207,13 @@ impl NetworkNode {
 
             // Create a custom gossipsub
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .opportunistic_graft_ticks(3)
-                .heartbeat_interval(Duration::from_secs(1))
-                // Force all messages to have valid signatures
-                .validation_mode(ValidationMode::Strict)
-                .history_gossip(50)
-                .mesh_n_high(params.mesh_n_high)
-                .mesh_n_low(params.mesh_n_low)
-                .mesh_outbound_min(params.mesh_outbound_min)
-                .mesh_n(params.mesh_n)
-                .history_length(500)
+                .validation_mode(ValidationMode::Strict) // Force all messages to have valid signatures
+                .history_gossip(6) // Gossip about 6 heartbeats worth of message history
+                .history_length(8) // Keep 8 heartbeats in history
+                .mesh_n(8) // Target number of peers in mesh network
+                .mesh_n_high(12) // Upper limit of mesh peers
+                .mesh_n_low(6) // Lower limit of mesh peers
+                .mesh_outbound_min(2) // Minimum number of outbound peers in mesh
                 .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
                 // Use the (blake3) hash of a message as its ID
                 .message_id_fn(message_id_fn)
