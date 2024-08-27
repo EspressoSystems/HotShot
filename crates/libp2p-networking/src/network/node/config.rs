@@ -10,21 +10,16 @@ use hotshot_types::traits::signature_key::SignatureKey;
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
 
-use crate::network::NetworkNodeType;
-
 /// The default Kademlia replication factor
 pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(10);
 
 /// describe the configuration of the network
 #[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
 pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
-    #[builder(default)]
-    /// The type of node (bootstrap etc)
-    pub node_type: NetworkNodeType,
-    /// optional identity
+    /// The keypair for the node
     #[builder(setter(into, strip_option), default)]
     #[debug(skip)]
-    pub identity: Option<Keypair>,
+    pub keypair: Option<Keypair>,
     /// address to bind to
     #[builder(default)]
     pub bound_addr: Option<Multiaddr>,
@@ -33,7 +28,7 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
     pub replication_factor: Option<NonZeroUsize>,
 
     #[builder(default)]
-    /// parameters for gossipsub mesh network
+    /// Parameters for the `GossipSub` mesh
     pub mesh_params: Option<MeshParams>,
 
     /// list of addresses to connect to at initialization
@@ -44,9 +39,6 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
     /// expiratiry for records in DHT
     #[builder(default)]
     pub ttl: Option<Duration>,
-    /// whether to start in libp2p::kad::Mode::Server mode
-    #[builder(default = "false")]
-    pub server_mode: bool,
 
     /// The stake table. Used for authenticating other nodes. If not supplied
     /// we will not check other nodes against the stake table
@@ -59,28 +51,28 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
     pub auth_message: Option<Vec<u8>>,
 }
 
-/// NOTE: `mesh_outbound_min <= mesh_n_low <= mesh_n <= mesh_n_high`
-/// NOTE: `mesh_outbound_min <= self.config.mesh_n / 2`
-/// parameters fed into gossipsub controlling the structure of the mesh
+/// Mesh parameters for Libp2p's `GossipSub`
 #[derive(Clone, Debug)]
 pub struct MeshParams {
-    /// mesh_n_high from gossipsub
-    pub mesh_n_high: usize,
-    /// mesh_n_low from gossipsub
-    pub mesh_n_low: usize,
-    /// mesh_outbound_min from gossipsub
-    pub mesh_outbound_min: usize,
-    /// mesh_n from gossipsub
+    /// The target number of peers in the mesh
     pub mesh_n: usize,
+    /// The minimum number of peers in the mesh
+    pub mesh_n_low: usize,
+    /// The maximum number of peers in the mesh
+    pub mesh_n_high: usize,
+    /// The minimum number of mesh peers that must be outbound
+    pub mesh_outbound_min: usize,
 }
 
 impl Default for MeshParams {
     fn default() -> Self {
+        // These defaults are taken from/slightly modified from Ethereum:
+        // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
         Self {
-            mesh_n_high: 15,
-            mesh_n_low: 8,
-            mesh_outbound_min: 4,
-            mesh_n: 12,
+            mesh_n: 8,
+            mesh_n_high: 12,
+            mesh_n_low: 6,
+            mesh_outbound_min: 2,
         }
     }
 }

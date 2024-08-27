@@ -70,7 +70,7 @@ use libp2p_networking::{
         MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
-        NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
+        DEFAULT_REPLICATION_FACTOR,
     },
     reexport::{Multiaddr, ResponseChannel},
 };
@@ -281,10 +281,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             // the worst case of 7/2+3 > 5
                             mesh_n: (expected_node_count / 2 + 3),
                         }))
-                        .server_mode(true)
-                        .identity(libp2p_keypair)
+                        .keypair(libp2p_keypair)
                         .replication_factor(replication_factor)
-                        .node_type(NetworkNodeType::Bootstrap)
                         .bound_addr(Some(addr))
                         .to_connect_addrs(HashSet::default())
                         // setting to sane defaults
@@ -303,10 +301,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                             mesh_outbound_min: 4,
                             mesh_n: 8,
                         }))
-                        .server_mode(true)
-                        .identity(libp2p_keypair)
+                        .keypair(libp2p_keypair)
                         .replication_factor(replication_factor)
-                        .node_type(NetworkNodeType::Regular)
                         .bound_addr(Some(addr))
                         .to_connect_addrs(HashSet::default())
                         // setting to sane defaults
@@ -464,8 +460,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         .with_context(|| "Failed to sign DHT lookup record")?;
 
         config_builder
-            .server_mode(libp2p_config.server_mode)
-            .identity(keypair)
+            .keypair(keypair)
             .replication_factor(replication_factor)
             .bound_addr(Some(bind_address.clone()))
             .mesh_params(Some(MeshParams {
@@ -555,17 +550,11 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let (mut rx, network_handle) = spawn_network_node::<K>(config.clone(), id)
             .await
             .map_err(Into::<NetworkError>::into)?;
-        // Make bootstrap mappings known
-        if matches!(
-            network_handle.config().node_type,
-            NetworkNodeType::Bootstrap
-        ) {
-            let addr = network_handle.listen_addr();
-            let pid = network_handle.peer_id();
-            let mut bs_cp = bootstrap_addrs.write().await;
-            bs_cp.push((pid, addr));
-            drop(bs_cp);
-        }
+
+        // Add our own address to the bootstrap addresses
+        let addr = network_handle.listen_addr();
+        let pid = network_handle.peer_id();
+        bootstrap_addrs.write().await.push((pid, addr));
 
         let mut pubkey_pid_map = BiHashMap::new();
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());

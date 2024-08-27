@@ -70,7 +70,6 @@ use super::{
     },
     error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
-    NetworkNodeType,
 };
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
@@ -91,8 +90,8 @@ pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 /// Network definition
 #[derive(custom_debug::Debug)]
 pub struct NetworkNode<K: SignatureKey + 'static> {
-    /// pub/private key from with peer_id is derived
-    identity: Keypair,
+    /// The keypair for the node
+    keypair: Keypair,
     /// peer id of network node
     peer_id: PeerId,
     /// the swarm of networkbehaviours
@@ -177,18 +176,18 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig<K>) -> Result<Self, NetworkError> {
         // Generate a random `KeyPair` if one is not specified
-        let identity = if let Some(ref kp) = config.identity {
+        let keypair = if let Some(ref kp) = config.keypair {
             kp.clone()
         } else {
             Keypair::generate_ed25519()
         };
 
         // Get the `PeerId` from the `KeyPair`
-        let peer_id = PeerId::from(identity.public());
+        let peer_id = PeerId::from(keypair.public());
 
-        // Generate the transport from the identity, stake table, and auth message
+        // Generate the transport from the keypair, stake table, and auth message
         let transport: BoxedTransport = gen_transport::<K>(
-            identity.clone(),
+            keypair.clone(),
             config.stake_table.clone(),
             config.auth_message.clone(),
         )
@@ -196,55 +195,26 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
 
         // Generate the swarm
         let mut swarm: Swarm<NetworkDef<K>> = {
-            // Use the hash of the message's contents as the ID
-            // Use blake3 for much paranoia at very high speeds
+            // Use the `Blake3` hash of the message's contents as the ID
             let message_id_fn = |message: &GossipsubMessage| {
                 let hash = blake3::hash(&message.data);
                 MessageId::from(hash.as_bytes().to_vec())
             };
 
-            let params = if let Some(ref params) = config.mesh_params {
-                params.clone()
-            } else {
-                // NOTE this should most likely be a builder pattern
-                // at some point in the future.
-                match config.node_type {
-                    NetworkNodeType::Bootstrap => MeshParams {
-                        mesh_n_high: 1000, // make this super high in case we end up scaling to 1k
-                        // nodes
-                        mesh_n_low: 10,
-                        mesh_outbound_min: 5,
-                        mesh_n: 15,
-                    },
-                    NetworkNodeType::Regular => MeshParams {
-                        mesh_n_high: 15,
-                        mesh_n_low: 8,
-                        mesh_outbound_min: 4,
-                        mesh_n: 12,
-                    },
-                    NetworkNodeType::Conductor => MeshParams {
-                        mesh_n_high: 21,
-                        mesh_n_low: 8,
-                        mesh_outbound_min: 4,
-                        mesh_n: 12,
-                    },
-                }
-            };
+            // Use the default mesh parameters if none are provided
+            let mesh_params = config.clone().mesh_params.unwrap_or_default();
 
             // Create a custom gossipsub
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .heartbeat_interval(Duration::from_secs(1))
-                // Force all messages to have valid signatures
-                .validation_mode(ValidationMode::Strict)
-                .history_gossip(10)
-                .mesh_n_high(params.mesh_n_high)
-                .mesh_n_low(params.mesh_n_low)
-                .mesh_outbound_min(params.mesh_outbound_min)
-                .mesh_n(params.mesh_n)
-                .history_length(10)
-                .max_transmit_size(MAX_GOSSIP_MSG_SIZE)
-                // Use the (blake3) hash of a message as its ID
-                .message_id_fn(message_id_fn)
+                .validation_mode(ValidationMode::Strict) // Force all messages to have valid signatures
+                .history_gossip(6) // Gossip about 6 heartbeats worth of message history
+                .history_length(8) // Keep 8 heartbeats in history
+                .mesh_n(mesh_params.mesh_n) // Target number of peers in mesh network
+                .mesh_n_high(mesh_params.mesh_n_high) // Upper limit of mesh peers
+                .mesh_n_low(mesh_params.mesh_n_low) // Lower limit of mesh peers
+                .mesh_outbound_min(mesh_params.mesh_outbound_min) // Minimum number of outbound peers in mesh
+                .max_transmit_size(MAX_GOSSIP_MSG_SIZE) // Maximum message size
+                .message_id_fn(message_id_fn) // Use the (blake3) hash of a message as its ID
                 .build()
                 .map_err(|s| {
                     GossipsubConfigSnafu {
@@ -259,7 +229,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 // <https://github.com/EspressoSystems/hotshot/issues/42>
                 // if messages are signed at the the consensus level AND the network
                 // level (noise), this feels redundant.
-                MessageAuthenticity::Signed(identity.clone()),
+                MessageAuthenticity::Signed(keypair.clone()),
                 gossipsub_config,
             )
             .map_err(|s| GossipsubBuildSnafu { message: s }.build())?;
@@ -269,7 +239,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             //   E.g. this will answer the question: how are other nodes
             //   seeing the peer from behind a NAT
             let identify_cfg =
-                IdentifyConfig::new("HotShot/identify/1.0".to_string(), identity.public());
+                IdentifyConfig::new("HotShot/identify/1.0".to_string(), keypair.public());
             let identify = IdentifyBehaviour::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
@@ -298,9 +268,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 ValidatedStore::new(MemoryStore::new(peer_id)),
                 kconfig,
             );
-            if config.server_mode {
-                kadem.set_mode(Some(Mode::Server));
-            }
+            kadem.set_mode(Some(Mode::Server));
 
             let rrconfig = RequestResponseConfig::default();
 
@@ -338,7 +306,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             );
 
             // build swarm
-            let swarm = SwarmBuilder::with_existing_identity(identity.clone());
+            let swarm = SwarmBuilder::with_existing_identity(keypair.clone());
             #[cfg(async_executor_impl = "async-std")]
             let swarm = swarm.with_async_std();
             #[cfg(async_executor_impl = "tokio")]
@@ -358,7 +326,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         }
 
         Ok(Self {
-            identity,
+            keypair,
             peer_id,
             swarm,
             config: config.clone(),
