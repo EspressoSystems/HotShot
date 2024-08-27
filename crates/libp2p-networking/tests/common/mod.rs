@@ -193,9 +193,12 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
     // should never panic unless num_nodes is 0
     let replication_factor = NonZeroUsize::new(num_of_nodes - 1).unwrap();
 
-    for j in 0..num_of_nodes {
-        let addr = Multiaddr::from_str(format!("/ip4/127.0.0.1/udp/{}/quic-v1", 2000 + j).as_str())
-            .unwrap();
+    for i in 0..num_of_nodes {
+        // Get an unused port
+        let port = portpicker::pick_unused_port().expect("Failed to get an unused port");
+
+        let addr =
+            Multiaddr::from_str(format!("/ip4/127.0.0.1/udp/{}/quic-v1", port).as_str()).unwrap();
 
         let regular_node_config = NetworkNodeConfigBuilder::default()
             .replication_factor(replication_factor)
@@ -204,7 +207,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let (rx, node) = spawn_network_node(regular_node_config.clone(), j)
+        let (rx, node) = spawn_network_node(regular_node_config.clone(), i)
             .await
             .unwrap();
 
