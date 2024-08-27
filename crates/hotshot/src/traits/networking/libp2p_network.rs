@@ -67,7 +67,6 @@ use libp2p_networking::{
         behaviours::dht::record::{Namespace, RecordKey, RecordValue},
         spawn_network_node,
         transport::construct_auth_message,
-        MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
         DEFAULT_REPLICATION_FACTOR,
@@ -268,49 +267,19 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 )
                 .expect("Failed to sign DHT lookup record");
 
-                // we want the majority of peers to have this lying around.
+                // We want 2/3 of the nodes to have any given record in the DHT
                 let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
-                let config = if node_id < num_bootstrap as u64 {
-                    NetworkNodeConfigBuilder::default()
-                        // NOTICE the implicit assumption that bootstrap is less
-                        // than half the network. This seems reasonable.
-                        .mesh_params(Some(MeshParams {
-                            mesh_n_high: expected_node_count,
-                            mesh_n_low: 5,
-                            mesh_outbound_min: 3,
-                            // the worst case of 7/2+3 > 5
-                            mesh_n: (expected_node_count / 2 + 3),
-                        }))
-                        .keypair(libp2p_keypair)
-                        .replication_factor(replication_factor)
-                        .bound_addr(Some(addr))
-                        .to_connect_addrs(HashSet::default())
-                        // setting to sane defaults
-                        .ttl(None)
-                        .republication_interval(None)
-                        .build()
-                        .unwrap()
-                } else {
-                    NetworkNodeConfigBuilder::default()
-                        // NOTE I'm hardcoding these because this is probably the MAX
-                        // parameters. If there aren't this many nodes, gossip keeps looking
-                        // for more. That is fine.
-                        .mesh_params(Some(MeshParams {
-                            mesh_n_high: 15,
-                            mesh_n_low: 5,
-                            mesh_outbound_min: 4,
-                            mesh_n: 8,
-                        }))
-                        .keypair(libp2p_keypair)
-                        .replication_factor(replication_factor)
-                        .bound_addr(Some(addr))
-                        .to_connect_addrs(HashSet::default())
-                        // setting to sane defaults
-                        .ttl(None)
-                        .republication_interval(None)
-                        .build()
-                        .unwrap()
-                };
+
+                // Build the network node configuration
+                let config = NetworkNodeConfigBuilder::default()
+                    .keypair(libp2p_keypair)
+                    .replication_factor(replication_factor)
+                    .bind_address(Some(addr))
+                    .to_connect_addrs(HashSet::default())
+                    .republication_interval(None)
+                    .build()
+                    .expect("Failed to build network node config");
+
                 let bootstrap_addrs_ref = Arc::clone(&bootstrap_addrs);
                 let node_ids_ref = Arc::clone(&node_ids);
                 let da = da_keys.clone();
@@ -462,13 +431,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         config_builder
             .keypair(keypair)
             .replication_factor(replication_factor)
-            .bound_addr(Some(bind_address.clone()))
-            .mesh_params(Some(MeshParams {
-                mesh_n_high: libp2p_config.mesh_n_high,
-                mesh_n_low: libp2p_config.mesh_n_low,
-                mesh_outbound_min: libp2p_config.mesh_outbound_min,
-                mesh_n: libp2p_config.mesh_n,
-            }));
+            .bind_address(Some(bind_address.clone()));
 
         // Choose `mesh_n` random nodes to connect to for bootstrap
         let bootstrap_nodes = libp2p_config

@@ -20,9 +20,9 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
     #[builder(setter(into, strip_option), default)]
     #[debug(skip)]
     pub keypair: Option<Keypair>,
-    /// address to bind to
+    /// The address to bind to
     #[builder(default)]
-    pub bound_addr: Option<Multiaddr>,
+    pub bind_address: Option<Multiaddr>,
     /// Replication factor for entries in the DHT
     #[builder(setter(into, strip_option), default = "DEFAULT_REPLICATION_FACTOR")]
     pub replication_factor: Option<NonZeroUsize>,

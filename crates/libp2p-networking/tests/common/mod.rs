@@ -198,7 +198,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
 
         let regular_node_config = NetworkNodeConfigBuilder::default()
             .replication_factor(replication_factor)
-            .bound_addr(Some(addr.clone()))
+            .bind_address(Some(addr.clone()))
             .to_connect_addrs(HashSet::default())
             .build()
             .context(NodeConfigSnafu)
