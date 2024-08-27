@@ -194,7 +194,8 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
     let replication_factor = NonZeroUsize::new(num_of_nodes - 1).unwrap();
 
     for j in 0..num_of_nodes {
-        let addr = Multiaddr::from_str("/ip4/127.0.0.1/udp/0/quic-v1").unwrap();
+        let addr = Multiaddr::from_str(format!("/ip4/127.0.0.1/udp/{}/quic-v1", 2000 + j).as_str())
+            .unwrap();
 
         let regular_node_config = NetworkNodeConfigBuilder::default()
             .replication_factor(replication_factor)
