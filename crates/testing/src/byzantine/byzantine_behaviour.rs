@@ -207,7 +207,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             }
 
             // add current view or push event to the map if view number has been added
-            let events_for_current_view = self.events_for_view.entry(view_number).or_insert(vec![]);
+            let events_for_current_view = self.events_for_view.entry(view_number).or_default();
             events_for_current_view.push(event.clone());
 
             // ensure we are actually able to lookback enough views
