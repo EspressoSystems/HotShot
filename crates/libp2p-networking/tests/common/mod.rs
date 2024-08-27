@@ -198,7 +198,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
         let port = portpicker::pick_unused_port().expect("Failed to get an unused port");
 
         let addr =
-            Multiaddr::from_str(format!("/ip4/127.0.0.1/udp/{}/quic-v1", port).as_str()).unwrap();
+            Multiaddr::from_str(format!("/ip4/127.0.0.1/udp/{port}/quic-v1").as_str()).unwrap();
 
         let regular_node_config = NetworkNodeConfigBuilder::default()
             .replication_factor(replication_factor)
