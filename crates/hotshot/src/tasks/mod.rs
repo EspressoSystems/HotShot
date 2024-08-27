@@ -14,6 +14,7 @@ use crate::{
     MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
 };
 use anyhow::Context;
+
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -23,7 +24,6 @@ use futures::{
     stream, StreamExt,
 };
 use hotshot_task::task::{NetworkHandle, Task};
-use hotshot_task_impls::network::test::{ModifierClosure, NetworkEventTaskStateModifier};
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
@@ -31,7 +31,11 @@ use hotshot_task_impls::{
     events::HotShotEvent,
     health_check::HealthCheckTaskState,
     helpers::broadcast_event,
-    network::{self, NetworkEventTaskState, NetworkMessageTaskState},
+    network::{
+        self,
+        test::{ModifierClosure, NetworkEventTaskStateModifier},
+        NetworkEventTaskState, NetworkMessageTaskState,
+    },
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
     transactions::TransactionTaskState,
