@@ -28,7 +28,7 @@ use libp2p_networking::network::{
     NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
 };
 use snafu::{ResultExt, Snafu};
-use tracing::{info, instrument, warn};
+use tracing::{instrument, warn};
 
 #[derive(Clone, Debug)]
 pub(crate) struct HandleWithState<S: Debug + Default + Send, K: SignatureKey + 'static> {
@@ -225,15 +225,6 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
         };
         handles.push((node_with_state, rx));
     }
-    info!("BSADDRS ARE: {:?}", bootstrap_addrs);
-
-    info!(
-        "known nodes: {:?}",
-        bootstrap_addrs
-            .iter()
-            .map(|(a, b)| (Some(*a), b.clone()))
-            .collect::<Vec<_>>()
-    );
 
     for (handle, _) in &handles[0..num_of_nodes] {
         let to_share = bootstrap_addrs.clone();

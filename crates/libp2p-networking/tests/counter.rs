@@ -397,7 +397,7 @@ async fn run_dht_rounds<K: SignatureKey + 'static>(
         // Sign the value
         let value = RecordValue::new_signed(&key, value, &private_key).expect("signing failed");
 
-        // put the key
+        // Put the key
         msg_handle
             .handle
             .put_record(key.clone(), value.clone())
