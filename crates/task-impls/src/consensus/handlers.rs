@@ -137,11 +137,6 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
         proposed_leaf.view_number(),
     );
 
-    consensus
-        .write()
-        .await
-        .update_last_proposed_view(message.clone())?;
-
     async_sleep(Duration::from_millis(round_start_delay)).await;
 
     broadcast_event(

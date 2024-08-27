@@ -469,24 +469,26 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType, V: Versions>
         },
     };
 
-    if let Err(e) = consensus
-        .write()
-        .await
-        .update_validated_state_map(view_number, view.clone())
     {
-        tracing::trace!("{e:?}");
-    }
-    consensus
-        .write()
-        .await
-        .update_saved_leaves(proposed_leaf.clone());
+        let mut consensus_write = consensus.write().await;
+        if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
+            tracing::trace!("{e:?}");
+        }
+        consensus_write.update_saved_leaves(proposed_leaf.clone());
 
-    // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
-    broadcast_event(
-        Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
-        &event_stream,
-    )
-    .await;
+        // Update our internal storage of the proposal. The proposal is valid, so
+        // we swallow this error and just log if it occurs.
+        if let Err(e) = consensus_write.update_last_proposed_view(proposal.clone()) {
+            tracing::debug!("Internal proposal update failed; error = {e:#}");
+        };
+
+        // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
+        broadcast_event(
+            Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
+            &event_stream,
+        )
+        .await;
+    }
 
     UpgradeCertificate::validate(
         &proposal.data.upgrade_certificate,
@@ -505,37 +507,39 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType, V: Versions>
     // passes.
 
     // Liveness check.
-    let read_consensus = consensus.read().await;
-    let liveness_check = justify_qc.view_number() > read_consensus.locked_view();
+    {
+        let read_consensus = consensus.read().await;
+        let liveness_check = justify_qc.view_number() > read_consensus.locked_view();
 
-    // Safety check.
-    // Check if proposal extends from the locked leaf.
-    let outcome = read_consensus.visit_leaf_ancestors(
-        justify_qc.view_number(),
-        Terminator::Inclusive(read_consensus.locked_view()),
-        false,
-        |leaf, _, _| {
-            // if leaf view no == locked view no then we're done, report success by
-            // returning true
-            leaf.view_number() != read_consensus.locked_view()
-        },
-    );
-    let safety_check = outcome.is_ok();
+        // Safety check.
+        // Check if proposal extends from the locked leaf.
+        let outcome = read_consensus.visit_leaf_ancestors(
+            justify_qc.view_number(),
+            Terminator::Inclusive(read_consensus.locked_view()),
+            false,
+            |leaf, _, _| {
+                // if leaf view no == locked view no then we're done, report success by
+                // returning true
+                leaf.view_number() != read_consensus.locked_view()
+            },
+        );
+        let safety_check = outcome.is_ok();
 
-    ensure!(safety_check || liveness_check, {
-        if let Err(e) = outcome {
-            broadcast_event(
-                Event {
-                    view_number,
-                    event: EventType::Error { error: Arc::new(e) },
-                },
-                &event_sender,
-            )
-            .await;
-        }
+        ensure!(safety_check || liveness_check, {
+            if let Err(e) = outcome {
+                broadcast_event(
+                    Event {
+                        view_number,
+                        event: EventType::Error { error: Arc::new(e) },
+                    },
+                    &event_sender,
+                )
+                .await;
+            }
 
-        format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
-    });
+            format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
+        });
+    }
 
     // We accept the proposal, notify the application layer
 
@@ -550,6 +554,7 @@ pub async fn validate_proposal_safety_and_liveness<TYPES: NodeType, V: Versions>
         &event_sender,
     )
     .await;
+
     // Notify other tasks
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalValidated(
