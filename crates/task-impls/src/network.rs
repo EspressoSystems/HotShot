@@ -315,7 +315,7 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
                     )),
-                    TransmitType::Direct(membership.leader(req.view_number)),
+                    TransmitType::DaCommitteeBroadcast,
                 ),
                 HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => (
                     sender_key.clone(),
