@@ -9,6 +9,7 @@
 use std::{
     collections::{HashMap, HashSet},
     rc::Rc,
+    sync::Arc,
     time::Duration,
 };
 
@@ -28,7 +29,17 @@ use hotshot_testing::{
     test_builder::{Behaviour, TestDescription},
     view_sync_task::ViewSyncTaskDescription,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use hotshot_types::message::{GeneralConsensusMessage, MessageKind, SequencingMessage};
+use hotshot_types::{
+    data::ViewNumber,
+    traits::{
+        election::Membership,
+        network::TransmitType,
+        node_implementation::{ConsensusTime, NodeType},
+    },
+    vote::HasViewNumber,
+};
+
 // Test that a good leader can succeed in the view directly after view sync
 cross_tests!(
     TestName: test_with_failures_2,
@@ -197,12 +208,20 @@ cross_tests!(
     TestName: dishonest_voting,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
-    Versions: [TestVersions],
+    Versions: [MarketplaceTestVersions],
     Ignore: false,
     Metadata: {
-        let behaviour = Rc::new(|node_id| {
+        let nodes_count: usize = 10;
+        let behaviour = Rc::new(move |node_id| {
             let dishonest_voting = DishonestVoting {
-                view_increment: 5,
+                view_increment: nodes_count as u64,
+                modifier: Arc::new(move |_pk, message_kind, transmit_type: &mut TransmitType<TestTypes>, membership: &<TestTypes as NodeType>::Membership| {
+                    if let MessageKind::Consensus(SequencingMessage::General(GeneralConsensusMessage::Vote(vote))) = message_kind {
+                        *transmit_type = TransmitType::Direct(membership.leader(vote.view_number() + 1 - nodes_count as u64));
+                    } else {
+                        {}
+                    }
+                })
             };
             match node_id {
                 5 => Behaviour::Byzantine(Box::new(dishonest_voting)),
@@ -221,7 +240,7 @@ cross_tests!(
             ..TestDescription::default()
         };
 
-        metadata.num_nodes_with_stake = 10;
+        metadata.num_nodes_with_stake = nodes_count;
         metadata
     },
 );
