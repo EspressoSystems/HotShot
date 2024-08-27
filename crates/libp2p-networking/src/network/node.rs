@@ -266,9 +266,7 @@ impl NetworkNode {
             }
 
             let mut kadem = Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
-            if config.server_mode {
-                kadem.set_mode(Some(Mode::Server));
-            }
+            kadem.set_mode(Some(Mode::Server));
 
             let rrconfig = RequestResponseConfig::default();
 
