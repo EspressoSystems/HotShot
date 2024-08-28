@@ -4,7 +4,10 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    sync::Arc,
+};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -44,16 +47,12 @@ use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
     vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
+        create_vote_accumulator, handle_vote, AccumulatorInfo, HandleVoteEvent, VoteCollectorsMap,
     },
 };
 
 /// Helper functions to handle proposal-related functionality.
 pub(crate) mod handlers;
-
-/// Alias for Optional type for Vote Collectors
-type VoteCollectorOption<TYPES, VOTE, CERT, V> =
-    Option<VoteCollectionTaskState<TYPES, VOTE, CERT, V>>;
 
 /// The state for the consensus task.  Contains all of the information for the implementation
 /// of consensus
@@ -91,13 +90,12 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     /// Membership for DA committee Votes/certs
     pub da_membership: Arc<TYPES::Membership>,
 
-    /// Current Vote collection task, with it's view.
-    pub vote_collector:
-        RwLock<VoteCollectorOption<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>, V>>,
+    /// A map of `QuorumVote` collector tasks.
+    pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>, V>,
 
-    /// Current timeout vote collection task with its view
-    pub timeout_vote_collector:
-        RwLock<VoteCollectorOption<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>, V>>,
+    /// A map of `TimeoutVote` collector tasks.
+    pub timeout_vote_collectors:
+        VoteCollectorsMap<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>, V>,
 
     /// timeout task handle
     pub timeout_task: JoinHandle<()>,
@@ -327,36 +325,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     );
                     return;
                 }
-                let mut collector = self.vote_collector.write().await;
 
-                if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
-                    debug!("Starting vote handle for view {:?}", vote.view_number());
-                    let info = AccumulatorInfo {
-                        public_key: self.public_key.clone(),
-                        membership: Arc::clone(&self.quorum_membership),
-                        view: vote.view_number(),
-                        id: self.id,
-                    };
-                    *collector = create_vote_accumulator(
-                        &info,
-                        event,
-                        &event_sender,
-                        self.upgrade_lock.clone(),
-                    )
-                    .await;
-                } else {
-                    let result = collector
-                        .as_mut()
-                        .unwrap()
-                        .handle_vote_event(Arc::clone(&event), &event_sender)
-                        .await;
-
-                    if result == Some(HotShotTaskCompleted) {
-                        *collector = None;
-                        // The protocol has finished
-                        return;
-                    }
-                }
+                handle_vote(
+                    &mut self.vote_collectors,
+                    vote,
+                    self.public_key.clone(),
+                    &self.quorum_membership,
+                    self.id,
+                    &event,
+                    &event_sender,
+                    &self.upgrade_lock,
+                )
+                .await;
             }
             HotShotEvent::TimeoutVoteRecv(ref vote) => {
                 if self.timeout_membership.leader(vote.view_number() + 1) != self.public_key {
@@ -367,34 +347,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     );
                     return;
                 }
-                let mut collector = self.timeout_vote_collector.write().await;
 
-                if collector.is_none() || vote.view_number() > collector.as_ref().unwrap().view {
-                    debug!("Starting vote handle for view {:?}", vote.view_number());
-                    let info = AccumulatorInfo {
-                        public_key: self.public_key.clone(),
-                        membership: Arc::clone(&self.quorum_membership),
-                        view: vote.view_number(),
-                        id: self.id,
-                    };
-                    *collector = create_vote_accumulator(
-                        &info,
-                        event,
-                        &event_sender,
-                        self.upgrade_lock.clone(),
-                    )
-                    .await;
-                } else {
-                    let result = collector
-                        .as_mut()
-                        .unwrap()
-                        .handle_vote_event(Arc::clone(&event), &event_sender)
-                        .await;
+                match self.timeout_vote_collectors.entry(vote.view_number()) {
+                    Entry::Vacant(entry) => {
+                        debug!("Starting vote handle for view {:?}", vote.view_number());
+                        let info = AccumulatorInfo {
+                            public_key: self.public_key.clone(),
+                            membership: Arc::clone(&self.quorum_membership),
+                            view: vote.view_number(),
+                            id: self.id,
+                        };
+                        if let Some(collector) = create_vote_accumulator(
+                            &info,
+                            event,
+                            &event_sender,
+                            self.upgrade_lock.clone(),
+                        )
+                        .await
+                        {
+                            entry.insert(collector);
+                        };
+                    }
+                    Entry::Occupied(mut entry) => {
+                        let result = entry
+                            .get_mut()
+                            .handle_vote_event(Arc::clone(&event), &event_sender)
+                            .await;
 
-                    if result == Some(HotShotTaskCompleted) {
-                        *collector = None;
-                        // The protocol has finished
-                        return;
+                        if result == Some(HotShotTaskCompleted) {
+                            entry.remove();
+                            // The protocol has finished
+                        }
                     }
                 }
             }
