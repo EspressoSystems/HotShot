@@ -59,12 +59,6 @@ round_start_delay = 1
 start_delay = 1
 num_bootstrap = 5
 
-[libp2p_config]
-mesh_n_high = 4
-mesh_n_low = 4
-mesh_outbound_min = 2
-mesh_n = 4
-
 [random_builder]
 txn_in_block = 100
 blocks_per_second = 1
