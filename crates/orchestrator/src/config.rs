@@ -209,7 +209,7 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     /// random builder config
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
-    pub public_keys: Vec<Vec<u8>>,
+    pub public_keys: Vec<KEY>,
 }
 
 /// the source of the network config
@@ -496,7 +496,7 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
     #[serde(default)]
-    pub public_keys: Vec<Vec<u8>>,
+    pub public_keys: Vec<KEY>,
 }
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
