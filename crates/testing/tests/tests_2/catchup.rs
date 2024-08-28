@@ -422,6 +422,10 @@ async fn test_all_restart_cdn() {
         .await;
 }
 
+/// This test case ensures that proposals persist off of a restart. We demonstrate this by
+/// artificially removing node 0 (the only DA committee member) from the candidate pool,
+/// meaning that the entire DA also does not have the proposal, but we're still able to
+/// move on because the *leader* does have the proposal.
 #[cfg(test)]
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
@@ -445,6 +449,11 @@ async fn test_all_restart_one_da() {
     };
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
+
+    let node_0_down = vec![ChangeNode {
+        idx: 0,
+        updown: UpDown::Restart,
+    }];
     let mut catchup_nodes = vec![];
     for i in 1..20 {
         catchup_nodes.push(ChangeNode {
@@ -457,12 +466,12 @@ async fn test_all_restart_one_da() {
     metadata.start_nodes = 20;
     metadata.num_nodes_with_stake = 20;
 
-    // Explitily make the DA tiny to exaggerate a missing proposal.
-    // metadata.da_staked_committee_size = 9;
+    // Explicitly make the DA tiny to exaggerate a missing proposal.
+    metadata.da_staked_committee_size = 1;
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Restart all the nodes in view 13
-        node_changes: vec![(13, catchup_nodes)],
+        node_changes: vec![(12, node_0_down), (13, catchup_nodes)],
     };
     metadata.view_sync_properties =
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
