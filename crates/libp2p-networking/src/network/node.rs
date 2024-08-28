@@ -202,7 +202,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             };
 
             // Use the default mesh parameters if none are provided
-            let mesh_params = config.clone().mesh_params.unwrap_or_default();
+            let mesh_params = config.mesh_params.clone().unwrap_or_default();
 
             // Create a custom gossipsub
             let gossipsub_config = GossipsubConfigBuilder::default()
