@@ -137,8 +137,8 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
 pub struct TestVersions {}
 
 impl Versions for TestVersions {
-    type Base = StaticVersion<0, 1>;
-    type Upgrade = StaticVersion<0, 2>;
+    type Base = StaticVersion<0, 3>;
+    type Upgrade = StaticVersion<0, 3>;
     const UPGRADE_HASH: [u8; 32] = [
         1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
         0, 0,

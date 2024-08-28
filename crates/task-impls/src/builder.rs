@@ -78,7 +78,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     /// If the URL is malformed.
     pub fn new(base_url: impl Into<Url>) -> Self {
         Self {
-            inner: Client::builder(base_url.into().join("block_info").unwrap())
+            inner: Client::builder(base_url.into().join("bundle_info").unwrap())
                 .set_timeout(Some(Duration::from_secs(2)))
                 .build(),
             _marker: std::marker::PhantomData,
