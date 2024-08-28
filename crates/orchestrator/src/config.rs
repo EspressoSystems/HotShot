@@ -36,13 +36,6 @@ pub struct Libp2pConfig {
     pub bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
 }
 
-/// configuration serialized into a file
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Libp2pConfigFile {
-    /// The bootstrap nodes to connect to (multiaddress, serialized public key)
-    pub bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
-}
-
 /// configuration for a web server
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct WebServerConfig {
@@ -427,9 +420,6 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// delay before beginning consensus
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS)]
     pub start_delay_seconds: u64,
-    /// the libp2p config
-    #[serde(default)]
-    pub libp2p_config: Option<Libp2pConfigFile>,
     /// the hotshot config file
     #[serde(default)]
     pub config: HotShotConfigFile<KEY>,
@@ -465,8 +455,8 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
                 .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             seed: val.seed,
             transaction_size: val.transaction_size,
-            libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
-                bootstrap_nodes: libp2p_config.bootstrap_nodes,
+            libp2p_config: Some(Libp2pConfig {
+                bootstrap_nodes: Vec::new(),
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
