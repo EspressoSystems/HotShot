@@ -464,6 +464,7 @@ impl<
             {
                 return;
             }
+
             if let MessageKind::Consensus(SequencingMessage::General(
                 GeneralConsensusMessage::Proposal(prop),
             )) = &message.kind
