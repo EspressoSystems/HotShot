@@ -83,6 +83,8 @@ struct OrchestratorState<KEY: SignatureKey> {
     peer_pub_ready: bool,
     /// A map from public keys to `(node_index, is_da)`.
     pub_posted: HashMap<Vec<u8>, (u64, bool)>,
+    /// A collection for storing `ready` public keys.
+    ready_posted: Vec<Vec<u8>>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -114,6 +116,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             config: network_config,
             peer_pub_ready: false,
             pub_posted: HashMap::new(),
+            ready_posted: Vec::new(),
             nodes_connected: 0,
             start: false,
             bench_results: BenchResults::default(),
@@ -228,7 +231,7 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// post endpoint for whether or not all nodes are ready
     /// # Errors
     /// if unable to serve
-    fn post_ready(&mut self) -> Result<(), ServerError>;
+    fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError>;
     /// post endpoint for manually starting the orchestrator
     /// # Errors
     /// if unable to serve
@@ -329,6 +332,14 @@ where
         let node_index = self.pub_posted.len() as u64;
 
         let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+
+        if !self.config.public_keys.contains(&pubkey) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::FORBIDDEN,
+                message: "You are unauthorized to register with the orchestrator".to_string(),
+            });
+        }
+
         self.config
             .config
             .known_nodes_with_stake
@@ -416,8 +427,39 @@ where
     }
 
     // Assumes nodes do not post 'ready' twice
-    // TODO ED Add a map to verify which nodes have posted they're ready
-    fn post_ready(&mut self) -> Result<(), ServerError> {
+    fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError> {
+        // Deserialize the payload
+        match PeerConfig::<KEY>::from_bytes(pubkey) {
+            Some(staked_pubkey) => {
+                // Is this node allowed to connect?
+                if !self.config.public_keys.contains(&pubkey) {
+                    return Err(ServerError {
+                        status: tide_disco::StatusCode::FORBIDDEN,
+                        message: "You are unauthorized to register with the orchestrator"
+                            .to_string(),
+                    });
+                }
+
+                // Have they already connected?
+                if self.ready_posted.contains(&pubkey) {
+                    return Err(ServerError {
+                        status: tide_disco::StatusCode::BAD_REQUEST,
+                        message: "You have already reported your ready status".to_string(),
+                    });
+                }
+
+                // Otherwise, register that we've seen their ready status
+                self.ready_posted.push(pubkey.clone())
+            }
+            None => {
+                // Something went wrong while deserializing.
+                return Err(ServerError {
+                    status: tide_disco::StatusCode::BAD_REQUEST,
+                    message: "You supplied an invalid pubkey".to_string(),
+                });
+            }
+        }
+
         self.nodes_connected += 1;
 
         println!("Nodes connected: {}", self.nodes_connected);
@@ -636,7 +678,23 @@ where
     })?
     .post(
         "post_ready",
-        |_req, state: &mut <State as ReadState>::State| async move { state.post_ready() }.boxed(),
+        |req, state: &mut <State as ReadState>::State| {
+            async move {
+                let mut body_bytes = req.body_bytes();
+                body_bytes.drain(..12);
+                // Decode the payload-supplied pubkey
+                let Ok(mut pubkey) =
+                    vbs::Serializer::<OrchestratorVersion>::deserialize(&body_bytes)
+                else {
+                    return Err(ServerError {
+                        status: tide_disco::StatusCode::BAD_REQUEST,
+                        message: "Malformed body".to_string(),
+                    });
+                };
+                state.post_ready(&mut pubkey)
+            }
+            .boxed()
+        },
     )?
     .post(
         "post_manual_start",

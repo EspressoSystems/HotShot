@@ -208,6 +208,8 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     pub builder: BuilderType,
     /// random builder config
     pub random_builder: Option<RandomBuilderConfig>,
+    /// The list of public keys that are allowed to connect to the orchestrator
+    pub public_keys: Vec<Vec<u8>>,
 }
 
 /// the source of the network config
@@ -439,6 +441,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             commit_sha: String::new(),
             builder: BuilderType::default(),
             random_builder: None,
+            public_keys: vec![],
         }
     }
 }
@@ -491,6 +494,9 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// random builder configuration
     #[serde(default)]
     pub random_builder: Option<RandomBuilderConfig>,
+    /// The list of public keys that are allowed to connect to the orchestrator
+    #[serde(default)]
+    pub public_keys: Vec<Vec<u8>>,
 }
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
@@ -536,6 +542,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             commit_sha: String::new(),
             builder: val.builder,
             random_builder: val.random_builder,
+            public_keys: val.public_keys,
         }
     }
 }
