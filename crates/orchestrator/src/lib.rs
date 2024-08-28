@@ -333,7 +333,7 @@ where
 
         let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
 
-        if !self.config.public_keys.contains(&pubkey) {
+        if !self.config.public_keys.contains(pubkey) {
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message: "You are unauthorized to register with the orchestrator".to_string(),
@@ -428,37 +428,24 @@ where
 
     // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError> {
-        // Deserialize the payload
-        match PeerConfig::<KEY>::from_bytes(pubkey) {
-            Some(staked_pubkey) => {
-                // Is this node allowed to connect?
-                if !self.config.public_keys.contains(&pubkey) {
-                    return Err(ServerError {
-                        status: tide_disco::StatusCode::FORBIDDEN,
-                        message: "You are unauthorized to register with the orchestrator"
-                            .to_string(),
-                    });
-                }
-
-                // Have they already connected?
-                if self.ready_posted.contains(&pubkey) {
-                    return Err(ServerError {
-                        status: tide_disco::StatusCode::BAD_REQUEST,
-                        message: "You have already reported your ready status".to_string(),
-                    });
-                }
-
-                // Otherwise, register that we've seen their ready status
-                self.ready_posted.push(pubkey.clone())
-            }
-            None => {
-                // Something went wrong while deserializing.
-                return Err(ServerError {
-                    status: tide_disco::StatusCode::BAD_REQUEST,
-                    message: "You supplied an invalid pubkey".to_string(),
-                });
-            }
+        // Is this node allowed to connect?
+        if !self.config.public_keys.contains(pubkey) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::FORBIDDEN,
+                message: "You are unauthorized to register with the orchestrator".to_string(),
+            });
         }
+
+        // Have they already connected?
+        if self.ready_posted.contains(pubkey) {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BAD_REQUEST,
+                message: "You have already reported your ready status".to_string(),
+            });
+        }
+
+        // Otherwise, register that we've seen their ready status
+        self.ready_posted.push(pubkey.clone());
 
         self.nodes_connected += 1;
 
