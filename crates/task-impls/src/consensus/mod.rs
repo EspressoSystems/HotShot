@@ -4,10 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    collections::{btree_map::Entry, BTreeMap},
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -44,11 +41,9 @@ use crate::{
         handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
         update_state_and_vote_if_able, VoteInfo,
     },
-    events::{HotShotEvent, HotShotTaskCompleted},
+    events::HotShotEvent,
     helpers::{broadcast_event, cancel_task, update_view, DONT_SEND_VIEW_CHANGE_EVENT},
-    vote_collection::{
-        create_vote_accumulator, handle_vote, AccumulatorInfo, HandleVoteEvent, VoteCollectorsMap,
-    },
+    vote_collection::{handle_vote, VoteCollectorsMap},
 };
 
 /// Helper functions to handle proposal-related functionality.
@@ -348,38 +343,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     return;
                 }
 
-                match self.timeout_vote_collectors.entry(vote.view_number()) {
-                    Entry::Vacant(entry) => {
-                        debug!("Starting vote handle for view {:?}", vote.view_number());
-                        let info = AccumulatorInfo {
-                            public_key: self.public_key.clone(),
-                            membership: Arc::clone(&self.quorum_membership),
-                            view: vote.view_number(),
-                            id: self.id,
-                        };
-                        if let Some(collector) = create_vote_accumulator(
-                            &info,
-                            event,
-                            &event_sender,
-                            self.upgrade_lock.clone(),
-                        )
-                        .await
-                        {
-                            entry.insert(collector);
-                        };
-                    }
-                    Entry::Occupied(mut entry) => {
-                        let result = entry
-                            .get_mut()
-                            .handle_vote_event(Arc::clone(&event), &event_sender)
-                            .await;
-
-                        if result == Some(HotShotTaskCompleted) {
-                            entry.remove();
-                            // The protocol has finished
-                        }
-                    }
-                }
+                handle_vote(
+                    &mut self.timeout_vote_collectors,
+                    vote,
+                    self.public_key.clone(),
+                    &self.quorum_membership,
+                    self.id,
+                    &event,
+                    &event_sender,
+                    &self.upgrade_lock,
+                )
+                .await;
             }
             HotShotEvent::QcFormed(cert) => match cert {
                 either::Right(qc) => {
