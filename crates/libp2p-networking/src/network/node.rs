@@ -176,11 +176,10 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig<K>) -> Result<Self, NetworkError> {
         // Generate a random `KeyPair` if one is not specified
-        let keypair = config.keypair.clone().unwrap_or_else(Keypair::generate_ed25519);
-            kp.clone()
-        } else {
-            Keypair::generate_ed25519()
-        };
+        let keypair = config
+            .keypair
+            .clone()
+            .unwrap_or_else(Keypair::generate_ed25519);
 
         // Get the `PeerId` from the `KeyPair`
         let peer_id = PeerId::from(keypair.public());

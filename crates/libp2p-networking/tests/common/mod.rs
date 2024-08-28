@@ -197,19 +197,19 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
         // Get an unused port
         let port = portpicker::pick_unused_port().expect("Failed to get an unused port");
 
+        // Use the port to create a Multiaddr
         let addr =
             Multiaddr::from_str(format!("/ip4/127.0.0.1/udp/{port}/quic-v1").as_str()).unwrap();
 
-        let regular_node_config = NetworkNodeConfigBuilder::default()
+        let config = NetworkNodeConfigBuilder::default()
             .replication_factor(replication_factor)
             .bind_address(Some(addr.clone()))
             .to_connect_addrs(HashSet::default())
             .build()
             .context(NodeConfigSnafu)
             .context(HandleSnafu)?;
-        let (rx, node) = spawn_network_node(regular_node_config.clone(), i)
-            .await
-            .unwrap();
+
+        let (rx, node) = spawn_network_node(config.clone(), i).await.unwrap();
 
         // Add ourselves to the bootstrap list
         bootstrap_addrs.push((node.peer_id(), addr));

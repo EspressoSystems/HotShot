@@ -267,8 +267,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 )
                 .expect("Failed to sign DHT lookup record");
 
-                // We want 2/3 of the nodes to have any given record in the DHT
-                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
+                // We want at least 2/3 of the nodes to have any given record in the DHT
+                let replication_factor =
+                    NonZeroUsize::new((2 * expected_node_count).div_ceil(3)).unwrap();
 
                 // Build the network node configuration
                 let config = NetworkNodeConfigBuilder::default()
