@@ -176,7 +176,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     #[instrument]
     pub async fn new(config: NetworkNodeConfig<K>) -> Result<Self, NetworkError> {
         // Generate a random `KeyPair` if one is not specified
-        let keypair = if let Some(ref kp) = config.keypair {
+        let keypair = config.keypair.clone().unwrap_or_else(Keypair::generate_ed25519);
             kp.clone()
         } else {
             Keypair::generate_ed25519()
