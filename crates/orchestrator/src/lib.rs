@@ -23,7 +23,10 @@ use client::{BenchResults, BenchResultsDownloadConfig};
 use config::BuilderType;
 use csv::Writer;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-use hotshot_types::{traits::signature_key::SignatureKey, PeerConfig};
+use hotshot_types::{
+    traits::signature_key::{SignatureKey, StakeTableEntryType},
+    PeerConfig,
+};
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -331,9 +334,15 @@ where
 
         let node_index = self.pub_posted.len() as u64;
 
+        // Deserialize the public key
         let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
 
-        if !self.config.public_keys.contains(pubkey) {
+        // Check if the node is allowed to connect
+        if !self
+            .config
+            .public_keys
+            .contains(&staked_pubkey.stake_table_entry.public_key())
+        {
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message: "You are unauthorized to register with the orchestrator".to_string(),
@@ -428,8 +437,15 @@ where
 
     // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError> {
+        // Deserialize the public key
+        let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+
         // Is this node allowed to connect?
-        if !self.config.public_keys.contains(pubkey) {
+        if !self
+            .config
+            .public_keys
+            .contains(&staked_pubkey.stake_table_entry.public_key())
+        {
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message: "You are unauthorized to register with the orchestrator".to_string(),
