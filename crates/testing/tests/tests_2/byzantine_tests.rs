@@ -161,7 +161,7 @@ cross_tests!(
                 let view_delay = ViewDelay {
                     number_of_views_to_delay: node_id/3,
                     events_for_view: HashMap::new(),
-                    stop_view_delay_at_view_number: 25,
+                    stop_view_delay_at_view_number: 20,
                 };
                 match node_id {
                     6|10|14 => Behaviour::Byzantine(Box::new(view_delay)),

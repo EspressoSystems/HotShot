@@ -212,7 +212,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
 
             // ensure we are actually able to lookback enough views
             let view_diff = (*view_number).saturating_sub(self.number_of_views_to_delay);
-            if view_diff >= self.number_of_views_to_delay {
+            if view_diff > 0 {
                 return match self
                     .events_for_view
                     .get(&<TYPES as NodeType>::Time::new(view_diff))
