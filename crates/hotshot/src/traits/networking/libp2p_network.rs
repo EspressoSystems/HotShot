@@ -62,6 +62,7 @@ use libp2p_identity::{
     ed25519::{self, SecretKey},
     Keypair, PeerId,
 };
+pub use libp2p_networking::network::GossipConfig;
 use libp2p_networking::{
     network::{
         behaviours::dht::record::{Namespace, RecordKey, RecordValue},
@@ -73,6 +74,7 @@ use libp2p_networking::{
     },
     reexport::{Multiaddr, ResponseChannel},
 };
+
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
 use tracing::{debug, error, info, instrument, trace, warn};
@@ -366,6 +368,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     /// If we are unable to calculate the replication factor
     pub async fn from_config<TYPES: NodeType>(
         mut config: NetworkConfig<K>,
+        gossip_config: GossipConfig,
         bind_address: SocketAddr,
         pub_key: &K,
         priv_key: &K::PrivateKey,
@@ -389,8 +392,11 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         )
         .parse()?;
 
-        // Build our libp2p configuration from our global, network configuration
+        // Build our libp2p configuration
         let mut config_builder = NetworkNodeConfigBuilder::default();
+
+        // Set the gossip configuration
+        config_builder.gossip_config(gossip_config.clone());
 
         // Extrapolate the stake table from the known nodes
         let stake_table: HashSet<K> = config
@@ -438,7 +444,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let bootstrap_nodes = libp2p_config
             .bootstrap_nodes
             .into_iter()
-            .choose_multiple(&mut StdRng::from_entropy(), libp2p_config.mesh_n);
+            .choose_multiple(&mut StdRng::from_entropy(), gossip_config.mesh_n);
         config_builder.to_connect_addrs(HashSet::from_iter(bootstrap_nodes.clone()));
 
         // Build the node's configuration

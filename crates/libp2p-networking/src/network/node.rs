@@ -55,7 +55,7 @@ use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 pub use self::{
     config::{
-        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+        GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
         DEFAULT_REPLICATION_FACTOR,
     },
     handle::{
@@ -200,20 +200,18 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 MessageId::from(hash.as_bytes().to_vec())
             };
 
-            // Use the default mesh parameters if none are provided
-            let mesh_params = config.mesh_params.clone().unwrap_or_default();
-
-            // Create a custom gossipsub
+            // Derive a `Gossipsub` config from our gossip config
             let gossipsub_config = GossipsubConfigBuilder::default()
-                .validation_mode(ValidationMode::Strict) // Force all messages to have valid signatures
-                .history_gossip(6) // Gossip about 6 heartbeats worth of message history
-                .history_length(8) // Keep 8 heartbeats in history
-                .mesh_n(mesh_params.mesh_n) // Target number of peers in mesh network
-                .mesh_n_high(mesh_params.mesh_n_high) // Upper limit of mesh peers
-                .mesh_n_low(mesh_params.mesh_n_low) // Lower limit of mesh peers
-                .mesh_outbound_min(mesh_params.mesh_outbound_min) // Minimum number of outbound peers in mesh
-                .max_transmit_size(MAX_GOSSIP_MSG_SIZE) // Maximum message size
                 .message_id_fn(message_id_fn) // Use the (blake3) hash of a message as its ID
+                .validation_mode(ValidationMode::Strict) // Force all messages to have valid signatures
+                .heartbeat_interval(config.gossip_config.heartbeat_interval) // Time between gossip heartbeats
+                .history_gossip(config.gossip_config.history_gossip) // Number of heartbeats to gossip about
+                .history_length(config.gossip_config.history_length) // Number of heartbeats to remember the full message for
+                .mesh_n(config.gossip_config.mesh_n) // Target number of mesh peers
+                .mesh_n_high(config.gossip_config.mesh_n_high) // Upper limit of mesh peers
+                .mesh_n_low(config.gossip_config.mesh_n_low) // Lower limit of mesh peers
+                .mesh_outbound_min(config.gossip_config.mesh_outbound_min) // Minimum number of outbound peers in mesh
+                .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
                 .build()
                 .map_err(|s| {
                     GossipsubConfigSnafu {

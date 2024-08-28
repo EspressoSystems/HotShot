@@ -32,29 +32,15 @@ use crate::client::OrchestratorClient;
 /// Configuration describing a libp2p node
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
-    /// bootstrap nodes (multiaddress, serialized public key)
+    /// The bootstrap nodes to connect to (multiaddress, serialized public key)
     pub bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
-    /// The target number of peers in the mesh
-    pub mesh_n: usize,
-    /// The minimum number of peers in the mesh
-    pub mesh_n_low: usize,
-    /// The maximum number of peers in the mesh
-    pub mesh_n_high: usize,
-    /// The minimum number of mesh peers that must be outbound
-    pub mesh_outbound_min: usize,
 }
 
 /// configuration serialized into a file
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfigFile {
-    /// The target number of peers in the mesh
-    pub mesh_n: usize,
-    /// The minimum number of peers in the mesh
-    pub mesh_n_low: usize,
-    /// The maximum number of peers in the mesh
-    pub mesh_n_high: usize,
-    /// The minimum number of mesh peers that must be outbound
-    pub mesh_outbound_min: usize,
+    /// The bootstrap nodes to connect to (multiaddress, serialized public key)
+    pub bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
 }
 
 /// configuration for a web server
@@ -480,11 +466,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             seed: val.seed,
             transaction_size: val.transaction_size,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
-                bootstrap_nodes: Vec::new(),
-                mesh_n_high: libp2p_config.mesh_n_high,
-                mesh_n_low: libp2p_config.mesh_n_low,
-                mesh_outbound_min: libp2p_config.mesh_outbound_min,
-                mesh_n: libp2p_config.mesh_n,
+                bootstrap_nodes: libp2p_config.bootstrap_nodes,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
