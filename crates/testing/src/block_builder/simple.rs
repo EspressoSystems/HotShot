@@ -174,7 +174,8 @@ where
         };
 
         let signature =
-            TYPES::BuilderSignatureKey::sign_bundle::<TYPES>(&self.priv_key, &transactions).unwrap();
+            TYPES::BuilderSignatureKey::sign_bundle::<TYPES>(&self.priv_key, &transactions)
+                .unwrap();
 
         Ok(Bundle {
             transactions,
@@ -320,9 +321,9 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
         .expect("Failed to construct the builder API");
 
         let mut app: App<SimpleBuilderSource<TYPES>, Error> = App::with_state(self);
-        app.register_module::<Error, _>("block_info 0.1", builder_api_0_1)
+        app.register_module::<Error, _>("block_info", builder_api_0_1)
             .expect("Failed to register builder API 0.1")
-            .register_module::<Error, _>("block_info 0.3", builder_api_0_3)
+            .register_module::<Error, _>("bundle_info", builder_api_0_3)
             .expect("Failed to register builder API 0.3");
 
         async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()));
