@@ -188,7 +188,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
     timeout_len: Duration,
 ) -> Result<Vec<(HandleWithState<S, K>, NetworkNodeReceiver)>, TestError<S>> {
     let mut handles = Vec::new();
-    let mut bootstrap_addrs = Vec::<(PeerId, Multiaddr)>::new();
+    let mut node_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
     // should never panic unless num_nodes is 0
     let replication_factor = NonZeroUsize::new(num_of_nodes - 1).unwrap();
@@ -211,8 +211,8 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
 
         let (rx, node) = spawn_network_node(config.clone(), i).await.unwrap();
 
-        // Add ourselves to the bootstrap list
-        bootstrap_addrs.push((node.peer_id(), addr));
+        // Add ourselves to the list of node addresses to connect to
+        node_addrs.push((node.peer_id(), addr));
 
         let node = Arc::new(node);
         connecting_futs.push({
@@ -231,7 +231,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, K: SignatureKey + 'static
     }
 
     for (handle, _) in &handles[0..num_of_nodes] {
-        let to_share = bootstrap_addrs.clone();
+        let to_share = node_addrs.clone();
         handle
             .handle
             .add_known_peers(to_share)
