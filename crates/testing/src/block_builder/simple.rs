@@ -173,13 +173,8 @@ where
             .expect("Failed to sign fee!"),
         };
 
-        let commitments = transactions
-            .iter()
-            .flat_map(|txn| <[u8; 32]>::from(txn.commit()))
-            .collect::<Vec<u8>>();
-
         let signature =
-            TYPES::BuilderSignatureKey::sign_builder_message(&self.priv_key, &commitments).unwrap();
+            TYPES::BuilderSignatureKey::sign_bundle::<TYPES>(&self.priv_key, &transactions).unwrap();
 
         Ok(Bundle {
             transactions,
