@@ -278,7 +278,6 @@ impl<
     /// Handle the given event.
     ///
     /// Returns the completion status.
-    #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
     #[instrument(skip_all, fields(view = *self.view), name = "Network Task", level = "error")]
     pub async fn handle(
         &mut self,
@@ -287,7 +286,8 @@ impl<
     ) {
         let mut maybe_action = None;
         if let Some((sender, message_kind, transmit)) =
-            self.parse_event(event, &mut maybe_action, membership).await {
+            self.parse_event(event, &mut maybe_action, membership).await
+        {
             self.spawn_transmit_task(message_kind, membership, maybe_action, transmit, sender);
         };
     }
@@ -371,7 +371,7 @@ impl<
     /// which will be used to create a message and transmit on the wire.
     /// Returns `None` if the parsing result should not be sent on the wire.
     /// Handles the `VidDisperseSend` event separately using a helper method.
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
     async fn parse_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -654,16 +654,13 @@ pub mod test {
             membership: &TYPES::Membership,
         ) {
             let mut maybe_action = None;
-            let Some((mut sender, mut message_kind, mut transmit)) =
+            if let Some((mut sender, mut message_kind, mut transmit)) =
                 self.parse_event(event, &mut maybe_action, membership).await
-            else {
-                return;
-            };
-
-            // Modify the values acquired by parsing the event.
-            (self.modifier)(&mut sender, &mut message_kind, &mut transmit, membership);
-
-            self.spawn_transmit_task(message_kind, membership, maybe_action, transmit, sender);
+            {
+                // Modify the values acquired by parsing the event.
+                (self.modifier)(&mut sender, &mut message_kind, &mut transmit, membership);
+                self.spawn_transmit_task(message_kind, membership, maybe_action, transmit, sender);
+            }
         }
     }
 
