@@ -436,19 +436,17 @@ where
     // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self, peer_config: &PeerConfig<KEY>) -> Result<(), ServerError> {
         // If we have not disabled registration verification.
-        if self.config.enable_registration_verification {
-            // Is this node allowed to connect?
-            if !self
-                .config
-                .config
-                .known_nodes_with_stake
-                .contains(peer_config)
-            {
-                return Err(ServerError {
-                    status: tide_disco::StatusCode::FORBIDDEN,
-                    message: "You are unauthorized to register with the orchestrator".to_string(),
-                });
-            }
+        // Is this node allowed to connect?
+        if !self
+            .config
+            .config
+            .known_nodes_with_stake
+            .contains(peer_config)
+        {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::FORBIDDEN,
+                message: "You are unauthorized to register with the orchestrator".to_string(),
+            });
         }
 
         self.nodes_connected += 1;
