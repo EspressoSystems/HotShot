@@ -86,7 +86,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
         handle.internal_event_stream.0.clone(),
-        handle.internal_event_stream.1.activate_cloned()
+        handle.internal_event_stream.1.activate_cloned(),
     ));
 }
 

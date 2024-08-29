@@ -10,9 +10,7 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_std::task::JoinHandle;
 use futures::{FutureExt, StreamExt};
-use hotshot_task::{
-    dependency::{Dependency, EventDependency},
-};
+use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
@@ -78,7 +76,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     async fn run_loop(
         mut self,
         shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>,
-        _sender: Sender<Arc<HotShotEvent<TYPES>>>
+        _sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
         loop {
@@ -258,7 +256,7 @@ fn valid_signature<TYPES: NodeType>(
 pub fn run_response_task<TYPES: NodeType>(
     task_state: NetworkResponseState<TYPES>,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>
+    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
 ) -> JoinHandle<()> {
     let shutdown = EventDependency::new(
         receiver,

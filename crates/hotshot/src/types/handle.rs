@@ -71,7 +71,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let task = Task::new(
             task_state,
             self.internal_event_stream.0.clone(),
-            self.internal_event_stream.1.activate_cloned()
+            self.internal_event_stream.1.activate_cloned(),
         );
 
         self.consensus_registry.run_task(task);
