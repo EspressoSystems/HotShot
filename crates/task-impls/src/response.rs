@@ -10,8 +10,6 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
 use futures::{FutureExt, StreamExt};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
@@ -30,6 +28,8 @@ use hotshot_types::{
     },
 };
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use tracing::instrument;
 
 use crate::events::HotShotEvent;
