@@ -579,6 +579,23 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -620,8 +637,6 @@
     !<span class="macro">matches!</span>(
         event.as_ref(),
         HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::QuorumProposalRequestSend(..)
-            | HotShotEvent::QuorumProposalResponseSend(..)
             | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>)
             | HotShotEvent::DacSend(<span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::TimeoutVoteSend(<span class="kw">_</span>)
@@ -644,6 +659,8 @@
     !<span class="macro">matches!</span>(
         event.as_ref(),
         HotShotEvent::DaProposalSend(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::QuorumProposalRequestSend(..)
+            | HotShotEvent::QuorumProposalResponseSend(..)
             | HotShotEvent::DaVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewChange(<span class="kw">_</span>)
     )
@@ -896,7 +913,7 @@
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
                     )),
-                    TransmitType::Direct(membership.leader(req.view_number)),
+                    TransmitType::DaCommitteeAndLeaderBroadcast(membership.leader(req.view_number)),
                 ),
                 HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) =&gt; (
                     sender_key.clone(),
@@ -1045,6 +1062,7 @@
             {
                 <span class="kw">return</span>;
             }
+
             <span class="kw">if let </span>MessageKind::Consensus(SequencingMessage::General(
                 GeneralConsensusMessage::Proposal(prop),
             )) = <span class="kw-2">&amp;</span>message.kind
@@ -1072,6 +1090,22 @@
                 </span>}
                 TransmitType::DaCommitteeBroadcast =&gt; {
                     net.da_broadcast_message(serialized_message, committee, broadcast_delay)
+                        .<span class="kw">await
+                </span>}
+                TransmitType::DaCommitteeAndLeaderBroadcast(recipient) =&gt; {
+                    <span class="comment">// Short-circuit exit from this call if we get an error during the direct leader broadcast.
+                    // NOTE: An improvement to this is to check if the leader is in the DA committee but it's
+                    // just a single extra message to the leader, so it's not an optimization that we need now.
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = net
+                        .direct_message(serialized_message.clone(), recipient)
+                        .<span class="kw">await
+                    </span>{
+                        <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {e:?}"</span>);
+                        <span class="kw">return</span>;
+                    }
+
+                    <span class="comment">// Otherwise, send the next message.
+                    </span>net.da_broadcast_message(serialized_message, committee, broadcast_delay)
                         .<span class="kw">await
                 </span>}
             };

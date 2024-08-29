@@ -911,10 +911,6 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1053,11 +1049,6 @@
         <span class="string">"Sending proposal for view {:?}"</span>,
         proposed_leaf.view_number(),
     );
-
-    consensus
-        .write()
-        .<span class="kw">await
-        </span>.update_last_proposed_view(message.clone())<span class="question-mark">?</span>;
 
     async_sleep(Duration::from_millis(round_start_delay)).<span class="kw">await</span>;
 
@@ -1440,7 +1431,7 @@
         .entry(proposal.data.view_number())
         .or_default()
         .push(async_spawn(
-            validate_proposal_safety_and_liveness(
+            validate_proposal_safety_and_liveness::&lt;TYPES, I, V&gt;(
                 proposal.clone(),
                 parent_leaf,
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
@@ -1451,6 +1442,7 @@
                 task_state.output_event_stream.clone(),
                 task_state.id,
                 task_state.upgrade_lock.clone(),
+                Arc::clone(<span class="kw-2">&amp;</span>task_state.storage),
             )
             .map(AnyhowTracing::err_as_debug),
         ));

@@ -399,6 +399,7 @@
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -489,7 +490,8 @@
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>NetworkRequestState&lt;TYPES, I&gt; {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
-    <span class="kw">async fn </span>handle_event(
+    <span class="attr">#[instrument(skip_all, target = <span class="string">"NetworkRequestState"</span>, fields(id = <span class="self">self</span>.id))]
+    </span><span class="kw">async fn </span>handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;<span class="self">Self</span>::Event&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,

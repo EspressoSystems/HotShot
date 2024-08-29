@@ -282,6 +282,7 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -530,7 +531,7 @@
     };
 
     <span class="comment">// Validate the proposal
-    </span>validate_proposal_safety_and_liveness(
+    </span>validate_proposal_safety_and_liveness::&lt;TYPES, I, V&gt;(
         proposal.clone(),
         parent_leaf,
         OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
@@ -541,6 +542,7 @@
         task_state.output_event_stream.clone(),
         task_state.id,
         task_state.upgrade_lock.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>task_state.storage),
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 

@@ -677,6 +677,8 @@
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -763,6 +765,8 @@
     </span>Broadcast,
     <span class="doccomment">/// broadcast to DA committee
     </span>DaCommitteeBroadcast,
+    <span class="doccomment">/// broadcast to the leader and the DA
+    </span>DaCommitteeAndLeaderBroadcast(TYPES::SignatureKey),
 }
 
 <span class="doccomment">/// Error type for networking
