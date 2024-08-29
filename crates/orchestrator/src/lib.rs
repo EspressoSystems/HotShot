@@ -12,7 +12,7 @@ pub mod client;
 pub mod config;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::OpenOptions,
     io::{self, ErrorKind},
     time::Duration,
@@ -87,7 +87,7 @@ struct OrchestratorState<KEY: SignatureKey> {
     /// A map from public keys to `(node_index, is_da)`.
     pub_posted: HashMap<Vec<u8>, (u64, bool)>,
     /// A collection for storing `ready` public keys.
-    ready_posted: Vec<Vec<u8>>,
+    ready_posted: HashSet<KEY>,
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
@@ -119,7 +119,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             config: network_config,
             peer_pub_ready: false,
             pub_posted: HashMap::new(),
-            ready_posted: Vec::new(),
+            ready_posted: HashSet::new(),
             nodes_connected: 0,
             start: false,
             bench_results: BenchResults::default(),
@@ -453,15 +453,15 @@ where
         }
 
         // Have they already connected?
-        if self.ready_posted.contains(pubkey) {
+        if !self
+            .ready_posted
+            .insert(staked_pubkey.stake_table_entry.public_key().clone())
+        {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "You have already reported your ready status".to_string(),
             });
         }
-
-        // Otherwise, register that we've seen their ready status
-        self.ready_posted.push(pubkey.clone());
 
         self.nodes_connected += 1;
 

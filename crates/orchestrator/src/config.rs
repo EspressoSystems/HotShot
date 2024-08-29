@@ -210,6 +210,8 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
     pub public_keys: Vec<KEY>,
+    /// Whether or not to disable registration verification.
+    pub disable_registration_verification: bool,
 }
 
 /// the source of the network config
@@ -442,6 +444,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             builder: BuilderType::default(),
             random_builder: None,
             public_keys: vec![],
+            disable_registration_verification: false,
         }
     }
 }
@@ -497,10 +500,20 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// The list of public keys that are allowed to connect to the orchestrator
     #[serde(default)]
     pub public_keys: Vec<KEY>,
+    /// Whether or not to disable registration verification.
+    #[serde(default)]
+    pub disable_registration_verification: bool,
 }
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
     fn from(val: NetworkConfigFile<K>) -> Self {
+        #[cfg(not(debug_assertions))]
+        {
+            if val.disable_registration_verification {
+                panic!("Registration verification cannot be turned off in production builds");
+            }
+        }
+
         NetworkConfig {
             rounds: val.rounds,
             indexed_da: val.indexed_da,
@@ -543,6 +556,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             builder: val.builder,
             random_builder: val.random_builder,
             public_keys: val.public_keys,
+            disable_registration_verification: val.disable_registration_verification,
         }
     }
 }
