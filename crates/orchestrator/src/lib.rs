@@ -103,6 +103,8 @@ struct OrchestratorState<KEY: SignatureKey> {
     accepting_new_keys: bool,
     /// Builder address pool
     builders: Vec<Url>,
+    /// Whether or not registration verification is disabled for this instance
+    disable_registraton_verification: bool,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
@@ -127,6 +129,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             manual_start_allowed: true,
             accepting_new_keys: true,
             builders,
+            disable_registraton_verification: network_config.disable_registration_verification,
         }
     }
 
@@ -323,7 +326,7 @@ where
             return Ok((*node_index, *is_da));
         }
 
-        if !self.accepting_new_keys {
+        if !self.disable_registraton_verification && !self.accepting_new_keys {
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message:
@@ -437,30 +440,33 @@ where
 
     // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError> {
-        // Deserialize the public key
-        let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+        // If we have not disabled registration verification.
+        if !self.disable_registraton_verification {
+            // Deserialize the public key
+            let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
 
-        // Is this node allowed to connect?
-        if !self
-            .config
-            .public_keys
-            .contains(&staked_pubkey.stake_table_entry.public_key())
-        {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::FORBIDDEN,
-                message: "You are unauthorized to register with the orchestrator".to_string(),
-            });
-        }
+            // Is this node allowed to connect?
+            if !self
+                .config
+                .public_keys
+                .contains(&staked_pubkey.stake_table_entry.public_key())
+            {
+                return Err(ServerError {
+                    status: tide_disco::StatusCode::FORBIDDEN,
+                    message: "You are unauthorized to register with the orchestrator".to_string(),
+                });
+            }
 
-        // Have they already connected?
-        if !self
-            .ready_posted
-            .insert(staked_pubkey.stake_table_entry.public_key().clone())
-        {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BAD_REQUEST,
-                message: "You have already reported your ready status".to_string(),
-            });
+            // Have they already connected?
+            if !self
+                .ready_posted
+                .insert(staked_pubkey.stake_table_entry.public_key().clone())
+            {
+                return Err(ServerError {
+                    status: tide_disco::StatusCode::BAD_REQUEST,
+                    message: "You have already reported your ready status".to_string(),
+                });
+            }
         }
 
         self.nodes_connected += 1;

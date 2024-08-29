@@ -507,11 +507,8 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
     fn from(val: NetworkConfigFile<K>) -> Self {
-        #[cfg(not(debug_assertions))]
-        {
-            if val.disable_registration_verification {
-                panic!("Registration verification cannot be turned off in production builds");
-            }
+        if val.disable_registration_verification {
+            tracing::error!("REGISTRATION VERIFICATION IS TURNED OFF");
         }
 
         NetworkConfig {

@@ -42,6 +42,7 @@ cdn_marshal_address = "127.0.0.1:9000"
 public_keys = [
     "BLS_VER_KEY~p-JKk1VvO1RoMrDrqyjz0P1VGwtOaEjF5jLjpOZbJi5O747fvYEOg0OvCl_CLe4shh7vsqeG9uMF9RssM12sLSuaiVJkCClxEI5mRLV4qff1UjZAZJIBgeL1_hRhRUkpqC0Trm1qtvXtZ8FwOCIzYXv8c300Au824k7FxjjcWLBL",
 ]
+disable_registration_verification = false
 
 [config]
 num_nodes_with_stake = 10
