@@ -286,12 +286,10 @@ impl<
         membership: &TYPES::Membership,
     ) {
         let mut maybe_action = None;
-        let Some((sender, message_kind, transmit)) =
-            self.parse_event(event, &mut maybe_action, membership).await
-        else {
-            return;
+        if let Some((sender, message_kind, transmit)) =
+            self.parse_event(event, &mut maybe_action, membership).await {
+            self.spawn_transmit_task(message_kind, membership, maybe_action, transmit, sender);
         };
-        self.spawn_transmit_task(message_kind, membership, maybe_action, transmit, sender);
     }
 
     /// handle `VidDisperseSend`
