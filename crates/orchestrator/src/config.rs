@@ -5,6 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{
+    collections::HashSet,
     env, fs,
     net::SocketAddr,
     num::NonZeroUsize,
@@ -209,7 +210,7 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     /// random builder config
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
-    pub public_keys: Vec<KEY>,
+    pub public_keys: HashSet<KEY>,
     /// Whether or not to disable registration verification.
     pub disable_registration_verification: bool,
 }
@@ -443,7 +444,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             commit_sha: String::new(),
             builder: BuilderType::default(),
             random_builder: None,
-            public_keys: vec![],
+            public_keys: HashSet::new(),
             disable_registration_verification: false,
         }
     }
@@ -499,7 +500,7 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
     #[serde(default)]
-    pub public_keys: Vec<KEY>,
+    pub public_keys: HashSet<KEY>,
     /// Whether or not to disable registration verification.
     #[serde(default)]
     pub disable_registration_verification: bool,
