@@ -1077,6 +1077,8 @@
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
 <a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1143,6 +1145,7 @@
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
+<span class="kw">use </span>libp2p_networking::network::GossipConfig;
 <span class="kw">use </span>rand::{rngs::StdRng, SeedableRng};
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::{debug, error, info, warn};
@@ -1814,6 +1817,7 @@
         <span class="comment">// Create the Libp2p network
         </span><span class="kw">let </span>libp2p_network = Libp2pNetwork::from_config::&lt;TYPES&gt;(
             config.clone(),
+            GossipConfig::default(),
             bind_address,
             <span class="kw-2">&amp;</span>public_key,
             <span class="kw-2">&amp;</span>private_key,

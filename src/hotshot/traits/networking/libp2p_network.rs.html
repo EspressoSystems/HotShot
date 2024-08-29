@@ -1105,47 +1105,6 @@
 <a href="#1103" id="1103">1103</a>
 <a href="#1104" id="1104">1104</a>
 <a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a>
-<a href="#1134" id="1134">1134</a>
-<a href="#1135" id="1135">1135</a>
-<a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a>
-<a href="#1139" id="1139">1139</a>
-<a href="#1140" id="1140">1140</a>
-<a href="#1141" id="1141">1141</a>
-<a href="#1142" id="1142">1142</a>
-<a href="#1143" id="1143">1143</a>
-<a href="#1144" id="1144">1144</a>
-<a href="#1145" id="1145">1145</a>
-<a href="#1146" id="1146">1146</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1210,18 +1169,19 @@
     ed25519::{<span class="self">self</span>, SecretKey},
     Keypair, PeerId,
 };
+<span class="kw">pub use </span>libp2p_networking::network::GossipConfig;
 <span class="kw">use </span>libp2p_networking::{
     network::{
         behaviours::dht::record::{Namespace, RecordKey, RecordValue},
         spawn_network_node,
         transport::construct_auth_message,
-        MeshParams,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeReceiver,
-        NetworkNodeType, DEFAULT_REPLICATION_FACTOR,
+        DEFAULT_REPLICATION_FACTOR,
     },
     reexport::{Multiaddr, ResponseChannel},
 };
+
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
@@ -1416,53 +1376,20 @@
                 )
                 .expect(<span class="string">"Failed to sign DHT lookup record"</span>);
 
-                <span class="comment">// we want the majority of peers to have this lying around.
-                </span><span class="kw">let </span>replication_factor = NonZeroUsize::new(<span class="number">2 </span>* expected_node_count / <span class="number">3</span>).unwrap();
-                <span class="kw">let </span>config = <span class="kw">if </span>node_id &lt; num_bootstrap <span class="kw">as </span>u64 {
-                    NetworkNodeConfigBuilder::default()
-                        <span class="comment">// NOTICE the implicit assumption that bootstrap is less
-                        // than half the network. This seems reasonable.
-                        </span>.mesh_params(<span class="prelude-val">Some</span>(MeshParams {
-                            mesh_n_high: expected_node_count,
-                            mesh_n_low: <span class="number">5</span>,
-                            mesh_outbound_min: <span class="number">3</span>,
-                            <span class="comment">// the worst case of 7/2+3 &gt; 5
-                            </span>mesh_n: (expected_node_count / <span class="number">2 </span>+ <span class="number">3</span>),
-                        }))
-                        .server_mode(<span class="bool-val">true</span>)
-                        .identity(libp2p_keypair)
-                        .replication_factor(replication_factor)
-                        .node_type(NetworkNodeType::Bootstrap)
-                        .bound_addr(<span class="prelude-val">Some</span>(addr))
-                        .to_connect_addrs(HashSet::default())
-                        <span class="comment">// setting to sane defaults
-                        </span>.ttl(<span class="prelude-val">None</span>)
-                        .republication_interval(<span class="prelude-val">None</span>)
-                        .build()
-                        .unwrap()
-                } <span class="kw">else </span>{
-                    NetworkNodeConfigBuilder::default()
-                        <span class="comment">// NOTE I'm hardcoding these because this is probably the MAX
-                        // parameters. If there aren't this many nodes, gossip keeps looking
-                        // for more. That is fine.
-                        </span>.mesh_params(<span class="prelude-val">Some</span>(MeshParams {
-                            mesh_n_high: <span class="number">15</span>,
-                            mesh_n_low: <span class="number">5</span>,
-                            mesh_outbound_min: <span class="number">4</span>,
-                            mesh_n: <span class="number">8</span>,
-                        }))
-                        .server_mode(<span class="bool-val">true</span>)
-                        .identity(libp2p_keypair)
-                        .replication_factor(replication_factor)
-                        .node_type(NetworkNodeType::Regular)
-                        .bound_addr(<span class="prelude-val">Some</span>(addr))
-                        .to_connect_addrs(HashSet::default())
-                        <span class="comment">// setting to sane defaults
-                        </span>.ttl(<span class="prelude-val">None</span>)
-                        .republication_interval(<span class="prelude-val">None</span>)
-                        .build()
-                        .unwrap()
-                };
+                <span class="comment">// We want at least 2/3 of the nodes to have any given record in the DHT
+                </span><span class="kw">let </span>replication_factor =
+                    NonZeroUsize::new((<span class="number">2 </span>* expected_node_count).div_ceil(<span class="number">3</span>)).unwrap();
+
+                <span class="comment">// Build the network node configuration
+                </span><span class="kw">let </span>config = NetworkNodeConfigBuilder::default()
+                    .keypair(libp2p_keypair)
+                    .replication_factor(replication_factor)
+                    .bind_address(<span class="prelude-val">Some</span>(addr))
+                    .to_connect_addrs(HashSet::default())
+                    .republication_interval(<span class="prelude-val">None</span>)
+                    .build()
+                    .expect(<span class="string">"Failed to build network node config"</span>);
+
                 <span class="kw">let </span>bootstrap_addrs_ref = Arc::clone(<span class="kw-2">&amp;</span>bootstrap_addrs);
                 <span class="kw">let </span>node_ids_ref = Arc::clone(<span class="kw-2">&amp;</span>node_ids);
                 <span class="kw">let </span>da = da_keys.clone();
@@ -1548,6 +1475,7 @@
     /// If we are unable to calculate the replication factor
     </span><span class="kw">pub async fn </span>from_config&lt;TYPES: NodeType&gt;(
         <span class="kw-2">mut </span>config: NetworkConfig&lt;K&gt;,
+        gossip_config: GossipConfig,
         bind_address: SocketAddr,
         pub_key: <span class="kw-2">&amp;</span>K,
         priv_key: <span class="kw-2">&amp;</span>K::PrivateKey,
@@ -1571,8 +1499,11 @@
         )
         .parse()<span class="question-mark">?</span>;
 
-        <span class="comment">// Build our libp2p configuration from our global, network configuration
+        <span class="comment">// Build our libp2p configuration
         </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
+
+        <span class="comment">// Set the gossip configuration
+        </span>config_builder.gossip_config(gossip_config.clone());
 
         <span class="comment">// Extrapolate the stake table from the known nodes
         </span><span class="kw">let </span>stake_table: HashSet&lt;K&gt; = config
@@ -1612,22 +1543,15 @@
         .with_context(|| <span class="string">"Failed to sign DHT lookup record"</span>)<span class="question-mark">?</span>;
 
         config_builder
-            .server_mode(libp2p_config.server_mode)
-            .identity(keypair)
+            .keypair(keypair)
             .replication_factor(replication_factor)
-            .bound_addr(<span class="prelude-val">Some</span>(bind_address.clone()))
-            .mesh_params(<span class="prelude-val">Some</span>(MeshParams {
-                mesh_n_high: libp2p_config.mesh_n_high,
-                mesh_n_low: libp2p_config.mesh_n_low,
-                mesh_outbound_min: libp2p_config.mesh_outbound_min,
-                mesh_n: libp2p_config.mesh_n,
-            }));
+            .bind_address(<span class="prelude-val">Some</span>(bind_address.clone()));
 
         <span class="comment">// Choose `mesh_n` random nodes to connect to for bootstrap
         </span><span class="kw">let </span>bootstrap_nodes = libp2p_config
             .bootstrap_nodes
             .into_iter()
-            .choose_multiple(<span class="kw-2">&amp;mut </span>StdRng::from_entropy(), libp2p_config.mesh_n);
+            .choose_multiple(<span class="kw-2">&amp;mut </span>StdRng::from_entropy(), gossip_config.mesh_n);
         config_builder.to_connect_addrs(HashSet::from_iter(bootstrap_nodes.clone()));
 
         <span class="comment">// Build the node's configuration
@@ -1703,17 +1627,11 @@
         <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;K&gt;(config.clone(), id)
             .<span class="kw">await
             </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>;
-        <span class="comment">// Make bootstrap mappings known
-        </span><span class="kw">if </span><span class="macro">matches!</span>(
-            network_handle.config().node_type,
-            NetworkNodeType::Bootstrap
-        ) {
-            <span class="kw">let </span>addr = network_handle.listen_addr();
-            <span class="kw">let </span>pid = network_handle.peer_id();
-            <span class="kw">let </span><span class="kw-2">mut </span>bs_cp = bootstrap_addrs.write().<span class="kw">await</span>;
-            bs_cp.push((pid, addr));
-            drop(bs_cp);
-        }
+
+        <span class="comment">// Add our own address to the bootstrap addresses
+        </span><span class="kw">let </span>addr = network_handle.listen_addr();
+        <span class="kw">let </span>pid = network_handle.peer_id();
+        bootstrap_addrs.write().<span class="kw">await</span>.push((pid, addr));
 
         <span class="kw">let </span><span class="kw-2">mut </span>pubkey_pid_map = BiHashMap::new();
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());

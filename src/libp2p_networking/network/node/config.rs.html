@@ -86,6 +86,19 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -98,7 +111,7 @@
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
 
-<span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
+<span class="kw">use </span><span class="kw">super</span>::MAX_GOSSIP_MSG_SIZE;
 
 <span class="doccomment">/// The default Kademlia replication factor
 </span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; = NonZeroUsize::new(<span class="number">10</span>);
@@ -106,23 +119,20 @@
 <span class="doccomment">/// describe the configuration of the network
 </span><span class="attr">#[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
 </span><span class="kw">pub struct </span>NetworkNodeConfig&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
-    <span class="attr">#[builder(default)]
-    </span><span class="doccomment">/// The type of node (bootstrap etc)
-    </span><span class="kw">pub </span>node_type: NetworkNodeType,
-    <span class="doccomment">/// optional identity
+    <span class="doccomment">/// The keypair for the node
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     #[debug(skip)]
-    </span><span class="kw">pub </span>identity: <span class="prelude-ty">Option</span>&lt;Keypair&gt;,
-    <span class="doccomment">/// address to bind to
+    </span><span class="kw">pub </span>keypair: <span class="prelude-ty">Option</span>&lt;Keypair&gt;,
+    <span class="doccomment">/// The address to bind to
     </span><span class="attr">#[builder(default)]
-    </span><span class="kw">pub </span>bound_addr: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt;,
+    </span><span class="kw">pub </span>bind_address: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt;,
     <span class="doccomment">/// Replication factor for entries in the DHT
     </span><span class="attr">#[builder(setter(into, strip_option), default = <span class="string">"DEFAULT_REPLICATION_FACTOR"</span>)]
     </span><span class="kw">pub </span>replication_factor: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt;,
 
     <span class="attr">#[builder(default)]
-    </span><span class="doccomment">/// parameters for gossipsub mesh network
-    </span><span class="kw">pub </span>mesh_params: <span class="prelude-ty">Option</span>&lt;MeshParams&gt;,
+    </span><span class="doccomment">/// Configuration for `GossipSub`
+    </span><span class="kw">pub </span>gossip_config: GossipConfig,
 
     <span class="doccomment">/// list of addresses to connect to at initialization
     </span><span class="kw">pub </span>to_connect_addrs: HashSet&lt;(PeerId, Multiaddr)&gt;,
@@ -132,9 +142,6 @@
     <span class="doccomment">/// expiratiry for records in DHT
     </span><span class="attr">#[builder(default)]
     </span><span class="kw">pub </span>ttl: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-    <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
-    </span><span class="attr">#[builder(default = <span class="string">"false"</span>)]
-    </span><span class="kw">pub </span>server_mode: bool,
 
     <span class="doccomment">/// The stake table. Used for authenticating other nodes. If not supplied
     /// we will not check other nodes against the stake table
@@ -147,29 +154,48 @@
     </span><span class="kw">pub </span>auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 }
 
-<span class="doccomment">/// NOTE: `mesh_outbound_min &lt;= mesh_n_low &lt;= mesh_n &lt;= mesh_n_high`
-/// NOTE: `mesh_outbound_min &lt;= self.config.mesh_n / 2`
-/// parameters fed into gossipsub controlling the structure of the mesh
+<span class="doccomment">/// Configuration for Libp2p's Gossipsub
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>MeshParams {
-    <span class="doccomment">/// mesh_n_high from gossipsub
-    </span><span class="kw">pub </span>mesh_n_high: usize,
-    <span class="doccomment">/// mesh_n_low from gossipsub
-    </span><span class="kw">pub </span>mesh_n_low: usize,
-    <span class="doccomment">/// mesh_outbound_min from gossipsub
-    </span><span class="kw">pub </span>mesh_outbound_min: usize,
-    <span class="doccomment">/// mesh_n from gossipsub
+</span><span class="kw">pub struct </span>GossipConfig {
+    <span class="doccomment">/// The heartbeat interval
+    </span><span class="kw">pub </span>heartbeat_interval: Duration,
+
+    <span class="doccomment">/// The number of past heartbeats to gossip about
+    </span><span class="kw">pub </span>history_gossip: usize,
+    <span class="doccomment">/// The number of past heartbeats to remember the full messages for
+    </span><span class="kw">pub </span>history_length: usize,
+
+    <span class="doccomment">/// The target number of peers in the mesh
     </span><span class="kw">pub </span>mesh_n: usize,
+    <span class="doccomment">/// The maximum number of peers in the mesh
+    </span><span class="kw">pub </span>mesh_n_high: usize,
+    <span class="doccomment">/// The minimum number of peers in the mesh
+    </span><span class="kw">pub </span>mesh_n_low: usize,
+    <span class="doccomment">/// The minimum number of mesh peers that must be outbound
+    </span><span class="kw">pub </span>mesh_outbound_min: usize,
+
+    <span class="doccomment">/// The maximum gossip message size
+    </span><span class="kw">pub </span>max_transmit_size: usize,
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>MeshParams {
+<span class="kw">impl </span>Default <span class="kw">for </span>GossipConfig {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            mesh_n_high: <span class="number">15</span>,
-            mesh_n_low: <span class="number">8</span>,
-            mesh_outbound_min: <span class="number">4</span>,
-            mesh_n: <span class="number">12</span>,
-        }
+            heartbeat_interval: Duration::from_secs(<span class="number">1</span>), <span class="comment">// Default of Libp2p
+
+            // The following are slightly modified defaults of Libp2p
+            </span>history_gossip: <span class="number">6</span>, <span class="comment">// The number of past heartbeats to gossip about
+            </span>history_length: <span class="number">8</span>, <span class="comment">// The number of past heartbeats to remember the full messages for
+
+            // The mesh parameters are borrowed from Ethereum:
+            // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+            </span>mesh_n: <span class="number">8</span>,            <span class="comment">// The target number of peers in the mesh
+            </span>mesh_n_high: <span class="number">12</span>,      <span class="comment">// The maximum number of peers in the mesh
+            </span>mesh_n_low: <span class="number">6</span>,        <span class="comment">// The minimum number of peers in the mesh
+            </span>mesh_outbound_min: <span class="number">2</span>, <span class="comment">// The minimum number of mesh peers that must be outbound
+
+            </span>max_transmit_size: MAX_GOSSIP_MSG_SIZE, <span class="comment">// The maximum gossip message size
+        </span>}
     }
 }
 </code></pre></div></section></main></body></html>

@@ -710,7 +710,7 @@
         </span>.context(NetworkSnafu)<span class="question-mark">?</span>;
     <span class="comment">// randomly assigned port
     </span><span class="kw">let </span>listen_addr = config
-        .bound_addr
+        .bind_address
         .clone()
         .unwrap_or_else(|| gen_multiaddr(<span class="number">0</span>));
     <span class="kw">let </span>peer_id = network.peer_id();

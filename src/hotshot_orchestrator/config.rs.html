@@ -743,76 +743,6 @@
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -848,61 +778,8 @@
 <span class="doccomment">/// Configuration describing a libp2p node
 </span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfig {
-    <span class="doccomment">/// bootstrap nodes (multiaddress, serialized public key)
+    <span class="doccomment">/// The bootstrap nodes to connect to (multiaddress, serialized public key)
     </span><span class="kw">pub </span>bootstrap_nodes: Vec&lt;(PeerId, Multiaddr)&gt;,
-    <span class="doccomment">/// global index of node (for testing purposes a uid)
-    </span><span class="kw">pub </span>node_index: u64,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_n_high: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_n_low: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_n: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_n_high: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_n_low: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_outbound_min: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_n: usize,
-    <span class="doccomment">/// timeout before starting the next view
-    </span><span class="kw">pub </span>next_view_timeout: u64,
-    <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
-    </span><span class="kw">pub </span>builder_timeout: Duration,
-    <span class="doccomment">/// time node has been running
-    </span><span class="kw">pub </span>online_time: u64,
-    <span class="doccomment">/// number of transactions per view
-    </span><span class="kw">pub </span>num_txn_per_round: usize,
-    <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
-    </span><span class="kw">pub </span>server_mode: bool,
-}
-
-<span class="doccomment">/// configuration serialized into a file
-</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>Libp2pConfigFile {
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_n_high: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_n_low: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    </span><span class="kw">pub </span>bootstrap_mesh_n: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_n_high: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_n_low: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_outbound_min: usize,
-    <span class="doccomment">/// corresponds to libp2p DHT parameter of the same name
-    </span><span class="kw">pub </span>mesh_n: usize,
-    <span class="doccomment">/// time node has been running
-    </span><span class="kw">pub </span>online_time: u64,
-    <span class="doccomment">/// whether to start in libp2p::kad::Mode::Server mode
-    </span><span class="kw">pub </span>server_mode: bool,
 }
 
 <span class="doccomment">/// configuration for a web server
@@ -1295,9 +1172,6 @@
     <span class="doccomment">/// delay before beginning consensus
     </span><span class="attr">#[serde_inline_default(ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS)]
     </span><span class="kw">pub </span>start_delay_seconds: u64,
-    <span class="doccomment">/// the libp2p config
-    </span><span class="attr">#[serde(default)]
-    </span><span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfigFile&gt;,
     <span class="doccomment">/// the hotshot config file
     </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>config: HotShotConfigFile&lt;KEY&gt;,
@@ -1339,22 +1213,8 @@
                 .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             seed: val.seed,
             transaction_size: val.transaction_size,
-            libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
+            libp2p_config: <span class="prelude-val">Some</span>(Libp2pConfig {
                 bootstrap_nodes: Vec::new(),
-                node_index: <span class="number">0</span>,
-                bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
-                bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
-                bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
-                bootstrap_mesh_n: libp2p_config.bootstrap_mesh_n,
-                mesh_n_high: libp2p_config.mesh_n_high,
-                mesh_n_low: libp2p_config.mesh_n_low,
-                mesh_outbound_min: libp2p_config.mesh_outbound_min,
-                mesh_n: libp2p_config.mesh_n,
-                next_view_timeout: val.config.next_view_timeout,
-                builder_timeout: val.config.builder_timeout,
-                online_time: libp2p_config.online_time,
-                num_txn_per_round: val.transactions_per_round,
-                server_mode: libp2p_config.server_mode,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
