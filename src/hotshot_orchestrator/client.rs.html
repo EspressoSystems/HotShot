@@ -504,6 +504,7 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -948,12 +949,13 @@
     /// # Panics
     /// Panics if unable to post.
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">"orchestrator ready signal"</span>)]
-    </span><span class="kw">pub async fn </span>wait_for_all_nodes_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, node_index: u64) -&gt; bool {
+    </span><span class="kw">pub async fn </span>wait_for_all_nodes_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_config: Vec&lt;u8&gt;) -&gt; bool {
         <span class="kw">let </span>send_ready_f = |client: Client&lt;ClientError, OrchestratorVersion&gt;| {
+            <span class="kw">let </span>pk = peer_config.clone();
             <span class="kw">async move </span>{
                 <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, ClientError&gt; = client
                     .post(<span class="string">"api/ready"</span>)
-                    .body_json(<span class="kw-2">&amp;</span>node_index)
+                    .body_binary(<span class="kw-2">&amp;</span>pk)
                     .unwrap()
                     .send()
                     .<span class="kw">await

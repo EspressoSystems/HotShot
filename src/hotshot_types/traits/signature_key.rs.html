@@ -319,6 +319,8 @@
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -346,9 +348,11 @@
 <span class="kw">use crate</span>::{utils::BuilderCommitment, vid::VidSchemeType};
 
 <span class="doccomment">/// Type representing stake table entries in a `StakeTable`
-</span><span class="kw">pub trait </span>StakeTableEntryType {
+</span><span class="kw">pub trait </span>StakeTableEntryType&lt;K&gt; {
     <span class="doccomment">/// Get the stake value
     </span><span class="kw">fn </span>stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
+    <span class="doccomment">/// Get the public key
+    </span><span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; K;
 }
 
 <span class="doccomment">/// Trait for abstracting public key signatures
@@ -381,7 +385,7 @@
         + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;
         + Hash;
     <span class="doccomment">/// The type of the entry that contain both public key and stake value
-    </span><span class="kw">type </span>StakeTableEntry: StakeTableEntryType
+    </span><span class="kw">type </span>StakeTableEntry: StakeTableEntryType&lt;<span class="self">Self</span>&gt;
         + Send
         + Sync
         + Sized
