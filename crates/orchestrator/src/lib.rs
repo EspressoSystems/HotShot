@@ -103,8 +103,6 @@ struct OrchestratorState<KEY: SignatureKey> {
     accepting_new_keys: bool,
     /// Builder address pool
     builders: Vec<Url>,
-    /// Whether or not registration verification is disabled for this instance
-    disable_registraton_verification: bool,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
@@ -129,7 +127,6 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             manual_start_allowed: true,
             accepting_new_keys: true,
             builders,
-            disable_registraton_verification: network_config.disable_registration_verification,
         }
     }
 
@@ -234,10 +231,10 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     /// # Errors
     /// if unable to serve
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError>;
-    /// post endpoint for whether or not all nodes are ready
+    /// A node POSTs its public key to let the orchestrator know that it is ready
     /// # Errors
     /// if unable to serve
-    fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError>;
+    fn post_ready(&mut self, bls_public_key: &KEY) -> Result<(), ServerError>;
     /// post endpoint for manually starting the orchestrator
     /// # Errors
     /// if unable to serve
@@ -326,7 +323,7 @@ where
             return Ok((*node_index, *is_da));
         }
 
-        if !self.disable_registraton_verification && !self.accepting_new_keys {
+        if !self.config.disable_registration_verification && !self.accepting_new_keys {
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message:
@@ -346,6 +343,7 @@ where
             .public_keys
             .contains(&staked_pubkey.stake_table_entry.public_key())
         {
+            println!("{}", staked_pubkey.stake_table_entry.public_key());
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message: "You are unauthorized to register with the orchestrator".to_string(),
@@ -394,7 +392,7 @@ where
             }
         }
 
-        println!("Posted public key for node_index {node_index}");
+        tracing::info!("Posted public key for node_index {node_index}");
 
         // node_index starts at 0, so once it matches `num_nodes_with_stake`
         // we will have registered one node too many. hence, we want `node_index + 1`.
@@ -439,18 +437,11 @@ where
     }
 
     // Assumes nodes do not post 'ready' twice
-    fn post_ready(&mut self, pubkey: &mut Vec<u8>) -> Result<(), ServerError> {
+    fn post_ready(&mut self, pubkey: &KEY) -> Result<(), ServerError> {
         // If we have not disabled registration verification.
-        if !self.disable_registraton_verification {
-            // Deserialize the public key
-            let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
-
+        if !self.config.disable_registration_verification {
             // Is this node allowed to connect?
-            if !self
-                .config
-                .public_keys
-                .contains(&staked_pubkey.stake_table_entry.public_key())
-            {
+            if !self.config.public_keys.contains(pubkey) {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::FORBIDDEN,
                     message: "You are unauthorized to register with the orchestrator".to_string(),
@@ -458,10 +449,7 @@ where
             }
 
             // Have they already connected?
-            if !self
-                .ready_posted
-                .insert(staked_pubkey.stake_table_entry.public_key().clone())
-            {
+            if !self.ready_posted.insert(pubkey.clone()) {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BAD_REQUEST,
                     message: "You have already reported your ready status".to_string(),
@@ -471,7 +459,7 @@ where
 
         self.nodes_connected += 1;
 
-        println!("Nodes connected: {}", self.nodes_connected);
+        tracing::info!("Nodes connected: {}", self.nodes_connected);
 
         // i.e. nodes_connected >= num_nodes_with_stake * (start_threshold.0 / start_threshold.1)
         if self.nodes_connected * self.config.config.start_threshold.1
@@ -692,15 +680,14 @@ where
                 let mut body_bytes = req.body_bytes();
                 body_bytes.drain(..12);
                 // Decode the payload-supplied pubkey
-                let Ok(mut pubkey) =
-                    vbs::Serializer::<OrchestratorVersion>::deserialize(&body_bytes)
+                let Ok(pubkey) = vbs::Serializer::<OrchestratorVersion>::deserialize(&body_bytes)
                 else {
                     return Err(ServerError {
                         status: tide_disco::StatusCode::BAD_REQUEST,
                         message: "Malformed body".to_string(),
                     });
                 };
-                state.post_ready(&mut pubkey)
+                state.post_ready(&pubkey)
             }
             .boxed()
         },
