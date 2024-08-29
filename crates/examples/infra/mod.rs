@@ -886,8 +886,10 @@ pub async fn main_entry_point<
         derive_libp2p_peer_id::<TYPES::SignatureKey>(&my_own_validator_config.private_key)
             .expect("failed to derive Libp2p keypair");
 
-    // For use below to register this node.
-    let node_public_key = my_own_validator_config.public_key.clone();
+    // We need this to be able to register our node
+    let peer_config =
+        PeerConfig::<TYPES::SignatureKey>::to_bytes(&my_own_validator_config.public_config())
+            .clone();
 
     // conditionally save/load config from file or orchestrator
     // This is a function that will return correct complete config from orchestrator.
@@ -959,7 +961,7 @@ pub async fn main_entry_point<
     if let NetworkConfigSource::Orchestrator = source {
         info!("Waiting for the start command from orchestrator");
         orchestrator_client
-            .wait_for_all_nodes_ready(node_public_key)
+            .wait_for_all_nodes_ready(peer_config)
             .await;
     }
 

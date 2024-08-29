@@ -442,14 +442,13 @@ impl OrchestratorClient {
     /// # Panics
     /// Panics if unable to post.
     #[instrument(skip(self), name = "orchestrator ready signal")]
-    pub async fn wait_for_all_nodes_ready<KEY: SignatureKey>(&self, public_key: KEY) -> bool {
+    pub async fn wait_for_all_nodes_ready(&self, peer_config: Vec<u8>) -> bool {
         let send_ready_f = |client: Client<ClientError, OrchestratorVersion>| {
-            let request_body = vbs::Serializer::<OrchestratorVersion>::serialize(&public_key)
-                .expect("Failed to serialize public key");
+            let pk = peer_config.clone();
             async move {
                 let result: Result<_, ClientError> = client
                     .post("api/ready")
-                    .body_binary(&request_body)
+                    .body_binary(&pk)
                     .unwrap()
                     .send()
                     .await

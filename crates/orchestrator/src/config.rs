@@ -212,7 +212,7 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     /// The list of public keys that are allowed to connect to the orchestrator
     pub public_keys: HashSet<KEY>,
     /// Whether or not to disable registration verification.
-    pub disable_registration_verification: bool,
+    pub enable_registration_verification: bool,
 }
 
 /// the source of the network config
@@ -445,7 +445,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             builder: BuilderType::default(),
             random_builder: None,
             public_keys: HashSet::new(),
-            disable_registration_verification: false,
+            enable_registration_verification: true,
         }
     }
 }
@@ -503,15 +503,11 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     pub public_keys: HashSet<KEY>,
     /// Whether or not to disable registration verification.
     #[serde(default)]
-    pub disable_registration_verification: bool,
+    pub enable_registration_verification: bool,
 }
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
     fn from(val: NetworkConfigFile<K>) -> Self {
-        if val.disable_registration_verification {
-            tracing::error!("REGISTRATION VERIFICATION IS TURNED OFF");
-        }
-
         NetworkConfig {
             rounds: val.rounds,
             indexed_da: val.indexed_da,
@@ -554,7 +550,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             builder: val.builder,
             random_builder: val.random_builder,
             public_keys: val.public_keys,
-            disable_registration_verification: val.disable_registration_verification,
+            enable_registration_verification: val.enable_registration_verification,
         }
     }
 }
