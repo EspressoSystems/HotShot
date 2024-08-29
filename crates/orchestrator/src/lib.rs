@@ -343,7 +343,6 @@ where
             .public_keys
             .contains(&staked_pubkey.stake_table_entry.public_key())
         {
-            println!("{}", staked_pubkey.stake_table_entry.public_key());
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
                 message: "You are unauthorized to register with the orchestrator".to_string(),
