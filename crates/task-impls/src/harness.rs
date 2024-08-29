@@ -53,8 +53,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
     let task = Task::new(
         state,
         to_test.clone(),
-        from_test.clone(),
-        "task_0".to_string(),
+        from_test.clone()
     );
 
     let handle = task.run();

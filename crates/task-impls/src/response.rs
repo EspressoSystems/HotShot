@@ -8,10 +8,10 @@ use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_std::task::JoinHandle;
 use futures::{FutureExt, StreamExt};
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
-    task::{NetworkHandle, Task},
 };
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
@@ -31,7 +31,7 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 use tracing::instrument;
 
-use crate::{events::HotShotEvent, health_check::HealthCheckTaskState, helpers::broadcast_event};
+use crate::events::HotShotEvent;
 /// Time to wait for txns before sending `ResponseMessage::NotFound`
 const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 
@@ -78,13 +78,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     async fn run_loop(
         mut self,
         shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>,
-        sender: Sender<Arc<HotShotEvent<TYPES>>>,
-        task_name: String,
+        _sender: Sender<Arc<HotShotEvent<TYPES>>>
     ) {
         let mut shutdown = Box::pin(shutdown.completed().fuse());
-        let heartbeat_interval =
-            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs();
-        futures::pin_mut!(heartbeat_interval);
         loop {
             futures::select! {
                 req = self.receiver.next() => {
@@ -92,9 +88,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                         Some((msg, chan)) => self.handle_message(msg, chan).await,
                         None => return,
                     }
-                },
-                _ = Task::<HealthCheckTaskState<TYPES>>::handle_periodic_delay(&mut heartbeat_interval) => {
-                    broadcast_event(Arc::new(HotShotEvent::HeartBeat(task_name.clone())), &sender).await;
                 },
                 _ = shutdown => {
                     return;
@@ -265,13 +258,11 @@ fn valid_signature<TYPES: NodeType>(
 pub fn run_response_task<TYPES: NodeType>(
     task_state: NetworkResponseState<TYPES>,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    task_id: String,
-) -> NetworkHandle {
+    receiver: Receiver<Arc<HotShotEvent<TYPES>>>
+) -> JoinHandle<()> {
     let shutdown = EventDependency::new(
         receiver,
         Box::new(|e| matches!(e.as_ref(), HotShotEvent::Shutdown)),
     );
-    let handle = async_spawn(task_state.run_loop(shutdown, sender, task_id.clone()));
-    NetworkHandle { handle, task_id }
+    async_spawn(task_state.run_loop(shutdown, sender))
 }

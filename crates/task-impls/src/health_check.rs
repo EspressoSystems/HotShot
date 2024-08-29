@@ -97,24 +97,6 @@ impl<TYPES: NodeType> TaskState for HealthCheckTaskState<TYPES> {
 
     async fn cancel_subtasks(&mut self) {}
 
-    async fn periodic_task(&self, _sender: &Sender<Arc<Self::Event>>, _task_id: String) {
-        let current_time = Instant::now();
-
-        let task_ids_heartbeat = self.task_ids_heartbeat_timestamp.lock().await;
-        for (task_id, heartbeat_timestamp) in task_ids_heartbeat.iter() {
-            if current_time.duration_since(*heartbeat_timestamp).as_secs()
-                > self.heartbeat_timeout_duration_in_secs
-            {
-                tracing::error!(
-                    "Node Id {} has not received a heartbeat for task id {} for {} seconds",
-                    self.node_id,
-                    task_id,
-                    self.heartbeat_timeout_duration_in_secs
-                );
-            }
-        }
-    }
-
     fn get_task_name(&self) -> &'static str {
         std::any::type_name::<HealthCheckTaskState<TYPES>>()
     }
