@@ -315,7 +315,7 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
                     )),
-                    TransmitType::DaCommitteeBroadcastAndLeader(membership.leader(req.view_number)),
+                    TransmitType::DaCommitteeAndLeaderBroadcast(membership.leader(req.view_number)),
                 ),
                 HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => (
                     sender_key.clone(),
@@ -494,7 +494,7 @@ impl<
                     net.da_broadcast_message(serialized_message, committee, broadcast_delay)
                         .await
                 }
-                TransmitType::DaCommitteeBroadcastAndLeader(recipient) => {
+                TransmitType::DaCommitteeAndLeaderBroadcast(recipient) => {
                     // Short-circuit exit from this call if we get an error during the direct leader broadcast.
                     // NOTE: An improvement to this is to check if the leader is in the DA committee but it's
                     // just a single extra message to the leader, so it's not an optimization that we need now.
