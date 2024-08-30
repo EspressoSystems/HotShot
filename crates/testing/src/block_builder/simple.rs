@@ -34,6 +34,7 @@ use hotshot_builder_api::{
 };
 use hotshot_types::{
     bundle::Bundle,
+    constants::{LEGACY_BUILDER_MODULE, MARKETPLACE_BUILDER_MODULE},
     traits::{
         block_contents::{BlockHeader, BuilderFee},
         node_implementation::NodeType,
@@ -177,6 +178,19 @@ where
             TYPES::BuilderSignatureKey::sign_bundle::<TYPES>(&self.priv_key, &transactions)
                 .unwrap();
 
+        {
+            // claim transactions
+            let mut transactions_lock = self.transactions.write().await;
+            let transaction_hashes = transactions.iter().map(|txn| txn.commit());
+            let time = Instant::now();
+
+            for hash in transaction_hashes {
+                if let Some(txn) = transactions_lock.get_mut(&hash) {
+                    txn.claimed = Some(time);
+                }
+            }
+        }
+
         Ok(Bundle {
             transactions,
             signature,
@@ -186,7 +200,7 @@ where
 
     /// To get the builder's address
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
-        todo!()
+        Ok(self.pub_key.clone())
     }
 }
 
@@ -321,9 +335,9 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
         .expect("Failed to construct the builder API");
 
         let mut app: App<SimpleBuilderSource<TYPES>, Error> = App::with_state(self);
-        app.register_module::<Error, _>("block_info", builder_api_0_1)
+        app.register_module::<Error, _>(LEGACY_BUILDER_MODULE, builder_api_0_1)
             .expect("Failed to register builder API 0.1")
-            .register_module::<Error, _>("bundle_info", builder_api_0_3)
+            .register_module::<Error, _>(MARKETPLACE_BUILDER_MODULE, builder_api_0_3)
             .expect("Failed to register builder API 0.3");
 
         async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()));

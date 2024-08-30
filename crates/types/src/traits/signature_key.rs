@@ -296,7 +296,7 @@ pub trait BuilderSignatureKey:
     /// If unable to sign the data with the key
     fn sign_bundle<TYPES: NodeType>(
         private_key: &Self::BuilderPrivateKey,
-        transactions: &Vec<TYPES::Transaction>,
+        transactions: &[TYPES::Transaction],
     ) -> Result<Self::BuilderSignature, Self::SignError> {
         let commitments = transactions
             .iter()
