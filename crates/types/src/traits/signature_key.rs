@@ -29,9 +29,11 @@ use crate::{
 };
 
 /// Type representing stake table entries in a `StakeTable`
-pub trait StakeTableEntryType {
+pub trait StakeTableEntryType<K> {
     /// Get the stake value
     fn stake(&self) -> U256;
+    /// Get the public key
+    fn public_key(&self) -> K;
 }
 
 /// Trait for abstracting public key signatures
@@ -64,7 +66,7 @@ pub trait SignatureKey:
         + for<'a> Deserialize<'a>
         + Hash;
     /// The type of the entry that contain both public key and stake value
-    type StakeTableEntry: StakeTableEntryType
+    type StakeTableEntry: StakeTableEntryType<Self>
         + Send
         + Sync
         + Sized
