@@ -323,8 +323,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         )
         .await?;
 
-        tracing::error!("PRODUCED NONEMPTY BUNDLE");
-
         Ok(PackedBundle::new(
             block_payload.encode(),
             metadata,
