@@ -5,6 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{
+    collections::HashSet,
     env, fs,
     net::SocketAddr,
     num::NonZeroUsize,
@@ -32,61 +33,8 @@ use crate::client::OrchestratorClient;
 /// Configuration describing a libp2p node
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
-    /// bootstrap nodes (multiaddress, serialized public key)
+    /// The bootstrap nodes to connect to (multiaddress, serialized public key)
     pub bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
-    /// global index of node (for testing purposes a uid)
-    pub node_index: u64,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_n_high: usize,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_n_low: usize,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_outbound_min: usize,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_n: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_n_high: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_n_low: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_outbound_min: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_n: usize,
-    /// timeout before starting the next view
-    pub next_view_timeout: u64,
-    /// The maximum amount of time a leader can wait to get a block from a builder
-    pub builder_timeout: Duration,
-    /// time node has been running
-    pub online_time: u64,
-    /// number of transactions per view
-    pub num_txn_per_round: usize,
-    /// whether to start in libp2p::kad::Mode::Server mode
-    pub server_mode: bool,
-}
-
-/// configuration serialized into a file
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Libp2pConfigFile {
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_n_high: usize,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_n_low: usize,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_outbound_min: usize,
-    /// corresponds to libp2p DHT parameter of the same name for bootstrap nodes
-    pub bootstrap_mesh_n: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_n_high: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_n_low: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_outbound_min: usize,
-    /// corresponds to libp2p DHT parameter of the same name
-    pub mesh_n: usize,
-    /// time node has been running
-    pub online_time: u64,
-    /// whether to start in libp2p::kad::Mode::Server mode
-    pub server_mode: bool,
 }
 
 /// configuration for a web server
@@ -208,6 +156,10 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     pub builder: BuilderType,
     /// random builder config
     pub random_builder: Option<RandomBuilderConfig>,
+    /// The list of public keys that are allowed to connect to the orchestrator
+    pub public_keys: HashSet<KEY>,
+    /// Whether or not to disable registration verification.
+    pub enable_registration_verification: bool,
 }
 
 /// the source of the network config
@@ -439,6 +391,8 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             commit_sha: String::new(),
             builder: BuilderType::default(),
             random_builder: None,
+            public_keys: HashSet::new(),
+            enable_registration_verification: true,
         }
     }
 }
@@ -473,9 +427,6 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// delay before beginning consensus
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS)]
     pub start_delay_seconds: u64,
-    /// the libp2p config
-    #[serde(default)]
-    pub libp2p_config: Option<Libp2pConfigFile>,
     /// the hotshot config file
     #[serde(default)]
     pub config: HotShotConfigFile<KEY>,
@@ -491,6 +442,12 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     /// random builder configuration
     #[serde(default)]
     pub random_builder: Option<RandomBuilderConfig>,
+    /// The list of public keys that are allowed to connect to the orchestrator
+    #[serde(default)]
+    pub public_keys: HashSet<KEY>,
+    /// Whether or not to disable registration verification.
+    #[serde(default)]
+    pub enable_registration_verification: bool,
 }
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
@@ -511,22 +468,8 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
                 .unwrap_or(Duration::from_millis(REQUEST_DATA_DELAY)),
             seed: val.seed,
             transaction_size: val.transaction_size,
-            libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
+            libp2p_config: Some(Libp2pConfig {
                 bootstrap_nodes: Vec::new(),
-                node_index: 0,
-                bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
-                bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
-                bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
-                bootstrap_mesh_n: libp2p_config.bootstrap_mesh_n,
-                mesh_n_high: libp2p_config.mesh_n_high,
-                mesh_n_low: libp2p_config.mesh_n_low,
-                mesh_outbound_min: libp2p_config.mesh_outbound_min,
-                mesh_n: libp2p_config.mesh_n,
-                next_view_timeout: val.config.next_view_timeout,
-                builder_timeout: val.config.builder_timeout,
-                online_time: libp2p_config.online_time,
-                num_txn_per_round: val.transactions_per_round,
-                server_mode: libp2p_config.server_mode,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
@@ -536,6 +479,8 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             commit_sha: String::new(),
             builder: val.builder,
             random_builder: val.random_builder,
+            public_keys: val.public_keys,
+            enable_registration_verification: val.enable_registration_verification,
         }
     }
 }
