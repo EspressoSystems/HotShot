@@ -24,7 +24,7 @@ pub type CircuitField = ark_ed_on_bn254::Fq;
 pub type LightClientState = GenericLightClientState<CircuitField>;
 /// Signature scheme
 pub type StateSignatureScheme =
-    jf_signature::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
+jf_signature::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
 /// Signatures
 pub type StateSignature = schnorr::Signature<Config>;
 /// Verification key for verifying state signatures
@@ -36,6 +36,9 @@ pub type PublicInput = GenericPublicInput<CircuitField>;
 /// Key pairs for signing/verifying a light client state
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StateKeyPair(pub schnorr::KeyPair<Config>);
+
+/// Stake table state
+pub type StakeState = GenericStakeState<CircuitField>;
 
 /// Request body to send to the state relay server
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
@@ -99,6 +102,17 @@ impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 7] {
         ]
     }
 }
+
+pub struct GenericStakeState<F: PrimeField> {
+    /// threshold
+    pub threshold: F,
+
+    /// Commitments to the table columns
+    pub stake_table_bls_key_comm: F,
+    pub stake_table_schnorr_key_comm: F,
+    pub stake_table_amount_comm: F,
+}
+
 impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 7] {
     fn from(state: &GenericLightClientState<F>) -> Self {
         [
