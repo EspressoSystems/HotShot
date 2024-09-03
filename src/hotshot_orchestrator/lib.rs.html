@@ -1561,7 +1561,7 @@
     network_config.config.known_nodes_with_stake = <span class="macro">vec!</span>[];
     network_config.config.known_da_nodes = <span class="macro">vec!</span>[];
 
-    <span class="kw">if </span>network_config.enable_registration_verification {
+    <span class="kw">if </span>!network_config.enable_registration_verification {
         <span class="macro">tracing::error!</span>(<span class="string">"REGISTRATION VERIFICATION IS TURNED OFF"</span>);
     }
 
