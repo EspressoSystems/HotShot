@@ -161,7 +161,7 @@ cross_tests!(
                 let view_delay = ViewDelay {
                     number_of_views_to_delay: node_id/3,
                     events_for_view: HashMap::new(),
-                    stop_view_delay_at_view_number: 20,
+                    stop_view_delay_at_view_number: 25,
                 };
                 match node_id {
                     6|10|14 => Behaviour::Byzantine(Box::new(view_delay)),
@@ -185,6 +185,13 @@ cross_tests!(
         metadata.da_staked_committee_size = num_nodes_with_stake;
         metadata.overall_safety_properties.num_failed_views = 20;
         metadata.overall_safety_properties.num_successful_views = 20;
+        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
+            (ViewNumber::new(6), false),
+            (ViewNumber::new(10), false),
+            (ViewNumber::new(14), false),
+            (ViewNumber::new(21), false),
+            (ViewNumber::new(25), false),
+        ]);
         metadata
     },
 );

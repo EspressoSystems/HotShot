@@ -215,10 +215,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             if view_diff > 0 {
                 return match self
                     .events_for_view
-                    .get(&<TYPES as NodeType>::Time::new(view_diff))
+                    .remove(&<TYPES as NodeType>::Time::new(view_diff))
                 {
                     Some(lookback_events) => lookback_events.clone(),
-                    None => correct_event,
+                    // we have already return all received events for this view
+                    None => vec![],
                 };
             }
         }
