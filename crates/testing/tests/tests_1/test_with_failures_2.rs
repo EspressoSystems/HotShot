@@ -82,6 +82,7 @@ cross_tests!(
     }
 );
 
+#[cfg(async_executor_impl = "async-std")]
 cross_tests!(
     TestName: dishonest_leader,
     Impls: [MemoryImpl],
