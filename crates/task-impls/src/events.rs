@@ -300,7 +300,6 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             }
             HotShotEvent::DaCertificateValidated(cert) => Some(cert.view_number),
             HotShotEvent::UpgradeCertificateFormed(cert) => Some(cert.view_number()),
-            HotShotEvent::HeartBeat(_task_id) => None,
         }
     }
 }
