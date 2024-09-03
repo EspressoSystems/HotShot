@@ -328,7 +328,7 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
         >(&Options::default())
         .expect("Failed to construct the builder API");
 
-        let builder_api_0_3 = hotshot_builder_api::v0_1::builder::define_api::<
+        let builder_api_0_3 = hotshot_builder_api::v0_3::builder::define_api::<
             SimpleBuilderSource<TYPES>,
             TYPES,
         >(&Options::default())
