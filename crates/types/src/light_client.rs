@@ -83,22 +83,14 @@ pub struct GenericLightClientState<F: PrimeField> {
     pub block_height: usize,
     /// Root of the block commitment tree
     pub block_comm_root: F,
-    /// Commitment for fee ledger
-    pub fee_ledger_comm: F,
-    /// Commitment for the stake table
-    pub stake_table_comm: (F, F, F),
 }
 
-impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 7] {
+impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 3] {
     fn from(state: GenericLightClientState<F>) -> Self {
         [
             F::from(state.view_number as u64),
             F::from(state.block_height as u64),
             state.block_comm_root,
-            state.fee_ledger_comm,
-            state.stake_table_comm.0,
-            state.stake_table_comm.1,
-            state.stake_table_comm.2,
         ]
     }
 }
@@ -113,16 +105,12 @@ pub struct GenericStakeState<F: PrimeField> {
     pub stake_table_amount_comm: F,
 }
 
-impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 7] {
+impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 3] {
     fn from(state: &GenericLightClientState<F>) -> Self {
         [
             F::from(state.view_number as u64),
             F::from(state.block_height as u64),
             state.block_comm_root,
-            state.fee_ledger_comm,
-            state.stake_table_comm.0,
-            state.stake_table_comm.1,
-            state.stake_table_comm.2,
         ]
     }
 }
