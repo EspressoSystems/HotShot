@@ -52,7 +52,7 @@ public_keys = [
     "BLS_VER_KEY~-pVi7j6TEBeG7ABata4uWWDRM2SrY8wWotWsGnTpIhnOVYJI_lNWyig6VJUuFmBsMS8rLMU7nDxDm8SbObxyA-SLFcr_jCkZqsbx8GcVQrnBAfjNRWuPZP0xcTDMu2IkQqtc3L0OpzbMEgGRGE8Wj09pNqouzl-xhPoYjTmD06Bw",
     "BLS_VER_KEY~IUPSdnsNUHgNx_74ZhBPrICcDZ9Bp_DAt-6kFz8vSwJES2Vy1Ws8NJ1mxb9XGE1u13sw0FRe8kn5Ib3p2stbEtR_1Qgbuif6aoLrGaSUzy0MvwrO58u9kHZk3rXIuSAN7n4ok3-KKk2CmnBfx7fchFoqT56FXCd1EJ7XRrYj8wTh",
 ]
-enable_registration_verification = false
+enable_registration_verification = true
 
 [config]
 num_nodes_with_stake = 10
