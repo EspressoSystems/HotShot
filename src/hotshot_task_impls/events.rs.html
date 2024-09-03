@@ -482,16 +482,6 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -533,10 +523,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskEvent <span class="kw">for </span>HotShotEvent&lt;TYPES&gt; {
     <span class="kw">fn </span>shutdown_event() -&gt; <span class="self">Self </span>{
         HotShotEvent::Shutdown
-    }
-
-    <span class="kw">fn </span>heartbeat_event(task_id: String) -&gt; <span class="self">Self </span>{
-        HotShotEvent::HeartBeat(task_id)
     }
 }
 
@@ -720,9 +706,6 @@
     /// 2. The proposal has been correctly signed by the leader of the current view
     /// 3. The justify QC is valid
     </span>QuorumProposalPreliminarilyValidated(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
-
-    <span class="doccomment">/// Periodic heart beat event for health checking
-    </span>HeartBeat(String),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Display <span class="kw">for </span>HotShotEvent&lt;TYPES&gt; {
@@ -977,9 +960,6 @@
                     <span class="string">"QuorumProposalPreliminarilyValidated(view_number={:?}"</span>,
                     proposal.data.view_number()
                 )
-            }
-            HotShotEvent::HeartBeat(task_id) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"HeartBeat(task_id={task_id:?}"</span>)
             }
         }
     }

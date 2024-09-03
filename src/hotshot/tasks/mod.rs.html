@@ -700,22 +700,6 @@
 <a href="#698" id="698">698</a>
 <a href="#699" id="699">699</a>
 <a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -736,15 +720,14 @@
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
-<span class="kw">use </span>hotshot_task::task::{NetworkHandle, Task};
+<span class="kw">use </span>hotshot_task::task::Task;
 <span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
 </span><span class="kw">use </span>hotshot_task_impls::rewind::RewindTaskState;
 <span class="kw">use </span>hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
-    health_check::HealthCheckTaskState,
-    helpers::broadcast_event,
-    network::{<span class="self">self</span>, NetworkEventTaskState, NetworkMessageTaskState},
+    network,
+    network::{NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
     transactions::TransactionTaskState,
@@ -787,7 +770,14 @@
 &gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
 ) {
-    handle.add_task(NetworkRequestState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+    <span class="kw">let </span>state = NetworkRequestState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>;
+
+    <span class="kw">let </span>task = Task::new(
+        state,
+        handle.internal_event_stream.<span class="number">0</span>.clone(),
+        handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+    );
+    handle.consensus_registry.run_task(task);
 }
 
 <span class="doccomment">/// Add a task which responds to requests on the network.
@@ -803,12 +793,9 @@
         handle.private_key().clone(),
         handle.hotshot.id,
     );
-    <span class="kw">let </span>task_name = state.get_task_name();
     handle.network_registry.register(run_response_task::&lt;TYPES&gt;(
         state,
-        handle.internal_event_stream.<span class="number">0</span>.clone(),
         handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
-        handle.generate_task_id(task_name),
     ));
 }
 
@@ -832,10 +819,9 @@
     <span class="kw">let </span>network = Arc::clone(channel);
     <span class="kw">let </span><span class="kw-2">mut </span>state = network_state.clone();
     <span class="kw">let </span>shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-    <span class="kw">let </span>stream = handle.internal_event_stream.<span class="number">0</span>.clone();
-    <span class="kw">let </span>task_id = handle.generate_task_id(network_state.get_task_name());
-    <span class="kw">let </span>handle_task_id = task_id.clone();
     <span class="kw">let </span>task_handle = async_spawn(<span class="kw">async move </span>{
+        <span class="macro">futures::pin_mut!</span>(shutdown_signal);
+
         <span class="kw">let </span>recv_stream = stream::unfold((), |()| <span class="kw">async </span>{
             <span class="kw">let </span>msgs = <span class="kw">match </span>network.recv_msgs().<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(msgs) =&gt; {
@@ -860,10 +846,9 @@
             <span class="prelude-val">Some</span>((msgs, ()))
         });
 
-        <span class="kw">let </span>heartbeat_interval =
-            Task::&lt;HealthCheckTaskState&lt;TYPES&gt;&gt;::get_periodic_interval_in_secs();
         <span class="kw">let </span>fused_recv_stream = recv_stream.boxed().fuse();
-        <span class="macro">futures::pin_mut!</span>(fused_recv_stream, heartbeat_interval, shutdown_signal);
+        <span class="macro">futures::pin_mut!</span>(fused_recv_stream);
+
         <span class="kw">loop </span>{
             <span class="macro">futures::select!</span> {
                 () = shutdown_signal =&gt; {
@@ -885,16 +870,10 @@
                         <span class="kw">return</span>;
                     }
                 }
-                <span class="kw">_ </span>= Task::&lt;HealthCheckTaskState&lt;TYPES&gt;&gt;::handle_periodic_delay(<span class="kw-2">&amp;mut </span>heartbeat_interval) =&gt; {
-                    broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), <span class="kw-2">&amp;</span>stream).<span class="kw">await</span>;
-                }
             }
         }
     });
-    handle.network_registry.register(NetworkHandle {
-        handle: task_handle,
-        task_id,
-    });
+    handle.network_registry.register(task_handle);
 }
 
 <span class="doccomment">/// Add the network task to handle events and send messages.
@@ -917,7 +896,12 @@
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
-    handle.add_task(network_state);
+    <span class="kw">let </span>task = Task::new(
+        network_state,
+        handle.internal_event_stream.<span class="number">0</span>.clone(),
+        handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+    );
+    handle.consensus_registry.run_task(task);
 }
 
 <span class="doccomment">/// Adds consensus-related tasks to a `SystemContextHandle`.
@@ -1049,7 +1033,6 @@
 
         add_consensus_tasks::&lt;TYPES, I, V&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
         <span class="self">self</span>.add_network_tasks(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
-        add_health_check_task(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
 
         handle
     }
@@ -1057,7 +1040,6 @@
     <span class="doccomment">/// Add byzantine network tasks with the trait
     </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>add_network_tasks(<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw-2">mut </span><span class="self">self</span>, handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;) {
-        <span class="kw">let </span>task_id = <span class="self">self</span>.get_task_name();
         <span class="kw">let </span>state_in = Arc::new(RwLock::new(<span class="self">self</span>));
         <span class="kw">let </span>state_out = Arc::clone(<span class="kw-2">&amp;</span>state_in);
         <span class="comment">// channels between the task spawned in this function and the network tasks.
@@ -1096,6 +1078,8 @@
         // and broadcast the transformed events to the replacement event stream we just created.
         </span><span class="kw">let </span>shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         <span class="kw">let </span>send_handle = async_spawn(<span class="kw">async move </span>{
+            <span class="macro">futures::pin_mut!</span>(shutdown_signal);
+
             <span class="kw">let </span>recv_stream = stream::unfold(original_receiver, |<span class="kw-2">mut </span>recv| <span class="kw">async move </span>{
                 <span class="kw">match </span>recv.recv().<span class="kw">await </span>{
                     <span class="prelude-val">Ok</span>(event) =&gt; <span class="prelude-val">Some</span>((<span class="prelude-val">Ok</span>(event), recv)),
@@ -1106,7 +1090,7 @@
             .boxed();
 
             <span class="kw">let </span>fused_recv_stream = recv_stream.fuse();
-            <span class="macro">futures::pin_mut!</span>(fused_recv_stream, shutdown_signal);
+            <span class="macro">futures::pin_mut!</span>(fused_recv_stream);
 
             <span class="kw">loop </span>{
                 <span class="macro">futures::select!</span> {
@@ -1142,6 +1126,8 @@
         // and broadcast the transformed events to the original internal event stream
         </span><span class="kw">let </span>shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         <span class="kw">let </span>recv_handle = async_spawn(<span class="kw">async move </span>{
+            <span class="macro">futures::pin_mut!</span>(shutdown_signal);
+
             <span class="kw">let </span>network_recv_stream =
                 stream::unfold(receiver_from_network, |<span class="kw-2">mut </span>recv| <span class="kw">async move </span>{
                     <span class="kw">match </span>recv.recv().<span class="kw">await </span>{
@@ -1152,7 +1138,7 @@
                 });
 
             <span class="kw">let </span>fused_network_recv_stream = network_recv_stream.boxed().fuse();
-            <span class="macro">futures::pin_mut!</span>(fused_network_recv_stream, shutdown_signal);
+            <span class="macro">futures::pin_mut!</span>(fused_network_recv_stream);
 
             <span class="kw">loop </span>{
                 <span class="macro">futures::select!</span> {
@@ -1183,19 +1169,8 @@
             }
         });
 
-        handle.network_registry.register(NetworkHandle {
-            handle: send_handle,
-            task_id: handle.generate_task_id(task_id),
-        });
-        handle.network_registry.register(NetworkHandle {
-            handle: recv_handle,
-            task_id: handle.generate_task_id(task_id),
-        });
-    }
-
-    <span class="doccomment">/// Gets the name of the current task
-    </span><span class="kw">fn </span>get_task_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-        std::any::type_name::&lt;<span class="kw">dyn </span>EventTransformerState&lt;TYPES, I, V&gt;&gt;()
+        handle.network_registry.register(send_handle);
+        handle.network_registry.register(recv_handle);
     }
 }
 
@@ -1424,12 +1399,5 @@
         vid_membership,
         network::vid_filter,
     );
-}
-
-<span class="doccomment">/// Add the health check task
-</span><span class="kw">pub async fn </span>add_health_check_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
-) {
-    handle.add_task(HealthCheckTaskState::&lt;TYPES&gt;::create_from(handle).<span class="kw">await</span>);
 }
 </code></pre></div></section></main></body></html>

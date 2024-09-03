@@ -120,11 +120,6 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -177,12 +172,7 @@
         allow_extra_output,
     };
 
-    <span class="kw">let </span>task = Task::new(
-        state,
-        to_test.clone(),
-        from_test.clone(),
-        <span class="string">"task_0"</span>.to_string(),
-    );
+    <span class="kw">let </span>task = Task::new(state, to_test.clone(), from_test.clone());
 
     <span class="kw">let </span>handle = task.run();
     <span class="kw">let </span>test_future = <span class="kw">async move </span>{
