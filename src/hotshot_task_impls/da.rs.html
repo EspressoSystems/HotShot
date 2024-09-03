@@ -368,30 +368,6 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -434,14 +410,8 @@
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
-    vote_collection::{
-        create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
-    },
+    vote_collection::{handle_vote, VoteCollectorsMap},
 };
-
-<span class="doccomment">/// Alias for Optional type for Vote Collectors
-</span><span class="kw">type </span>VoteCollectorOption&lt;TYPES, VOTE, CERT, V&gt; =
-    <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;;
 
 <span class="doccomment">/// Tracks state of a DA task
 </span><span class="kw">pub struct </span>DaTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
@@ -465,8 +435,8 @@
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
-    <span class="doccomment">/// The current vote collection task, if there is one.
-    </span><span class="kw">pub </span>vote_collector: RwLock&lt;VoteCollectorOption&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;, V&gt;&gt;,
+    <span class="doccomment">/// A map of `DaVote` collector tasks.
+    </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;, V&gt;,
 
     <span class="doccomment">/// This Nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -661,36 +631,18 @@
                     <span class="macro">error!</span>(<span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.da_membership.leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="kw">let </span><span class="kw-2">mut </span>collector = <span class="self">self</span>.vote_collector.write().<span class="kw">await</span>;
 
-                <span class="kw">if </span>collector.is_none() || vote.view_number() &gt; collector.as_ref().unwrap().view {
-                    <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.view_number());
-                    <span class="kw">let </span>info = AccumulatorInfo {
-                        public_key: <span class="self">self</span>.public_key.clone(),
-                        membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.da_membership),
-                        view: vote.view_number(),
-                        id: <span class="self">self</span>.id,
-                    };
-                    <span class="kw-2">*</span>collector = create_vote_accumulator(
-                        <span class="kw-2">&amp;</span>info,
-                        event,
-                        <span class="kw-2">&amp;</span>event_stream,
-                        <span class="self">self</span>.upgrade_lock.clone(),
-                    )
-                    .<span class="kw">await</span>;
-                } <span class="kw">else </span>{
-                    <span class="kw">let </span>result = collector
-                        .as_mut()
-                        .unwrap()
-                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await</span>;
-
-                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-                        <span class="kw-2">*</span>collector = <span class="prelude-val">None</span>;
-                        <span class="comment">// The protocol has finished
-                        </span><span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
-                }
+                handle_vote(
+                    <span class="kw-2">&amp;mut </span><span class="self">self</span>.vote_collectors,
+                    vote,
+                    <span class="self">self</span>.public_key.clone(),
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.da_membership,
+                    <span class="self">self</span>.id,
+                    <span class="kw-2">&amp;</span>event,
+                    <span class="kw-2">&amp;</span>event_stream,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await</span>;
             }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;

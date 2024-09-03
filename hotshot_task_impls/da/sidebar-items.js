@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DaTaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"struct":["DaTaskState"]};

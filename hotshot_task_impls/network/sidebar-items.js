@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["da_filter","quorum_filter","upgrade_filter","vid_filter","view_sync_filter"],"struct":["NetworkEventTaskState","NetworkMessageTaskState"]};
+window.SIDEBAR_ITEMS = {"fn":["da_filter","quorum_filter","upgrade_filter","vid_filter","view_sync_filter"],"mod":["test"],"struct":["NetworkEventTaskState","NetworkMessageTaskState"]};

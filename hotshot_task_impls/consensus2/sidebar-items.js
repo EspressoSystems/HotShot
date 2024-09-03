@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["handlers"],"struct":["Consensus2TaskState"],"type":["VoteCollectorOption"]};
+window.SIDEBAR_ITEMS = {"mod":["handlers"],"struct":["Consensus2TaskState"]};

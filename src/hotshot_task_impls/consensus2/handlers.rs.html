@@ -274,26 +274,6 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -320,9 +300,9 @@
 <span class="kw">use </span><span class="kw">super</span>::Consensus2TaskState;
 <span class="kw">use crate</span>::{
     consensus2::Versions,
-    events::{HotShotEvent, HotShotTaskCompleted},
+    events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
-    vote_collection::{create_vote_accumulator, AccumulatorInfo, HandleVoteEvent},
+    vote_collection::handle_vote,
 };
 
 <span class="doccomment">/// Handle a `QuorumVoteRecv` event.
@@ -345,28 +325,18 @@
         </span>)
     );
 
-    <span class="kw">let </span><span class="kw-2">mut </span>collector = task_state.vote_collector.write().<span class="kw">await</span>;
+    handle_vote(
+        <span class="kw-2">&amp;mut </span>task_state.vote_collectors,
+        vote,
+        task_state.public_key.clone(),
+        <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        task_state.id,
+        <span class="kw-2">&amp;</span>event,
+        sender,
+        <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+    )
+    .<span class="kw">await</span>;
 
-    <span class="kw">if </span>collector.is_none() || vote.view_number() &gt; collector.as_ref().unwrap().view {
-        <span class="kw">let </span>info = AccumulatorInfo {
-            public_key: task_state.public_key.clone(),
-            membership: Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
-            view: vote.view_number(),
-            id: task_state.id,
-        };
-        <span class="kw-2">*</span>collector =
-            create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, sender, task_state.upgrade_lock.clone()).<span class="kw">await</span>;
-    } <span class="kw">else </span>{
-        <span class="kw">let </span>result = collector
-            .as_mut()
-            .unwrap()
-            .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender)
-            .<span class="kw">await</span>;
-
-        <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-            <span class="kw-2">*</span>collector = <span class="prelude-val">None</span>;
-        }
-    }
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -390,28 +360,18 @@
         </span>)
     );
 
-    <span class="kw">let </span><span class="kw-2">mut </span>collector = task_state.timeout_vote_collector.write().<span class="kw">await</span>;
+    handle_vote(
+        <span class="kw-2">&amp;mut </span>task_state.timeout_vote_collectors,
+        vote,
+        task_state.public_key.clone(),
+        <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        task_state.id,
+        <span class="kw-2">&amp;</span>event,
+        sender,
+        <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+    )
+    .<span class="kw">await</span>;
 
-    <span class="kw">if </span>collector.is_none() || vote.view_number() &gt; collector.as_ref().unwrap().view {
-        <span class="kw">let </span>info = AccumulatorInfo {
-            public_key: task_state.public_key.clone(),
-            membership: Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
-            view: vote.view_number(),
-            id: task_state.id,
-        };
-        <span class="kw-2">*</span>collector =
-            create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, sender, task_state.upgrade_lock.clone()).<span class="kw">await</span>;
-    } <span class="kw">else </span>{
-        <span class="kw">let </span>result = collector
-            .as_mut()
-            .unwrap()
-            .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender)
-            .<span class="kw">await</span>;
-
-        <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-            <span class="kw-2">*</span>collector = <span class="prelude-val">None</span>;
-        }
-    }
     <span class="prelude-val">Ok</span>(())
 }
 
