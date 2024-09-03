@@ -15,8 +15,8 @@ use async_trait::async_trait;
 use futures::future::join_all;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
-#[cfg(async_executor_impl = "tokio")]
 use futures::FutureExt;
+#[cfg(async_executor_impl = "async-std")]
 use futures::StreamExt;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn, JoinHandle};
@@ -147,23 +147,13 @@ impl<S: TaskState + Send + 'static> Task<S> {
     pub fn run(mut self) -> HotShotTaskHandle<S::Event> {
         let task_id = self.task_id.clone();
         let handle = spawn(async move {
-            let recv_stream =
-                futures::stream::unfold(self.receiver.clone(), |mut recv| async move {
-                    match recv.recv_direct().await {
-                        Ok(event) => Some((Ok(event), recv)),
-                        Err(e) => Some((Err(e), recv)),
-                    }
-                })
-                .boxed();
-
-            let fused_recv_stream = recv_stream.fuse();
             let periodic_interval = Self::get_periodic_interval_in_secs();
-            futures::pin_mut!(periodic_interval, fused_recv_stream);
+            futures::pin_mut!(periodic_interval);
             loop {
                 futures::select! {
-                    input = fused_recv_stream.next() => {
+                    input = self.receiver.recv().fuse() => {
                         match input {
-                            Some(Ok(input)) => {
+                            Ok(input) => {
                                 if *input == S::Event::shutdown_event() {
                                     self.state.cancel_subtasks().await;
 
@@ -178,10 +168,9 @@ impl<S: TaskState + Send + 'static> Task<S> {
                                 .await
                                 .inspect_err(|e| tracing::info!("{e}"));
                             }
-                            Some(Err(e)) => {
+                            Err(e) => {
                                 tracing::error!("Failed to receive from event stream Error: {}", e);
                             }
-                            None => {}
                         }
                     }
                     _ = Self::handle_periodic_delay(&mut periodic_interval) => {
