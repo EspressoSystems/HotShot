@@ -199,34 +199,4 @@ impl<F: PrimeField> GenericPublicInput<F> {
     pub fn block_comm_root(&self) -> F {
         self.0[3]
     }
-
-    /// Return the fee ledger commitment of the light client state
-    #[must_use]
-    pub fn fee_ledger_comm(&self) -> F {
-        self.0[4]
-    }
-
-    /// Return the stake table commitment of the light client state
-    #[must_use]
-    pub fn stake_table_comm(&self) -> (F, F, F) {
-        (self.0[5], self.0[6], self.0[7])
-    }
-
-    /// Return the qc key commitment of the light client state
-    #[must_use]
-    pub fn qc_key_comm(&self) -> F {
-        self.0[5]
-    }
-
-    /// Return the state key commitment of the light client state
-    #[must_use]
-    pub fn state_key_comm(&self) -> F {
-        self.0[6]
-    }
-
-    /// Return the stake amount commitment of the light client state
-    #[must_use]
-    pub fn stake_amount_comm(&self) -> F {
-        self.0[7]
-    }
 }
