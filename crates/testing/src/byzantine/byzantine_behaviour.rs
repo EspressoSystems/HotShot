@@ -1,6 +1,12 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use hotshot::tasks::EventTransformerState;
+use hotshot::types::{SignatureKey, SystemContextHandle};
 use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task_impls::network::test::{ModifierClosure, NetworkEventTaskStateModifier};
+use hotshot_task_impls::network::NetworkEventTaskState;
+use hotshot_types::message::UpgradeLock;
+use hotshot_types::simple_vote::QuorumVote;
 use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     data::QuorumProposal,
@@ -8,6 +14,7 @@ use hotshot_types::{
     traits::node_implementation::{NodeImplementation, NodeType, Versions},
 };
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 #[derive(Debug)]
 /// An `EventTransformerState` that multiplies `QuorumProposalSend` events, incrementing the view number of the proposal
@@ -26,7 +33,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, signature) => {
                 let mut result = Vec::new();
@@ -61,7 +74,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(_, _) | HotShotEvent::QuorumVoteSend(_) => {
                 vec![event.clone(), event.clone()]
@@ -130,7 +149,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 self.total_proposals_from_node += 1;
@@ -164,7 +189,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         if let HotShotEvent::DacSend(cert, sender) = event {
             self.total_da_certs_sent_from_node += 1;
             if self
@@ -227,7 +258,85 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         correct_event
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         vec![event.clone()]
+    }
+}
+
+/// An `EventHandlerState` that modifies view number on the vote of `QuorumVoteSend` event to that of a future view and correctly signs the vote
+pub struct DishonestVoting<TYPES: NodeType> {
+    /// Number added to the original vote's view number
+    pub view_increment: u64,
+    /// A function passed to `NetworkEventTaskStateModifier` to modify `NetworkEventTaskState` behaviour.
+    pub modifier: Arc<ModifierClosure<TYPES>>,
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
+    EventTransformerState<TYPES, I, V> for DishonestVoting<TYPES>
+{
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        vec![event.clone()]
+    }
+
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        public_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
+        if let HotShotEvent::QuorumVoteSend(vote) = event {
+            let new_view = vote.view_number + self.view_increment;
+            let spoofed_vote = QuorumVote::<TYPES>::create_signed_vote(
+                vote.data.clone(),
+                new_view,
+                public_key,
+                private_key,
+                upgrade_lock,
+            )
+            .await
+            .context("Failed to sign vote")
+            .unwrap();
+            tracing::debug!("Sending Quorum Vote for view: {new_view:?}");
+            return vec![HotShotEvent::QuorumVoteSend(spoofed_vote)];
+        }
+        vec![event.clone()]
+    }
+
+    fn add_network_event_task(
+        &self,
+        handle: &mut SystemContextHandle<TYPES, I, V>,
+        channel: Arc<<I as NodeImplementation<TYPES>>::Network>,
+        membership: TYPES::Membership,
+        filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
+    ) {
+        let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
+            channel,
+            view: TYPES::Time::genesis(),
+            membership,
+            filter,
+            storage: Arc::clone(&handle.storage()),
+            upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+        };
+        let modified_network_state = NetworkEventTaskStateModifier {
+            network_event_task_state: network_state,
+            modifier: Arc::clone(&self.modifier),
+        };
+        handle.add_task(modified_network_state);
+    }
+}
+
+impl<TYPES: NodeType> std::fmt::Debug for DishonestVoting<TYPES> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DishonestVoting")
+            .field("view_increment", &self.view_increment)
+            .finish_non_exhaustive()
     }
 }
