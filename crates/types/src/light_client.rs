@@ -179,18 +179,18 @@ impl<F: PrimeField> GenericPublicInput<F> {
     /// Return the view number of the light client state
     #[must_use]
     pub fn view_number(&self) -> F {
-        self.0[1]
+        self.0[0]
     }
 
     /// Return the block height of the light client state
     #[must_use]
     pub fn block_height(&self) -> F {
-        self.0[2]
+        self.0[1]
     }
 
     /// Return the block commitment root of the light client state
     #[must_use]
     pub fn block_comm_root(&self) -> F {
-        self.0[3]
+        self.0[2]
     }
 }
