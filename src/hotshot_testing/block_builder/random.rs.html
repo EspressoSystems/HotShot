@@ -329,6 +329,8 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -368,7 +370,9 @@
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 <span class="kw">use </span>tide_disco::{method::ReadState, Url};
 
-<span class="kw">use super</span>::{build_block, run_builder_source, BlockEntry, BuilderTask, TestBuilderImplementation};
+<span class="kw">use super</span>::{
+    build_block, run_builder_source_0_1, BlockEntry, BuilderTask, TestBuilderImplementation,
+};
 <span class="kw">use </span><span class="kw">crate</span>::test_builder::BuilderChange;
 
 <span class="kw">pub struct </span>RandomBuilderImplementation;
@@ -421,7 +425,7 @@
         <span class="kw">let </span>(change_sender, change_receiver) = broadcast(<span class="number">128</span>);
 
         <span class="kw">let </span>(task, source) = <span class="self">Self</span>::create(num_storage_nodes, config, changes, change_sender).<span class="kw">await</span>;
-        run_builder_source(url, change_receiver, source);
+        run_builder_source_0_1(url, change_receiver, source);
         Box::new(task)
     }
 }

@@ -1489,7 +1489,7 @@
         <span class="kw">let </span>marketplace_config = MarketplaceConfig {
             auction_results_provider: TestAuctionResultsProvider::&lt;TYPES&gt;::default().into(),
             <span class="comment">// TODO: we need to pass a valid fallback builder url here somehow
-            </span>fallback_builder_url: url::Url::parse(<span class="string">"http://localhost"</span>).unwrap(),
+            </span>fallback_builder_url: config.config.builder_urls.first().clone(),
         };
 
         SystemContext::init(

@@ -61,6 +61,12 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -122,4 +128,10 @@
 /// the `+2` is just an artifact from the jellyfish's Plonk proof system.
 </span><span class="attr">#[allow(clippy::cast_possible_truncation)]
 </span><span class="kw">pub const </span>SRS_DEGREE: usize = <span class="number">2u64</span>.pow(<span class="number">20</span>) <span class="kw">as </span>usize + <span class="number">2</span>;
+
+<span class="doccomment">/// The `tide` module name for the legacy builder
+</span><span class="kw">pub const </span>LEGACY_BUILDER_MODULE: <span class="kw-2">&amp;</span>str = <span class="string">"block_info"</span>;
+
+<span class="doccomment">/// The `tide` module name for the marketplace builder
+</span><span class="kw">pub const </span>MARKETPLACE_BUILDER_MODULE: <span class="kw-2">&amp;</span>str = <span class="string">"bundle_info"</span>;
 </code></pre></div></section></main></body></html>
