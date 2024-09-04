@@ -176,12 +176,6 @@ impl<F: PrimeField> From<Vec<F>> for GenericPublicInput<F> {
 }
 
 impl<F: PrimeField> GenericPublicInput<F> {
-    /// Return the threshold
-    #[must_use]
-    pub fn threshold(&self) -> F {
-        self.0[0]
-    }
-
     /// Return the view number of the light client state
     #[must_use]
     pub fn view_number(&self) -> F {
