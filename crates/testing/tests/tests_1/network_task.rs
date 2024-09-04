@@ -17,8 +17,8 @@ use hotshot_task_impls::{
     network::{self, NetworkEventTaskState},
 };
 use hotshot_testing::{
-    test_builder::TestDescription, test_task::add_network_message_test_task,
-    view_generator::TestViewGenerator,
+    helpers::build_system_handle, test_builder::TestDescription,
+    test_task::add_network_message_test_task, view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     data::ViewNumber,
@@ -28,7 +28,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
 };
-use hotshot_testing::helpers::build_system_handle;
 // Test that the event task sends a message, and the message task receives it
 // and emits the proper event
 #[cfg(test)]

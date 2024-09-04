@@ -346,15 +346,10 @@ impl<
         view: <TYPES as NodeType>::Time,
     ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
-            if !state.write().await.update_action(action.clone(), view) {
+            if !state.write().await.update_action(action, view) {
                 return Err(());
             }
-            match storage
-                .write()
-                .await
-                .record_action(view, action.clone())
-                .await
-            {
+            match storage.write().await.record_action(view, action).await {
                 Ok(()) => Ok(()),
                 Err(e) => {
                     warn!("Not Sending {:?} because of storage error: {:?}", action, e);

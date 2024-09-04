@@ -231,21 +231,27 @@ impl<'a, TYPES: NodeType> Drop for ConsensusUpgradableReadLockGuard<'a, TYPES> {
     }
 }
 
+/// A bundle of views that we have most recently performed some action
 #[derive(Debug, Clone, Copy)]
 struct HotShotActionViews<T: ConsensusTime> {
-    last_proposed_view: T,
-    last_voted_view: T,
-    last_da_proposed_view: T,
-    last_da_vote_view: T,
+    /// View we last proposed in to the Quorum
+    proposed: T,
+    /// View we last voted in for a QuorumProposal
+    voted: T,
+    /// View we last proposed to the DA committee
+    da_proposed: T,
+    /// View we lasted voted for DA proposal
+    da_vote: T,
 }
 
 impl<T: ConsensusTime> HotShotActionViews<T> {
-    fn new_from_view(view: T) -> Self {
+    /// Create HotShotActionViews from a view number
+    fn from_view(view: T) -> Self {
         Self {
-            last_proposed_view: view,
-            last_voted_view: view,
-            last_da_proposed_view: view,
-            last_da_vote_view: view,
+            proposed: view,
+            voted: view,
+            da_proposed: view,
+            da_vote: view,
         }
     }
 }
@@ -388,7 +394,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             cur_view,
             last_decided_view,
             last_proposals,
-            last_actions: HotShotActionViews::new_from_view(last_actioned_view),
+            last_actions: HotShotActionViews::from_view(last_actioned_view),
             locked_view,
             saved_leaves,
             saved_payloads,
@@ -464,10 +470,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Returns true if the action is for a newer view than the last action of that type
     pub fn update_action(&mut self, action: HotShotAction, view: TYPES::Time) -> bool {
         let old_view = match action {
-            HotShotAction::Vote => &mut self.last_actions.last_voted_view,
-            HotShotAction::Propose => &mut self.last_actions.last_proposed_view,
-            HotShotAction::DaPropose => &mut self.last_actions.last_da_proposed_view,
-            HotShotAction::DaVote => &mut self.last_actions.last_da_vote_view,
+            HotShotAction::Vote => &mut self.last_actions.voted,
+            HotShotAction::Propose => &mut self.last_actions.proposed,
+            HotShotAction::DaPropose => &mut self.last_actions.da_proposed,
+            HotShotAction::DaVote => &mut self.last_actions.da_vote,
             _ => return true,
         };
         if view > *old_view {
@@ -481,7 +487,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ///
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
-    pub fn update_last_proposed_view(
+    pub fn update_proposed_view(
         &mut self,
         proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     ) -> Result<()> {
