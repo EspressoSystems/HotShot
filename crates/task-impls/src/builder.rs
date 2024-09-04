@@ -12,7 +12,7 @@ use hotshot_builder_api::v0_1::{
     builder::{BuildError, Error as BuilderApiError},
 };
 use hotshot_types::{
-    constants::{LEGACY_BUILDER_MODULE, MARKETPLACE_BUILDER_MODULE},
+    constants::LEGACY_BUILDER_MODULE,
     traits::{node_implementation::NodeType, signature_key::SignatureKey},
     vid::VidCommitment,
 };
@@ -66,9 +66,7 @@ impl From<BuilderApiError> for BuilderClientError {
 /// Client for builder API
 pub struct BuilderClient<TYPES: NodeType, Ver: StaticVersionType> {
     /// Underlying surf_disco::Client for the legacy builder api
-    legacy_client: Client<BuilderApiError, Ver>,
-    /// Underlying surf_disco::Client for the marketplace builder api
-    marketplace_client: Client<BuilderApiError, Ver>,
+    client: Client<BuilderApiError, Ver>,
     /// Marker for [`NodeType`] used here
     _marker: std::marker::PhantomData<TYPES>,
 }
@@ -83,10 +81,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
         let url = base_url.into();
 
         Self {
-            legacy_client: Client::builder(url.clone().join(LEGACY_BUILDER_MODULE).unwrap())
-                .set_timeout(Some(Duration::from_secs(2)))
-                .build(),
-            marketplace_client: Client::builder(url.join(MARKETPLACE_BUILDER_MODULE).unwrap())
+            client: Client::builder(url.clone())
                 .set_timeout(Some(Duration::from_secs(2)))
                 .build(),
             _marker: std::marker::PhantomData,
@@ -101,10 +96,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
         let mut backoff = Duration::from_millis(50);
         while Instant::now() < timeout {
             if matches!(
-                self.legacy_client.healthcheck::<HealthStatus>().await,
-                Ok(HealthStatus::Available)
-            ) && matches!(
-                self.marketplace_client.healthcheck::<HealthStatus>().await,
+                self.client.healthcheck::<HealthStatus>().await,
                 Ok(HealthStatus::Available)
             ) {
                 return true;
@@ -128,9 +120,9 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
         signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuilderClientError> {
         let encoded_signature: TaggedBase64 = signature.clone().into();
-        self.legacy_client
+        self.client
             .get(&format!(
-                "availableblocks/{parent}/{view_number}/{sender}/{encoded_signature}"
+                "{LEGACY_BUILDER_MODULE}/availableblocks/{parent}/{view_number}/{sender}/{encoded_signature}"
             ))
             .send()
             .await
@@ -140,10 +132,10 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
 
 /// Version 0.1
 pub mod v0_1 {
-
     use hotshot_builder_api::v0_1::block_info::{AvailableBlockData, AvailableBlockHeaderInput};
     pub use hotshot_builder_api::v0_1::Version;
     use hotshot_types::{
+        constants::LEGACY_BUILDER_MODULE,
         traits::{node_implementation::NodeType, signature_key::SignatureKey},
         utils::BuilderCommitment,
     };
@@ -168,9 +160,9 @@ pub mod v0_1 {
             signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
         ) -> Result<AvailableBlockHeaderInput<TYPES>, BuilderClientError> {
             let encoded_signature: TaggedBase64 = signature.clone().into();
-            self.legacy_client
+            self.client
                 .get(&format!(
-                    "claimheaderinput/{block_hash}/{view_number}/{sender}/{encoded_signature}"
+                    "{LEGACY_BUILDER_MODULE}/claimheaderinput/{block_hash}/{view_number}/{sender}/{encoded_signature}"
                 ))
                 .send()
                 .await
@@ -190,9 +182,9 @@ pub mod v0_1 {
             signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
         ) -> Result<AvailableBlockData<TYPES>, BuilderClientError> {
             let encoded_signature: TaggedBase64 = signature.clone().into();
-            self.legacy_client
+            self.client
                 .get(&format!(
-                    "claimblock/{block_hash}/{view_number}/{sender}/{encoded_signature}"
+                    "{LEGACY_BUILDER_MODULE}/claimblock/{block_hash}/{view_number}/{sender}/{encoded_signature}"
                 ))
                 .send()
                 .await
@@ -215,7 +207,8 @@ pub mod v0_2 {
 pub mod v0_3 {
     pub use hotshot_builder_api::v0_3::Version;
     use hotshot_types::{
-        bundle::Bundle, traits::node_implementation::NodeType, vid::VidCommitment,
+        bundle::Bundle, constants::MARKETPLACE_BUILDER_MODULE,
+        traits::node_implementation::NodeType, vid::VidCommitment,
     };
     use vbs::version::StaticVersion;
 
@@ -236,8 +229,10 @@ pub mod v0_3 {
             parent_hash: VidCommitment,
             view_number: u64,
         ) -> Result<Bundle<TYPES>, BuilderClientError> {
-            self.marketplace_client
-                .get(&format!("bundle/{parent_view}/{parent_hash}/{view_number}"))
+            self.client
+                .get(&format!(
+                    "{MARKETPLACE_BUILDER_MODULE}/bundle/{parent_view}/{parent_hash}/{view_number}"
+                ))
                 .send()
                 .await
                 .map_err(Into::into)
