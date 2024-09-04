@@ -13,6 +13,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::Consensus,
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
@@ -226,6 +227,8 @@ pub struct NetworkEventTaskState<
     pub filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
+    /// Shared consensus state
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
@@ -313,10 +316,12 @@ impl<
 
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
+        let state = Arc::clone(&self.consensus);
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, COMMCHANNEL, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
                 storage,
+                state,
                 view,
             )
             .await
@@ -337,9 +342,13 @@ impl<
     async fn maybe_record_action(
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
+        state: Arc<RwLock<Consensus<TYPES>>>,
         view: <TYPES as NodeType>::Time,
     ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
+            if !state.write().await.update_action(action.clone(), view) {
+                return Err(());
+            }
             match storage
                 .write()
                 .await
@@ -546,11 +555,13 @@ impl<
         let committee_topic = membership.committee_topic();
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
+        let state = Arc::clone(&self.consensus);
         let upgrade_lock = self.upgrade_lock.clone();
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, COMMCHANNEL, S>::maybe_record_action(
                 maybe_action,
                 Arc::clone(&storage),
+                state,
                 view,
             )
             .await

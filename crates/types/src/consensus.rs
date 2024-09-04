@@ -459,17 +459,22 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         Ok(())
     }
 
-    pub fn update_action(&mut self, action: HotShotAction, view: TYPES::Time) {
+    /// Update the last actioned view internally for votes and proposals
+    ///
+    /// Returns true if the action is for a newer view than the last action of that type
+    pub fn update_action(&mut self, action: HotShotAction, view: TYPES::Time) -> bool {
         let old_view = match action {
             HotShotAction::Vote => &mut self.last_actions.last_voted_view,
             HotShotAction::Propose => &mut self.last_actions.last_proposed_view,
             HotShotAction::DaPropose => &mut self.last_actions.last_da_proposed_view,
             HotShotAction::DaVote => &mut self.last_actions.last_da_vote_view,
-            _ => return,
+            _ => return true,
         };
         if view > *old_view {
             *old_view = view;
+            return true;
         }
+        false
     }
 
     /// Update the last proposal.

@@ -323,6 +323,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             membership,
             filter,
             storage: Arc::clone(&handle.storage()),
+            consensus: Arc::clone(&handle.consensus()),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         };
         let modified_network_state = NetworkEventTaskStateModifier {

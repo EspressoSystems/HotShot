@@ -192,6 +192,7 @@ pub fn add_network_event_task<
         membership,
         filter,
         storage: Arc::clone(&handle.storage()),
+        consensus: Arc::clone(&handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
     let task = Task::new(
