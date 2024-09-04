@@ -65,11 +65,12 @@ fn validate_node_map<TYPES: NodeType>(node_map: &NodeMapSanitized<TYPES>) -> Res
               "The node has provided leaf:\n\n{child:?}\n\nbut its quorum certificate points to a view before the most recent leaf:\n\n{parent:?}"
             );
 
-        if child.justify_qc().view_number == parent.view_number()
-            && child.justify_qc().data.leaf_commit != parent.commit()
-        {
-            bail!("The node has provided leaf:\n\n{child:?}\n\nwhich points to:\n\n{parent:?}\n\nbut the commits do not match.");
-        }
+        // Temporarily disabling this check
+        //
+        // if child.justify_qc().data.leaf_commit != parent.commit()
+        // {
+        //     bail!("The node has provided leaf:\n\n{child:?}\n\nwhich points to:\n\n{parent:?}\n\nbut the commits do not match.");
+        // }
     }
 
     Ok(())

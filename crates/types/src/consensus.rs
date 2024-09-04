@@ -23,12 +23,12 @@ pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -510,8 +510,13 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the saved leaves with a new leaf.
-    pub fn update_saved_leaves(&mut self, leaf: Leaf<TYPES>) {
-        self.saved_leaves.insert(leaf.commit(), leaf);
+    pub async fn update_saved_leaves<V: Versions>(
+        &mut self,
+        leaf: Leaf<TYPES>,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) {
+        self.saved_leaves
+            .insert(leaf.commit(upgrade_lock).await, leaf);
     }
 
     /// Update the saved payloads with a new encoded transaction.

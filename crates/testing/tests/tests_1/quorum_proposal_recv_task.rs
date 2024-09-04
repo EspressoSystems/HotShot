@@ -83,7 +83,7 @@ async fn test_quorum_proposal_recv_task() {
         consensus_writer
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number,
-                build_fake_view_with_leaf(view.leaf.clone()),
+                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
             )
             .unwrap();
     }
@@ -104,7 +104,9 @@ async fn test_quorum_proposal_recv_task() {
                 <TestValidatedState as ValidatedState<TestTypes>>::from_header(
                     &proposals[1].data.block_header,
                 ),
-            ),
+                &handle.hotshot.upgrade_lock,
+            )
+            .await,
         )),
         exact(QuorumProposalValidated(
             proposals[1].data.clone(),
@@ -177,7 +179,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         consensus_writer
             .update_validated_state_map(
                 inserted_view_number,
-                build_fake_view_with_leaf(view.leaf.clone()),
+                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
             )
             .unwrap();
 
@@ -226,7 +228,9 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
                 <TestValidatedState as ValidatedState<TestTypes>>::from_header(
                     &proposals[2].data.block_header,
                 ),
-            ),
+                &handle.hotshot.upgrade_lock
+            )
+            .await,
         )),
         exact(QuorumProposalRequestSend(req, signature)),
         exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),

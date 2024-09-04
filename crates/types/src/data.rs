@@ -32,10 +32,11 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
+use vbs::version::{StaticVersionType, Version};
 use vec1::Vec1;
 
 use crate::{
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
@@ -46,7 +47,7 @@ use crate::{
             GENESIS_VID_NUM_STORAGE_NODES,
         },
         election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         states::TestableState,
         BlockPayload,
@@ -444,6 +445,41 @@ pub struct Leaf<TYPES: NodeType> {
     block_payload: Option<TYPES::BlockPayload>,
 }
 
+/// Wrapper struct for a `Leaf` that holds version data
+pub struct VersionedLeaf<TYPES: NodeType, V: Versions> {
+    /// underlying `Leaf`
+    pub leaf: Leaf<TYPES>,
+
+    /// version applied to this leaf
+    pub version: Version,
+
+    /// phantom data
+    _pd: PhantomData<V>,
+}
+
+impl<TYPES: NodeType> Leaf<TYPES> {
+    pub async fn commit<V: Versions>(
+        &self,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Commitment<Self> {
+        /// This should never fail
+        let version = upgrade_lock.version_infallible(self.view_number).await;
+
+        if version < V::Marketplace::VERSION {
+            <Self as Committable>::commit(self)
+        } else {
+            RawCommitmentBuilder::new("leaf commitment")
+                .u64_field("view number", *self.view_number)
+                .u64_field("block number", self.height())
+                .field("parent leaf commitment", self.parent_commitment)
+                .field("block header", self.block_header.commit())
+                .field("justify qc", self.justify_qc.commit())
+                .optional("upgrade certificate", &self.upgrade_certificate)
+                .finalize()
+        }
+    }
+}
+
 impl<TYPES: NodeType> PartialEq for Leaf<TYPES> {
     fn eq(&self, other: &Self) -> bool {
         self.view_number == other.view_number
@@ -482,9 +518,9 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         instance_state: &TYPES::InstanceState,
     ) -> Self {
         let data = QuorumData {
-            leaf_commit: Leaf::genesis(validated_state, instance_state)
-                .await
-                .commit(),
+            leaf_commit: <Leaf<TYPES> as Committable>::commit(
+                &Leaf::genesis(validated_state, instance_state).await,
+            ),
         };
         let commit = data.commit();
         Self::new(

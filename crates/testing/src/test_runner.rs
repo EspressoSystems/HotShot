@@ -615,6 +615,7 @@ where
             storage,
             marketplace_config,
         )
+        .await
     }
 
     /// add a specific node with a config
@@ -654,6 +655,7 @@ where
             internal_channel,
             external_channel,
         )
+        .await
     }
 }
 

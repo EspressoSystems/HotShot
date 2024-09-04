@@ -211,13 +211,15 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
         ensure!(
-            proposed_leaf.parent_commitment() == parent_leaf.commit(),
+            proposed_leaf.parent_commitment() == parent_leaf.commit(&self.upgrade_lock).await,
             "Proposed leaf parent does not equal high qc"
         );
 
-        let signature =
-            TYPES::SignatureKey::sign(&self.private_key, proposed_leaf.commit().as_ref())
-                .context("Failed to compute proposed_leaf.commit()")?;
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            proposed_leaf.commit(&self.upgrade_lock).await.as_ref(),
+        )
+        .context("Failed to compute proposed_leaf.commit()")?;
 
         let message = Proposal {
             data: proposal,

@@ -160,8 +160,11 @@ impl TestView {
             transactions: transactions.clone(),
         });
 
-        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
-            .expect("Failed to sign leaf commitment!");
+        let signature = <BLSPubKey as SignatureKey>::sign(
+            &private_key,
+            leaf.commit(&upgrade_lock).await.as_ref(),
+        )
+        .expect("Failed to sign leaf commitment!");
 
         let quorum_proposal = Proposal {
             data: quorum_proposal_inner,
@@ -208,7 +211,7 @@ impl TestView {
         let transactions = &self.transactions;
 
         let quorum_data = QuorumData {
-            leaf_commit: old.leaf.commit(),
+            leaf_commit: old.leaf.commit(&self.upgrade_lock).await,
         };
 
         let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
@@ -359,8 +362,11 @@ impl TestView {
             transactions: transactions.clone(),
         });
 
-        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
-            .expect("Failed to sign leaf commitment.");
+        let signature = <BLSPubKey as SignatureKey>::sign(
+            &private_key,
+            leaf.commit(&self.upgrade_lock).await.as_ref(),
+        )
+        .expect("Failed to sign leaf commitment.");
 
         let quorum_proposal = Proposal {
             data: proposal,
@@ -422,7 +428,7 @@ impl TestView {
     ) -> QuorumVote<TestTypes> {
         QuorumVote::<TestTypes>::create_signed_vote(
             QuorumData {
-                leaf_commit: self.leaf.commit(),
+                leaf_commit: self.leaf.commit(&handle.hotshot.upgrade_lock).await,
             },
             self.view_number,
             &handle.public_key(),
