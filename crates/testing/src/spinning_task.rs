@@ -14,6 +14,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
@@ -134,7 +135,8 @@ where
                                             self.last_decided_leaf.clone(),
                                             TestInstanceState::new(self.async_delay_config.clone()),
                                             None,
-                                            view_number,
+                                            TYPES::Time::genesis(),
+                                            TYPES::Time::genesis(),
                                             BTreeMap::new(),
                                             self.high_qc.clone(),
                                             Vec::new(),
@@ -211,6 +213,7 @@ where
                                     self.last_decided_leaf.clone(),
                                     TestInstanceState::new(self.async_delay_config.clone()),
                                     None,
+                                    view_number,
                                     view_number,
                                     read_storage.proposals_cloned().await,
                                     read_storage.high_qc_cloned().await.unwrap_or(
