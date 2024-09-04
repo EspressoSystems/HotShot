@@ -991,7 +991,7 @@
         <span class="comment">// spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
         </span><span class="kw">let </span>shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-        <span class="kw">let </span>public_key = handle.public_key();
+        <span class="kw">let </span>public_key = handle.public_key().clone();
         <span class="kw">let </span>private_key = handle.private_key().clone();
         <span class="kw">let </span>upgrade_lock = handle.hotshot.upgrade_lock.clone();
         <span class="kw">let </span>send_handle = async_spawn(<span class="kw">async move </span>{

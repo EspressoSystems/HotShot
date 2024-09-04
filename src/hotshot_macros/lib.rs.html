@@ -829,7 +829,7 @@
 /// - `Types: []` - a list types that implement `NodeImplementation` over the types in `Impls`
 /// - `TestName: example_test` - the name of the test
 /// - `Ignore`: whether or not this set of tests are ignored
-/// Example usage: see tests in this module
+///   Example usage: see tests in this module
 </span><span class="attr">#[proc_macro]
 </span><span class="kw">pub fn </span>cross_tests(input: TokenStream) -&gt; TokenStream {
     <span class="kw">let </span>test_spec = <span class="macro">parse_macro_input!</span>(input <span class="kw">as </span>CrossTestData);
