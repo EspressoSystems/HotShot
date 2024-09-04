@@ -23,6 +23,7 @@ pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
+    event::HotShotAction,
     message::Proposal,
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
@@ -230,6 +231,24 @@ impl<'a, TYPES: NodeType> Drop for ConsensusUpgradableReadLockGuard<'a, TYPES> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct HotShotActionViews<T: ConsensusTime> {
+    last_proposed_view: T,
+    last_voted_view: T,
+    last_da_proposed_view: T,
+    last_da_vote_view: T,
+}
+
+impl<T: ConsensusTime> HotShotActionViews<T> {
+    fn new_from_view(view: T) -> Self {
+        Self {
+            last_proposed_view: view,
+            last_voted_view: view,
+            last_da_proposed_view: view,
+            last_da_vote_view: view,
+        }
+    }
+}
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
@@ -262,6 +281,11 @@ pub struct Consensus<TYPES: NodeType> {
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
     saved_leaves: CommitmentMap<Leaf<TYPES>>,
+
+    /// Bundle of views which we performed the most recent action
+    /// visibible to the network.  Actions are votes and proposals
+    /// for DA and Quorum
+    last_actions: HotShotActionViews<TYPES::Time>,
 
     /// Saved payloads.
     ///
@@ -350,6 +374,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         cur_view: TYPES::Time,
         locked_view: TYPES::Time,
         last_decided_view: TYPES::Time,
+        last_actioned_view: TYPES::Time,
         last_proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
         saved_leaves: CommitmentMap<Leaf<TYPES>>,
         saved_payloads: BTreeMap<TYPES::Time, Arc<[u8]>>,
@@ -363,6 +388,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             cur_view,
             last_decided_view,
             last_proposals,
+            last_actions: HotShotActionViews::new_from_view(last_actioned_view),
             locked_view,
             saved_leaves,
             saved_payloads,
@@ -431,6 +457,19 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         );
         self.cur_view = view_number;
         Ok(())
+    }
+
+    pub fn update_action(&mut self, action: HotShotAction, view: TYPES::Time) {
+        let old_view = match action {
+            HotShotAction::Vote => &mut self.last_actions.last_voted_view,
+            HotShotAction::Propose => &mut self.last_actions.last_proposed_view,
+            HotShotAction::DaPropose => &mut self.last_actions.last_da_proposed_view,
+            HotShotAction::DaVote => &mut self.last_actions.last_da_vote_view,
+            _ => return,
+        };
+        if view > *old_view {
+            *old_view = view;
+        }
     }
 
     /// Update the last proposal.

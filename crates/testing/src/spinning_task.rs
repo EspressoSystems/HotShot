@@ -14,13 +14,13 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
-use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
     testable_delay::DelayConfig,
 };
+use hotshot_types::traits::node_implementation::ConsensusTime;
 use hotshot_types::{
     data::Leaf,
     event::Event,

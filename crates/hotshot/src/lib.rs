@@ -306,9 +306,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             validated_state_map,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
-            // TODO this is incorrect
-            // https://github.com/EspressoSystems/HotShot/issues/560
             anchored_leaf.view_number(),
+            initializer.actioned_view,
             initializer.saved_proposals,
             saved_leaves,
             saved_payloads,
@@ -953,7 +952,7 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Starting view number that should be equivelant to the view the node shut down with last.
     start_view: TYPES::Time,
-    /// The view we last performed an action in.  An action is Proposing or voting for 
+    /// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
     actioned_view: TYPES::Time,
     /// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
