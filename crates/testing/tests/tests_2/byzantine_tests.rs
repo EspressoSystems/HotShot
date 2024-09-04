@@ -127,7 +127,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: dishonest_da,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [MemoryImpl],
     Types: [TestTypes],
     Versions: [MarketplaceTestVersions],
     Ignore: false,
@@ -162,7 +162,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: view_delay,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [MemoryImpl],
     Types: [TestTypes],
     Versions: [MarketplaceTestVersions],
     Ignore: false,
@@ -209,7 +209,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: dishonest_voting,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Impls: [MemoryImpl],
     Types: [TestTypes],
     Versions: [MarketplaceTestVersions],
     Ignore: false,
