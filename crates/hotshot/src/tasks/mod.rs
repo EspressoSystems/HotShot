@@ -8,7 +8,11 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -24,8 +28,7 @@ use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
-    network,
-    network::{NetworkEventTaskState, NetworkMessageTaskState},
+    network::{self, NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
     transactions::TransactionTaskState,
@@ -33,6 +36,7 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::message::UpgradeLock;
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     data::QuorumProposal,
@@ -43,13 +47,9 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use std::fmt::Debug;
+use std::{collections::HashSet, sync::Arc, time::Duration};
 use vbs::version::StaticVersionType;
-
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -283,7 +283,13 @@ where
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
 
     /// modify outgoing messages from the network
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        public_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>>;
 
     #[allow(clippy::too_many_arguments)]
     /// Creates a `SystemContextHandle` with the given even transformer
@@ -338,8 +344,6 @@ where
     /// Add byzantine network tasks with the trait
     #[allow(clippy::too_many_lines)]
     async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I, V>) {
-        let state_in = Arc::new(RwLock::new(self));
-        let state_out = Arc::clone(&state_in);
         // channels between the task spawned in this function and the network tasks.
         // with this, we can control exactly what events the network tasks see.
 
@@ -365,16 +369,22 @@ where
         );
 
         // spawn the network tasks with our newly-created channel
-        add_network_tasks::<TYPES, I, V>(handle).await;
+        add_network_message_and_request_receiver_tasks(handle).await;
+        self.add_network_event_tasks(handle);
 
         std::mem::swap(
             &mut internal_event_stream,
             &mut handle.internal_event_stream,
         );
 
+        let state_in = Arc::new(RwLock::new(self));
+        let state_out = Arc::clone(&state_in);
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+        let public_key = handle.public_key();
+        let private_key = handle.private_key().clone();
+        let upgrade_lock = handle.hotshot.upgrade_lock.clone();
         let send_handle = async_spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
@@ -401,7 +411,12 @@ where
                         match event {
                             Some(Ok(msg)) => {
                                 let mut state = state_out.write().await;
-                                let mut results = state.send_handler(&msg).await;
+                                let mut results = state.send_handler(
+                                    &msg,
+                                    &public_key,
+                                    &private_key,
+                                    &upgrade_lock,
+                                ).await;
                                 results.reverse();
                                 while let Some(event) = results.pop() {
                                     let _ = sender_to_network.broadcast(event.into()).await;
@@ -470,6 +485,57 @@ where
         handle.network_registry.register(send_handle);
         handle.network_registry.register(recv_handle);
     }
+
+    /// Adds the `NetworkEventTaskState` tasks possibly modifying them as well.
+    fn add_network_event_tasks(&self, handle: &mut SystemContextHandle<TYPES, I, V>) {
+        let network = Arc::clone(&handle.network);
+        let quorum_membership = handle.memberships.quorum_membership.clone();
+        let da_membership = handle.memberships.da_membership.clone();
+        let vid_membership = handle.memberships.vid_membership.clone();
+        let view_sync_membership = handle.memberships.view_sync_membership.clone();
+
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            quorum_membership.clone(),
+            network::quorum_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            quorum_membership,
+            network::upgrade_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            da_membership,
+            network::da_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            view_sync_membership,
+            network::view_sync_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            vid_membership,
+            network::vid_filter,
+        );
+    }
+
+    /// Adds a `NetworkEventTaskState` task. Can be reimplemented to modify its behaviour.
+    fn add_network_event_task(
+        &self,
+        handle: &mut SystemContextHandle<TYPES, I, V>,
+        channel: Arc<<I as NodeImplementation<TYPES>>::Network>,
+        membership: TYPES::Membership,
+        filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
+    ) {
+        add_network_event_task(handle, channel, membership, filter);
+    }
 }
 
 #[derive(Debug)]
@@ -489,7 +555,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, signature) => {
                 let mut result = Vec::new();
@@ -524,7 +596,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(_, _) | HotShotEvent::QuorumVoteSend(_) => {
                 vec![event.clone(), event.clone()]
@@ -595,7 +673,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 self.total_proposals_from_node += 1;
@@ -629,7 +713,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
         vec![event.clone()]
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        _public_key: &TYPES::SignatureKey,
+        _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>> {
         if let HotShotEvent::DacSend(cert, sender) = event {
             self.total_da_certs_sent_from_node += 1;
             if self
@@ -653,11 +743,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
 pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
+    add_network_message_and_request_receiver_tasks(handle).await;
+
+    add_network_event_tasks(handle);
+}
+
+/// Adds the `NetworkMessageTaskState` tasks and the request / receiver tasks.
+pub async fn add_network_message_and_request_receiver_tasks<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
+) {
     let network = Arc::clone(&handle.network);
-    let quorum_membership = handle.memberships.quorum_membership.clone();
-    let da_membership = handle.memberships.da_membership.clone();
-    let vid_membership = handle.memberships.vid_membership.clone();
-    let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
     add_network_message_task(handle, &network);
     add_network_message_task(handle, &network);
@@ -666,6 +765,17 @@ pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
         add_request_network_task(handle).await;
         add_response_task(handle, request_receiver);
     }
+}
+
+/// Adds the `NetworkEventTaskState` tasks.
+pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
+) {
+    let network = Arc::clone(&handle.network);
+    let quorum_membership = handle.memberships.quorum_membership.clone();
+    let da_membership = handle.memberships.da_membership.clone();
+    let vid_membership = handle.memberships.vid_membership.clone();
+    let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
     add_network_event_task(
         handle,
