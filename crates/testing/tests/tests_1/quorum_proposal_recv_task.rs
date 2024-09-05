@@ -79,7 +79,11 @@ async fn test_quorum_proposal_recv_task() {
         // These are both updated when we vote. Since we don't have access
         // to that, we'll just put them in here.
         consensus_writer
-            .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+            .update_saved_leaves(
+                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                &handle.hotshot.upgrade_lock,
+            )
+            .await;
         consensus_writer
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number,
