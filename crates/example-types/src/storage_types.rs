@@ -18,7 +18,10 @@ use hotshot_types::{
     event::HotShotAction,
     message::Proposal,
     simple_certificate::QuorumCertificate,
-    traits::{node_implementation::{NodeType, ConsensusTime}, storage::Storage},
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        storage::Storage,
+    },
     utils::View,
     vote::HasViewNumber,
 };
@@ -46,7 +49,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
             das: HashMap::new(),
             proposals: BTreeMap::new(),
             high_qc: None,
-            action: TYPES::Time::genesis()
+            action: TYPES::Time::genesis(),
         }
     }
 }
@@ -144,10 +147,8 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
             bail!("Failed to append Action to storage");
         }
         let mut inner = self.inner.write().await;
-        if view > inner.action {
-            if matches!(action, HotShotAction::Vote | HotShotAction::Propose) {
-                inner.action = view;
-            }
+        if view > inner.action && matches!(action, HotShotAction::Vote | HotShotAction::Propose) {
+            inner.action = view;
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         Ok(())
