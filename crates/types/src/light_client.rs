@@ -38,7 +38,6 @@ pub type PublicInput = GenericPublicInput<CircuitField>;
 pub struct StateKeyPair(pub schnorr::KeyPair<Config>);
 
 /// Stake table state
-pub type StakeState = GenericStakeState<CircuitField>;
 
 /// Request body to send to the state relay server
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
