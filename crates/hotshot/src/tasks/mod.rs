@@ -386,7 +386,7 @@ where
         let public_key = handle.public_key().clone();
         let private_key = handle.private_key().clone();
         let upgrade_lock = handle.hotshot.upgrade_lock.clone();
-        let consensus = handle.hotshot.consensus().clone();
+        let consensus = Arc::clone(&handle.hotshot.consensus());
         let send_handle = async_spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
