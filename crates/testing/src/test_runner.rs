@@ -184,7 +184,7 @@ where
                 &TestInstanceState::default(),
             )
             .await,
-            high_qc: QuorumCertificate::genesis(
+            high_qc: QuorumCertificate::genesis::<V>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
@@ -482,7 +482,7 @@ where
                         },
                     );
                 } else {
-                    let initializer = HotShotInitializer::<TYPES>::from_genesis(
+                    let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(
                         TestInstanceState::new(self.launcher.metadata.async_delay_config.clone()),
                     )
                     .await

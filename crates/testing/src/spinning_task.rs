@@ -214,7 +214,7 @@ where
                                     view_number,
                                     read_storage.proposals_cloned().await,
                                     read_storage.high_qc_cloned().await.unwrap_or(
-                                        QuorumCertificate::genesis(
+                                        QuorumCertificate::genesis::<V>(
                                             &TestValidatedState::default(),
                                             &TestInstanceState::default(),
                                         )

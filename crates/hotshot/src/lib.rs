@@ -415,7 +415,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     TYPES::ValidatedState::genesis(&self.instance_state);
 
                 let qc = Arc::new(
-                    QuorumCertificate::genesis(&validated_state, self.instance_state.as_ref())
+                    QuorumCertificate::genesis::<V>(&validated_state, self.instance_state.as_ref())
                         .await,
                 );
 
@@ -976,11 +976,11 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub async fn from_genesis(
+    pub async fn from_genesis<V: Versions>(
         instance_state: TYPES::InstanceState,
     ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
-        let high_qc = QuorumCertificate::genesis(&validated_state, &instance_state).await;
+        let high_qc = QuorumCertificate::genesis::<V>(&validated_state, &instance_state).await;
 
         Ok(Self {
             inner: Leaf::genesis(&validated_state, &instance_state).await,

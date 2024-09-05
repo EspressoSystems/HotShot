@@ -119,7 +119,7 @@ pub async fn create_test_handle<
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,
 ) -> SystemContextHandle<TYPES, I, V> {
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::new(
+    let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(TestInstanceState::new(
         metadata.async_delay_config,
     ))
     .await

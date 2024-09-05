@@ -40,7 +40,7 @@ use crate::{
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    simple_vote::{QuorumData, UpgradeProposalData},
+    simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
@@ -502,20 +502,32 @@ impl<TYPES: NodeType> Display for Leaf<TYPES> {
 impl<TYPES: NodeType> QuorumCertificate<TYPES> {
     #[must_use]
     /// Creat the Genesis certificate
-    pub async fn genesis(
+    pub async fn genesis<V: Versions>(
         validated_state: &TYPES::ValidatedState,
         instance_state: &TYPES::InstanceState,
     ) -> Self {
+        // since this is genesis, we should never have a decided upgrade certificate.
+        let upgrade_lock = UpgradeLock::<TYPES, V>::new();
+
+        let genesis_view = <TYPES::Time as ConsensusTime>::genesis();
+
         let data = QuorumData {
-            leaf_commit: <Leaf<TYPES> as Committable>::commit(
-                &Leaf::genesis(validated_state, instance_state).await,
-            ),
+            leaf_commit: Leaf::genesis(validated_state, instance_state)
+                .await
+                .commit(&upgrade_lock)
+                .await,
         };
-        let commit = data.commit();
+
+        let versioned_data =
+            VersionedVoteData::<_, _, V>::new_infallible(data.clone(), genesis_view, &upgrade_lock)
+                .await;
+
+        let bytes: [u8; 32] = versioned_data.commit().into();
+
         Self::new(
             data,
-            commit,
-            <TYPES::Time as ConsensusTime>::genesis(),
+            Commitment::from_raw(bytes),
+            genesis_view,
             None,
             PhantomData,
         )
