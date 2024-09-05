@@ -474,12 +474,15 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             HotShotAction::Propose => &mut self.last_actions.proposed,
             HotShotAction::DaPropose => &mut self.last_actions.da_proposed,
             HotShotAction::DaVote => {
+                if view > self.last_actions.da_vote {
+                    self.last_actions.da_vote = view;
+                }
                 // TODO Add logic to prevent double voting.  For now the simple check if
                 // the last voted view is less than the view we are trying to vote doesn't work
                 // becuase the leader of view n + 1 may propose to the DA (and we would vote)
                 // before the leader of view n.
-                return  true;
-            },
+                return true;
+            }
             _ => return true,
         };
         if view > *old_view {
