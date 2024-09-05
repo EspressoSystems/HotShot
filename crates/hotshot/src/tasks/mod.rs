@@ -494,8 +494,6 @@ where
         let network = Arc::clone(&handle.network);
         let quorum_membership = handle.memberships.quorum_membership.clone();
         let da_membership = handle.memberships.da_membership.clone();
-        let vid_membership = handle.memberships.vid_membership.clone();
-        let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
         self.add_network_event_task(
             handle,
@@ -506,7 +504,7 @@ where
         self.add_network_event_task(
             handle,
             Arc::clone(&network),
-            quorum_membership,
+            quorum_membership.clone(),
             network::upgrade_filter,
         );
         self.add_network_event_task(
@@ -518,13 +516,13 @@ where
         self.add_network_event_task(
             handle,
             Arc::clone(&network),
-            view_sync_membership,
+            quorum_membership.clone(),
             network::view_sync_filter,
         );
         self.add_network_event_task(
             handle,
             Arc::clone(&network),
-            vid_membership,
+            quorum_membership,
             network::vid_filter,
         );
     }
@@ -576,8 +574,6 @@ pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     let network = Arc::clone(&handle.network);
     let quorum_membership = handle.memberships.quorum_membership.clone();
     let da_membership = handle.memberships.da_membership.clone();
-    let vid_membership = handle.memberships.vid_membership.clone();
-    let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
     add_network_event_task(
         handle,
@@ -588,7 +584,7 @@ pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     add_network_event_task(
         handle,
         Arc::clone(&network),
-        quorum_membership,
+        quorum_membership.clone(),
         network::upgrade_filter,
     );
     add_network_event_task(
@@ -600,13 +596,13 @@ pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     add_network_event_task(
         handle,
         Arc::clone(&network),
-        view_sync_membership,
+        quorum_membership.clone(),
         network::view_sync_filter,
     );
     add_network_event_task(
         handle,
         Arc::clone(&network),
-        vid_membership,
+        quorum_membership,
         network::vid_filter,
     );
 }

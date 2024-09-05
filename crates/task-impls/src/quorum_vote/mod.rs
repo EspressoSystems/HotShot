@@ -595,14 +595,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // * Signed by one of the staked DA committee members.
                 if !self
                     .quorum_membership
-                    .leader(view)
+                    .get_leader(view)
                     .validate(&disperse.signature, payload_commitment.as_ref())
                     && !self
                         .public_key
                         .validate(&disperse.signature, payload_commitment.as_ref())
                 {
                     let mut validated = false;
-                    for da_member in self.da_membership.staked_committee(view) {
+                    for da_member in self.da_membership.get_committee_members(view) {
                         if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
                             validated = true;
                             break;

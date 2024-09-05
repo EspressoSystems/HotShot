@@ -382,27 +382,25 @@ pub trait RunDa<
         let network = self.network();
 
         // Create the quorum membership from all nodes
-        let quorum_membership = <TYPES as NodeType>::Membership::create_election(
-            known_nodes_with_stake.clone(),
+        let quorum_membership = <TYPES as NodeType>::Membership::new(
             known_nodes_with_stake.clone(),
             Topic::Global,
+            #[cfg(feature = "fixed-leader-election")]
             config.config.fixed_leader_for_gpuvid,
         );
 
         // Create the quorum membership from all nodes, specifying the committee
         // as the known da nodes
-        let da_membership = <TYPES as NodeType>::Membership::create_election(
-            known_nodes_with_stake.clone(),
+        let da_membership = <TYPES as NodeType>::Membership::new(
             config.config.known_da_nodes.clone(),
             Topic::Da,
+            #[cfg(feature = "fixed-leader-election")]
             config.config.fixed_leader_for_gpuvid,
         );
 
         let memberships = Memberships {
             quorum_membership: quorum_membership.clone(),
             da_membership,
-            vid_membership: quorum_membership.clone(),
-            view_sync_membership: quorum_membership,
         };
 
         let marketplace_config = MarketplaceConfig {

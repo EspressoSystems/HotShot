@@ -86,28 +86,16 @@ pub async fn build_system_handle<
     let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
 
     let memberships = Memberships {
-        quorum_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
+        quorum_membership: TYPES::Membership::new(
             known_nodes_with_stake.clone(),
             Topic::Global,
+            #[cfg(feature = "fixed-leader-election")]
             config.fixed_leader_for_gpuvid,
         ),
-        da_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
+        da_membership: TYPES::Membership::new(
             config.known_da_nodes.clone(),
             Topic::Da,
-            config.fixed_leader_for_gpuvid,
-        ),
-        vid_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
-            Topic::Global,
-            config.fixed_leader_for_gpuvid,
-        ),
-        view_sync_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake,
-            Topic::Global,
+            #[cfg(feature = "fixed-leader-election")]
             config.fixed_leader_for_gpuvid,
         ),
     };
@@ -207,7 +195,7 @@ pub async fn build_assembled_sig<
     view: TYPES::Time,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let stake_table = membership.committee_qc_stake_table();
+    let stake_table = membership.get_stake_table();
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
@@ -264,7 +252,7 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.staked_committee(view_number).len();
+    let num_storage_nodes = membership.get_committee_members(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 

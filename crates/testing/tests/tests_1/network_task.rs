@@ -58,10 +58,10 @@ async fn test_network_task() {
     let public_key = config.my_own_validator_config.public_key;
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
-    let membership = <TestTypes as NodeType>::Membership::create_election(
+    let membership = <TestTypes as NodeType>::Membership::new(
         known_nodes_with_stake.clone(),
-        known_nodes_with_stake,
         Topic::Global,
+        #[cfg(feature = "fixed-leader-election")]
         config.fixed_leader_for_gpuvid,
     );
     let network_state: NetworkEventTaskState<TestTypes, TestVersions, MemoryNetwork<_>, _> =
@@ -138,10 +138,10 @@ async fn test_network_storage_fail() {
     let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let upgrade_lock = UpgradeLock::<TestTypes, TestVersions>::new();
 
-    let membership = <TestTypes as NodeType>::Membership::create_election(
-        known_nodes_with_stake.clone(),
+    let membership = <TestTypes as NodeType>::Membership::new(
         known_nodes_with_stake,
         Topic::Global,
+        #[cfg(feature = "fixed-leader-election")]
         config.fixed_leader_for_gpuvid,
     );
     let network_state: NetworkEventTaskState<TestTypes, TestVersions, MemoryNetwork<_>, _> =

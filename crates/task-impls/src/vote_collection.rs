@@ -293,7 +293,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertifica
     for QuorumVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.view_number() + 1)
+        membership.get_leader(self.view_number() + 1)
     }
     fn make_cert_event(
         certificate: QuorumCertificate<TYPES>,
@@ -307,7 +307,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
     for UpgradeVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.view_number())
+        membership.get_leader(self.view_number())
     }
     fn make_cert_event(
         certificate: UpgradeCertificate<TYPES>,
@@ -321,7 +321,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES
     for DaVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.view_number())
+        membership.get_leader(self.view_number())
     }
     fn make_cert_event(
         certificate: DaCertificate<TYPES>,
@@ -335,7 +335,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertifi
     for TimeoutVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.view_number() + 1)
+        membership.get_leader(self.view_number() + 1)
     }
     fn make_cert_event(
         certificate: TimeoutCertificate<TYPES>,
@@ -350,7 +350,7 @@ impl<TYPES: NodeType>
     for ViewSyncCommitVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.date().round + self.date().relay)
+        membership.get_leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncCommitCertificate2<TYPES>,
@@ -365,7 +365,7 @@ impl<TYPES: NodeType>
     for ViewSyncPreCommitVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.date().round + self.date().relay)
+        membership.get_leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncPreCommitCertificate2<TYPES>,
@@ -380,7 +380,7 @@ impl<TYPES: NodeType>
     for ViewSyncFinalizeVote<TYPES>
 {
     fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
-        membership.leader(self.date().round + self.date().relay)
+        membership.get_leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
         certificate: ViewSyncFinalizeCertificate2<TYPES>,

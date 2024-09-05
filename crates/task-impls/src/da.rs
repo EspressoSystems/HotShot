@@ -127,7 +127,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
-                let view_leader_key = self.da_membership.leader(view);
+                let view_leader_key = self.da_membership.get_leader(view);
                 if view_leader_key != sender {
                     error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
                     return None;
@@ -257,8 +257,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 debug!("DA vote recv, Main Task {:?}", vote.view_number());
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.view_number();
-                if self.da_membership.leader(view) != self.public_key {
-                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1) == self.public_key);
+                if self.da_membership.get_leader(view) != self.public_key {
+                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.get_leader(view + 1) == self.public_key);
                     return None;
                 }
 
@@ -286,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 self.cur_view = view;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
-                if self.da_membership.leader(self.cur_view + 1) != self.public_key {
+                if self.da_membership.get_leader(self.cur_view + 1) != self.public_key {
                     return None;
                 }
                 debug!("Polling for DA votes for view {}", *self.cur_view + 1);
