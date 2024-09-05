@@ -188,6 +188,15 @@ impl<F: PrimeField> From<Vec<F>> for GenericPublicInput<F> {
     }
 }
 
+/// Currently, public input is just light client state flatten out and convert to field elements.
+/// We introduce two structs for stable APIs.
+impl<F: PrimeField> From<GenericLightClientState<F>> for GenericPublicInput<F> {
+    fn from(v: GenericLightClientState<F>) -> Self {
+        let v_f: [F; 7] = v.into();
+        Self::from(v_f.to_vec())
+    }
+}
+
 impl<F: PrimeField> GenericPublicInput<F> {
     /// Return the view number of the light client state
     #[must_use]
