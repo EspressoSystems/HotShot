@@ -82,50 +82,51 @@ pub struct GenericLightClientState<F: PrimeField> {
     pub block_height: usize,
     /// Root of the block commitment tree
     pub block_comm_root: F,
-    /// Commitments to the three columns of the stake table
-    pub stake_table_comm: (F, F, F),
-    /// threshold for stake-weighted majority
-    pub threshold: F,
 }
 
-impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 7] {
+impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 3] {
     fn from(state: GenericLightClientState<F>) -> Self {
         [
             F::from(state.view_number as u64),
             F::from(state.block_height as u64),
             state.block_comm_root,
-            state.stake_table_comm.0,
-            state.stake_table_comm.1,
-            state.stake_table_comm.2,
-            state.threshold,
         ]
     }
 }
 
-impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 7] {
+impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 3] {
     fn from(state: &GenericLightClientState<F>) -> Self {
         [
             F::from(state.view_number as u64),
             F::from(state.block_height as u64),
             state.block_comm_root,
-            state.stake_table_comm.0,
-            state.stake_table_comm.1,
-            state.stake_table_comm.2,
-            state.threshold,
         ]
     }
 }
 
 /// Stake table state
+#[tagged("STAKE_TABLE_STATE")]
+#[derive(
+    Clone,
+    Debug,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+    Default,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Hash,
+)]
 pub struct GenericStakeTableState<F: PrimeField> {
-    /// threshold
-    pub threshold: F,
     /// Commitments to the table column for BLS public keys
     pub bls_key_comm: F,
     /// Commitments to the table column for Schnorr public keys
     pub schnorr_key_comm: F,
     /// Commitments to the table column for Stake amounts
     pub amount_comm: F,
+    /// threshold
+    pub threshold: F,
 }
 
 impl std::ops::Deref for StateKeyPair {
@@ -176,6 +177,22 @@ impl From<schnorr::KeyPair<Config>> for StateKeyPair {
 #[derive(Clone, Debug)]
 pub struct GenericPublicInput<F: PrimeField>(Vec<F>);
 
+impl<F: PrimeField> GenericPublicInput<F> {
+    /// Construct a public input from light client state and static stake table state
+    pub fn new(lc_state: GenericLightClientState<F>, st_state: GenericStakeTableState<F>) -> Self {
+        let lc_state_f: [F; 3] = lc_state.into();
+        Self(vec![
+            lc_state_f[0],
+            lc_state_f[1],
+            lc_state_f[2],
+            st_state.bls_key_comm,
+            st_state.schnorr_key_comm,
+            st_state.amount_comm,
+            st_state.threshold,
+        ])
+    }
+}
+
 impl<F: PrimeField> AsRef<[F]> for GenericPublicInput<F> {
     fn as_ref(&self) -> &[F] {
         &self.0
@@ -185,15 +202,6 @@ impl<F: PrimeField> AsRef<[F]> for GenericPublicInput<F> {
 impl<F: PrimeField> From<Vec<F>> for GenericPublicInput<F> {
     fn from(v: Vec<F>) -> Self {
         Self(v)
-    }
-}
-
-/// Currently, public input is just light client state flatten out and convert to field elements.
-/// We introduce two structs for stable APIs.
-impl<F: PrimeField> From<GenericLightClientState<F>> for GenericPublicInput<F> {
-    fn from(v: GenericLightClientState<F>) -> Self {
-        let v_f: [F; 7] = v.into();
-        Self::from(v_f.to_vec())
     }
 }
 
