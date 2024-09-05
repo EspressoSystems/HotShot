@@ -1022,6 +1022,11 @@
 <a href="#1020" id="1020">1020</a>
 <a href="#1021" id="1021">1021</a>
 <a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1330,9 +1335,8 @@
             validated_state_map,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
-            <span class="comment">// TODO this is incorrect
-            // https://github.com/EspressoSystems/HotShot/issues/560
-            </span>anchored_leaf.view_number(),
+            anchored_leaf.view_number(),
+            initializer.actioned_view,
             initializer.saved_proposals,
             saved_leaves,
             saved_payloads,
@@ -1975,8 +1979,11 @@
     /// If it's given, we'll use it to construct the `SystemContext`.
     </span>state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
 
-    <span class="doccomment">/// Starting view number that we are confident won't lead to a double vote after restart.
+    <span class="doccomment">/// Starting view number that should be equivelant to the view the node shut down with last.
     </span>start_view: TYPES::Time,
+    <span class="doccomment">/// The view we last performed an action in.  An action is Proposing or voting for
+    /// Either the quorum or DA.
+    </span>actioned_view: TYPES::Time,
     <span class="doccomment">/// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
@@ -2005,6 +2012,7 @@
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::Time::new(<span class="number">0</span>),
+            actioned_view: TYPES::Time::new(<span class="number">0</span>),
             saved_proposals: BTreeMap::new(),
             high_qc,
             undecided_leafs: Vec::new(),
@@ -2026,6 +2034,7 @@
         instance_state: TYPES::InstanceState,
         validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
         start_view: TYPES::Time,
+        actioned_view: TYPES::Time,
         saved_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
         undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
@@ -2037,6 +2046,7 @@
             validated_state,
             state_delta: <span class="prelude-val">None</span>,
             start_view,
+            actioned_view,
             saved_proposals,
             high_qc,
             undecided_leafs,

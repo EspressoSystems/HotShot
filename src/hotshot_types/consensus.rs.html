@@ -747,6 +747,81 @@
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -772,6 +847,7 @@
 <span class="kw">use crate</span>::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
+    event::HotShotAction,
     message::Proposal,
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
@@ -979,6 +1055,41 @@
     }
 }
 
+<span class="doccomment">/// A bundle of views that we have most recently performed some action
+</span><span class="attr">#[derive(Debug, Clone, Copy)]
+</span><span class="kw">struct </span>HotShotActionViews&lt;T: ConsensusTime&gt; {
+    <span class="doccomment">/// View we last proposed in to the Quorum
+    </span>proposed: T,
+    <span class="doccomment">/// View we last voted in for a QuorumProposal
+    </span>voted: T,
+    <span class="doccomment">/// View we last proposed to the DA committee
+    </span>da_proposed: T,
+    <span class="doccomment">/// View we lasted voted for DA proposal
+    </span>da_vote: T,
+}
+
+<span class="kw">impl</span>&lt;T: ConsensusTime&gt; Default <span class="kw">for </span>HotShotActionViews&lt;T&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>genesis = T::genesis();
+        <span class="self">Self </span>{
+            proposed: genesis,
+            voted: genesis,
+            da_proposed: genesis,
+            da_vote: genesis,
+        }
+    }
+}
+<span class="kw">impl</span>&lt;T: ConsensusTime&gt; HotShotActionViews&lt;T&gt; {
+    <span class="doccomment">/// Create HotShotActionViews from a view number
+    </span><span class="kw">fn </span>from_view(view: T) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            proposed: view,
+            voted: view,
+            da_proposed: view,
+            da_vote: view,
+        }
+    }
+}
 <span class="doccomment">/// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
@@ -1011,6 +1122,11 @@
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
     </span>saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// Bundle of views which we performed the most recent action
+    /// visibible to the network.  Actions are votes and proposals
+    /// for DA and Quorum
+    </span>last_actions: HotShotActionViews&lt;TYPES::Time&gt;,
 
     <span class="doccomment">/// Saved payloads.
     ///
@@ -1099,6 +1215,7 @@
         cur_view: TYPES::Time,
         locked_view: TYPES::Time,
         last_decided_view: TYPES::Time,
+        last_actioned_view: TYPES::Time,
         last_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
         saved_payloads: BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt;,
@@ -1112,6 +1229,7 @@
             cur_view,
             last_decided_view,
             last_proposals,
+            last_actions: HotShotActionViews::from_view(last_actioned_view),
             locked_view,
             saved_leaves,
             saved_payloads,
@@ -1182,11 +1300,43 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="doccomment">/// Update the last actioned view internally for votes and proposals
+    ///
+    /// Returns true if the action is for a newer view than the last action of that type
+    </span><span class="kw">pub fn </span>update_action(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action: HotShotAction, view: TYPES::Time) -&gt; bool {
+        <span class="kw">let </span>old_view = <span class="kw">match </span>action {
+            HotShotAction::Vote =&gt; <span class="kw-2">&amp;mut </span><span class="self">self</span>.last_actions.voted,
+            HotShotAction::Propose =&gt; <span class="kw-2">&amp;mut </span><span class="self">self</span>.last_actions.proposed,
+            HotShotAction::DaPropose =&gt; <span class="kw-2">&amp;mut </span><span class="self">self</span>.last_actions.da_proposed,
+            HotShotAction::DaVote =&gt; {
+                <span class="kw">if </span>view &gt; <span class="self">self</span>.last_actions.da_vote {
+                    <span class="self">self</span>.last_actions.da_vote = view;
+                }
+                <span class="comment">// TODO Add logic to prevent double voting.  For now the simple check if
+                // the last voted view is less than the view we are trying to vote doesn't work
+                // becuase the leader of view n + 1 may propose to the DA (and we would vote)
+                // before the leader of view n.
+                </span><span class="kw">return </span><span class="bool-val">true</span>;
+            }
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">true</span>,
+        };
+        <span class="kw">if </span>view &gt; <span class="kw-2">*</span>old_view {
+            <span class="kw-2">*</span>old_view = view;
+            <span class="kw">return </span><span class="bool-val">true</span>;
+        }
+        <span class="bool-val">false
+    </span>}
+
+    <span class="doccomment">/// reset last actions to genesis so we can resend events in tests
+    </span><span class="kw">pub fn </span>reset_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.last_actions = HotShotActionViews::default();
+    }
+
     <span class="doccomment">/// Update the last proposal.
     ///
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
-    </span><span class="kw">pub fn </span>update_last_proposed_view(
+    </span><span class="kw">pub fn </span>update_proposed_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {

@@ -338,6 +338,9 @@
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -360,6 +363,7 @@
     storage_types::TestStorage,
     testable_delay::DelayConfig,
 };
+<span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
     event::Event,
@@ -474,7 +478,8 @@
                                             <span class="self">self</span>.last_decided_leaf.clone(),
                                             TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
                                             <span class="prelude-val">None</span>,
-                                            view_number,
+                                            TYPES::Time::genesis(),
+                                            TYPES::Time::genesis(),
                                             BTreeMap::new(),
                                             <span class="self">self</span>.high_qc.clone(),
                                             Vec::new(),
@@ -552,6 +557,7 @@
                                     TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
                                     <span class="prelude-val">None</span>,
                                     view_number,
+                                    read_storage.last_actioned_view().<span class="kw">await</span>,
                                     read_storage.proposals_cloned().<span class="kw">await</span>,
                                     read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
                                         QuorumCertificate::genesis(

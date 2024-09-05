@@ -608,6 +608,10 @@
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -646,7 +650,7 @@
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
-<span class="kw">use </span>hotshot_types::message::UpgradeLock;
+<span class="kw">use </span>hotshot_types::{consensus::Consensus, message::UpgradeLock};
 <span class="kw">use </span>hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     message::Messages,
@@ -801,6 +805,7 @@
         membership,
         filter,
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
+        consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
     <span class="kw">let </span>task = Task::new(
@@ -898,6 +903,7 @@
         public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;;
 
     <span class="attr">#[allow(clippy::too_many_arguments)]
@@ -994,6 +1000,7 @@
         <span class="kw">let </span>public_key = handle.public_key().clone();
         <span class="kw">let </span>private_key = handle.private_key().clone();
         <span class="kw">let </span>upgrade_lock = handle.hotshot.upgrade_lock.clone();
+        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.consensus());
         <span class="kw">let </span>send_handle = async_spawn(<span class="kw">async move </span>{
             <span class="macro">futures::pin_mut!</span>(shutdown_signal);
 
@@ -1025,6 +1032,7 @@
                                     <span class="kw-2">&amp;</span>public_key,
                                     <span class="kw-2">&amp;</span>private_key,
                                     <span class="kw-2">&amp;</span>upgrade_lock,
+                                    Arc::clone(<span class="kw-2">&amp;</span>consensus)
                                 ).<span class="kw">await</span>;
                                 results.reverse();
                                 <span class="kw">while let </span><span class="prelude-val">Some</span>(event) = results.pop() {

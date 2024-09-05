@@ -342,13 +342,26 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot::tasks::EventTransformerState;
 <span class="kw">use </span>hotshot::types::{SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_task_impls::network::test::{ModifierClosure, NetworkEventTaskStateModifier};
 <span class="kw">use </span>hotshot_task_impls::network::NetworkEventTaskState;
+<span class="kw">use </span>hotshot_types::consensus::Consensus;
 <span class="kw">use </span>hotshot_types::message::UpgradeLock;
 <span class="kw">use </span>hotshot_types::simple_vote::QuorumVote;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
@@ -383,12 +396,15 @@
         _public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         _private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">match </span>event {
             HotShotEvent::QuorumProposalSend(proposal, signature) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>result = Vec::new();
 
                 <span class="kw">for </span>n <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.multiplier {
+                    <span class="comment">// reset last actioned view so we actually propose multiple times
+                    </span>consensus.write().<span class="kw">await</span>.reset_actions();
                     <span class="kw">let </span><span class="kw-2">mut </span>modified_proposal = proposal.clone();
 
                     modified_proposal.data.view_number += n * <span class="self">self</span>.increment;
@@ -424,6 +440,7 @@
         _public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         _private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        _consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">match </span>event {
             HotShotEvent::QuorumProposalSend(<span class="kw">_</span>, <span class="kw">_</span>) | HotShotEvent::QuorumVoteSend(<span class="kw">_</span>) =&gt; {
@@ -499,6 +516,7 @@
         _public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         _private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        _consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">match </span>event {
             HotShotEvent::QuorumProposalSend(proposal, sender) =&gt; {
@@ -539,6 +557,7 @@
         _public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         _private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        _consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">if let </span>HotShotEvent::DacSend(cert, sender) = event {
             <span class="self">self</span>.total_da_certs_sent_from_node += <span class="number">1</span>;
@@ -608,6 +627,7 @@
         _public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         _private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        _consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="macro">vec!</span>[event.clone()]
     }
@@ -635,6 +655,7 @@
         public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        _consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">if let </span>HotShotEvent::QuorumVoteSend(vote) = event {
             <span class="kw">let </span>new_view = vote.view_number + <span class="self">self</span>.view_increment;
@@ -667,6 +688,7 @@
             membership,
             filter,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
+            consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         };
         <span class="kw">let </span>modified_network_state = NetworkEventTaskStateModifier {

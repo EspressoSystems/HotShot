@@ -370,7 +370,7 @@
     <span class="doccomment">/// A message destined for external listeners was received
     </span>ExternalMessageReceived(Vec&lt;u8&gt;),
 }
-<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
+<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 </span><span class="doccomment">/// A list of actions that we track for nodes
 </span><span class="kw">pub enum </span>HotShotAction {
     <span class="doccomment">/// A quorum vote was sent

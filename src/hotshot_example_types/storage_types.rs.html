@@ -173,6 +173,19 @@
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -190,9 +203,13 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::CommitmentMap,
     data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare},
+    event::HotShotAction,
     message::Proposal,
     simple_certificate::QuorumCertificate,
-    traits::{node_implementation::NodeType, storage::Storage},
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        storage::Storage,
+    },
     utils::View,
     vote::HasViewNumber,
 };
@@ -210,6 +227,7 @@
     das: HashMap&lt;TYPES::Time, Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;&gt;,
     proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
     high_qc: <span class="prelude-ty">Option</span>&lt;hotshot_types::simple_certificate::QuorumCertificate&lt;TYPES&gt;&gt;,
+    action: TYPES::Time,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Default <span class="kw">for </span>TestStorageState&lt;TYPES&gt; {
@@ -219,6 +237,7 @@
             das: HashMap::new(),
             proposals: BTreeMap::new(),
             high_qc: <span class="prelude-val">None</span>,
+            action: TYPES::Time::genesis(),
         }
     }
 }
@@ -259,6 +278,9 @@
     }
     <span class="kw">pub async fn </span>high_qc_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.inner.read().<span class="kw">await</span>.high_qc.clone()
+    }
+    <span class="kw">pub async fn </span>last_actioned_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+        <span class="self">self</span>.inner.read().<span class="kw">await</span>.action
     }
 }
 
@@ -306,11 +328,15 @@
 
     <span class="kw">async fn </span>record_action(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
-        _action: hotshot_types::event::HotShotAction,
+        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+        action: hotshot_types::event::HotShotAction,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
             <span class="macro">bail!</span>(<span class="string">"Failed to append Action to storage"</span>);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
+        <span class="kw">if </span>view &gt; inner.action &amp;&amp; <span class="macro">matches!</span>(action, HotShotAction::Vote | HotShotAction::Propose) {
+            inner.action = view;
         }
         <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span><span class="self">self</span>.delay_config).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(())
