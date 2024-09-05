@@ -42,7 +42,10 @@ pub(crate) async fn handle_quorum_vote_recv<
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
-        task_state.quorum_membership.get_leader(vote.view_number() + 1) == task_state.public_key,
+        task_state
+            .quorum_membership
+            .get_leader(vote.view_number() + 1)
+            == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1
@@ -77,7 +80,10 @@ pub(crate) async fn handle_timeout_vote_recv<
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
-        task_state.timeout_membership.get_leader(vote.view_number() + 1) == task_state.public_key,
+        task_state
+            .timeout_membership
+            .get_leader(vote.view_number() + 1)
+            == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1

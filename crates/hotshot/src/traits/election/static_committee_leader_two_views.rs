@@ -63,7 +63,8 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
         Self {
             stake_table: members,
             indexed_stake_table,
-            committee_topic,        }
+            committee_topic,
+        }
     }
 
     fn get_stake_table(
@@ -97,7 +98,6 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
         let res = self.stake_table[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
-
 
     fn stake(
         &self,

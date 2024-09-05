@@ -316,7 +316,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
                         *vote.view_number() + 1,
-                        self.quorum_membership.get_leader(vote.view_number() + 2) == self.public_key
+                        self.quorum_membership.get_leader(vote.view_number() + 2)
+                            == self.public_key
                     );
                     return;
                 }
@@ -338,7 +339,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
                         *vote.view_number() + 1,
-                        self.timeout_membership.get_leader(vote.view_number() + 2) == self.public_key
+                        self.timeout_membership.get_leader(vote.view_number() + 2)
+                            == self.public_key
                     );
                     return;
                 }
@@ -620,7 +622,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                             }
                         }
                         ViewChangeEvidence::ViewSync(vsc) => {
-                            if self.quorum_membership.get_leader(vsc.view_number()) == self.public_key {
+                            if self.quorum_membership.get_leader(vsc.view_number())
+                                == self.public_key
+                            {
                                 if let Err(e) = self
                                     .publish_proposal(view, event_sender, event_receiver)
                                     .await
