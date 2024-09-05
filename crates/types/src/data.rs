@@ -32,7 +32,7 @@ use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
-use vbs::version::{StaticVersionType, Version};
+use vbs::version::StaticVersionType;
 use vec1::Vec1;
 
 use crate::{
@@ -445,24 +445,13 @@ pub struct Leaf<TYPES: NodeType> {
     block_payload: Option<TYPES::BlockPayload>,
 }
 
-/// Wrapper struct for a `Leaf` that holds version data
-pub struct VersionedLeaf<TYPES: NodeType, V: Versions> {
-    /// underlying `Leaf`
-    pub leaf: Leaf<TYPES>,
-
-    /// version applied to this leaf
-    pub version: Version,
-
-    /// phantom data
-    _pd: PhantomData<V>,
-}
-
 impl<TYPES: NodeType> Leaf<TYPES> {
+    /// Calculate the leaf commitment,
+    /// which is gated on the version to include the block header.
     pub async fn commit<V: Versions>(
         &self,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Commitment<Self> {
-        /// This should never fail
         let version = upgrade_lock.version_infallible(self.view_number).await;
 
         if version < V::Marketplace::VERSION {

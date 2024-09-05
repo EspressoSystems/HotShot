@@ -14,7 +14,6 @@ use std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
 use anyhow::{bail, ensure, Context, Result};
 use async_lock::RwLock;
 use cdn_proto::util::mnemonic;
-use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::{
@@ -430,7 +429,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
     pub async fn version_infallible(&self, view: TYPES::Time) -> Version {
         let upgrade_certificate = self.decided_upgrade_certificate.read().await;
 
-        let version = match *upgrade_certificate {
+        match *upgrade_certificate {
             Some(ref cert) => {
                 if view >= cert.data.new_version_first_view {
                     cert.data.new_version
@@ -439,9 +438,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
                 }
             }
             None => V::Base::VERSION,
-        };
-
-        version
+        }
     }
 
     /// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.

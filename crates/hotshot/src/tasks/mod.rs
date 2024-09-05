@@ -8,7 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -34,8 +34,7 @@ use hotshot_task_impls::{
 };
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    data::QuorumProposal,
-    message::{Messages, Proposal, UpgradeLock},
+    message::{Messages, UpgradeLock},
     request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,

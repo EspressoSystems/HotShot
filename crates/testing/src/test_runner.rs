@@ -209,9 +209,10 @@ where
             consensus_leaves: BTreeMap::new(),
             safety_properties: self.launcher.metadata.overall_safety_properties,
             ensure_upgrade: self.launcher.metadata.upgrade_view.is_some(),
+            _pd: PhantomData,
         };
 
-        let consistency_task = TestTask::<ConsistencyTask<TYPES>>::new(
+        let consistency_task = TestTask::<ConsistencyTask<TYPES, V>>::new(
             consistency_task_state,
             event_rxs.clone(),
             test_receiver.clone(),

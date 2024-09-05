@@ -15,7 +15,7 @@ use std::{
 
 use anyhow::{bail, ensure, Result};
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use committable::{Commitment, Committable};
+use committable::Commitment;
 use tracing::{debug, error, instrument, trace};
 use vec1::Vec1;
 

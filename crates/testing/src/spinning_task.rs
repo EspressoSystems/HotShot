@@ -300,7 +300,7 @@ where
         Ok(())
     }
 
-    fn check(&self) -> TestResult {
+    async fn check(&self) -> TestResult {
         TestResult::Pass
     }
 }

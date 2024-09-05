@@ -12,7 +12,6 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use committable::Committable;
 use hotshot_task::{
     dependency::{AndDependency, Dependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},

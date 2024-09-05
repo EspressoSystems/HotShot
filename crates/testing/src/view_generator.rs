@@ -12,7 +12,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
