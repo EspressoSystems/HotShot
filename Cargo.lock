@@ -510,6 +510,18 @@ checksum = "965c2d33e53cb6b267e148a4cb0760bc01f4904c1cd4bb4002a085bb016d1490"
 dependencies = [
  "proc-macro2",
  "quote",
+ "syn 1.0.109",
+ "synstructure 0.12.6",
+]
+
+[[package]]
+name = "asn1-rs-derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7378575ff571966e99a744addeff0bff98b8ada0dedf1956d59e634db95eaac1"
+dependencies = [
+ "proc-macro2",
+ "quote",
  "syn 2.0.77",
  "synstructure 0.13.1",
 ]
@@ -1098,6 +1110,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "shlex",
  "syn 2.0.77",
+ "which",
 ]
 
 [[package]]
@@ -2008,9 +2021,9 @@ dependencies = [
 
 [[package]]
 name = "delegate"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e018fccbeeb50ff26562ece792ed06659b9c2dae79ece77c4456bb10d9bf79b"
+checksum = "5060bb0febb73fa907273f8a7ed17ab4bf831d585eac835b28ec24a1e2460956"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2114,7 +2127,7 @@ dependencies = [
  "convert_case 0.4.0",
  "proc-macro2",
  "quote",
- "rustc_version 0.4.1",
+ "rustc_version 0.4.0",
  "syn 2.0.77",
 ]
 
@@ -3033,7 +3046,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3099,7 +3112,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3131,7 +3144,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3181,7 +3194,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
@@ -3199,7 +3212,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3209,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3238,7 +3251,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3259,7 +3272,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3273,7 +3286,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3309,7 +3322,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4464,7 +4477,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.72"
+version = "0.5.73"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4484,6 +4497,7 @@ dependencies = [
  "libp2p-identity",
  "libp2p-swarm-derive",
  "pin-project",
+ "portpicker",
  "rand 0.8.5",
  "serde",
  "serde_bytes",
