@@ -36,7 +36,7 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::message::UpgradeLock;
+use hotshot_types::{consensus::Consensus, message::UpgradeLock};
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
     message::Messages,
@@ -289,6 +289,7 @@ where
         public_key: &TYPES::SignatureKey,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
         upgrade_lock: &UpgradeLock<TYPES, V>,
+        consensus: Arc<RwLock<Consensus<TYPES>>>,
     ) -> Vec<HotShotEvent<TYPES>>;
 
     #[allow(clippy::too_many_arguments)]
@@ -385,6 +386,7 @@ where
         let public_key = handle.public_key().clone();
         let private_key = handle.private_key().clone();
         let upgrade_lock = handle.hotshot.upgrade_lock.clone();
+        let consensus = handle.hotshot.consensus().clone();
         let send_handle = async_spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
@@ -416,6 +418,7 @@ where
                                     &public_key,
                                     &private_key,
                                     &upgrade_lock,
+                                    Arc::clone(&consensus)
                                 ).await;
                                 results.reverse();
                                 while let Some(event) = results.pop() {

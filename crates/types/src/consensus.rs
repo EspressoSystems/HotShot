@@ -244,6 +244,17 @@ struct HotShotActionViews<T: ConsensusTime> {
     da_vote: T,
 }
 
+impl<T: ConsensusTime> Default for HotShotActionViews<T> {
+    fn default() -> Self {
+        let genesis = T::genesis();
+        Self {
+            proposed: genesis,
+            voted: genesis,
+            da_proposed: genesis,
+            da_vote: genesis,
+        }
+    }
+}
 impl<T: ConsensusTime> HotShotActionViews<T> {
     /// Create HotShotActionViews from a view number
     fn from_view(view: T) -> Self {
@@ -490,6 +501,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return true;
         }
         false
+    }
+
+    /// reset last actions to genesis so we can resend events in tests
+    pub fn reset_actions(&mut self) {
+        self.last_actions = HotShotActionViews::default();
     }
 
     /// Update the last proposal.
