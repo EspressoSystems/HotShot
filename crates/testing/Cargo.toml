@@ -6,7 +6,7 @@ description = "Types and traits for the HotShot consesus module"
 authors = { workspace = true }
 
 [features]
-default = []
+default = ["dependency-tasks"]
 # NOTE this is used to activate the slow tests we don't wish to run in CI
 slow-tests = []
 gpu-vid = ["hotshot-types/gpu-vid"]

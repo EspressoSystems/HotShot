@@ -6,6 +6,7 @@ name = "hotshot-task-impls"
 version = { workspace = true }
 
 [features]
+default = ["dependency-tasks"]
 example-upgrade = []
 gpu-vid = ["hotshot-types/gpu-vid"]
 dependency-tasks = []
