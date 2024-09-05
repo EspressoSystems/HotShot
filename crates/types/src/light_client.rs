@@ -24,7 +24,7 @@ pub type CircuitField = ark_ed_on_bn254::Fq;
 pub type LightClientState = GenericLightClientState<CircuitField>;
 /// Signature scheme
 pub type StateSignatureScheme =
-jf_signature::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
+    jf_signature::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
 /// Signatures
 pub type StateSignature = schnorr::Signature<Config>;
 /// Verification key for verifying state signatures
@@ -95,13 +95,16 @@ impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 3] {
     }
 }
 
+/// Stake table state
 pub struct GenericStakeState<F: PrimeField> {
     /// threshold
     pub threshold: F,
 
-    /// Commitments to the table columns
+    /// Commitments to the table column for BLS public keys
     pub stake_table_bls_key_comm: F,
+    /// Commitments to the table column for Schnorr public keys
     pub stake_table_schnorr_key_comm: F,
+    /// Commitments to the table column for Stake amounts
     pub stake_table_amount_comm: F,
 }
 
