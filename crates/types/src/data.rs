@@ -459,7 +459,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         } else {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
-                .u64_field("block number", self.height())
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
                 .field("justify qc", self.justify_qc.commit())
