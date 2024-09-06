@@ -23,7 +23,7 @@ use hotshot_types::{
 /// The static committee election
 pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
     /// The nodes eligible for leadership.
-    /// NOTE: This is currently a hack because the DA leader needs to be the quurm
+    /// NOTE: This is currently a hack because the DA leader needs to be the quorum
     /// leader but without voting rights.
     eligible_leaders: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
 
@@ -60,6 +60,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
             eligible_leaders
                 .iter()
                 .map(|member| member.stake_table_entry.clone())
+                .filter(|entry| entry.stake() > U256::zero())
                 .collect();
 
         // For each member, get the stake table entry
@@ -67,6 +68,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
             committee_members
                 .iter()
                 .map(|member| member.stake_table_entry.clone())
+                .filter(|entry| entry.stake() > U256::zero())
                 .collect();
 
         // Index the stake table by public key
