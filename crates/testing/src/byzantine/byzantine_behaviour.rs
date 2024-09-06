@@ -122,7 +122,7 @@ pub struct DishonestLeader<TYPES: NodeType> {
 impl<TYPES: NodeType> DishonestLeader<TYPES> {
     /// When a leader is sending a proposal this method will mock a dishonest leader
     /// We accomplish this by looking back a number of specified views and using that cached proposals QC
-    fn handle_proposal_send_event(
+    pub fn handle_proposal_send_event(
         &self,
         event: &HotShotEvent<TYPES>,
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
@@ -356,5 +356,62 @@ impl<TYPES: NodeType> std::fmt::Debug for DishonestVoting<TYPES> {
         f.debug_struct("DishonestVoting")
             .field("view_increment", &self.view_increment)
             .finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
+/// An `EventHandlerState` that will send a vote for a bad proposal
+pub struct DishonestVoter<TYPES: NodeType> {
+    /// Collect all votes the node sends
+    pub votes_sent: Vec<QuorumVote<TYPES>>,
+    /// Which vote to be dishonest at
+    pub dishonest_at_vote_numbers: HashSet<u64>,
+    /// How many votes from node
+    pub total_votes_from_node: u64,
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
+    EventTransformerState<TYPES, I, V> for DishonestVoter<TYPES>
+{
+    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
+        vec![event.clone()]
+    }
+
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        public_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+        _consensus: Arc<RwLock<Consensus<TYPES>>>,
+    ) -> Vec<HotShotEvent<TYPES>> {
+        match event {
+            HotShotEvent::QuorumProposalRecv(_proposal, _sender) => {
+                if self
+                    .dishonest_at_vote_numbers
+                    .contains(&self.total_votes_from_node)
+                {
+                    // create a vote using data from most recent vote and the current event number
+                    let vote = QuorumVote::<TYPES>::create_signed_vote(
+                        self.votes_sent.last().unwrap().data.clone(),
+                        event.view_number().unwrap(),
+                        public_key,
+                        private_key,
+                        upgrade_lock,
+                    )
+                    .await
+                    .context("Failed to sign vote")
+                    .unwrap();
+                    return vec![HotShotEvent::QuorumVoteSend(vote)];
+                }
+            }
+            HotShotEvent::QuorumVoteSend(vote) => {
+                self.total_votes_from_node += 1;
+                self.votes_sent.push(vote.clone());
+            }
+            _ => {}
+        }
+        vec![event.clone()]
     }
 }
