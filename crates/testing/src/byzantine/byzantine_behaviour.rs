@@ -122,7 +122,7 @@ pub struct DishonestLeader<TYPES: NodeType> {
 impl<TYPES: NodeType> DishonestLeader<TYPES> {
     /// When a leader is sending a proposal this method will mock a dishonest leader
     /// We accomplish this by looking back a number of specified views and using that cached proposals QC
-    pub fn handle_proposal_send_event(
+    fn handle_proposal_send_event(
         &self,
         event: &HotShotEvent<TYPES>,
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
