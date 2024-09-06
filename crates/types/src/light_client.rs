@@ -117,6 +117,7 @@ impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 3] {
     PartialOrd,
     Ord,
     Hash,
+    Copy,
 )]
 pub struct GenericStakeTableState<F: PrimeField> {
     /// Commitments to the table column for BLS public keys
