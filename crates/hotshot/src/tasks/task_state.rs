@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
     builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
-    da::DaTaskState, health_check::HealthCheckTaskState, quorum_proposal::QuorumProposalTaskState,
+    da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
     quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
     request::NetworkRequestState, rewind::RewindTaskState, transactions::TransactionTaskState,
     upgrade::UpgradeTaskState, vid::VidTaskState, view_sync::ViewSyncTaskState,
@@ -72,7 +72,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             cur_view: handle.cur_view().await,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             network: Arc::clone(&handle.hotshot.network),
-            vote_collector: None.into(),
+            vote_collectors: BTreeMap::default(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
@@ -140,7 +140,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             network: Arc::clone(&handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: handle.cur_view().await,
-            vote_collector: None.into(),
+            vote_collectors: BTreeMap::default(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
@@ -235,8 +235,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),
             payload_commitment_and_metadata: None,
-            vote_collector: None.into(),
-            timeout_vote_collector: None.into(),
+            vote_collectors: BTreeMap::default(),
+            timeout_vote_collectors: BTreeMap::default(),
             timeout_task,
             spawned_tasks: BTreeMap::new(),
             formed_upgrade_certificate: None,
@@ -358,8 +358,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             committee_membership: handle.hotshot.memberships.da_membership.clone().into(),
-            vote_collector: None.into(),
-            timeout_vote_collector: None.into(),
+            vote_collectors: BTreeMap::default(),
+            timeout_vote_collectors: BTreeMap::default(),
             storage: Arc::clone(&handle.storage),
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),
@@ -383,19 +383,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             events: Vec::new(),
             id: handle.hotshot.id,
         }
-    }
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState<TYPES, I, V>
-    for HealthCheckTaskState<TYPES>
-{
-    async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
-        let heartbeat_timeout_duration_in_secs = 30;
-        HealthCheckTaskState::new(
-            handle.hotshot.id,
-            handle.get_task_ids(),
-            heartbeat_timeout_duration_in_secs,
-        )
     }
 }

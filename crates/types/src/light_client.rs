@@ -22,9 +22,11 @@ use tagged_base64::tagged;
 pub type CircuitField = ark_ed_on_bn254::Fq;
 /// Concrete type for light client state
 pub type LightClientState = GenericLightClientState<CircuitField>;
+/// Concrete type for stake table state
+pub type StakeTableState = GenericStakeTableState<CircuitField>;
 /// Signature scheme
 pub type StateSignatureScheme =
-jf_signature::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
+    jf_signature::schnorr::SchnorrSignatureScheme<ark_ed_on_bn254::EdwardsConfig>;
 /// Signatures
 pub type StateSignature = schnorr::Signature<Config>;
 /// Verification key for verifying state signatures
@@ -36,8 +38,6 @@ pub type PublicInput = GenericPublicInput<CircuitField>;
 /// Key pairs for signing/verifying a light client state
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StateKeyPair(pub schnorr::KeyPair<Config>);
-
-/// Stake table state
 
 /// Request body to send to the state relay server
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
@@ -94,16 +94,6 @@ impl<F: PrimeField> From<GenericLightClientState<F>> for [F; 3] {
     }
 }
 
-pub struct GenericStakeState<F: PrimeField> {
-    /// threshold
-    pub threshold: F,
-
-    /// Commitments to the table columns
-    pub stake_table_bls_key_comm: F,
-    pub stake_table_schnorr_key_comm: F,
-    pub stake_table_amount_comm: F,
-}
-
 impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 3] {
     fn from(state: &GenericLightClientState<F>) -> Self {
         [
@@ -112,6 +102,31 @@ impl<F: PrimeField> From<&GenericLightClientState<F>> for [F; 3] {
             state.block_comm_root,
         ]
     }
+}
+
+/// Stake table state
+#[tagged("STAKE_TABLE_STATE")]
+#[derive(
+    Clone,
+    Debug,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+    Default,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Hash,
+)]
+pub struct GenericStakeTableState<F: PrimeField> {
+    /// Commitments to the table column for BLS public keys
+    pub bls_key_comm: F,
+    /// Commitments to the table column for Schnorr public keys
+    pub schnorr_key_comm: F,
+    /// Commitments to the table column for Stake amounts
+    pub amount_comm: F,
+    /// threshold
+    pub threshold: F,
 }
 
 impl std::ops::Deref for StateKeyPair {
@@ -162,6 +177,22 @@ impl From<schnorr::KeyPair<Config>> for StateKeyPair {
 #[derive(Clone, Debug)]
 pub struct GenericPublicInput<F: PrimeField>(Vec<F>);
 
+impl<F: PrimeField> GenericPublicInput<F> {
+    /// Construct a public input from light client state and static stake table state
+    pub fn new(lc_state: GenericLightClientState<F>, st_state: GenericStakeTableState<F>) -> Self {
+        let lc_state_f: [F; 3] = lc_state.into();
+        Self(vec![
+            lc_state_f[0],
+            lc_state_f[1],
+            lc_state_f[2],
+            st_state.bls_key_comm,
+            st_state.schnorr_key_comm,
+            st_state.amount_comm,
+            st_state.threshold,
+        ])
+    }
+}
+
 impl<F: PrimeField> AsRef<[F]> for GenericPublicInput<F> {
     fn as_ref(&self) -> &[F] {
         &self.0
@@ -191,5 +222,35 @@ impl<F: PrimeField> GenericPublicInput<F> {
     #[must_use]
     pub fn block_comm_root(&self) -> F {
         self.0[2]
+    }
+
+    /// Return the stake table commitment of the light client state
+    #[must_use]
+    pub fn stake_table_comm(&self) -> (F, F, F) {
+        (self.0[3], self.0[4], self.0[5])
+    }
+
+    /// Return the qc key commitment of the light client state
+    #[must_use]
+    pub fn qc_key_comm(&self) -> F {
+        self.0[3]
+    }
+
+    /// Return the state key commitment of the light client state
+    #[must_use]
+    pub fn state_key_comm(&self) -> F {
+        self.0[4]
+    }
+
+    /// Return the stake amount commitment of the light client state
+    #[must_use]
+    pub fn stake_amount_comm(&self) -> F {
+        self.0[5]
+    }
+
+    /// Return the threshold
+    #[must_use]
+    pub fn threshold(&self) -> F {
+        self.0[6]
     }
 }

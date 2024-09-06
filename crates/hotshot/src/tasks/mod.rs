@@ -8,7 +8,11 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -18,14 +22,12 @@ use futures::{
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
-use hotshot_task::task::{NetworkHandle, Task};
+use hotshot_task::task::Task;
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
 use hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
-    health_check::HealthCheckTaskState,
-    helpers::broadcast_event,
     network::{self, NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
@@ -34,23 +36,19 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
+use hotshot_types::message::UpgradeLock;
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    data::QuorumProposal,
-    message::{Messages, Proposal},
+    message::Messages,
     request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use std::fmt::Debug;
+use std::{sync::Arc, time::Duration};
 use vbs::version::StaticVersionType;
-
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -69,7 +67,14 @@ pub async fn add_request_network_task<
 >(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
-    handle.add_task(NetworkRequestState::<TYPES, I>::create_from(handle).await);
+    let state = NetworkRequestState::<TYPES, I>::create_from(handle).await;
+
+    let task = Task::new(
+        state,
+        handle.internal_event_stream.0.clone(),
+        handle.internal_event_stream.1.activate_cloned(),
+    );
+    handle.consensus_registry.run_task(task);
 }
 
 /// Add a task which responds to requests on the network.
@@ -85,12 +90,9 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
         handle.private_key().clone(),
         handle.hotshot.id,
     );
-    let task_name = state.get_task_name();
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
-        handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
-        handle.generate_task_id(task_name),
     ));
 }
 
@@ -114,10 +116,9 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-    let stream = handle.internal_event_stream.0.clone();
-    let task_id = handle.generate_task_id(network_state.get_task_name());
-    let handle_task_id = task_id.clone();
     let task_handle = async_spawn(async move {
+        futures::pin_mut!(shutdown_signal);
+
         let recv_stream = stream::unfold((), |()| async {
             let msgs = match network.recv_msgs().await {
                 Ok(msgs) => {
@@ -142,10 +143,9 @@ pub fn add_network_message_task<
             Some((msgs, ()))
         });
 
-        let heartbeat_interval =
-            Task::<HealthCheckTaskState<TYPES>>::get_periodic_interval_in_secs();
         let fused_recv_stream = recv_stream.boxed().fuse();
-        futures::pin_mut!(fused_recv_stream, heartbeat_interval, shutdown_signal);
+        futures::pin_mut!(fused_recv_stream);
+
         loop {
             futures::select! {
                 () = shutdown_signal => {
@@ -167,16 +167,10 @@ pub fn add_network_message_task<
                         return;
                     }
                 }
-                _ = Task::<HealthCheckTaskState<TYPES>>::handle_periodic_delay(&mut heartbeat_interval) => {
-                    broadcast_event(Arc::new(HotShotEvent::HeartBeat(handle_task_id.clone())), &stream).await;
-                }
             }
         }
     });
-    handle.network_registry.register(NetworkHandle {
-        handle: task_handle,
-        task_id,
-    });
+    handle.network_registry.register(task_handle);
 }
 
 /// Add the network task to handle events and send messages.
@@ -199,7 +193,12 @@ pub fn add_network_event_task<
         storage: Arc::clone(&handle.storage()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
-    handle.add_task(network_state);
+    let task = Task::new(
+        network_state,
+        handle.internal_event_stream.0.clone(),
+        handle.internal_event_stream.1.activate_cloned(),
+    );
+    handle.consensus_registry.run_task(task);
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
@@ -283,7 +282,13 @@ where
     async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
 
     /// modify outgoing messages from the network
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>>;
+    async fn send_handler(
+        &mut self,
+        event: &HotShotEvent<TYPES>,
+        public_key: &TYPES::SignatureKey,
+        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Vec<HotShotEvent<TYPES>>;
 
     #[allow(clippy::too_many_arguments)]
     /// Creates a `SystemContextHandle` with the given even transformer
@@ -331,7 +336,6 @@ where
 
         add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
         self.add_network_tasks(&mut handle).await;
-        add_health_check_task(&mut handle).await;
 
         handle
     }
@@ -339,9 +343,6 @@ where
     /// Add byzantine network tasks with the trait
     #[allow(clippy::too_many_lines)]
     async fn add_network_tasks(&'static mut self, handle: &mut SystemContextHandle<TYPES, I, V>) {
-        let task_id = self.get_task_name();
-        let state_in = Arc::new(RwLock::new(self));
-        let state_out = Arc::clone(&state_in);
         // channels between the task spawned in this function and the network tasks.
         // with this, we can control exactly what events the network tasks see.
 
@@ -367,17 +368,25 @@ where
         );
 
         // spawn the network tasks with our newly-created channel
-        add_network_tasks::<TYPES, I, V>(handle).await;
+        add_network_message_and_request_receiver_tasks(handle).await;
+        self.add_network_event_tasks(handle);
 
         std::mem::swap(
             &mut internal_event_stream,
             &mut handle.internal_event_stream,
         );
 
+        let state_in = Arc::new(RwLock::new(self));
+        let state_out = Arc::clone(&state_in);
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+        let public_key = handle.public_key().clone();
+        let private_key = handle.private_key().clone();
+        let upgrade_lock = handle.hotshot.upgrade_lock.clone();
         let send_handle = async_spawn(async move {
+            futures::pin_mut!(shutdown_signal);
+
             let recv_stream = stream::unfold(original_receiver, |mut recv| async move {
                 match recv.recv().await {
                     Ok(event) => Some((Ok(event), recv)),
@@ -388,7 +397,7 @@ where
             .boxed();
 
             let fused_recv_stream = recv_stream.fuse();
-            futures::pin_mut!(fused_recv_stream, shutdown_signal);
+            futures::pin_mut!(fused_recv_stream);
 
             loop {
                 futures::select! {
@@ -401,7 +410,12 @@ where
                         match event {
                             Some(Ok(msg)) => {
                                 let mut state = state_out.write().await;
-                                let mut results = state.send_handler(&msg).await;
+                                let mut results = state.send_handler(
+                                    &msg,
+                                    &public_key,
+                                    &private_key,
+                                    &upgrade_lock,
+                                ).await;
                                 results.reverse();
                                 while let Some(event) = results.pop() {
                                     let _ = sender_to_network.broadcast(event.into()).await;
@@ -424,6 +438,8 @@ where
         // and broadcast the transformed events to the original internal event stream
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
         let recv_handle = async_spawn(async move {
+            futures::pin_mut!(shutdown_signal);
+
             let network_recv_stream =
                 stream::unfold(receiver_from_network, |mut recv| async move {
                     match recv.recv().await {
@@ -434,7 +450,7 @@ where
                 });
 
             let fused_network_recv_stream = network_recv_stream.boxed().fuse();
-            futures::pin_mut!(fused_network_recv_stream, shutdown_signal);
+            futures::pin_mut!(fused_network_recv_stream);
 
             loop {
                 futures::select! {
@@ -465,196 +481,59 @@ where
             }
         });
 
-        handle.network_registry.register(NetworkHandle {
-            handle: send_handle,
-            task_id: handle.generate_task_id(task_id),
-        });
-        handle.network_registry.register(NetworkHandle {
-            handle: recv_handle,
-            task_id: handle.generate_task_id(task_id),
-        });
+        handle.network_registry.register(send_handle);
+        handle.network_registry.register(recv_handle);
     }
 
-    /// Gets the name of the current task
-    fn get_task_name(&self) -> &'static str {
-        std::any::type_name::<dyn EventTransformerState<TYPES, I, V>>()
-    }
-}
+    /// Adds the `NetworkEventTaskState` tasks possibly modifying them as well.
+    fn add_network_event_tasks(&self, handle: &mut SystemContextHandle<TYPES, I, V>) {
+        let network = Arc::clone(&handle.network);
+        let quorum_membership = handle.memberships.quorum_membership.clone();
+        let da_membership = handle.memberships.da_membership.clone();
+        let vid_membership = handle.memberships.vid_membership.clone();
+        let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
-#[derive(Debug)]
-/// An `EventTransformerState` that multiplies `QuorumProposalSend` events, incrementing the view number of the proposal
-pub struct BadProposalViewDos {
-    /// The number of times to duplicate a `QuorumProposalSend` event
-    pub multiplier: u64,
-    /// The view number increment each time it's duplicated
-    pub increment: u64,
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransformerState<TYPES, I, V>
-    for BadProposalViewDos
-{
-    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        vec![event.clone()]
-    }
-
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        match event {
-            HotShotEvent::QuorumProposalSend(proposal, signature) => {
-                let mut result = Vec::new();
-
-                for n in 0..self.multiplier {
-                    let mut modified_proposal = proposal.clone();
-
-                    modified_proposal.data.view_number += n * self.increment;
-
-                    result.push(HotShotEvent::QuorumProposalSend(
-                        modified_proposal,
-                        signature.clone(),
-                    ));
-                }
-
-                result
-            }
-            _ => vec![event.clone()],
-        }
-    }
-}
-
-#[derive(Debug)]
-/// An `EventHandlerState` that doubles the `QuorumVoteSend` and `QuorumProposalSend` events
-pub struct DoubleProposeVote;
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransformerState<TYPES, I, V>
-    for DoubleProposeVote
-{
-    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        vec![event.clone()]
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            quorum_membership.clone(),
+            network::quorum_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            quorum_membership,
+            network::upgrade_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            da_membership,
+            network::da_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            view_sync_membership,
+            network::view_sync_filter,
+        );
+        self.add_network_event_task(
+            handle,
+            Arc::clone(&network),
+            vid_membership,
+            network::vid_filter,
+        );
     }
 
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        match event {
-            HotShotEvent::QuorumProposalSend(_, _) | HotShotEvent::QuorumVoteSend(_) => {
-                vec![event.clone(), event.clone()]
-            }
-            _ => vec![event.clone()],
-        }
-    }
-}
-
-#[derive(Debug)]
-/// An `EventHandlerState` that modifies justify_qc on `QuorumProposalSend` to that of a previous view to mock dishonest leader
-pub struct DishonestLeader<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Store events from previous views
-    pub validated_proposals: Vec<QuorumProposal<TYPES>>,
-    /// How many times current node has been elected leader and sent proposal
-    pub total_proposals_from_node: u64,
-    /// Which proposals to be dishonest at
-    pub dishonest_at_proposal_numbers: HashSet<u64>,
-    /// How far back to look for a QC
-    pub view_look_back: usize,
-    /// Phantom
-    pub _phantom: std::marker::PhantomData<I>,
-}
-
-/// Add method that will handle `QuorumProposalSend` events
-/// If we have previous proposals stored and the total_proposals_from_node matches a value specified in dishonest_at_proposal_numbers
-/// Then send out the event with the modified proposal that has an older QC
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DishonestLeader<TYPES, I> {
-    /// When a leader is sending a proposal this method will mock a dishonest leader
-    /// We accomplish this by looking back a number of specified views and using that cached proposals QC
-    fn handle_proposal_send_event(
+    /// Adds a `NetworkEventTaskState` task. Can be reimplemented to modify its behaviour.
+    fn add_network_event_task(
         &self,
-        event: &HotShotEvent<TYPES>,
-        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-        sender: &TYPES::SignatureKey,
-    ) -> HotShotEvent<TYPES> {
-        let length = self.validated_proposals.len();
-        if !self
-            .dishonest_at_proposal_numbers
-            .contains(&self.total_proposals_from_node)
-            || length == 0
-        {
-            return event.clone();
-        }
-
-        // Grab proposal from specified view look back
-        let proposal_from_look_back = if length - 1 < self.view_look_back {
-            // If look back is too far just take the first proposal
-            self.validated_proposals[0].clone()
-        } else {
-            let index = (self.validated_proposals.len() - 1) - self.view_look_back;
-            self.validated_proposals[index].clone()
-        };
-
-        // Create a dishonest proposal by using the old proposals qc
-        let mut dishonest_proposal = proposal.clone();
-        dishonest_proposal.data.justify_qc = proposal_from_look_back.justify_qc;
-
-        HotShotEvent::QuorumProposalSend(dishonest_proposal, sender.clone())
-    }
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
-    EventTransformerState<TYPES, I, V> for DishonestLeader<TYPES, I>
-{
-    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        vec![event.clone()]
-    }
-
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        match event {
-            HotShotEvent::QuorumProposalSend(proposal, sender) => {
-                self.total_proposals_from_node += 1;
-                return vec![self.handle_proposal_send_event(event, proposal, sender)];
-            }
-            HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                self.validated_proposals.push(proposal.clone());
-            }
-            _ => {}
-        }
-        vec![event.clone()]
-    }
-}
-
-#[derive(Debug)]
-/// An `EventHandlerState` that modifies view number on the certificate of `DacSend` event to that of a future view
-pub struct DishonestDa {
-    /// How many times current node has been elected leader and sent Da Cert
-    pub total_da_certs_sent_from_node: u64,
-    /// Which proposals to be dishonest at
-    pub dishonest_at_da_cert_sent_numbers: HashSet<u64>,
-    /// When leader how many times we will send DacSend and increment view number
-    pub total_views_add_to_cert: u64,
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Versions>
-    EventTransformerState<TYPES, I, V> for DishonestDa
-{
-    async fn recv_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        vec![event.clone()]
-    }
-
-    async fn send_handler(&mut self, event: &HotShotEvent<TYPES>) -> Vec<HotShotEvent<TYPES>> {
-        if let HotShotEvent::DacSend(cert, sender) = event {
-            self.total_da_certs_sent_from_node += 1;
-            if self
-                .dishonest_at_da_cert_sent_numbers
-                .contains(&self.total_da_certs_sent_from_node)
-            {
-                let mut result = vec![HotShotEvent::DacSend(cert.clone(), sender.clone())];
-                for i in 1..=self.total_views_add_to_cert {
-                    let mut bad_cert = cert.clone();
-                    bad_cert.view_number = cert.view_number + i;
-                    result.push(HotShotEvent::DacSend(bad_cert, sender.clone()));
-                }
-                return result;
-            }
-        }
-        vec![event.clone()]
+        handle: &mut SystemContextHandle<TYPES, I, V>,
+        channel: Arc<<I as NodeImplementation<TYPES>>::Network>,
+        membership: TYPES::Membership,
+        filter: fn(&Arc<HotShotEvent<TYPES>>) -> bool,
+    ) {
+        add_network_event_task(handle, channel, membership, filter);
     }
 }
 
@@ -662,11 +541,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
 pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
+    add_network_message_and_request_receiver_tasks(handle).await;
+
+    add_network_event_tasks(handle);
+}
+
+/// Adds the `NetworkMessageTaskState` tasks and the request / receiver tasks.
+pub async fn add_network_message_and_request_receiver_tasks<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
+) {
     let network = Arc::clone(&handle.network);
-    let quorum_membership = handle.memberships.quorum_membership.clone();
-    let da_membership = handle.memberships.da_membership.clone();
-    let vid_membership = handle.memberships.vid_membership.clone();
-    let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
     add_network_message_task(handle, &network);
     add_network_message_task(handle, &network);
@@ -675,6 +563,17 @@ pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
         add_request_network_task(handle).await;
         add_response_task(handle, request_receiver);
     }
+}
+
+/// Adds the `NetworkEventTaskState` tasks.
+pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
+) {
+    let network = Arc::clone(&handle.network);
+    let quorum_membership = handle.memberships.quorum_membership.clone();
+    let da_membership = handle.memberships.da_membership.clone();
+    let vid_membership = handle.memberships.vid_membership.clone();
+    let view_sync_membership = handle.memberships.view_sync_membership.clone();
 
     add_network_event_task(
         handle,
@@ -706,11 +605,4 @@ pub async fn add_network_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
         vid_membership,
         network::vid_filter,
     );
-}
-
-/// Add the health check task
-pub async fn add_health_check_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    handle: &mut SystemContextHandle<TYPES, I, V>,
-) {
-    handle.add_task(HealthCheckTaskState::<TYPES>::create_from(handle).await);
 }
