@@ -7,10 +7,13 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
+use ethereum_types::U256;
 use hotshot_types::{
     traits::{
-        election::Membership, network::Topic, node_implementation::NodeType,
-        signature_key::SignatureKey,
+        election::Membership,
+        network::Topic,
+        node_implementation::NodeType,
+        signature_key::{SignatureKey, StakeTableEntryType},
     },
     PeerConfig,
 };
@@ -21,6 +24,11 @@ use rand::{rngs::StdRng, Rng};
 
 /// The static committee election
 pub struct GeneralStaticCommittee<T: NodeType> {
+    /// The nodes eligible for leadership.
+    /// NOTE: This is currently a hack because the DA leader needs to be the quurm
+    /// leader but without voting rights.
+    eligible_leaders: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
+
     /// The nodes on the committee and their stake
     stake_table: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
 
@@ -44,10 +52,18 @@ pub type StaticCommittee<T> = GeneralStaticCommittee<T>;
 impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     /// Create a new election
     fn new(
+        eligible_leaders: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
         committee_members: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
         committee_topic: Topic,
         #[cfg(feature = "fixed-leader-election")] fixed_leader_for_gpuvid: usize,
     ) -> Self {
+        // For each eligible leader, get the stake table entry
+        let eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
+            eligible_leaders
+                .iter()
+                .map(|member| member.stake_table_entry.clone())
+                .collect();
+
         // For each member, get the stake table entry
         let members: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
             committee_members
@@ -65,6 +81,7 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
             .collect();
 
         Self {
+            eligible_leaders,
             stake_table: members,
             indexed_stake_table,
             committee_topic,
@@ -73,12 +90,14 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
         }
     }
 
+    /// Get the stake table for the current view
     fn get_stake_table(
         &self,
     ) -> Vec<<<TYPES as NodeType>::SignatureKey as SignatureKey>::StakeTableEntry> {
         self.stake_table.clone()
     }
 
+    /// Get all members of the committee for the current view
     fn get_committee_members(
         &self,
         _view_number: <TYPES as NodeType>::Time,
@@ -89,12 +108,24 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
             .collect()
     }
 
-    fn has_stake(&self, _pub_key: &<TYPES as NodeType>::SignatureKey) -> bool {
-        todo!()
+    /// Get the stake table entry for a public key
+    fn get_stake(
+        &self,
+        pub_key: &<TYPES as NodeType>::SignatureKey,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+        // Only return the stake if it is above zero
+        self.indexed_stake_table.get(pub_key).cloned()
+    }
+
+    /// Check if a node has stake in the committee
+    fn has_stake(&self, pub_key: &<TYPES as NodeType>::SignatureKey) -> bool {
+        self.indexed_stake_table
+            .get(pub_key)
+            .is_some_and(|x| x.stake() > U256::zero())
     }
 
     /// Get the network topic for the committee
-    fn committee_topic(&self) -> Topic {
+    fn get_committee_topic(&self) -> Topic {
         self.committee_topic.clone()
     }
 
@@ -104,54 +135,51 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     )))]
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let index = usize::try_from(*view_number % self.stake_table.len() as u64).unwrap();
-        let res = self.stake_table[index].clone();
+        let index = usize::try_from(*view_number % self.eligible_leaders.len() as u64).unwrap();
+        let res = self.eligible_leaders[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
 
     #[cfg(feature = "fixed-leader-election")]
     /// Only get leader in fixed set
     /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
+    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         if self.fixed_leader_for_gpuvid <= 0
-            || self.fixed_leader_for_gpuvid > self.all_nodes_with_stake.len()
+            || self.fixed_leader_for_gpuvid > self.committee_members.len()
         {
             panic!("fixed_leader_for_gpuvid is not set correctly.");
         }
         let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
-        let res = self.all_nodes_with_stake[index].clone();
+        let res = self.committee_members[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
 
     #[cfg(feature = "randomized-leader-election")]
     /// Index the vector of public keys with a random number generated using the current view number as a seed
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
+    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
         let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.nodes_with_stake.len();
-        let res = self.all_nodes_with_stake[index].clone();
+        let index = randomized_view_number % self.committee_members.len();
+        let res = self.committee_members[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
 
-    fn stake(
-        &self,
-        pub_key: &<TYPES as NodeType>::SignatureKey,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
-        self.indexed_stake_table.get(pub_key).cloned()
-    }
-
+    /// Get the total number of nodes in the committee
     fn total_nodes(&self) -> usize {
         self.stake_table.len()
     }
 
+    /// Get the voting success threshold for the committee
     fn success_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.len() as u64 * 2) / 3) + 1).unwrap()
     }
 
+    /// Get the voting failure threshold for the committee
     fn failure_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.len() as u64) / 3) + 1).unwrap()
     }
 
+    /// Get the voting upgrade threshold for the committee
     fn upgrade_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.len() as u64 * 9) / 10) + 1).unwrap()
     }

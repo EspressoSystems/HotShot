@@ -158,7 +158,7 @@ impl<
             return Either::Left(());
         }
 
-        let Some(stake_table_entry) = membership.stake(&key) else {
+        let Some(stake_table_entry) = membership.get_stake(&key) else {
             return Either::Left(());
         };
         let stake_table = membership.get_stake_table();

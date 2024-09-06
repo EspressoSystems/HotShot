@@ -79,21 +79,23 @@ pub async fn build_system_handle<
     .await
     .unwrap();
 
-    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
     let public_key = config.my_own_validator_config.public_key.clone();
 
-    let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
+    let all_nodes = config.known_nodes_with_stake.clone();
+    let da_nodes = config.known_da_nodes.clone();
 
     let memberships = Memberships {
         quorum_membership: TYPES::Membership::new(
-            known_nodes_with_stake.clone(),
+            all_nodes.clone(),
+            all_nodes.clone(),
             Topic::Global,
             #[cfg(feature = "fixed-leader-election")]
             config.fixed_leader_for_gpuvid,
         ),
         da_membership: TYPES::Membership::new(
-            config.known_da_nodes.clone(),
+            all_nodes,
+            da_nodes,
             Topic::Da,
             #[cfg(feature = "fixed-leader-election")]
             config.fixed_leader_for_gpuvid,

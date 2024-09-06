@@ -548,7 +548,7 @@ impl<
         };
         let view = message.kind.view_number();
         let committee = membership.get_committee_members(view);
-        let committee_topic = membership.committee_topic();
+        let committee_topic = membership.get_committee_topic();
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
         let state = Arc::clone(&self.consensus);
