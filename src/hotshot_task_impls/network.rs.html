@@ -733,6 +733,8 @@
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1357,12 +1359,14 @@
 
 <span class="doccomment">/// A module with test helpers
 </span><span class="kw">pub mod </span>test {
+    <span class="kw">use </span>std::ops::{Deref, DerefMut};
+
+    <span class="kw">use </span>async_trait::async_trait;
+
     <span class="kw">use super</span>::{
         Arc, ConnectedNetwork, HotShotEvent, MessageKind, NetworkEventTaskState, NodeType,
         Receiver, <span class="prelude-ty">Result</span>, Sender, Storage, TaskState, TransmitType, Versions,
     };
-    <span class="kw">use </span>async_trait::async_trait;
-    <span class="kw">use </span>std::ops::{Deref, DerefMut};
 
     <span class="doccomment">/// A dynamic type alias for a function that takes the result of `NetworkEventTaskState::parse_event`
     /// and changes it before transmitting on the network.
