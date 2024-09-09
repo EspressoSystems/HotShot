@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use async_lock::RwLock;
 use hotshot_example_types::{
     node_types::{Libp2pImpl, MarketplaceTestVersions, MemoryImpl, PushCdnImpl, TestVersions},
     state_types::TestTypes,
@@ -96,7 +97,8 @@ cross_tests!(
                     dishonest_at_proposal_numbers: HashSet::from([2, 3]),
                     validated_proposals: Vec::new(),
                     total_proposals_from_node: 0,
-                    view_look_back: 1
+                    view_look_back: 1,
+                    dishonest_proposal_view_numbers: Arc::new(RwLock::new(HashSet::new())),
                 };
                 match node_id {
                     2 => Behaviour::Byzantine(Box::new(dishonest_leader)),
@@ -255,20 +257,20 @@ cross_tests!(
     Versions: [MarketplaceTestVersions],
     Ignore: false,
     Metadata: {
-        let behaviour = Rc::new(|node_id| {
+        let dishonest_proposal_view_numbers = Arc::new(RwLock::new(HashSet::new()));
+        let behaviour = Rc::new(move |node_id| {
             match node_id {
                 4 => Behaviour::Byzantine(Box::new(DishonestLeader {
                     // On second proposal send a dishonest qc
                     dishonest_at_proposal_numbers: HashSet::from([2]),
                     validated_proposals: Vec::new(),
                     total_proposals_from_node: 0,
-                    view_look_back: 1
+                    view_look_back: 1,
+                    dishonest_proposal_view_numbers: Arc::clone(&dishonest_proposal_view_numbers),
                 })),
-                5 => Behaviour::Byzantine(Box::new(DishonestVoter {
+                5 | 6 => Behaviour::Byzantine(Box::new(DishonestVoter {
                     votes_sent: Vec::new(),
-                    // set the vote to be for view of the bad proposal from dishonest_leader
-                    dishonest_at_vote_numbers: HashSet::from([9]),
-                    total_votes_from_node: 0
+                    dishonest_proposal_view_numbers: Arc::clone(&dishonest_proposal_view_numbers),
                 })),
                 _ => Behaviour::Standard,
             }
@@ -286,9 +288,9 @@ cross_tests!(
         };
 
         metadata.overall_safety_properties.num_failed_views = 1;
-        metadata.num_nodes_with_stake = 6;
+        metadata.num_nodes_with_stake = 10;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
-            (ViewNumber::new(10), false),
+            (ViewNumber::new(14), false),
         ]);
         metadata
     },
