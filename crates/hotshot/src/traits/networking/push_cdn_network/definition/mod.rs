@@ -10,7 +10,10 @@ use message_hook::HotShotMessageHook;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use signature_key::WrappedSignatureKey;
 
+/// Allows hooking of incoming messages to the CDN
 pub mod message_hook;
+
+/// The CDN's signature key implementation, which wraps the real signature key
 pub mod signature_key;
 
 /// The enum for the topics we can subscribe to in the Push CDN

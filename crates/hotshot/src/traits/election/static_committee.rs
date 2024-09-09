@@ -189,7 +189,7 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
         self.committee_nodes_with_stake
             .iter()
-            .map(|node| <TYPES as NodeType>::SignatureKey::public_key(node))
+            .map(<TYPES as NodeType>::SignatureKey::public_key)
             .collect()
     }
 

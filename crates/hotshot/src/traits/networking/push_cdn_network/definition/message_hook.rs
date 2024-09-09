@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_wraps)]
+
 use std::hash::Hasher;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
@@ -20,13 +22,23 @@ pub struct HotShotMessageHook<T: NodeType> {
     pd: PhantomData<T>,
 }
 
-impl<T: NodeType> HotShotMessageHook<T> {
-    /// Create a new `HotShotMessageHook`
-    pub fn new() -> Self {
+impl<T: NodeType> Default for HotShotMessageHook<T> {
+    fn default() -> Self {
         Self {
             message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
             pd: PhantomData,
         }
+    }
+}
+
+impl<T: NodeType> HotShotMessageHook<T> {
+    /// Create a new `HotShotMessageHook`
+    ///
+    /// # Panics
+    /// If 100 < 0
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Process incoming broadcast messages from the user
@@ -49,6 +61,7 @@ impl<T: NodeType> HotShotMessageHook<T> {
         Ok(HookResult::ProcessMessage)
     }
 
+    /// Process incoming direct messages from the user
     fn process_direct_message(&mut self, direct: &mut Direct) -> Result<HookResult> {
         // Calculate the hash of the message
         let mut hasher = Hash64::default();

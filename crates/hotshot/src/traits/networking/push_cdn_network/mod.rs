@@ -49,7 +49,9 @@ use metrics::CdnMetricsValue;
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use tracing::error;
 
+/// The run definition for the Push CDN
 pub mod definition;
+/// The metrics for the Push CDN
 pub mod metrics;
 
 use super::NetworkError;

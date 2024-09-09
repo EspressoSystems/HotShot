@@ -8,11 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -36,19 +32,23 @@ use hotshot_task_impls::{
     vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
-use hotshot_types::message::UpgradeLock;
 use hotshot_types::{
+    consensus::Consensus,
     constants::EVENT_CHANNEL_SIZE,
-    message::Messages,
+    message::{Messages, UpgradeLock},
     request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use std::fmt::Debug;
-use std::{sync::Arc, time::Duration};
 use vbs::version::StaticVersionType;
+
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -191,6 +191,7 @@ pub fn add_network_event_task<
         membership,
         filter,
         storage: Arc::clone(&handle.storage()),
+        consensus: Arc::clone(&handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
     };
     let task = Task::new(
@@ -288,6 +289,7 @@ where
         public_key: &TYPES::SignatureKey,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
         upgrade_lock: &UpgradeLock<TYPES, V>,
+        consensus: Arc<RwLock<Consensus<TYPES>>>,
     ) -> Vec<HotShotEvent<TYPES>>;
 
     #[allow(clippy::too_many_arguments)]
@@ -381,9 +383,10 @@ where
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-        let public_key = handle.public_key();
+        let public_key = handle.public_key().clone();
         let private_key = handle.private_key().clone();
         let upgrade_lock = handle.hotshot.upgrade_lock.clone();
+        let consensus = Arc::clone(&handle.hotshot.consensus());
         let send_handle = async_spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
@@ -415,6 +418,7 @@ where
                                     &public_key,
                                     &private_key,
                                     &upgrade_lock,
+                                    Arc::clone(&consensus)
                                 ).await;
                                 results.reverse();
                                 while let Some(event) = results.pop() {

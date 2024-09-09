@@ -1130,7 +1130,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash",
+ "rustc-hash 1.1.0",
  "shlex",
  "syn 2.0.77",
  "which",
@@ -1389,7 +1389,7 @@ dependencies = [
  "num_enum",
  "pem",
  "prometheus",
- "quinn 0.11.2",
+ "quinn 0.11.5",
  "rand 0.8.5",
  "rcgen 0.13.1",
  "redis",
@@ -1455,9 +1455,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.16"
+version = "4.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed6719fffa43d0d87e5fd8caeab59be1554fb028cd30edc88fc4369b17971019"
+checksum = "3e5a21b8495e732f1b3c364c9949b201ca7bae518c502c80256c96ad79eaf6ac"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1465,9 +1465,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.15"
+version = "4.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "216aec2b177652e3846684cbfe25c9964d18ec45234f0f5da5157b207ed1aab6"
+checksum = "8cf2dd12af7a047ad9d6da2b6b249759a22a7abc0f474c1dae1777afa4b21a73"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2005,9 +2005,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "6.0.1"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
 dependencies = [
  "cfg-if",
  "crossbeam-utils",
@@ -3077,7 +3077,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3144,7 +3144,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3176,7 +3176,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3226,7 +3226,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-lock 2.8.0",
@@ -3244,7 +3244,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3254,7 +3254,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3283,7 +3283,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3304,7 +3304,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3318,7 +3318,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3354,7 +3354,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3577,7 +3577,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.5.7",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -4232,7 +4232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -4515,7 +4515,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.72"
+version = "0.5.74"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -5868,7 +5868,7 @@ dependencies = [
  "pin-project-lite 0.2.14",
  "quinn-proto 0.10.6",
  "quinn-udp 0.4.1",
- "rustc-hash",
+ "rustc-hash 1.1.0",
  "rustls 0.21.11",
  "thiserror",
  "tokio",
@@ -5877,16 +5877,17 @@ dependencies = [
 
 [[package]]
 name = "quinn"
-version = "0.11.2"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4ceeeeabace7857413798eb1ffa1e9c905a9946a57d81fb69b4b71c4d8eb3ad"
+checksum = "8c7c5fdde3cdae7203427dc4f0a68fe0ed09833edc525a03456b153b79828684"
 dependencies = [
  "bytes",
  "pin-project-lite 0.2.14",
- "quinn-proto 0.11.3",
- "quinn-udp 0.5.2",
- "rustc-hash",
+ "quinn-proto 0.11.8",
+ "quinn-udp 0.5.4",
+ "rustc-hash 2.0.0",
  "rustls 0.23.7",
+ "socket2 0.5.7",
  "thiserror",
  "tokio",
  "tracing",
@@ -5901,7 +5902,7 @@ dependencies = [
  "bytes",
  "rand 0.8.5",
  "ring 0.16.20",
- "rustc-hash",
+ "rustc-hash 1.1.0",
  "rustls 0.21.11",
  "slab",
  "thiserror",
@@ -5911,14 +5912,14 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.3"
+version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddf517c03a109db8100448a4be38d498df8a210a99fe0e1b9eaf39e78c640efe"
+checksum = "fadfaed2cd7f389d0161bb73eeb07b7b78f8691047a6f3e73caaeae55310a4a6"
 dependencies = [
  "bytes",
  "rand 0.8.5",
  "ring 0.17.8",
- "rustc-hash",
+ "rustc-hash 2.0.0",
  "rustls 0.23.7",
  "slab",
  "thiserror",
@@ -5941,9 +5942,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.2"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9096629c45860fc7fb143e125eb826b5e721e10be3263160c7d60ca832cf8c46"
+checksum = "8bffec3605b73c6f1754535084a85229fa8a30f86014e6c81aeec4abb68b0285"
 dependencies = [
  "libc",
  "once_cell",
@@ -6387,6 +6388,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
+name = "rustc-hash"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "583034fd73374156e66797ed8e5b0d5690409c9226b22d87cb7f19821c05d152"
+
+[[package]]
 name = "rustc-hex"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6701,9 +6708,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.127"
+version = "1.0.128"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8043c06d9f82bd7271361ed64f415fe5e12a77fdb52e573e7f06a516dea329ad"
+checksum = "6ff5456707a1de34e7e37f2a6fd3d3f808c318259cbd01ab6377795054b483d8"
 dependencies = [
  "itoa",
  "memchr",
@@ -7895,9 +7902,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "267ac89e0bec6e691e5813911606935d77c476ff49024f98abcea3e7b15e37af"
+checksum = "4f4e6ce100d0eb49a2734f8c0812bcd324cf357d21810932c5df6b96ef2b86f1"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.14",

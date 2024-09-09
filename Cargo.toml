@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.72" # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.74" # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
@@ -162,8 +162,8 @@ incremental = true
 
 [workspace.lints.clippy]
 # warns
-all = "warn"
-pedantic = "warn"
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 missing_docs_in_private_items = "warn"
 panic = "warn"
 clone_on_ref_ptr = "warn"
@@ -173,7 +173,7 @@ module_name_repetitions = "allow"
 
 [workspace.lints.rust]
 # warns
-rust_2018_idioms = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
