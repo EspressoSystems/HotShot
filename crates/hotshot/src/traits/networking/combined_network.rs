@@ -259,9 +259,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
         da_committee_size: usize,
-        is_da: bool,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
     ) -> AsyncGenerator<Arc<Self>> {
@@ -269,18 +267,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
             <PushCdnNetwork<TYPES::SignatureKey> as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
                 num_bootstrap,
-                network_id,
                 da_committee_size,
-                is_da,
                 None,
                 Duration::default(),
             ),
             <Libp2pNetwork<TYPES::SignatureKey> as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
                 num_bootstrap,
-                network_id,
                 da_committee_size,
-                is_da,
                 reliability_config,
                 Duration::default(),
             )

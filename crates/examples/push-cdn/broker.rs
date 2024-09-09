@@ -7,9 +7,11 @@
 //! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 use anyhow::Result;
-use cdn_broker::{Broker, Config};
+use cdn_broker::{reexports::def::hook::NoMessageHook, Broker, Config};
 use clap::Parser;
-use hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
+use hotshot::traits::implementations::{
+    HotShotMessageHook, KeyPair, ProductionDef, WrappedSignatureKey,
+};
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 use sha2::Digest;
@@ -91,8 +93,12 @@ async fn main() -> Result<()> {
     let (public_key, private_key) =
         <TestTypes as NodeType>::SignatureKey::generated_from_seed_indexed(key_hash.into(), 1337);
 
+    // Create the message hooks
+    let broker_message_hook = NoMessageHook;
+    let user_message_hook = HotShotMessageHook::new();
+
     // Create config
-    let broker_config: Config<ProductionDef<<TestTypes as NodeType>::SignatureKey>> = Config {
+    let broker_config: Config<ProductionDef<TestTypes>> = Config {
         ca_cert_path: args.ca_cert_path,
         ca_key_path: args.ca_key_path,
 
@@ -108,6 +114,9 @@ async fn main() -> Result<()> {
         private_bind_endpoint: args.private_bind_endpoint,
         private_advertise_endpoint: args.private_advertise_endpoint,
         global_memory_pool_size: Some(args.global_memory_pool_size),
+
+        user_message_hook,
+        broker_message_hook,
     };
 
     // Create new `Broker`

@@ -4,13 +4,12 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::num::NonZeroU64;
 
 use ethereum_types::U256;
 // use ark_bls12_381::Parameters as Param381;
 use hotshot_types::traits::signature_key::StakeTableEntryType;
 use hotshot_types::{
-    signature_key::BLSPubKey,
     traits::{
         election::Membership, network::Topic, node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -24,32 +23,29 @@ use tracing::debug;
 /// Dummy implementation of [`Membership`]
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct GeneralStaticCommittee<T, PUBKEY: SignatureKey> {
+pub struct GeneralStaticCommittee<T: NodeType> {
     /// All the nodes participating and their stake
-    all_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
+    all_nodes_with_stake: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
     /// The nodes on the static committee and their stake
-    committee_nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
+    committee_nodes_with_stake: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
     /// builder nodes
-    committee_nodes_without_stake: Vec<PUBKEY>,
+    committee_nodes_without_stake: Vec<T::SignatureKey>,
     /// the number of fixed leader for gpuvid
     fixed_leader_for_gpuvid: usize,
-    /// Node type phantom
-    _type_phantom: PhantomData<T>,
 
     /// The network topic of the committee
     committee_topic: Topic,
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T> = GeneralStaticCommittee<T, BLSPubKey>;
+pub type StaticCommittee<T> = GeneralStaticCommittee<T>;
 
-impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
+impl<T: NodeType> GeneralStaticCommittee<T> {
     /// Creates a new dummy elector
     #[must_use]
     pub fn new(
-        _nodes: &[PUBKEY],
-        nodes_with_stake: Vec<PUBKEY::StakeTableEntry>,
-        nodes_without_stake: Vec<PUBKEY>,
+        nodes_with_stake: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
+        nodes_without_stake: Vec<T::SignatureKey>,
         fixed_leader_for_gpuvid: usize,
         committee_topic: Topic,
     ) -> Self {
@@ -58,19 +54,16 @@ impl<T, PUBKEY: SignatureKey> GeneralStaticCommittee<T, PUBKEY> {
             committee_nodes_with_stake: nodes_with_stake,
             committee_nodes_without_stake: nodes_without_stake,
             fixed_leader_for_gpuvid,
-            _type_phantom: PhantomData,
             committee_topic,
         }
     }
 }
 
-impl<TYPES, PUBKEY: SignatureKey + 'static> Membership<TYPES>
-    for GeneralStaticCommittee<TYPES, PUBKEY>
-where
-    TYPES: NodeType<SignatureKey = PUBKEY>,
-{
+impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     /// Clone the public key and corresponding stake table for current elected committee
-    fn committee_qc_stake_table(&self) -> Vec<PUBKEY::StakeTableEntry> {
+    fn committee_qc_stake_table(
+        &self,
+    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
         self.committee_nodes_with_stake.clone()
     }
 
@@ -84,7 +77,7 @@ where
         feature = "fixed-leader-election"
     )))]
     /// Index the vector of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> PUBKEY {
+    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         let index = usize::try_from(*view_number % self.all_nodes_with_stake.len() as u64).unwrap();
         let res = self.all_nodes_with_stake[index].clone();
         TYPES::SignatureKey::public_key(&res)
@@ -114,7 +107,7 @@ where
         TYPES::SignatureKey::public_key(&res)
     }
 
-    fn has_stake(&self, pub_key: &PUBKEY) -> bool {
+    fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool {
         let entry = pub_key.stake_table_entry(1u64);
         self.committee_nodes_with_stake.contains(&entry)
     }
@@ -132,8 +125,8 @@ where
     }
 
     fn create_election(
-        mut all_nodes: Vec<PeerConfig<PUBKEY>>,
-        committee_members: Vec<PeerConfig<PUBKEY>>,
+        mut all_nodes: Vec<PeerConfig<TYPES::SignatureKey>>,
+        committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
         committee_topic: Topic,
         fixed_leader_for_gpuvid: usize,
     ) -> Self {
@@ -150,7 +143,7 @@ where
                 committee_nodes_with_stake.push(entry);
             } else {
                 // Zero stake
-                committee_nodes_without_stake.push(PUBKEY::public_key(&entry));
+                committee_nodes_without_stake.push(<TYPES::SignatureKey>::public_key(&entry));
             }
         }
 
@@ -170,7 +163,6 @@ where
             committee_nodes_with_stake,
             committee_nodes_without_stake,
             fixed_leader_for_gpuvid,
-            _type_phantom: PhantomData,
             committee_topic,
         }
     }
@@ -218,10 +210,7 @@ where
     }
 }
 
-impl<TYPES, PUBKEY: SignatureKey + 'static> GeneralStaticCommittee<TYPES, PUBKEY>
-where
-    TYPES: NodeType<SignatureKey = PUBKEY>,
-{
+impl<TYPES: NodeType> GeneralStaticCommittee<TYPES> {
     #[allow(clippy::must_use_candidate)]
     /// get the non-staked builder nodes
     pub fn non_staked_nodes_count(&self) -> usize {
@@ -229,7 +218,7 @@ where
     }
     #[allow(clippy::must_use_candidate)]
     /// get all the non-staked nodes
-    pub fn non_staked_nodes(&self) -> Vec<PUBKEY> {
+    pub fn non_staked_nodes(&self) -> Vec<TYPES::SignatureKey> {
         self.committee_nodes_without_stake.clone()
     }
 }

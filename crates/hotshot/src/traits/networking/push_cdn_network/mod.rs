@@ -6,7 +6,7 @@
 
 #[cfg(feature = "hotshot-testing")]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, time::Duration};
 
@@ -14,25 +14,20 @@ use async_compatibility_layer::channel::TrySendError;
 #[cfg(feature = "hotshot-testing")]
 use async_compatibility_layer::{art::async_sleep, art::async_spawn};
 use async_trait::async_trait;
-use bincode::config::Options;
-use cdn_broker::reexports::{
-    connection::protocols::Tcp,
-    def::{ConnectionDef, RunDef, Topic as TopicTrait},
-    discovery::{Embedded, Redis},
-};
+use cdn_broker::reexports::def::hook::NoMessageHook;
 #[cfg(feature = "hotshot-testing")]
 use cdn_broker::{Broker, Config as BrokerConfig};
 pub use cdn_client::reexports::crypto::signature::KeyPair;
 use cdn_client::{
-    reexports::{
-        connection::protocols::Quic,
-        crypto::signature::{Serializable, SignatureScheme},
-        message::{Broadcast, Direct, Message as PushCdnMessage},
-    },
+    reexports::message::{Broadcast, Direct, Message},
     Client, Config as ClientConfig,
 };
 #[cfg(feature = "hotshot-testing")]
 use cdn_marshal::{Config as MarshalConfig, Marshal};
+use definition::{
+    message_hook::HotShotMessageHook, signature_key::WrappedSignatureKey, ClientDef, TestingDef,
+    Topic,
+};
 use futures::channel::mpsc;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
@@ -43,133 +38,21 @@ use hotshot_types::{
     data::ViewNumber,
     request_response::NetworkMsgResponseChannel,
     traits::{
-        metrics::{Counter, Metrics, NoMetrics},
         network::{BroadcastDelay, ConnectedNetwork, PushCdnNetworkError, Topic as HotShotTopic},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    utils::bincode_opts,
     BoxSyncFuture,
 };
-use num_enum::{IntoPrimitive, TryFromPrimitive};
+use metrics::CdnMetricsValue;
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use tracing::error;
 
+pub mod definition;
+pub mod metrics;
+
 use super::NetworkError;
-
-/// CDN-specific metrics
-#[derive(Clone)]
-pub struct CdnMetricsValue {
-    /// The number of failed messages
-    pub num_failed_messages: Box<dyn Counter>,
-}
-
-impl CdnMetricsValue {
-    /// Populate the metrics with the CDN-specific ones
-    pub fn new(metrics: &dyn Metrics) -> Self {
-        // Create a subgroup for the CDN
-        let subgroup = metrics.subgroup("cdn".into());
-
-        // Create the CDN-specific metrics
-        Self {
-            num_failed_messages: subgroup.create_counter("num_failed_messages".into(), None),
-        }
-    }
-}
-
-impl Default for CdnMetricsValue {
-    // The default is empty metrics
-    fn default() -> Self {
-        Self::new(&*NoMetrics::boxed())
-    }
-}
-
-/// A wrapped `SignatureKey`. We need to implement the Push CDN's `SignatureScheme`
-/// trait in order to sign and verify messages to/from the CDN.
-#[derive(Clone, Eq, PartialEq)]
-pub struct WrappedSignatureKey<T: SignatureKey + 'static>(pub T);
-impl<T: SignatureKey> SignatureScheme for WrappedSignatureKey<T> {
-    type PrivateKey = T::PrivateKey;
-    type PublicKey = Self;
-
-    /// Sign a message of arbitrary data and return the serialized signature
-    fn sign(private_key: &Self::PrivateKey, message: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let signature = T::sign(private_key, message)?;
-        // TODO: replace with rigorously defined serialization scheme...
-        // why did we not make `PureAssembledSignatureType` be `CanonicalSerialize + CanonicalDeserialize`?
-        Ok(bincode_opts().serialize(&signature)?)
-    }
-
-    /// Verify a message of arbitrary data and return the result
-    fn verify(public_key: &Self::PublicKey, message: &[u8], signature: &[u8]) -> bool {
-        // TODO: replace with rigorously defined signing scheme
-        let signature: T::PureAssembledSignatureType = match bincode_opts().deserialize(signature) {
-            Ok(key) => key,
-            Err(_) => return false,
-        };
-
-        public_key.0.validate(&signature, message)
-    }
-}
-
-/// We need to implement the `Serializable` so the Push CDN can serialize the signatures
-/// and public keys and send them over the wire.
-impl<T: SignatureKey> Serializable for WrappedSignatureKey<T> {
-    fn serialize(&self) -> anyhow::Result<Vec<u8>> {
-        Ok(self.0.to_bytes())
-    }
-
-    fn deserialize(serialized: &[u8]) -> anyhow::Result<Self> {
-        Ok(WrappedSignatureKey(T::from_bytes(serialized)?))
-    }
-}
-
-/// The production run definition for the Push CDN.
-/// Uses the real protocols and a Redis discovery client.
-pub struct ProductionDef<K: SignatureKey + 'static>(PhantomData<K>);
-impl<K: SignatureKey + 'static> RunDef for ProductionDef<K> {
-    type User = UserDef<K>;
-    type Broker = BrokerDef<K>;
-    type DiscoveryClientType = Redis;
-    type Topic = Topic;
-}
-
-/// The user definition for the Push CDN.
-/// Uses the Quic protocol and untrusted middleware.
-pub struct UserDef<K: SignatureKey + 'static>(PhantomData<K>);
-impl<K: SignatureKey + 'static> ConnectionDef for UserDef<K> {
-    type Scheme = WrappedSignatureKey<K>;
-    type Protocol = Quic;
-}
-
-/// The broker definition for the Push CDN.
-/// Uses the TCP protocol and trusted middleware.
-pub struct BrokerDef<K: SignatureKey + 'static>(PhantomData<K>);
-impl<K: SignatureKey> ConnectionDef for BrokerDef<K> {
-    type Scheme = WrappedSignatureKey<K>;
-    type Protocol = Tcp;
-}
-
-/// The client definition for the Push CDN. Uses the Quic
-/// protocol and no middleware. Differs from the user
-/// definition in that is on the client-side.
-#[derive(Clone)]
-pub struct ClientDef<K: SignatureKey + 'static>(PhantomData<K>);
-impl<K: SignatureKey> ConnectionDef for ClientDef<K> {
-    type Scheme = WrappedSignatureKey<K>;
-    type Protocol = Quic;
-}
-
-/// The testing run definition for the Push CDN.
-/// Uses the real protocols, but with an embedded discovery client.
-pub struct TestingDef<K: SignatureKey + 'static>(PhantomData<K>);
-impl<K: SignatureKey + 'static> RunDef for TestingDef<K> {
-    type User = UserDef<K>;
-    type Broker = BrokerDef<K>;
-    type DiscoveryClientType = Embedded;
-    type Topic = Topic;
-}
 
 /// A communication channel to the Push CDN, which is a collection of brokers and a marshal
 /// that helps organize them all.
@@ -186,20 +69,6 @@ pub struct PushCdnNetwork<K: SignatureKey + 'static> {
     // The receiver channel for
     // request_receiver_channel: TakeReceiver,
 }
-
-/// The enum for the topics we can subscribe to in the Push CDN
-#[repr(u8)]
-#[derive(IntoPrimitive, TryFromPrimitive, Clone, PartialEq, Eq)]
-pub enum Topic {
-    /// The global topic
-    Global = 0,
-    /// The DA topic
-    Da = 1,
-}
-
-/// Implement the `TopicTrait` for our `Topic` enum. We need this to filter
-/// topics that are not implemented at the application level.
-impl TopicTrait for Topic {}
 
 impl<K: SignatureKey + 'static> PushCdnNetwork<K> {
     /// Create a new `PushCdnNetwork` (really a client) from a marshal endpoint, a list of initial
@@ -271,9 +140,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     fn generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
-        _network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
         _reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
     ) -> AsyncGenerator<Arc<Self>> {
@@ -322,8 +189,11 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
             let broker_identifier = format!("{public_address}/{public_address}");
             let other_broker_identifier = format!("{other_public_address}/{other_public_address}");
 
+            // Create the message hooks
+            let user_message_hook = HotShotMessageHook::new();
+
             // Configure the broker
-            let config: BrokerConfig<TestingDef<TYPES::SignatureKey>> = BrokerConfig {
+            let config: BrokerConfig<TestingDef<TYPES>> = BrokerConfig {
                 public_advertise_endpoint: public_address.clone(),
                 public_bind_endpoint: public_address,
                 private_advertise_endpoint: private_address.clone(),
@@ -338,11 +208,13 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 ca_key_path: None,
                 // 1GB
                 global_memory_pool_size: Some(1024 * 1024 * 1024),
+                user_message_hook,
+                broker_message_hook: NoMessageHook,
             };
 
             // Create and spawn the broker
             async_spawn(async move {
-                let broker: Broker<TestingDef<TYPES::SignatureKey>> =
+                let broker: Broker<TestingDef<TYPES>> =
                     Broker::new(config).await.expect("broker failed to start");
 
                 // If we are the first broker by identifier, we need to sleep a bit
@@ -375,7 +247,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
         // Spawn the marshal
         async_spawn(async move {
-            let marshal: Marshal<TestingDef<TYPES::SignatureKey>> = Marshal::new(marshal_config)
+            let marshal: Marshal<TestingDef<TYPES>> = Marshal::new(marshal_config)
                 .await
                 .expect("failed to spawn marshal");
 
@@ -568,8 +440,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         };
 
         // Extract the underlying message
-        let (PushCdnMessage::Broadcast(Broadcast { message, topics: _ })
-        | PushCdnMessage::Direct(Direct {
+        let (Message::Broadcast(Broadcast { message, topics: _ })
+        | Message::Direct(Direct {
             message,
             recipient: _,
         })) = message

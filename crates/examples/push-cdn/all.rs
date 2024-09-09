@@ -11,10 +11,13 @@ pub mod types;
 use std::path::Path;
 
 use async_compatibility_layer::art::async_spawn;
-use cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
+use cdn_broker::{
+    reexports::{crypto::signature::KeyPair, def::hook::NoMessageHook},
+    Broker,
+};
 use cdn_marshal::Marshal;
 use hotshot::{
-    traits::implementations::{TestingDef, WrappedSignatureKey},
+    traits::implementations::{HotShotMessageHook, TestingDef, WrappedSignatureKey},
     types::SignatureKey,
 };
 use hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
@@ -78,28 +81,34 @@ async fn main() {
         let private_address = format!("127.0.0.1:{private_port}");
         let public_address = format!("127.0.0.1:{public_port}");
 
-        let config: cdn_broker::Config<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
-            cdn_broker::Config {
-                discovery_endpoint: discovery_endpoint.clone(),
-                public_advertise_endpoint: public_address.clone(),
-                public_bind_endpoint: public_address,
-                private_advertise_endpoint: private_address.clone(),
-                private_bind_endpoint: private_address,
+        // Create the message hooks
+        let broker_message_hook = NoMessageHook;
+        let user_message_hook = HotShotMessageHook::new();
 
-                keypair: KeyPair {
-                    public_key: WrappedSignatureKey(broker_public_key),
-                    private_key: broker_private_key.clone(),
-                },
+        let config: cdn_broker::Config<TestingDef<TestTypes>> = cdn_broker::Config {
+            discovery_endpoint: discovery_endpoint.clone(),
+            public_advertise_endpoint: public_address.clone(),
+            public_bind_endpoint: public_address,
+            private_advertise_endpoint: private_address.clone(),
+            private_bind_endpoint: private_address,
 
-                metrics_bind_endpoint: None,
-                ca_cert_path: None,
-                ca_key_path: None,
-                global_memory_pool_size: Some(1024 * 1024 * 1024),
-            };
+            keypair: KeyPair {
+                public_key: WrappedSignatureKey(broker_public_key),
+                private_key: broker_private_key.clone(),
+            },
+
+            metrics_bind_endpoint: None,
+            ca_cert_path: None,
+            ca_key_path: None,
+            global_memory_pool_size: Some(1024 * 1024 * 1024),
+
+            user_message_hook,
+            broker_message_hook,
+        };
 
         // Create and spawn the broker
         async_spawn(async move {
-            let broker: Broker<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
+            let broker: Broker<TestingDef<TestTypes>> =
                 Broker::new(config).await.expect("broker failed to start");
 
             // Error if we stopped unexpectedly
@@ -125,10 +134,9 @@ async fn main() {
 
     // Spawn the marshal
     async_spawn(async move {
-        let marshal: Marshal<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
-            Marshal::new(marshal_config)
-                .await
-                .expect("failed to spawn marshal");
+        let marshal: Marshal<TestingDef<TestTypes>> = Marshal::new(marshal_config)
+            .await
+            .expect("failed to spawn marshal");
 
         // Error if we stopped unexpectedly
         if let Err(err) = marshal.start().await {
