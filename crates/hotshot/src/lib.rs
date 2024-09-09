@@ -482,7 +482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 api
                     .network.broadcast_message(
                         serialized_message,
-                        da_membership.get_committee_topic(),
+                        da_membership.committee_topic(),
                         BroadcastDelay::None,
                     ),
                 api

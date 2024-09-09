@@ -199,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.hotshot
             .memberships
             .quorum_membership
-            .get_leader(view_number)
+            .leader(view_number)
     }
 
     // Below is for testing only:

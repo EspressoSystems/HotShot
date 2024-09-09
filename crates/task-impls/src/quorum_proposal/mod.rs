@@ -292,7 +292,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event: Arc<HotShotEvent<TYPES>>,
     ) {
         // Don't even bother making the task if we are not entitled to propose anyway.
-        if self.quorum_membership.get_leader(view_number) != self.public_key {
+        if self.quorum_membership.leader(view_number) != self.public_key {
             tracing::trace!("We are not the leader of the next view");
             return;
         }

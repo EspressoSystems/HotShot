@@ -102,7 +102,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.get_leader(cur_view) == task_state.public_key,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .await
     {
@@ -272,7 +272,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.get_leader(cur_view) == task_state.public_key,
+        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .await
     {

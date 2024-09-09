@@ -446,12 +446,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
                     error!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.get_leader(view) == self.public_key;
+                    make_block = self.membership.leader(view) == self.public_key;
                 }
                 self.cur_view = view;
 
                 let next_view = self.cur_view + 1;
-                let next_leader = self.membership.get_leader(next_view) == self.public_key;
+                let next_leader = self.membership.leader(next_view) == self.public_key;
                 if !make_block && !next_leader {
                     debug!("Not next leader for view {:?}", self.cur_view);
                     return None;

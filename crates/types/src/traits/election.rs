@@ -24,14 +24,14 @@ pub trait Membership<TYPES: NodeType>:
     ) -> Self;
 
     /// Get all participants in the committee (including their stake)
-    fn get_stake_table(&self) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    fn stake_table(&self) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
     /// Get all participants in the committee for a specific view
-    fn get_committee_members(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+    fn committee_members(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
     /// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table
-    fn get_stake(
+    fn stake(
         &self,
         pub_key: &TYPES::SignatureKey,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
@@ -40,10 +40,10 @@ pub trait Membership<TYPES: NodeType>:
     fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool;
 
     /// The leader of the committee for view `view_number`.
-    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// Get the network topic for the committee
-    fn get_committee_topic(&self) -> Topic;
+    fn committee_topic(&self) -> Topic;
 
     /// Returns the number of total nodes in the committee
     fn total_nodes(&self) -> usize;

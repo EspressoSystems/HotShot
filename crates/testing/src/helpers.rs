@@ -197,7 +197,7 @@ pub async fn build_assembled_sig<
     view: TYPES::Time,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let stake_table = membership.get_stake_table();
+    let stake_table = membership.stake_table();
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
@@ -254,7 +254,7 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.get_committee_members(view_number).len();
+    let num_storage_nodes = membership.committee_members(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 

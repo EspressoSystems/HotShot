@@ -360,7 +360,7 @@ where
     /// Returns an error when the proposal signature is invalid.
     pub fn validate_signature(&self, quorum_membership: &TYPES::Membership) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.get_leader(view_number);
+        let view_leader_key = quorum_membership.leader(view_number);
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(

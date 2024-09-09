@@ -213,7 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     ) {
         let mut recipients: Vec<_> = self
             .da_membership
-            .get_committee_members(view)
+            .committee_members(view)
             .into_iter()
             .collect();
         // Randomize the recipients so all replicas don't overload the same 1 recipients
