@@ -114,7 +114,7 @@ pub struct DishonestLeader<TYPES: NodeType> {
     pub dishonest_at_proposal_numbers: HashSet<u64>,
     /// How far back to look for a QC
     pub view_look_back: usize,
-    /// Shared state flag of all view numbers we send bad proposal at
+    /// Shared state of all view numbers we send bad proposal at
     pub dishonest_proposal_view_numbers: Arc<RwLock<HashSet<TYPES::Time>>>,
 }
 
