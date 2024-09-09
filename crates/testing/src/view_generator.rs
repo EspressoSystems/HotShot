@@ -16,7 +16,7 @@ use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
@@ -40,6 +40,7 @@ use hotshot_types::{
         BlockPayload,
     },
 };
+use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
 
 use crate::helpers::{
@@ -118,12 +119,16 @@ impl TestView {
         )
         .await;
 
-        let block_header = TestBlockHeader {
-            block_number: 1,
-            timestamp: 1,
+        let block_header = TestBlockHeader::new(
+            &Leaf::<TestTypes>::genesis(
+                &TestValidatedState::default(),
+                &TestInstanceState::default(),
+            )
+            .await,
             payload_commitment,
             builder_commitment,
-        };
+            metadata,
+        );
 
         let quorum_proposal_inner = QuorumProposal::<TestTypes> {
             block_header: block_header.clone(),
@@ -145,7 +150,7 @@ impl TestView {
 
         let da_proposal_inner = DaProposal::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: TestMetadata,
+            metadata,
             view_number: genesis_view,
         };
 
@@ -339,11 +344,15 @@ impl TestView {
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
         };
 
+        let random = thread_rng().gen_range(0..=u64::MAX);
+
         let block_header = TestBlockHeader {
             block_number: *next_view,
             timestamp: *next_view,
             payload_commitment,
             builder_commitment,
+            metadata,
+            random,
         };
 
         let proposal = QuorumProposal::<TestTypes> {
@@ -376,7 +385,7 @@ impl TestView {
 
         let da_proposal_inner = DaProposal::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: TestMetadata,
+            metadata,
             view_number: next_view,
         };
 
