@@ -255,31 +255,23 @@ cross_tests!(
     Versions: [MarketplaceTestVersions],
     Ignore: false,
     Metadata: {
-        let bad_leader_node_id = 4;
-        let bad_voter_node_id = 5;
-        let dishonest_leader_proposal = 2;
-
-        let behaviour = Rc::new(move |node_id| {
-            if node_id == bad_leader_node_id {
-                // setup dishonest leader
-                let dishonest_leader = DishonestLeader {
-                    dishonest_at_proposal_numbers: HashSet::from([dishonest_leader_proposal]),
+        let behaviour = Rc::new(|node_id| {
+            match node_id {
+                4 => Behaviour::Byzantine(Box::new(DishonestLeader {
+                    // On second proposal send a dishonest qc
+                    dishonest_at_proposal_numbers: HashSet::from([2]),
                     validated_proposals: Vec::new(),
                     total_proposals_from_node: 0,
                     view_look_back: 1
-                };
-                return Behaviour::Byzantine(Box::new(dishonest_leader));
-            } else if node_id == bad_voter_node_id {
-                // setup dishonest voter, this will send a vote for a bad proposal received
-                let dishonest_voter = DishonestVoter {
+                })),
+                5 => Behaviour::Byzantine(Box::new(DishonestVoter {
                     votes_sent: Vec::new(),
                     // set the vote to be for view of the bad proposal from dishonest_leader
-                    dishonest_at_vote_numbers: HashSet::from([dishonest_leader_proposal * bad_leader_node_id + 1]),
+                    dishonest_at_vote_numbers: HashSet::from([9]),
                     total_votes_from_node: 0
-                };
-                return Behaviour::Byzantine(Box::new(dishonest_voter));
+                })),
+                _ => Behaviour::Standard,
             }
-            Behaviour::Standard
         });
 
         let mut metadata = TestDescription {
@@ -296,7 +288,7 @@ cross_tests!(
         metadata.overall_safety_properties.num_failed_views = 1;
         metadata.num_nodes_with_stake = 6;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
-            (ViewNumber::new(dishonest_leader_proposal * bad_leader_node_id + 2), false),
+            (ViewNumber::new(10), false),
         ]);
         metadata
     },

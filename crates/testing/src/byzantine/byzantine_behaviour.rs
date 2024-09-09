@@ -392,7 +392,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
                     .dishonest_at_vote_numbers
                     .contains(&self.total_votes_from_node)
                 {
-                    // create a vote using data from most recent vote and the current event number
+                    // Create a vote using data from most recent vote and the current event number
+                    // We wont update internal consensus state for this Byzantine replica but we are at least
+                    // Going to send a vote to the next honest leader
                     let vote = QuorumVote::<TYPES>::create_signed_vote(
                         self.votes_sent.last().unwrap().data.clone(),
                         event.view_number().unwrap(),
@@ -403,7 +405,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
                     .await
                     .context("Failed to sign vote")
                     .unwrap();
+                    self.total_votes_from_node += 1;
                     return vec![HotShotEvent::QuorumVoteSend(vote)];
+                }
+            }
+            HotShotEvent::TimeoutVoteSend(_vote) => {
+                if self
+                    .dishonest_at_vote_numbers
+                    .contains(&(self.total_votes_from_node - 1))
+                {
+                    // We craft the vote upon `QuorumProposalRecv` and send out a vote.
+                    // So, dont send the timeout to the next leader from this byzantine replica
+                    return vec![];
                 }
             }
             HotShotEvent::QuorumVoteSend(vote) => {
