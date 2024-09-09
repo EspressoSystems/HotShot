@@ -351,7 +351,6 @@ impl<
         let metadata = TestMetadata {
             num_transactions: 0,
         };
-        let random = thread_rng().gen_range(0..=u64::MAX);
 
         Self {
             block_number: 0,
@@ -359,7 +358,7 @@ impl<
             builder_commitment,
             metadata,
             timestamp: 0,
-            random,
+            random: 0,
         }
     }
 
