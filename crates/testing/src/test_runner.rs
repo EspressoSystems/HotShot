@@ -356,8 +356,8 @@ where
         (builder_tasks, builder_urls)
     }
 
-    /// Add servers.
-    pub async fn add_servers(&mut self, builder_urls: Vec<Url>) {
+    /// Add auction solver.
+    pub async fn add_solver(&mut self, builder_urls: Vec<Url>) {
         let solver_error_pct = self.launcher.metadata.solver.error_pct;
         let solver_port = portpicker::pick_unused_port().expect("No available ports");
 
@@ -396,7 +396,10 @@ where
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
         let (mut builder_tasks, builder_urls) = self.init_builders::<B>().await;
-        self.add_servers(builder_urls.clone()).await;
+
+        if self.launcher.metadata.start_solver {
+            self.add_solver(builder_urls.clone()).await;
+        }
 
         // Collect uninitialized nodes because we need to wait for all networks to be ready before starting the tasks
         let mut uninitialized_nodes = Vec::new();

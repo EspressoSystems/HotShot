@@ -12,8 +12,8 @@ use hotshot_example_types::testable_delay::{
 };
 use hotshot_example_types::{
     node_types::{
-        Libp2pImpl, MarketplaceUpgradeTestVersions, MemoryImpl, PushCdnImpl,
-        TestConsecutiveLeaderTypes, TestVersions,
+        Libp2pImpl, MarketplaceTestVersions, MarketplaceUpgradeTestVersions, MemoryImpl,
+        PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions,
     },
     state_types::TestTypes,
 };
@@ -21,6 +21,7 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::TestDescription,
     view_sync_task::ViewSyncTaskDescription,
 };
@@ -157,4 +158,28 @@ cross_tests!(
 
         metadata
     }
+);
+
+cross_tests!(
+    TestName: test_success_marketplace_solver_down,
+    Impls: [MemoryImpl],
+    Types: [TestTypes],
+    Versions: [MarketplaceTestVersions],
+    Ignore: false,
+    Metadata: {
+        TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            overall_safety_properties: OverallSafetyPropertiesDescription {
+                transaction_threshold: 0,
+                ..OverallSafetyPropertiesDescription::default()
+            },
+            start_solver: false,
+            ..TestDescription::default()
+        }
+    },
 );
