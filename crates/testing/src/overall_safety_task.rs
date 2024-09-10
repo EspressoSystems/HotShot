@@ -495,7 +495,10 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         }
 
         // check for success
-        if num_decided >= threshold {
+        let is_success_possible = total_num_nodes - num_failed >= threshold;
+        if !is_success_possible {
+            self.status = ViewStatus::Failed;
+        } else if num_decided >= threshold {
             // decide on if we've succeeded.
             // if so, set state and return
             // if not, return error
@@ -507,14 +510,10 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                 && *self.leaf_map.get(key).unwrap() == threshold
             {
                 self.status = ViewStatus::Ok;
-                return;
             }
         }
 
-        let is_success_possible = total_num_nodes - num_failed >= threshold;
-        if !is_success_possible {
-            self.status = ViewStatus::Failed;
-        }
+        
     }
 
     /// generate leaves
