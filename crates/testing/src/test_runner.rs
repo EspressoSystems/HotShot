@@ -184,7 +184,7 @@ where
                 &TestInstanceState::default(),
             )
             .await,
-            high_qc: QuorumCertificate::genesis(
+            high_qc: QuorumCertificate::genesis::<V>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
@@ -209,9 +209,10 @@ where
             consensus_leaves: BTreeMap::new(),
             safety_properties: self.launcher.metadata.overall_safety_properties,
             ensure_upgrade: self.launcher.metadata.upgrade_view.is_some(),
+            _pd: PhantomData,
         };
 
-        let consistency_task = TestTask::<ConsistencyTask<TYPES>>::new(
+        let consistency_task = TestTask::<ConsistencyTask<TYPES, V>>::new(
             consistency_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
@@ -393,7 +394,6 @@ where
     ) -> Vec<u64> {
         let mut results = vec![];
         let config = self.launcher.resource_generator.config.clone();
-        let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
         let (mut builder_tasks, builder_urls) = self.init_builders::<B>().await;
         self.add_servers(builder_urls.clone()).await;
@@ -411,29 +411,22 @@ where
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
 
+            let all_nodes = config.known_nodes_with_stake.clone();
+            let da_nodes = config.known_da_nodes.clone();
+
             let memberships = Memberships {
-                quorum_membership: <TYPES as NodeType>::Membership::create_election(
-                    known_nodes_with_stake.clone(),
-                    known_nodes_with_stake.clone(),
+                quorum_membership: <TYPES as NodeType>::Membership::new(
+                    all_nodes.clone(),
+                    all_nodes.clone(),
                     Topic::Global,
+                    #[cfg(feature = "fixed-leader-election")]
                     config.fixed_leader_for_gpuvid,
                 ),
-                da_membership: <TYPES as NodeType>::Membership::create_election(
-                    known_nodes_with_stake.clone(),
-                    config.known_da_nodes.clone(),
+                da_membership: <TYPES as NodeType>::Membership::new(
+                    all_nodes,
+                    da_nodes,
                     Topic::Da,
-                    config.fixed_leader_for_gpuvid,
-                ),
-                vid_membership: <TYPES as NodeType>::Membership::create_election(
-                    known_nodes_with_stake.clone(),
-                    known_nodes_with_stake.clone(),
-                    Topic::Global,
-                    config.fixed_leader_for_gpuvid,
-                ),
-                view_sync_membership: <TYPES as NodeType>::Membership::create_election(
-                    known_nodes_with_stake.clone(),
-                    known_nodes_with_stake.clone(),
-                    Topic::Global,
+                    #[cfg(feature = "fixed-leader-election")]
                     config.fixed_leader_for_gpuvid,
                 ),
             };
@@ -481,7 +474,7 @@ where
                         },
                     );
                 } else {
-                    let initializer = HotShotInitializer::<TYPES>::from_genesis(
+                    let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(
                         TestInstanceState::new(self.launcher.metadata.async_delay_config.clone()),
                     )
                     .await
@@ -615,6 +608,7 @@ where
             storage,
             marketplace_config,
         )
+        .await
     }
 
     /// add a specific node with a config
@@ -654,6 +648,7 @@ where
             internal_channel,
             external_channel,
         )
+        .await
     }
 }
 

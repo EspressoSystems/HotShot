@@ -73,41 +73,31 @@ pub async fn build_system_handle<
     let marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     let config = launcher.resource_generator.config.clone();
 
-    let initializer = HotShotInitializer::<TYPES>::from_genesis(TestInstanceState::new(
+    let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(TestInstanceState::new(
         launcher.metadata.async_delay_config,
     ))
     .await
     .unwrap();
 
-    let known_nodes_with_stake = config.known_nodes_with_stake.clone();
     let private_key = config.my_own_validator_config.private_key.clone();
     let public_key = config.my_own_validator_config.public_key.clone();
 
-    let _known_nodes_without_stake = config.known_nodes_without_stake.clone();
+    let all_nodes = config.known_nodes_with_stake.clone();
+    let da_nodes = config.known_da_nodes.clone();
 
     let memberships = Memberships {
-        quorum_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
+        quorum_membership: TYPES::Membership::new(
+            all_nodes.clone(),
+            all_nodes.clone(),
             Topic::Global,
+            #[cfg(feature = "fixed-leader-election")]
             config.fixed_leader_for_gpuvid,
         ),
-        da_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            config.known_da_nodes.clone(),
+        da_membership: TYPES::Membership::new(
+            all_nodes,
+            da_nodes,
             Topic::Da,
-            config.fixed_leader_for_gpuvid,
-        ),
-        vid_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
-            Topic::Global,
-            config.fixed_leader_for_gpuvid,
-        ),
-        view_sync_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake,
-            Topic::Global,
+            #[cfg(feature = "fixed-leader-election")]
             config.fixed_leader_for_gpuvid,
         ),
     };
@@ -207,7 +197,7 @@ pub async fn build_assembled_sig<
     view: TYPES::Time,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let stake_table = membership.committee_qc_stake_table();
+    let stake_table = membership.stake_table();
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
@@ -264,7 +254,7 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
     view_number: TYPES::Time,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.staked_committee(view_number).len();
+    let num_storage_nodes = membership.committee_members(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 
@@ -380,7 +370,7 @@ pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
     let vote = QuorumVote::<TYPES>::create_signed_vote(
         QuorumData {
-            leaf_commit: leaf.commit(),
+            leaf_commit: leaf.commit(&handle.hotshot.upgrade_lock).await,
         },
         view,
         &handle.public_key(),
@@ -410,18 +400,22 @@ where
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`].
-pub fn build_fake_view_with_leaf(leaf: Leaf<TestTypes>) -> View<TestTypes> {
-    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default())
+pub async fn build_fake_view_with_leaf<V: Versions>(
+    leaf: Leaf<TestTypes>,
+    upgrade_lock: &UpgradeLock<TestTypes, V>,
+) -> View<TestTypes> {
+    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default(), upgrade_lock).await
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.
-pub fn build_fake_view_with_leaf_and_state(
+pub async fn build_fake_view_with_leaf_and_state<V: Versions>(
     leaf: Leaf<TestTypes>,
     state: TestValidatedState,
+    upgrade_lock: &UpgradeLock<TestTypes, V>,
 ) -> View<TestTypes> {
     View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
+            leaf: leaf.commit(upgrade_lock).await,
             state: state.into(),
             delta: None,
         },

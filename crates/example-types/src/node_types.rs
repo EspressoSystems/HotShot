@@ -81,8 +81,7 @@ impl NodeType for TestConsecutiveLeaderTypes {
     type Transaction = TestTransaction;
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
-    type Membership =
-        StaticCommitteeLeaderForTwoViews<TestConsecutiveLeaderTypes, Self::SignatureKey>;
+    type Membership = StaticCommitteeLeaderForTwoViews<TestConsecutiveLeaderTypes>;
     type BuilderSignatureKey = BuilderKey;
 }
 
