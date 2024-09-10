@@ -147,12 +147,12 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         if self.fixed_leader_for_gpuvid <= 0
-            || self.fixed_leader_for_gpuvid > self.committee_members.len()
+            || self.fixed_leader_for_gpuvid > self.eligible_leaders.len()
         {
             panic!("fixed_leader_for_gpuvid is not set correctly.");
         }
         let index = usize::try_from(*view_number % self.fixed_leader_for_gpuvid as u64).unwrap();
-        let res = self.committee_members[index].clone();
+        let res = self.eligible_leaders[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
 
@@ -161,8 +161,8 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
         let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.committee_members.len();
-        let res = self.committee_members[index].clone();
+        let index = randomized_view_number % self.eligible_leaders.len();
+        let res = self.eligible_leaders[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
 
