@@ -107,7 +107,7 @@ async fn test_consensus_task() {
                 payload_commitment,
                 builder_commitment,
                 TestMetadata {
-                    num_transactions: encoded_transactions.len() as u64
+                    num_transactions: 0,
                 },
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
@@ -311,7 +311,7 @@ async fn test_view_sync_finalize_propose() {
                 payload_commitment,
                 builder_commitment,
                 TestMetadata {
-                    num_transactions: encoded_transactions.len() as u64
+                    num_transactions: 0,
                 },
                 ViewNumber::new(4),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
