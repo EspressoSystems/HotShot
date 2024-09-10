@@ -211,7 +211,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     #[allow(clippy::panic, clippy::too_many_lines)]
     fn generator(
         expected_node_count: usize,
-        num_bootstrap: usize,
+        _num_bootstrap: usize,
         _network_id: usize,
         da_committee_size: usize,
         _is_da: bool,
@@ -239,11 +239,11 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         // let start_port = 5000;
         Box::pin({
             move |node_id| {
-                info!(
-                    "GENERATOR: Node id {:?}, is bootstrap: {:?}",
-                    node_id,
-                    node_id < num_bootstrap as u64
-                );
+                // info!(
+                //     "GENERATOR: Node id {:?}, is bootstrap: {:?}",
+                //     node_id,
+                //     node_id < num_bootstrap as u64
+                // );
 
                 // pick a free, unused UDP port for testing
                 let port = portpicker::pick_unused_port().expect("Could not find an open port");

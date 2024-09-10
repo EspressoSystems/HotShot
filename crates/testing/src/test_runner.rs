@@ -402,14 +402,14 @@ where
         let mut uninitialized_nodes = Vec::new();
         let mut networks_ready = Vec::new();
 
-        for i in 0..total {
+        for _i in 0..total {
             let mut config = config.clone();
             if let Some(upgrade_view) = self.launcher.metadata.upgrade_view {
                 config.set_view_upgrade(upgrade_view);
             }
             let node_id = self.next_node_id;
             self.next_node_id += 1;
-            tracing::debug!("launch node {}", i);
+            // tracing::debug!("launch node {}", i);
 
             let all_nodes = config.known_nodes_with_stake.clone();
             let da_nodes = config.known_da_nodes.clone();

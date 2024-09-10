@@ -246,7 +246,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         ),
         external_channel: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
     ) -> Arc<Self> {
-        debug!("Creating a new hotshot");
+        // debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
@@ -349,13 +349,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// Panics if sending genesis fails
     #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
     pub async fn start_consensus(&self) {
-        #[cfg(feature = "dependency-tasks")]
-        tracing::error!("HotShot is running with the dependency tasks feature enabled!!");
+        // #[cfg(feature = "dependency-tasks")]
+        // tracing::error!("HotShot is running with the dependency tasks feature enabled!!");
 
         #[cfg(all(feature = "rewind", not(debug_assertions)))]
         compile_error!("Cannot run rewind in production builds!");
 
-        debug!("Starting Consensus");
+        // debug!("Starting Consensus");
         let consensus = self.consensus.read().await;
 
         #[allow(clippy::panic)]

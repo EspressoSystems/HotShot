@@ -255,6 +255,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             self.ctx.failed_views.len(),
             self.ctx.successful_views.len()
         );
+        tracing::debug!(
+            "temp: {}, fail {}. success: {}",
+            self.ctx.round_results.len(),
+            self.ctx.failed_views.len(),
+            self.ctx.successful_views.len()
+        );
         let mut results: Vec<u64> = self.ctx.round_results.keys().map(|x| **x).collect();
         let mut failed: Vec<u64> = self.ctx.failed_views.iter().map(|x| **x).collect();
         let mut success: Vec<u64> = self.ctx.successful_views.iter().map(|x| **x).collect();
@@ -264,6 +270,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         tracing::error!("total: {:?}, len {}", results, results.len());
         tracing::error!("failed: {:?}, len {}", failed, failed.len());
         tracing::error!("success: {:?} len {}", success, success.len());
+        tracing::debug!("total: {:?}, len {}", results, results.len());
+        tracing::debug!("failed: {:?}, len {}", failed, failed.len());
+        tracing::debug!("success: {:?} len {}", success, success.len());
         let num_incomplete_views = self.ctx.round_results.len()
             - self.ctx.failed_views.len()
             - self.ctx.successful_views.len();
