@@ -249,13 +249,24 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             expected_views_to_fail,
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
 
-        tracing::error!("temp: {}, fail {}. success: {}", self.ctx.round_results.len(), self.ctx.failed_views.len(), self.ctx.successful_views.len());
+        tracing::error!(
+            "temp: {}, fail {}. success: {}",
+            self.ctx.round_results.len(),
+            self.ctx.failed_views.len(),
+            self.ctx.successful_views.len()
+        );
+        let mut results: Vec<u64> = self.ctx.round_results.keys().map(|x| **x).collect();
+        let mut failed: Vec<u64> = self.ctx.failed_views.iter().map(|x| **x).collect();
+        let mut success: Vec<u64> = self.ctx.successful_views.iter().map(|x| **x).collect();
+        results.sort();
+        failed.sort();
+        success.sort();
+        tracing::error!("total: {:?}, len {}", results, results.len());
+        tracing::error!("failed: {:?}, len {}", failed, failed.len());
+        tracing::error!("success: {:?} len {}", success, success.len());
         let num_incomplete_views = (self.ctx.round_results.len())
             .saturating_sub(self.ctx.failed_views.len())
             .saturating_sub(self.ctx.successful_views.len());
-        // let num_incomplete_views = self.ctx.round_results.len()
-        //     - self.ctx.successful_views.len()
-        //     - self.ctx.failed_views.len();
 
         if self.ctx.successful_views.len() < num_successful_views {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
