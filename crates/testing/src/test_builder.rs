@@ -220,7 +220,7 @@ pub struct FakeSolverApiDescription {
 impl Default for TimingData {
     fn default() -> Self {
         Self {
-            next_view_timeout: 2000,
+            next_view_timeout: 4000,
             timeout_ratio: (11, 10),
             round_start_delay: 100,
             start_delay: 100,

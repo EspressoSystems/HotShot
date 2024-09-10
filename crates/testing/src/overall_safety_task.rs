@@ -249,7 +249,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             expected_views_to_fail,
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
 
-        // tracing::error!("temp: {}, fail {}. success: {}", self.ctx.round_results.len(), self.ctx.failed_views.len(), self.ctx.successful_views.len());
+        tracing::error!("temp: {}, fail {}. success: {}", self.ctx.round_results.len(), self.ctx.failed_views.len(), self.ctx.successful_views.len());
         let num_incomplete_views = (self.ctx.round_results.len())
             .saturating_sub(self.ctx.failed_views.len())
             .saturating_sub(self.ctx.successful_views.len());
