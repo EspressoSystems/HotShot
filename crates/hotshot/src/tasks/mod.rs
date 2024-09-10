@@ -149,7 +149,7 @@ pub fn add_network_message_task<
         loop {
             futures::select! {
                 () = shutdown_signal => {
-                    tracing::error!("Shutting down network message task");
+                    // tracing::error!("Shutting down network message task");
                     return;
                 }
                 msgs_option = fused_recv_stream.next() => {
@@ -163,7 +163,7 @@ pub fn add_network_message_task<
                     } else {
                         // Stream has ended, which shouldn't happen in this case.
                         // You might want to handle this situation, perhaps by breaking the loop or logging an error.
-                        tracing::error!("Network message stream unexpectedly ended");
+                        // tracing::error!("Network message stream unexpectedly ended");
                         return;
                     }
                 }
@@ -406,7 +406,7 @@ where
             loop {
                 futures::select! {
                     () = shutdown_signal => {
-                        tracing::error!("Shutting down relay send task");
+                        // tracing::error!("Shutting down relay send task");
                         let _ = sender_to_network.broadcast(HotShotEvent::<TYPES>::Shutdown.into()).await;
                         return;
                     }
@@ -427,10 +427,10 @@ where
                                 }
                             }
                             Some(Err(e)) => {
-                                tracing::error!("Relay Task, send_handle, Error receiving event: {:?}", e);
+                                // tracing::error!("Relay Task, send_handle, Error receiving event: {:?}", e);
                             }
                             None => {
-                                tracing::info!("Relay Task, send_handle, Event stream closed");
+                                // tracing::info!("Relay Task, send_handle, Event stream closed");
                                 return;
                             }
                         }
@@ -460,7 +460,7 @@ where
             loop {
                 futures::select! {
                     () = shutdown_signal => {
-                        tracing::error!("Shutting down relay receive task");
+                        // tracing::error!("Shutting down relay receive task");
                         return;
                     }
                     event = fused_network_recv_stream.next() => {
@@ -474,10 +474,10 @@ where
                                 }
                             }
                             Some(Err(e)) => {
-                                tracing::error!("Relay Task, recv_handle, Error receiving event from network: {:?}", e);
+                                // tracing::error!("Relay Task, recv_handle, Error receiving event from network: {:?}", e);
                             }
                             None => {
-                                tracing::info!("Relay Task, recv_handle, Network event stream closed");
+                                // tracing::info!("Relay Task, recv_handle, Network event stream closed");
                                 return;
                             }
                         }

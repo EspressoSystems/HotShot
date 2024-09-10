@@ -833,10 +833,10 @@ pub async fn update_state_and_vote_if_able<
     {
         // Validate the block payload commitment for non-genesis DAC.
         if cert.date().payload_commit != proposal.block_header.payload_commitment() {
-            warn!(
-                "Block payload commitment does not equal da cert payload commitment. View = {}",
-                *view
-            );
+            // warn!(
+            //     "Block payload commitment does not equal da cert payload commitment. View = {}",
+            //     *view
+            // );
             return false;
         }
         if let Ok(vote) = QuorumVote::<TYPES>::create_signed_vote(

@@ -184,14 +184,14 @@ where
                         }
                         UpDown::Down => {
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
-                                tracing::error!("Node {} shutting down", idx);
+                                // tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
                             }
                         }
                         UpDown::Restart => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
-                                tracing::error!("Node {} shutting down", idx);
+                                // tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
 
                                 let Some(LateStartNode {

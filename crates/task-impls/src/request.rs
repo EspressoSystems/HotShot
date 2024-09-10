@@ -316,7 +316,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                             async_sleep(REQUEST_TIMEOUT).await;
                         }
                         Ok(ResponseMessage::NotFound) => {
-                            info!("Peer Responded they did not have the data");
+                            // info!("Peer Responded they did not have the data");
                         }
                         Ok(ResponseMessage::Denied) => {
                             error!("Request for data was denied by the receiver");

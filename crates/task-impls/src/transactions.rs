@@ -188,10 +188,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .await;
         } else {
             // If we couldn't get a block, send an empty block
-            warn!(
-                "Failed to get a block for view {:?}, proposing empty block",
-                block_view
-            );
+            // warn!(
+            //     "Failed to get a block for view {:?}, proposing empty block",
+            //     block_view
+            // );
 
             // Increment the metric for number of empty blocks proposed
             self.consensus
@@ -385,11 +385,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         {
             Ok(b) => b,
             Err(e) => {
-                tracing::info!(
-                    "Failed to get a block for view {:?}: {}. Continuing with empty block.",
-                    block_view,
-                    e
-                );
+                // tracing::info!(
+                //     "Failed to get a block for view {:?}: {}. Continuing with empty block.",
+                //     block_view,
+                //     e
+                // );
 
                 let null_block = self.null_block(block_view, version)?;
 

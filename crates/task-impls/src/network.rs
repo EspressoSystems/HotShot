@@ -331,7 +331,7 @@ impl<
             }
             match net.vid_broadcast_message(messages).await {
                 Ok(()) => {}
-                Err(e) => error!("Failed to send message from network task: {:?}", e),
+                Err(_e) => {}, //error!("Failed to send message from network task: {:?}", e),
             }
         });
 

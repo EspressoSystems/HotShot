@@ -600,7 +600,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 if latest_seen_view.load(Ordering::Relaxed) + THRESHOLD <= *view_number {
                     // look up
                     if let Err(err) = handle.lookup_node(&pk.to_bytes(), dht_timeout).await {
-                        warn!("Failed to perform lookup for key {:?}: {}", pk, err);
+                        // warn!("Failed to perform lookup for key {:?}: {}", pk, err);
                     };
                 }
             }
@@ -657,7 +657,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                     error!("Failed to connect to peers: {:?}", e);
                     return Err::<(), NetworkError>(e.into());
                 }
-                info!("Connected to required number of peers");
+                // info!("Connected to required number of peers");
 
                 // Set the network as ready
                 is_ready.store(true, Ordering::Relaxed);
