@@ -46,9 +46,7 @@ impl<T: NodeType> HotShotMessageHook<T> {
         // Calculate the hash of the message
         let mut hasher = Hash64::default();
         hasher.write(&broadcast.message);
-        for topic in &broadcast.topics {
-            hasher.write(&[*topic]);
-        }
+        hasher.write(&broadcast.topics);
 
         // Make sure we have not already seen it
         if self.message_hash_cache.put(hasher.finish(), ()).is_some() {
