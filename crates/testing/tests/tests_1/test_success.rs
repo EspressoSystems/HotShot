@@ -22,7 +22,7 @@ use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
-    test_builder::TestDescription,
+    test_builder::{nonempty_block_threshold, TestDescription},
     view_sync_task::ViewSyncTaskDescription,
 };
 
@@ -60,6 +60,7 @@ cross_tests!(
                                              },
                                          ),
             upgrade_view: Some(5),
+            validate_transactions: nonempty_block_threshold((40,50)),
             ..TestDescription::default()
         }
     },
@@ -178,6 +179,7 @@ cross_tests!(
                 transaction_threshold: 0,
                 ..OverallSafetyPropertiesDescription::default()
             },
+            validate_transactions: nonempty_block_threshold((95,100)),
             start_solver: false,
             ..TestDescription::default()
         }

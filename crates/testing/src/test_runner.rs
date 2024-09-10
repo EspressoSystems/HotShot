@@ -24,6 +24,7 @@ use hotshot::{
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
+    block_types::TestBlockHeader,
     state_types::{TestInstanceState, TestValidatedState},
     storage_types::TestStorage,
 };
@@ -68,7 +69,11 @@ pub trait TaskErr: std::error::Error + Sync + Send + 'static {}
 impl<T: std::error::Error + Sync + Send + 'static> TaskErr for T {}
 
 impl<
-        TYPES: NodeType<InstanceState = TestInstanceState, ValidatedState = TestValidatedState>,
+        TYPES: NodeType<
+            InstanceState = TestInstanceState,
+            ValidatedState = TestValidatedState,
+            BlockHeader = TestBlockHeader,
+        >,
         I: TestableNodeImplementation<TYPES>,
         V: Versions,
         N: ConnectedNetwork<TYPES::SignatureKey>,
@@ -209,6 +214,7 @@ where
             consensus_leaves: BTreeMap::new(),
             safety_properties: self.launcher.metadata.overall_safety_properties,
             ensure_upgrade: self.launcher.metadata.upgrade_view.is_some(),
+            validate_transactions: self.launcher.metadata.validate_transactions,
         };
 
         let consistency_task = TestTask::<ConsistencyTask<TYPES>>::new(

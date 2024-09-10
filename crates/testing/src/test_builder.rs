@@ -6,6 +6,7 @@
 
 use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
+use anyhow::{ensure, Result};
 use hotshot::{
     tasks::EventTransformerState,
     traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
@@ -34,6 +35,9 @@ use crate::{
     test_launcher::{Network, ResourceGenerators, TestLauncher},
     view_sync_task::ViewSyncTaskDescription,
 };
+
+pub type TransactionValidator = Arc<dyn Fn(&Vec<(u64, u64)>) -> Result<()> + Send + Sync>;
+
 /// data describing how a round should be timed.
 #[derive(Clone, Debug, Copy)]
 pub struct TimingData {
@@ -99,6 +103,36 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     pub upgrade_view: Option<u64>,
     /// whether to initialize the solver on startup
     pub start_solver: bool,
+    /// boxed closure used to validate the resulting transactions
+    pub validate_transactions: TransactionValidator,
+}
+
+pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
+    Arc::new(move |transactions| {
+        if matches!(threshold, (0, _)) {
+            return Ok(());
+        }
+
+        let blocks: Vec<_> = transactions.iter().filter(|(view, _)| *view != 0).collect();
+
+        let num_blocks = blocks.len() as u64;
+        let mut num_nonempty_blocks = 0;
+
+        ensure!(num_blocks > 0, "Failed to commit any non-genesis blocks");
+
+        for (_, num_transactions) in blocks {
+            if *num_transactions > 0 {
+                num_nonempty_blocks += 1;
+            }
+        }
+
+        ensure!(
+          num_nonempty_blocks * threshold.1 >= threshold.0 * num_blocks,
+          "Failed to meet nonempty block threshold; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}"
+        );
+
+        Ok(())
+    })
 }
 
 #[derive(Debug)]
@@ -383,6 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             async_delay_config: DelayConfig::default(),
             upgrade_view: None,
             start_solver: true,
+            validate_transactions: Arc::new(|_| Ok(())),
         }
     }
 }
