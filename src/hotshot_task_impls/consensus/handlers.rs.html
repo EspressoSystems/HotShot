@@ -911,6 +911,15 @@
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -927,7 +936,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>chrono::Utc;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus, View},
@@ -950,7 +958,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
-<span class="kw">use </span>vbs::version::{StaticVersionType, Version};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
 <span class="kw">use crate</span>::{
@@ -980,7 +988,7 @@
     proposal_cert: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
     round_start_delay: u64,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
-    version: Version,
+    upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     id: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>consensus_read = consensus.read().<span class="kw">await</span>;
@@ -993,6 +1001,11 @@
         </span>))<span class="question-mark">?
         </span>.context(<span class="string">"Failed to get vid share"</span>)<span class="question-mark">?</span>;
     drop(consensus_read);
+
+    <span class="kw">let </span>version = upgrade_lock
+        .version(view)
+        .<span class="kw">await
+        </span>.context(<span class="string">"Failed to get version number"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>block_header = <span class="kw">if </span>version &lt; V::Marketplace::VERSION {
         TYPES::BlockHeader::new_legacy(
@@ -1035,9 +1048,12 @@
 
     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
 
-    <span class="macro">ensure!</span>(proposed_leaf.parent_commitment() == parent_leaf.commit());
+    <span class="macro">ensure!</span>(proposed_leaf.parent_commitment() == parent_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>);
 
-    <span class="kw">let </span>signature = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, proposed_leaf.commit().as_ref())<span class="question-mark">?</span>;
+    <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+        <span class="kw-2">&amp;</span>private_key,
+        proposed_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>.as_ref(),
+    )<span class="question-mark">?</span>;
 
     <span class="kw">let </span>message = Proposal {
         data: proposal,
@@ -1134,8 +1150,6 @@
         <span class="string">"Cannot propose because our VID payload commitment and metadata is for an older view."
     </span>);
 
-    <span class="kw">let </span>version = upgrade_lock.version(view).<span class="kw">await</span><span class="question-mark">?</span>;
-
     <span class="kw">let </span>create_and_send_proposal_handle = async_spawn(<span class="kw">async move </span>{
         <span class="kw">match </span>create_and_send_proposal::&lt;TYPES, V&gt;(
             public_key,
@@ -1150,7 +1164,7 @@
             proposal_certificate,
             delay,
             instance_state,
-            version,
+            upgrade_lock,
             id,
         )
         .<span class="kw">await
@@ -1345,7 +1359,7 @@
             view,
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: leaf.commit(),
+                    leaf: leaf.commit(<span class="kw-2">&amp;</span>task_state.upgrade_lock).<span class="kw">await</span>,
                     state,
                     delta: <span class="prelude-val">None</span>,
                 },
@@ -1354,7 +1368,9 @@
             <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
         }
 
-        consensus_write.update_saved_leaves(leaf.clone());
+        consensus_write
+            .update_saved_leaves(leaf.clone(), <span class="kw-2">&amp;</span>task_state.upgrade_lock)
+            .<span class="kw">await</span>;
         <span class="kw">let </span>new_leaves = consensus_write.saved_leaves().clone();
         <span class="kw">let </span>new_state = consensus_write.validated_state_map().clone();
         drop(consensus_write);
@@ -1725,7 +1741,7 @@
 
     <span class="kw">let </span>state = Arc::new(validated_state);
     <span class="kw">let </span>delta = Arc::new(state_delta);
-    <span class="kw">let </span>parent_commitment = parent.commit();
+    <span class="kw">let </span>parent_commitment = parent.commit(upgrade_lock).<span class="kw">await</span>;
 
     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
     <span class="kw">if </span>proposed_leaf.parent_commitment() != parent_commitment {
@@ -1747,7 +1763,7 @@
         }
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(vote) = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
             QuorumData {
-                leaf_commit: proposed_leaf.commit(),
+                leaf_commit: proposed_leaf.commit(upgrade_lock).<span class="kw">await</span>,
             },
             view,
             <span class="kw-2">&amp;</span>public_key,
@@ -1774,7 +1790,7 @@
         cur_view,
         View {
             view_inner: ViewInner::Leaf {
-                leaf: proposed_leaf.commit(),
+                leaf: proposed_leaf.commit(upgrade_lock).<span class="kw">await</span>,
                 state: Arc::clone(<span class="kw-2">&amp;</span>state),
                 delta: <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
             },
@@ -1782,7 +1798,9 @@
     ) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
-    consensus.update_saved_leaves(proposed_leaf.clone());
+    consensus
+        .update_saved_leaves(proposed_leaf.clone(), upgrade_lock)
+        .<span class="kw">await</span>;
     <span class="kw">let </span>new_leaves = consensus.saved_leaves().clone();
     <span class="kw">let </span>new_state = consensus.validated_state_map().clone();
     drop(consensus);

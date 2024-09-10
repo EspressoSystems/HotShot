@@ -812,6 +812,12 @@
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -922,7 +928,7 @@
                         hs_event.as_ref()
                     {
                         <span class="comment">// Make sure that the quorum_proposal is valid
-                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem).is_ok() {
+                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, upgrade_lock).<span class="kw">await</span>.is_ok() {
                             proposal = <span class="prelude-val">Some</span>(quorum_proposal.clone());
                         }
 
@@ -954,7 +960,7 @@
 
     <span class="kw">let </span>view = View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
+            leaf: leaf.commit(upgrade_lock).<span class="kw">await</span>,
             state,
             delta: <span class="prelude-val">None</span>,
         },
@@ -963,7 +969,9 @@
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
 
-    consensus_write.update_saved_leaves(leaf.clone());
+    consensus_write
+        .update_saved_leaves(leaf.clone(), upgrade_lock)
+        .<span class="kw">await</span>;
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
         <span class="kw-2">&amp;</span>event_sender,
@@ -1224,7 +1232,7 @@
 
     <span class="kw">let </span>reached_decided = leaf.view_number() == consensus_reader.last_decided_view();
     <span class="kw">let </span>parent_leaf = leaf.clone();
-    <span class="kw">let </span>original_parent_hash = parent_leaf.commit();
+    <span class="kw">let </span>original_parent_hash = parent_leaf.commit(upgrade_lock).<span class="kw">await</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>next_parent_hash = original_parent_hash;
 
     <span class="comment">// Walk back until we find a decide
@@ -1274,7 +1282,7 @@
 
     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
     <span class="macro">ensure!</span>(
-        proposed_leaf.parent_commitment() == parent_leaf.commit(),
+        proposed_leaf.parent_commitment() == parent_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
         <span class="string">"Proposed leaf does not extend the parent leaf."
     </span>);
 
@@ -1283,7 +1291,7 @@
     );
     <span class="kw">let </span>view = View {
         view_inner: ViewInner::Leaf {
-            leaf: proposed_leaf.commit(),
+            leaf: proposed_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
             state,
             delta: <span class="prelude-val">None</span>, <span class="comment">// May be updated to `Some` in the vote task.
         </span>},
@@ -1294,7 +1302,9 @@
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
             <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
         }
-        consensus_write.update_saved_leaves(proposed_leaf.clone());
+        consensus_write
+            .update_saved_leaves(proposed_leaf.clone(), <span class="kw-2">&amp;</span>upgrade_lock)
+            .<span class="kw">await</span>;
 
         <span class="comment">// Update our internal storage of the proposal. The proposal is valid, so
         // we swallow this error and just log if it occurs.
@@ -1416,7 +1426,9 @@
     );
 
     <span class="comment">// Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    </span>proposal.validate_signature(quorum_membership)<span class="question-mark">?</span>;
+    </span>proposal
+        .validate_signature(quorum_membership, upgrade_lock)
+        .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
     </span><span class="kw">if </span>proposal.data.justify_qc.view_number() != view - <span class="number">1 </span>{

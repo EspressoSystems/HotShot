@@ -283,6 +283,8 @@
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -340,7 +342,7 @@
     );
     <span class="kw">let </span>view = View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
+            leaf: leaf.commit(<span class="kw-2">&amp;</span>task_state.upgrade_lock).<span class="kw">await</span>,
             state,
             delta: <span class="prelude-val">None</span>, <span class="comment">// May be updated to `Some` in the vote task.
         </span>},
@@ -349,7 +351,9 @@
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
-    consensus_write.update_saved_leaves(leaf.clone());
+    consensus_write
+        .update_saved_leaves(leaf.clone(), <span class="kw-2">&amp;</span>task_state.upgrade_lock)
+        .<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
         .storage

@@ -429,6 +429,10 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -504,7 +508,7 @@
     <span class="kw">let </span>marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(TestInstanceState::new(
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(TestInstanceState::new(
         launcher.metadata.async_delay_config,
     ))
     .<span class="kw">await
@@ -811,7 +815,7 @@
     <span class="kw">let </span>leaf: Leaf&lt;<span class="kw">_</span>&gt; = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
     <span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
         QuorumData {
-            leaf_commit: leaf.commit(),
+            leaf_commit: leaf.commit(<span class="kw-2">&amp;</span>handle.hotshot.upgrade_lock).<span class="kw">await</span>,
         },
         view,
         <span class="kw-2">&amp;</span>handle.public_key(),
@@ -841,18 +845,22 @@
 }
 
 <span class="doccomment">/// This function will create a fake [`View`] from a provided [`Leaf`].
-</span><span class="kw">pub fn </span>build_fake_view_with_leaf(leaf: Leaf&lt;TestTypes&gt;) -&gt; View&lt;TestTypes&gt; {
-    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default())
-}
+</span><span class="kw">pub async fn </span>build_fake_view_with_leaf&lt;V: Versions&gt;(
+    leaf: Leaf&lt;TestTypes&gt;,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TestTypes, V&gt;,
+) -&gt; View&lt;TestTypes&gt; {
+    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default(), upgrade_lock).<span class="kw">await
+</span>}
 
 <span class="doccomment">/// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.
-</span><span class="kw">pub fn </span>build_fake_view_with_leaf_and_state(
+</span><span class="kw">pub async fn </span>build_fake_view_with_leaf_and_state&lt;V: Versions&gt;(
     leaf: Leaf&lt;TestTypes&gt;,
     state: TestValidatedState,
+    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TestTypes, V&gt;,
 ) -&gt; View&lt;TestTypes&gt; {
     View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(),
+            leaf: leaf.commit(upgrade_lock).<span class="kw">await</span>,
             state: state.into(),
             delta: <span class="prelude-val">None</span>,
         },

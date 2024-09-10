@@ -685,6 +685,7 @@
 <a href="#683" id="683">683</a>
 <a href="#684" id="684">684</a>
 <a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -699,7 +700,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, Dependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -844,7 +844,7 @@
 
         <span class="kw">let </span>view = View {
             view_inner: ViewInner::Leaf {
-                leaf: proposed_leaf.commit(),
+                leaf: proposed_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>,
                 state: Arc::clone(<span class="kw-2">&amp;</span>state),
                 delta: <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
             },
@@ -854,7 +854,9 @@
         {
             <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
         }
-        consensus_writer.update_saved_leaves(proposed_leaf.clone());
+        consensus_writer
+            .update_saved_leaves(proposed_leaf.clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+            .<span class="kw">await</span>;
 
         <span class="comment">// Kick back our updated structures for downstream usage.
         </span><span class="kw">let </span>new_leaves = consensus_writer.saved_leaves().clone();
@@ -896,7 +898,7 @@
         <span class="comment">// Create and send the vote.
         </span><span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
             QuorumData {
-                leaf_commit: leaf.commit(),
+                leaf_commit: leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>,
             },
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
@@ -972,7 +974,7 @@
                     } <span class="kw">else </span>{
                         payload_commitment = <span class="prelude-val">Some</span>(proposal_payload_comm);
                     }
-                    <span class="kw">let </span>parent_commitment = parent_leaf.commit();
+                    <span class="kw">let </span>parent_commitment = parent_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>;
                     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     <span class="kw">if </span>proposed_leaf.parent_commitment() != parent_commitment {
                         <span class="macro">warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>);

@@ -578,6 +578,11 @@
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -592,7 +597,6 @@
     task::{Context, Poll},
 };
 
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
@@ -708,7 +712,7 @@
         <span class="kw">let </span>quorum_proposal_inner = QuorumProposal::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis(
+            justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
@@ -740,8 +744,11 @@
             transactions: transactions.clone(),
         });
 
-        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
-            .expect(<span class="string">"Failed to sign leaf commitment!"</span>);
+        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(
+            <span class="kw-2">&amp;</span>private_key,
+            leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>.as_ref(),
+        )
+        .expect(<span class="string">"Failed to sign leaf commitment!"</span>);
 
         <span class="kw">let </span>quorum_proposal = Proposal {
             data: quorum_proposal_inner,
@@ -788,7 +795,7 @@
         <span class="kw">let </span>transactions = <span class="kw-2">&amp;</span><span class="self">self</span>.transactions;
 
         <span class="kw">let </span>quorum_data = QuorumData {
-            leaf_commit: old.leaf.commit(),
+            leaf_commit: old.leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>,
         };
 
         <span class="kw">let </span>(old_private_key, old_public_key) = key_pair_for_id::&lt;TestTypes&gt;(<span class="kw-2">*</span>old_view);
@@ -939,8 +946,11 @@
             transactions: transactions.clone(),
         });
 
-        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
-            .expect(<span class="string">"Failed to sign leaf commitment."</span>);
+        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(
+            <span class="kw-2">&amp;</span>private_key,
+            leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>.as_ref(),
+        )
+        .expect(<span class="string">"Failed to sign leaf commitment."</span>);
 
         <span class="kw">let </span>quorum_proposal = Proposal {
             data: proposal,
@@ -1002,7 +1012,7 @@
     ) -&gt; QuorumVote&lt;TestTypes&gt; {
         QuorumVote::&lt;TestTypes&gt;::create_signed_vote(
             QuorumData {
-                leaf_commit: <span class="self">self</span>.leaf.commit(),
+                leaf_commit: <span class="self">self</span>.leaf.commit(<span class="kw-2">&amp;</span>handle.hotshot.upgrade_lock).<span class="kw">await</span>,
             },
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span>handle.public_key(),

@@ -822,6 +822,11 @@
 <a href="#820" id="820">820</a>
 <a href="#821" id="821">821</a>
 <a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -839,7 +844,7 @@
 
 <span class="kw">use </span>anyhow::{bail, ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
-<span class="kw">use </span>committable::{Commitment, Committable};
+<span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>tracing::{debug, error, instrument, trace};
 <span class="kw">use </span>vec1::Vec1;
 
@@ -848,12 +853,12 @@
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
     event::HotShotAction,
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -1409,8 +1414,13 @@
     }
 
     <span class="doccomment">/// Update the saved leaves with a new leaf.
-    </span><span class="kw">pub fn </span>update_saved_leaves(<span class="kw-2">&amp;mut </span><span class="self">self</span>, leaf: Leaf&lt;TYPES&gt;) {
-        <span class="self">self</span>.saved_leaves.insert(leaf.commit(), leaf);
+    </span><span class="kw">pub async fn </span>update_saved_leaves&lt;V: Versions&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        leaf: Leaf&lt;TYPES&gt;,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) {
+        <span class="self">self</span>.saved_leaves
+            .insert(leaf.commit(upgrade_lock).<span class="kw">await</span>, leaf);
     }
 
     <span class="doccomment">/// Update the saved payloads with a new encoded transaction.

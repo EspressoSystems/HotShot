@@ -729,6 +729,9 @@
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -915,7 +918,7 @@
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await</span>,
-            high_qc: QuorumCertificate::genesis(
+            high_qc: QuorumCertificate::genesis::&lt;V&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
@@ -940,9 +943,10 @@
             consensus_leaves: BTreeMap::new(),
             safety_properties: <span class="self">self</span>.launcher.metadata.overall_safety_properties,
             ensure_upgrade: <span class="self">self</span>.launcher.metadata.upgrade_view.is_some(),
+            _pd: PhantomData,
         };
 
-        <span class="kw">let </span>consistency_task = TestTask::&lt;ConsistencyTask&lt;TYPES&gt;&gt;::new(
+        <span class="kw">let </span>consistency_task = TestTask::&lt;ConsistencyTask&lt;TYPES, V&gt;&gt;::new(
             consistency_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
@@ -1212,7 +1216,7 @@
                         },
                     );
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis(
+                    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(
                         TestInstanceState::new(<span class="self">self</span>.launcher.metadata.async_delay_config.clone()),
                     )
                     .<span class="kw">await
@@ -1346,7 +1350,8 @@
             storage,
             marketplace_config,
         )
-    }
+        .<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// add a specific node with a config
     /// # Panics
@@ -1385,7 +1390,8 @@
             internal_channel,
             external_channel,
         )
-    }
+        .<span class="kw">await
+    </span>}
 }
 
 <span class="doccomment">/// a node participating in a test

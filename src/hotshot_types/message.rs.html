@@ -478,6 +478,30 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -494,7 +518,6 @@
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>cdn_proto::util::mnemonic;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>vbs::{
@@ -838,13 +861,20 @@
     <span class="doccomment">/// Checks that the signature of the quorum proposal is valid.
     /// # Errors
     /// Returns an error when the proposal signature is invalid.
-    </span><span class="kw">pub fn </span>validate_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub async fn </span>validate_signature&lt;V: Versions&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = <span class="self">self</span>.data.view_number();
         <span class="kw">let </span>view_leader_key = quorum_membership.leader(view_number);
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.data);
 
         <span class="macro">ensure!</span>(
-            view_leader_key.validate(<span class="kw-2">&amp;</span><span class="self">self</span>.signature, proposed_leaf.commit().as_ref()),
+            view_leader_key.validate(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.signature,
+                proposed_leaf.commit(upgrade_lock).<span class="kw">await</span>.as_ref()
+            ),
             <span class="string">"Proposal signature is invalid."
         </span>);
 
@@ -895,6 +925,24 @@
         };
 
         <span class="prelude-val">Ok</span>(version)
+    }
+
+    <span class="doccomment">/// Calculate the version applied in a view, based on the provided upgrade lock.
+    ///
+    /// This function does not fail, since it does not check that the version is supported.
+    </span><span class="kw">pub async fn </span>version_infallible(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; Version {
+        <span class="kw">let </span>upgrade_certificate = <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>;
+
+        <span class="kw">match </span><span class="kw-2">*</span>upgrade_certificate {
+            <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) =&gt; {
+                <span class="kw">if </span>view &gt;= cert.data.new_version_first_view {
+                    cert.data.new_version
+                } <span class="kw">else </span>{
+                    cert.data.old_version
+                }
+            }
+            <span class="prelude-val">None </span>=&gt; V::Base::VERSION,
+        }
     }
 
     <span class="doccomment">/// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.

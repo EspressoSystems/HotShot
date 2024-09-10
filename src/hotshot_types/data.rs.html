@@ -916,6 +916,42 @@
 <a href="#914" id="914">914</a>
 <a href="#915" id="915">915</a>
 <a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -950,21 +986,22 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
 <span class="kw">use </span>tracing::error;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use crate</span>::{
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{
         QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    simple_vote::{QuorumData, UpgradeProposalData},
+    simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
             GENESIS_VID_NUM_STORAGE_NODES,
         },
         election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         states::TestableState,
         BlockPayload,
@@ -1362,6 +1399,29 @@
     </span>block_payload: <span class="prelude-ty">Option</span>&lt;TYPES::BlockPayload&gt;,
 }
 
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
+    <span class="doccomment">/// Calculate the leaf commitment,
+    /// which is gated on the version to include the block header.
+    </span><span class="kw">pub async fn </span>commit&lt;V: Versions&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>version = upgrade_lock.version_infallible(<span class="self">self</span>.view_number).<span class="kw">await</span>;
+
+        <span class="kw">if </span>version &lt; V::Marketplace::VERSION {
+            &lt;<span class="self">Self </span><span class="kw">as </span>Committable&gt;::commit(<span class="self">self</span>)
+        } <span class="kw">else </span>{
+            RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
+                .u64_field(<span class="string">"view number"</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
+                .field(<span class="string">"parent leaf commitment"</span>, <span class="self">self</span>.parent_commitment)
+                .field(<span class="string">"block header"</span>, <span class="self">self</span>.block_header.commit())
+                .field(<span class="string">"justify qc"</span>, <span class="self">self</span>.justify_qc.commit())
+                .optional(<span class="string">"upgrade certificate"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_certificate)
+                .finalize()
+        }
+    }
+}
+
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; PartialEq <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="self">self</span>.view_number == other.view_number
@@ -1395,20 +1455,32 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; QuorumCertificate&lt;TYPES&gt; {
     <span class="attr">#[must_use]
     </span><span class="doccomment">/// Creat the Genesis certificate
-    </span><span class="kw">pub async fn </span>genesis(
+    </span><span class="kw">pub async fn </span>genesis&lt;V: Versions&gt;(
         validated_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState,
     ) -&gt; <span class="self">Self </span>{
+        <span class="comment">// since this is genesis, we should never have a decided upgrade certificate.
+        </span><span class="kw">let </span>upgrade_lock = UpgradeLock::&lt;TYPES, V&gt;::new();
+
+        <span class="kw">let </span>genesis_view = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
+
         <span class="kw">let </span>data = QuorumData {
             leaf_commit: Leaf::genesis(validated_state, instance_state)
                 .<span class="kw">await
-                </span>.commit(),
+                </span>.commit(<span class="kw-2">&amp;</span>upgrade_lock)
+                .<span class="kw">await</span>,
         };
-        <span class="kw">let </span>commit = data.commit();
+
+        <span class="kw">let </span>versioned_data =
+            VersionedVoteData::&lt;<span class="kw">_</span>, <span class="kw">_</span>, V&gt;::new_infallible(data.clone(), genesis_view, <span class="kw-2">&amp;</span>upgrade_lock)
+                .<span class="kw">await</span>;
+
+        <span class="kw">let </span>bytes: [u8; <span class="number">32</span>] = versioned_data.commit().into();
+
         <span class="self">Self</span>::new(
             data,
-            commit,
-            &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            Commitment::from_raw(bytes),
+            genesis_view,
             <span class="prelude-val">None</span>,
             PhantomData,
         )

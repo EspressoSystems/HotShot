@@ -163,7 +163,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TestResult {
+    <span class="kw">async fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TestResult {
         <span class="kw">match </span><span class="self">self</span>.description.clone() {
             ViewSyncTaskDescription::Threshold(min, max) =&gt; {
                 <span class="kw">let </span>num_hits = <span class="self">self</span>.hit_view_sync.len();

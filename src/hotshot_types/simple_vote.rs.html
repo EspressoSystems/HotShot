@@ -334,6 +334,24 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -551,6 +569,24 @@
             version,
             _pd: PhantomData,
         })
+    }
+
+    <span class="doccomment">/// Create a new `VersionedVoteData` struct
+    ///
+    /// This function cannot error, but may use an invalid version.
+    </span><span class="kw">pub async fn </span>new_infallible(
+        data: DATA,
+        view: TYPES::Time,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>version = upgrade_lock.version_infallible(view).<span class="kw">await</span>;
+
+        <span class="self">Self </span>{
+            data,
+            view,
+            version,
+            _pd: PhantomData,
+        }
     }
 }
 

@@ -558,7 +558,7 @@
                                     read_storage.last_actioned_view().<span class="kw">await</span>,
                                     read_storage.proposals_cloned().<span class="kw">await</span>,
                                     read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
-                                        QuorumCertificate::genesis(
+                                        QuorumCertificate::genesis::&lt;V&gt;(
                                             <span class="kw-2">&amp;</span>TestValidatedState::default(),
                                             <span class="kw-2">&amp;</span>TestInstanceState::default(),
                                         )
@@ -644,7 +644,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TestResult {
+    <span class="kw">async fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TestResult {
         TestResult::Pass
     }
 }

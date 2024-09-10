@@ -367,6 +367,7 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -382,7 +383,6 @@
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::{
     dependency::{Dependency, EventDependency},
     dependency_task::HandleDepOutput,
@@ -580,13 +580,15 @@
 
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
         <span class="macro">ensure!</span>(
-            proposed_leaf.parent_commitment() == parent_leaf.commit(),
+            proposed_leaf.parent_commitment() == parent_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>,
             <span class="string">"Proposed leaf parent does not equal high qc"
         </span>);
 
-        <span class="kw">let </span>signature =
-            TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, proposed_leaf.commit().as_ref())
-                .context(<span class="string">"Failed to compute proposed_leaf.commit()"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+            proposed_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>.as_ref(),
+        )
+        .context(<span class="string">"Failed to compute proposed_leaf.commit()"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>message = Proposal {
             data: proposal,

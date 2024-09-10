@@ -1027,6 +1027,12 @@
 <a href="#1025" id="1025">1025</a>
 <a href="#1026" id="1026">1026</a>
 <a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1066,7 +1072,6 @@
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::join;
 <span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
@@ -1223,7 +1228,7 @@
     ///
     /// Use this instead of `init` if you want to start the tasks manually
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    </span><span class="kw">pub fn </span>new(
+    </span><span class="kw">pub async fn </span>new(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
@@ -1252,7 +1257,8 @@
             interal_chan,
             external_chan,
         )
-    }
+        .<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options.
     ///
@@ -1262,7 +1268,7 @@
     /// Use this function if you want to use some prexisting channels and to spin up the tasks
     /// and start consensus manually.  Mostly useful for tests
     </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    </span><span class="kw">pub fn </span>new_from_channels(
+    </span><span class="kw">pub async fn </span>new_from_channels(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
@@ -1308,7 +1314,7 @@
             anchored_leaf.view_number(),
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: anchored_leaf.commit(),
+                    leaf: anchored_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
                     state: Arc::clone(<span class="kw-2">&amp;</span>validated_state),
                     delta: initializer.state_delta.clone(),
                 },
@@ -1320,10 +1326,13 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
         <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
-        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+        saved_leaves.insert(
+            anchored_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
+            anchored_leaf.clone(),
+        );
 
         <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leafs {
-            saved_leaves.insert(leaf.commit(), leaf.clone());
+            saved_leaves.insert(leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>, leaf.clone());
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.block_payload() {
             <span class="kw">let </span>encoded_txns = payload.encode();
@@ -1440,7 +1449,7 @@
                     TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
 
                 <span class="kw">let </span>qc = Arc::new(
-                    QuorumCertificate::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="self">self</span>.instance_state.as_ref())
+                    QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="self">self</span>.instance_state.as_ref())
                         .<span class="kw">await</span>,
                 );
 
@@ -1625,7 +1634,8 @@
             metrics,
             storage,
             marketplace_config,
-        );
+        )
+        .<span class="kw">await</span>;
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span>hotshot).run_tasks().<span class="kw">await</span>;
         <span class="kw">let </span>(tx, rx) = hotshot.internal_event_stream.clone();
 
@@ -1782,7 +1792,8 @@
             metrics.clone(),
             storage.clone(),
             marketplace_config.clone(),
-        );
+        )
+        .<span class="kw">await</span>;
         <span class="kw">let </span>right_system_context = SystemContext::new(
             public_key,
             private_key,
@@ -1794,7 +1805,8 @@
             metrics,
             storage,
             marketplace_config,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// create registries for both handles
         </span><span class="kw">let </span>left_consensus_registry = ConsensusTaskRegistry::new();
@@ -2001,11 +2013,11 @@
     <span class="doccomment">/// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    </span><span class="kw">pub async fn </span>from_genesis(
+    </span><span class="kw">pub async fn </span>from_genesis&lt;V: Versions&gt;(
         instance_state: TYPES::InstanceState,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
-        <span class="kw">let </span>high_qc = QuorumCertificate::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
+        <span class="kw">let </span>high_qc = QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
