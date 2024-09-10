@@ -239,10 +239,6 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -421,8 +417,6 @@
     <span class="doccomment">/// Total number of nodes in the network
     </span><span class="comment">// Earlier it was total_nodes
     </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,
-    <span class="doccomment">/// Number of nodes without stake
-    </span><span class="kw">pub </span>num_nodes_without_stake: usize,
     <span class="doccomment">/// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// All public keys known to be DA nodes
@@ -433,8 +427,6 @@
     </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
     <span class="doccomment">/// List of DA committee (staking)nodes for static DA committee
     </span><span class="kw">pub </span>da_staked_committee_size: usize,
-    <span class="doccomment">/// List of DA committee nodes (non-staking)nodes for static DA committee
-    </span><span class="kw">pub </span>da_non_staked_committee_size: usize,
     <span class="doccomment">/// Number of fixed leaders for GPU VID, normally it will be 0, it's only used when running GPU VID
     </span><span class="kw">pub </span>fixed_leader_for_gpuvid: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds

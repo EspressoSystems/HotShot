@@ -906,7 +906,7 @@
                 .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
         {
             <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
-            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.staked_committee(view) {
+            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.committee_members(view) {
                 <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
                     validated = <span class="bool-val">true</span>;
                     <span class="kw">break</span>;

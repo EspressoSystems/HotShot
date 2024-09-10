@@ -59,31 +59,6 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -91,63 +66,29 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
-
-</span><span class="comment">// Needed to avoid the non-binding `let` warning.
-</span><span class="attr">#![allow(clippy::let_underscore_untyped)]
-
-</span><span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
-
-<span class="kw">use </span>snafu::Snafu;
-
-<span class="kw">use super</span>::{network::Topic, node_implementation::NodeType};
+</span><span class="kw">use super</span>::{network::Topic, node_implementation::NodeType};
 <span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
-
-<span class="doccomment">/// Error for election problems
-</span><span class="attr">#[derive(Snafu, Debug)]
-</span><span class="kw">pub enum </span>ElectionError {
-    <span class="doccomment">/// stub error to be filled in
-    </span>StubError,
-    <span class="doccomment">/// Math error doing something
-    /// NOTE: it would be better to make Election polymorphic over
-    /// the election error and then have specific math errors
-    </span>MathError,
-}
+<span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
 <span class="doccomment">/// A protocol for determining membership in and participating in a committee.
 </span><span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;:
     Clone + Debug + Eq + PartialEq + Send + Sync + Hash + <span class="lifetime">'static
 </span>{
-    <span class="doccomment">/// create an election
-    /// TODO may want to move this to a testableelection trait
-    </span><span class="kw">fn </span>create_election(
-        all_nodes: Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
+    <span class="doccomment">/// Create a committee
+    </span><span class="kw">fn </span>new(
+        <span class="comment">// Note: eligible_leaders is currently a hack because the DA leader == the quorum leader
+        // but they should not have voting power.
+        </span>eligible_leaders: Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
         committee_members: Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
         committee_topic: Topic,
-        fixed_leader_for_gpuvid: usize,
+        <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)] </span>fixed_leader_for_gpuvid: usize,
     ) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Clone the public key and corresponding stake table for current elected committee
-    </span><span class="kw">fn </span>committee_qc_stake_table(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
+    <span class="doccomment">/// Get all participants in the committee (including their stake)
+    </span><span class="kw">fn </span>stake_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
-    <span class="doccomment">/// The leader of the committee for view `view_number`.
-    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
-
-    <span class="doccomment">/// The staked members of the committee for view `view_number`.
-    </span><span class="kw">fn </span>staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
-
-    <span class="doccomment">/// The non-staked members of the committee for view `view_number`.
-    </span><span class="kw">fn </span>non_staked_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
-
-    <span class="doccomment">/// Get whole (staked + non-staked) committee for view `view_number`.
-    </span><span class="kw">fn </span>whole_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
-
-    <span class="doccomment">/// Get the network topic for the committee
-    </span><span class="kw">fn </span>committee_topic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Topic;
-
-    <span class="doccomment">/// Check if a key has stake
-    </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool;
+    <span class="doccomment">/// Get all participants in the committee for a specific view
+    </span><span class="kw">fn </span>committee_members(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table
@@ -155,6 +96,15 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
+
+    <span class="doccomment">/// See if a node has stake in the committee
+    </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool;
+
+    <span class="doccomment">/// The leader of the committee for view `view_number`.
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
+
+    <span class="doccomment">/// Get the network topic for the committee
+    </span><span class="kw">fn </span>committee_topic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Topic;
 
     <span class="doccomment">/// Returns the number of total nodes in the committee
     </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;

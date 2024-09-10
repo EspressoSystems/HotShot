@@ -735,14 +735,6 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1244,8 +1236,6 @@
     </span><span class="kw">pub </span>start_threshold: (u64, u64),
     <span class="doccomment">/// Total number of staked nodes in the network
     </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,
-    <span class="doccomment">/// Total number of non-staked nodes in the network
-    </span><span class="kw">pub </span>num_nodes_without_stake: usize,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// My own public key, secret key, stake value
     </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
@@ -1260,8 +1250,6 @@
     </span><span class="kw">pub </span>known_nodes_without_stake: Vec&lt;KEY&gt;,
     <span class="doccomment">/// Number of staking DA nodes
     </span><span class="kw">pub </span>staked_da_nodes: usize,
-    <span class="doccomment">/// Number of non-staking DA nodes
-    </span><span class="kw">pub </span>non_staked_da_nodes: usize,
     <span class="doccomment">/// Number of fixed leaders for GPU VID
     </span><span class="kw">pub </span>fixed_leader_for_gpuvid: usize,
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
@@ -1386,13 +1374,11 @@
             execution_type: ExecutionType::Continuous,
             start_threshold: val.start_threshold,
             num_nodes_with_stake: val.num_nodes_with_stake,
-            num_nodes_without_stake: val.num_nodes_without_stake,
             known_da_nodes: val.known_da_nodes,
             known_nodes_with_stake: val.known_nodes_with_stake,
             known_nodes_without_stake: val.known_nodes_without_stake,
             my_own_validator_config: val.my_own_validator_config,
             da_staked_committee_size: val.staked_da_nodes,
-            da_non_staked_committee_size: val.non_staked_da_nodes,
             fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
@@ -1465,13 +1451,11 @@
         <span class="self">Self </span>{
             num_nodes_with_stake: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
             start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
-            num_nodes_without_stake: <span class="number">0</span>,
             my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             known_nodes_without_stake: <span class="macro">vec!</span>[],
             staked_da_nodes,
             known_da_nodes,
-            non_staked_da_nodes: <span class="number">0</span>,
             fixed_leader_for_gpuvid: <span class="number">1</span>,
             next_view_timeout: <span class="number">10000</span>,
             view_sync_timeout: Duration::from_millis(<span class="number">1000</span>),

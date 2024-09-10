@@ -1029,10 +1029,6 @@
 <a href="#1027" id="1027">1027</a>
 <a href="#1028" id="1028">1028</a>
 <a href="#1029" id="1029">1029</a>
-<a href="#1030" id="1030">1030</a>
-<a href="#1031" id="1031">1031</a>
-<a href="#1032" id="1032">1032</a>
-<a href="#1033" id="1033">1033</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1125,14 +1121,10 @@
 <span class="doccomment">/// Bundle of all the memberships a consensus instance uses
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Memberships&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Quorum Membership
+    <span class="doccomment">/// The entire quorum
     </span><span class="kw">pub </span>quorum_membership: TYPES::Membership,
-    <span class="doccomment">/// DA
+    <span class="doccomment">/// The DA nodes
     </span><span class="kw">pub </span>da_membership: TYPES::Membership,
-    <span class="doccomment">/// VID
-    </span><span class="kw">pub </span>vid_membership: TYPES::Membership,
-    <span class="doccomment">/// View Sync
-    </span><span class="kw">pub </span>view_sync_membership: TYPES::Membership,
 }
 
 <span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus

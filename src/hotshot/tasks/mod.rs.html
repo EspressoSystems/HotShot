@@ -609,10 +609,6 @@
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1110,8 +1106,6 @@
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>handle.network);
         <span class="kw">let </span>quorum_membership = handle.memberships.quorum_membership.clone();
         <span class="kw">let </span>da_membership = handle.memberships.da_membership.clone();
-        <span class="kw">let </span>vid_membership = handle.memberships.vid_membership.clone();
-        <span class="kw">let </span>view_sync_membership = handle.memberships.view_sync_membership.clone();
 
         <span class="self">self</span>.add_network_event_task(
             handle,
@@ -1122,7 +1116,7 @@
         <span class="self">self</span>.add_network_event_task(
             handle,
             Arc::clone(<span class="kw-2">&amp;</span>network),
-            quorum_membership,
+            quorum_membership.clone(),
             network::upgrade_filter,
         );
         <span class="self">self</span>.add_network_event_task(
@@ -1134,13 +1128,13 @@
         <span class="self">self</span>.add_network_event_task(
             handle,
             Arc::clone(<span class="kw-2">&amp;</span>network),
-            view_sync_membership,
+            quorum_membership.clone(),
             network::view_sync_filter,
         );
         <span class="self">self</span>.add_network_event_task(
             handle,
             Arc::clone(<span class="kw-2">&amp;</span>network),
-            vid_membership,
+            quorum_membership,
             network::vid_filter,
         );
     }
@@ -1192,8 +1186,6 @@
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>handle.network);
     <span class="kw">let </span>quorum_membership = handle.memberships.quorum_membership.clone();
     <span class="kw">let </span>da_membership = handle.memberships.da_membership.clone();
-    <span class="kw">let </span>vid_membership = handle.memberships.vid_membership.clone();
-    <span class="kw">let </span>view_sync_membership = handle.memberships.view_sync_membership.clone();
 
     add_network_event_task(
         handle,
@@ -1204,7 +1196,7 @@
     add_network_event_task(
         handle,
         Arc::clone(<span class="kw-2">&amp;</span>network),
-        quorum_membership,
+        quorum_membership.clone(),
         network::upgrade_filter,
     );
     add_network_event_task(
@@ -1216,13 +1208,13 @@
     add_network_event_task(
         handle,
         Arc::clone(<span class="kw-2">&amp;</span>network),
-        view_sync_membership,
+        quorum_membership.clone(),
         network::view_sync_filter,
     );
     add_network_event_task(
         handle,
         Arc::clone(<span class="kw-2">&amp;</span>network),
-        vid_membership,
+        quorum_membership,
         network::vid_filter,
     );
 }

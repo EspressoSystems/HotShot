@@ -423,16 +423,6 @@
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -514,36 +504,26 @@
     .<span class="kw">await
     </span>.unwrap();
 
-    <span class="kw">let </span>known_nodes_with_stake = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();
     <span class="kw">let </span>public_key = config.my_own_validator_config.public_key.clone();
 
-    <span class="kw">let </span>_known_nodes_without_stake = config.known_nodes_without_stake.clone();
+    <span class="kw">let </span>all_nodes = config.known_nodes_with_stake.clone();
+    <span class="kw">let </span>da_nodes = config.known_da_nodes.clone();
 
     <span class="kw">let </span>memberships = Memberships {
-        quorum_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
+        quorum_membership: TYPES::Membership::new(
+            all_nodes.clone(),
+            all_nodes.clone(),
             Topic::Global,
-            config.fixed_leader_for_gpuvid,
+            <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
+            </span>config.fixed_leader_for_gpuvid,
         ),
-        da_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            config.known_da_nodes.clone(),
+        da_membership: TYPES::Membership::new(
+            all_nodes,
+            da_nodes,
             Topic::Da,
-            config.fixed_leader_for_gpuvid,
-        ),
-        vid_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
-            Topic::Global,
-            config.fixed_leader_for_gpuvid,
-        ),
-        view_sync_membership: TYPES::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake,
-            Topic::Global,
-            config.fixed_leader_for_gpuvid,
+            <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
+            </span>config.fixed_leader_for_gpuvid,
         ),
     };
 
@@ -642,7 +622,7 @@
     view: TYPES::Time,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType {
-    <span class="kw">let </span>stake_table = membership.committee_qc_stake_table();
+    <span class="kw">let </span>stake_table = membership.stake_table();
     <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table.clone(),
@@ -699,7 +679,7 @@
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view_number: TYPES::Time,
 ) -&gt; VidSchemeType {
-    <span class="kw">let </span>num_storage_nodes = membership.staked_committee(view_number).len();
+    <span class="kw">let </span>num_storage_nodes = membership.committee_members(view_number).len();
     vid_scheme(num_storage_nodes)
 }
 

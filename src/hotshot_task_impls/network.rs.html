@@ -1284,7 +1284,7 @@
             kind: message_kind,
         };
         <span class="kw">let </span>view = message.kind.view_number();
-        <span class="kw">let </span>committee = membership.whole_committee(view);
+        <span class="kw">let </span>committee = membership.committee_members(view);
         <span class="kw">let </span>committee_topic = membership.committee_topic();
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.channel);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);

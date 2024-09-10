@@ -1131,7 +1131,7 @@
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
-            .staked_committee(view_number)
+            .committee_members(view_number)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
             .collect();

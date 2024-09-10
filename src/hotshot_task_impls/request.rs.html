@@ -611,7 +611,7 @@
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
             </span>.da_membership
-            .whole_committee(view)
+            .committee_members(view)
             .into_iter()
             .collect();
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients

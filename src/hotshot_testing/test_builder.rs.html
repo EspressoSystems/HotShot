@@ -507,22 +507,6 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -585,8 +569,6 @@
 </span><span class="kw">pub struct </span>TestDescription&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Total number of staked nodes in the test
     </span><span class="kw">pub </span>num_nodes_with_stake: usize,
-    <span class="doccomment">/// Total number of non-staked nodes in the test
-    </span><span class="kw">pub </span>num_nodes_without_stake: usize,
     <span class="doccomment">/// nodes available at start
     </span><span class="kw">pub </span>start_nodes: usize,
     <span class="doccomment">/// Whether to skip initializing nodes that will start late, which will catch up later with
@@ -596,8 +578,6 @@
     </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
     <span class="doccomment">/// Size of the staked DA committee for the test
     </span><span class="kw">pub </span>da_staked_committee_size: usize,
-    <span class="doccomment">/// Size of the non-staked DA committee for the test
-    </span><span class="kw">pub </span>da_non_staked_committee_size: usize,
     <span class="doccomment">/// overall safety property description
     </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription&lt;TYPES&gt;,
     <span class="doccomment">/// spinning properties
@@ -764,12 +744,10 @@
     #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">100</span>;
-        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
 
         <span class="self">Self </span>{
             num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
-            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
                 num_successful_views: <span class="number">50</span>,
@@ -797,13 +775,11 @@
     #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
-        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         TestDescription::&lt;TYPES, I, V&gt; {
             <span class="comment">// TODO: remove once we have fixed the DHT timeout issue
             // https://github.com/EspressoSystems/HotShot/issues/2088
             </span>num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
-            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
                 num_successful_views: <span class="number">20</span>,
@@ -829,10 +805,8 @@
     #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_more_nodes() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">20</span>;
-        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         <span class="self">Self </span>{
             num_nodes_with_stake,
-            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             num_bootstrap_nodes: num_nodes_with_stake,
             <span class="comment">// The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
@@ -867,16 +841,13 @@
     </span><span class="attr">#[allow(clippy::redundant_field_names)]
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">6</span>;
-        <span class="kw">let </span>num_nodes_without_stake = <span class="number">0</span>;
         <span class="self">Self </span>{
             timing_data: TimingData::default(),
             num_nodes_with_stake,
-            num_nodes_without_stake,
             start_nodes: num_nodes_with_stake,
             skip_late: <span class="bool-val">false</span>,
             num_bootstrap_nodes: num_nodes_with_stake,
             da_staked_committee_size: num_nodes_with_stake,
-            da_non_staked_committee_size: num_nodes_without_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: <span class="macro">vec!</span>[],
             },
@@ -929,7 +900,6 @@
             num_bootstrap_nodes,
             timing_data,
             da_staked_committee_size,
-            da_non_staked_committee_size,
             unreliable_network,
             ..
         } = <span class="self">self</span>.clone();
@@ -971,13 +941,11 @@
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
             <span class="comment">// Currently making this zero for simplicity
             </span>known_da_nodes,
-            num_nodes_without_stake: <span class="number">0</span>,
             num_bootstrap: num_bootstrap_nodes,
             known_nodes_with_stake,
             known_nodes_without_stake: <span class="macro">vec!</span>[],
             my_own_validator_config,
             da_staked_committee_size,
-            da_non_staked_committee_size,
             fixed_leader_for_gpuvid: <span class="number">1</span>,
             next_view_timeout: <span class="number">500</span>,
             view_sync_timeout: Duration::from_millis(<span class="number">250</span>),

@@ -1079,6 +1079,8 @@
 <a href="#1077" id="1077">1077</a>
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1458,32 +1460,34 @@
         <span class="comment">// Get KeyPair for certificate Aggregation
         </span><span class="kw">let </span>pk = config.config.my_own_validator_config.public_key.clone();
         <span class="kw">let </span>sk = config.config.my_own_validator_config.private_key.clone();
-        <span class="kw">let </span>known_nodes_with_stake = config.config.known_nodes_with_stake.clone();
 
         <span class="kw">let </span>network = <span class="self">self</span>.network();
 
+        <span class="kw">let </span>all_nodes = config.config.known_nodes_with_stake.clone();
+        <span class="kw">let </span>da_nodes = config.config.known_da_nodes.clone();
+
         <span class="comment">// Create the quorum membership from all nodes
-        </span><span class="kw">let </span>quorum_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            known_nodes_with_stake.clone(),
+        </span><span class="kw">let </span>quorum_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(
+            all_nodes.clone(),
+            all_nodes.clone(),
             Topic::Global,
-            config.config.fixed_leader_for_gpuvid,
+            <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
+            </span>config.config.fixed_leader_for_gpuvid,
         );
 
         <span class="comment">// Create the quorum membership from all nodes, specifying the committee
         // as the known da nodes
-        </span><span class="kw">let </span>da_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::create_election(
-            known_nodes_with_stake.clone(),
-            config.config.known_da_nodes.clone(),
+        </span><span class="kw">let </span>da_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(
+            all_nodes.clone(),
+            da_nodes,
             Topic::Da,
-            config.config.fixed_leader_for_gpuvid,
+            <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
+            </span>config.config.fixed_leader_for_gpuvid,
         );
 
         <span class="kw">let </span>memberships = Memberships {
             quorum_membership: quorum_membership.clone(),
             da_membership,
-            vid_membership: quorum_membership.clone(),
-            view_sync_membership: quorum_membership,
         };
 
         <span class="kw">let </span>marketplace_config = MarketplaceConfig {
