@@ -105,10 +105,10 @@ pub(crate) async fn handle_quorum_proposal_validated<
             .number_of_views_per_decide_event
             .add_point(cur_number_of_views_per_decide_event as f64);
 
-        debug!(
-            "Sending Decide for view {:?}",
-            consensus_writer.last_decided_view()
-        );
+        // // debug!(
+        //     "Sending Decide for view {:?}",
+        //     consensus_writer.last_decided_view()
+        // );
 
         // We don't need to hold this while we broadcast
         drop(consensus_writer);
@@ -129,7 +129,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         .await;
 
         broadcast_event(Arc::new(HotShotEvent::LeafDecided(leaves_decided)), sender).await;
-        debug!("Successfully sent decide event");
+        // debug!("Successfully sent decide event");
     }
 
     Ok(())

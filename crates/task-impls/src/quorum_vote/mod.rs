@@ -219,10 +219,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         )
         .await
         .context("Failed to sign vote")?;
-        debug!(
-            "sending vote to next quorum leader {:?}",
-            vote.view_number() + 1
-        );
+        // // debug!(
+        //     "sending vote to next quorum leader {:?}",
+        //     vote.view_number() + 1
+        // );
         // Add to the storage.
         self.storage
             .write()
@@ -351,7 +351,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
         }
 
         if let Err(e) = self.submit_vote(leaf, vid_share).await {
-            debug!("Failed to vote; error = {e:#}");
+            // debug!("Failed to vote; error = {e:#}");
         }
     }
 }
@@ -507,16 +507,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
     async fn update_latest_voted_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_voted_view < *new_view {
-            debug!(
-                "Updating next vote view from {} to {} in the quorum vote task",
-                *self.latest_voted_view, *new_view
-            );
+            // // debug!(
+            //     "Updating next vote view from {} to {} in the quorum vote task",
+            //     *self.latest_voted_view, *new_view
+            // );
 
             // Cancel the old dependency tasks.
             for view in *self.latest_voted_view..(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::Time::new(view)) {
                     cancel_task(dependency).await;
-                    debug!("Vote dependency removed for view {:?}", view);
+                    // debug!("Vote dependency removed for view {:?}", view);
                 }
             }
 
@@ -543,7 +543,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, &event_sender, self).await
                 {
-                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
+                    // debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
 
                 self.create_dependency_task_if_new(
@@ -635,7 +635,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .update_vid_shares(view, disperse.clone());
 
                 if disperse.data.recipient_key != self.public_key {
-                    debug!("Got a Valid VID share but it's not for our key");
+                    // debug!("Got a Valid VID share but it's not for our key");
                     return;
                 }
 
@@ -647,9 +647,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
-                debug!("All vote dependencies verified for view {:?}", view_number);
+                // debug!("All vote dependencies verified for view {:?}", view_number);
                 if !self.update_latest_voted_view(*view_number).await {
-                    debug!("view not updated");
+                    // debug!("view not updated");
                     return;
                 }
             }

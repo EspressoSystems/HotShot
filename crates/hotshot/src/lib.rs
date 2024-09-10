@@ -246,7 +246,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         ),
         external_channel: (Sender<Event<TYPES>>, Receiver<Event<TYPES>>),
     ) -> Arc<Self> {
-        // debug!("Creating a new hotshot");
+        // // debug!("Creating a new hotshot");
 
         let consensus_metrics = Arc::new(metrics);
         let anchored_leaf = initializer.inner;
@@ -355,7 +355,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         #[cfg(all(feature = "rewind", not(debug_assertions)))]
         compile_error!("Cannot run rewind in production builds!");
 
-        // debug!("Starting Consensus");
+        // // debug!("Starting Consensus");
         let consensus = self.consensus.read().await;
 
         #[allow(clippy::panic)]
@@ -439,7 +439,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     // A copypasta of `ConsensusApi::send_event`
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
-        // debug!(?event, "send_external_event");
+        // // debug!(?event, "send_external_event");
         broadcast_event(event, &self.external_event_stream.0).await;
     }
 
@@ -919,7 +919,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusApi<TY
     }
 
     async fn send_event(&self, event: Event<TYPES>) {
-        debug!(?event, "send_event");
+        // debug!(?event, "send_event");
         broadcast_event(event, &self.hotshot.external_event_stream.0).await;
     }
 

@@ -116,7 +116,7 @@ pub(crate) async fn handle_view_change<
     );
 
     let old_view_number = task_state.cur_view;
-    // debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
+    // // debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
 
     // Move this node to the next view
     task_state.cur_view = new_view_number;
@@ -239,10 +239,10 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    debug!(
-        "We did not receive evidence for view {} in time, sending timeout vote for that view!",
-        *view_number
-    );
+    // // debug!(
+    //     "We did not receive evidence for view {} in time, sending timeout vote for that view!",
+    //     *view_number
+    // );
 
     broadcast_event(
         Event {

@@ -225,10 +225,10 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             signature,
             _pd: PhantomData,
         };
-        debug!(
-            "Sending proposal for view {:?}",
-            proposed_leaf.view_number(),
-        );
+        // // debug!(
+        //     "Sending proposal for view {:?}",
+        //     proposed_leaf.view_number(),
+        // );
 
         async_sleep(Duration::from_millis(self.round_start_delay)).await;
         broadcast_event(

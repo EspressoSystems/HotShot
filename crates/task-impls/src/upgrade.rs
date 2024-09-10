@@ -210,11 +210,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     error!("Failed to sign UpgradeVote!");
                     return None;
                 };
-                debug!("Sending upgrade vote {:?}", vote.view_number());
+                // debug!("Sending upgrade vote {:?}", vote.view_number());
                 broadcast_event(Arc::new(HotShotEvent::UpgradeVoteSend(vote)), &tx).await;
             }
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
-                debug!("Upgrade vote recv, Main Task {:?}", vote.view_number());
+                // debug!("Upgrade vote recv, Main Task {:?}", vote.view_number());
 
                 // Check if we are the leader.
                 {

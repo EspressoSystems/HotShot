@@ -139,10 +139,10 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
         _pd: PhantomData,
     };
 
-    debug!(
-        "Sending proposal for view {:?}",
-        proposed_leaf.view_number(),
-    );
+    // // debug!(
+    //     "Sending proposal for view {:?}",
+    //     proposed_leaf.view_number(),
+    // );
 
     async_sleep(Duration::from_millis(round_start_delay)).await;
 
@@ -313,7 +313,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
-    // debug!(
+    // // debug!(
     //     "Received Quorum Proposal for view {}",
     //     *proposal.data.view_number
     // );
@@ -360,7 +360,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     )
     .await
     {
-        debug!("Failed to update view; error = {e:#}");
+        // debug!("Failed to update view; error = {e:#}");
     }
 
     let mut parent_leaf = task_state
@@ -485,10 +485,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
             let qc = high_qc.clone();
             if should_propose {
-                debug!(
-                    "Attempting to publish proposal after voting for liveness; now in view: {}",
-                    *new_view
-                );
+                // // debug!(
+                //     "Attempting to publish proposal after voting for liveness; now in view: {}",
+                //     *new_view
+                // );
                 let create_and_send_proposal_handle = publish_proposal_if_able(
                     qc.view_number + 1,
                     event_sender,
@@ -601,15 +601,15 @@ pub async fn handle_quorum_proposal_validated<
         .spawn_vote_task(view, event_sender.clone(), event_receiver.clone())
         .await;
     if should_propose {
-        debug!(
-            "Attempting to publish proposal after voting; now in view: {}",
-            *new_view
-        );
+        // // debug!(
+        //     "Attempting to publish proposal after voting; now in view: {}",
+        //     *new_view
+        // );
         if let Err(e) = task_state
             .publish_proposal(new_view, event_sender.clone(), event_receiver.clone())
             .await
         {
-            debug!("Failed to propose; error = {e:?}");
+            // debug!("Failed to propose; error = {e:?}");
         };
     }
 
@@ -650,19 +650,19 @@ pub async fn handle_quorum_proposal_validated<
             .number_of_views_per_decide_event
             .add_point(cur_number_of_views_per_decide_event as f64);
 
-        debug!(
-            "Sending Decide for view {:?}",
-            consensus.last_decided_view()
-        );
+        // // debug!(
+        //     "Sending Decide for view {:?}",
+        //     consensus.last_decided_view()
+        // );
         drop(consensus);
-        debug!("Decided txns len {:?}", block_size);
+        // debug!("Decided txns len {:?}", block_size);
         decide_sent.await;
         broadcast_event(
             Arc::new(HotShotEvent::LeafDecided(res.leaves_decided)),
             &event_sender,
         )
         .await;
-        debug!("decide send succeeded");
+        // debug!("decide send succeeded");
     }
 
     Ok(())
@@ -713,21 +713,21 @@ pub async fn update_state_and_vote_if_able<
     use hotshot_types::simple_vote::QuorumVote;
 
     if !quorum_membership.has_stake(&public_key) {
-        debug!("We were not chosen for quorum committee on {:?}", cur_view);
+        // debug!("We were not chosen for quorum committee on {:?}", cur_view);
         return false;
     }
 
     let read_consnesus = consensus.read().await;
     // Only vote if you has seen the VID share for this view
     let Some(vid_shares) = read_consnesus.vid_shares().get(&proposal.view_number) else {
-        debug!(
-            "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
-            proposal.view_number
-        );
+        // // debug!(
+        //     "We have not seen the VID share for this view {:?} yet, so we cannot vote.",
+        //     proposal.view_number
+        // );
         return false;
     };
     let Some(vid_share) = vid_shares.get(&public_key).cloned() else {
-        debug!("we have not seen our VID share yet");
+        // debug!("we have not seen our VID share yet");
         return false;
     };
 
@@ -893,10 +893,10 @@ pub async fn update_state_and_vote_if_able<
     }
 
     if let GeneralConsensusMessage::Vote(vote) = message {
-        debug!(
-            "Sending vote to next quorum leader {:?}",
-            vote.view_number() + 1
-        );
+        // // debug!(
+        //     "Sending vote to next quorum leader {:?}",
+        //     vote.view_number() + 1
+        // );
         // Add to the storage that we have received the VID disperse for a specific view
         if let Err(e) = storage.write().await.append_vid(&vid_share).await {
             warn!(
@@ -912,9 +912,9 @@ pub async fn update_state_and_vote_if_able<
         .await;
         return true;
     }
-    debug!(
-        "Received VID share, but couldn't find DAC cert for view {:?}",
-        *proposal.view_number(),
-    );
+    // // debug!(
+    //     "Received VID share, but couldn't find DAC cert for view {:?}",
+    //     *proposal.view_number(),
+    // );
     false
 }

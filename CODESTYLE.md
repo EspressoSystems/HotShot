@@ -3,11 +3,11 @@
 ## Logging Guidelines
 
 ### Debug
-Use `debug!` for routine events that occur frequently within the system.
+Use `// debug!` for routine events that occur frequently within the system.
 
 Example:
 ```rust
-debug!("View {} decided", view_number);
+// debug!("View {} decided", view_number);
 ```
 
 ### Info

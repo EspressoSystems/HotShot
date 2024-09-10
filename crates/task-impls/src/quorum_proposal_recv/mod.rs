@@ -139,7 +139,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 Ok(()) => {
                     self.cancel_tasks(proposal.data.view_number()).await;
                 }
-                Err(e) => debug!(?e, "Failed to validate the proposal"),
+                Err(e) => {},// debug!(?e, "Failed to validate the proposal"),
             }
         }
     }

@@ -530,7 +530,7 @@ pub trait RunDa<
 
                             if let Some(size) = block_size {
                                 total_transactions_committed += size;
-                                debug!("[{node_index}] got block with size: {:?}", size);
+                                // debug!("[{node_index}] got block with size: {:?}", size);
                             }
 
                             num_successful_commits += leaf_chain.len();
@@ -918,16 +918,16 @@ pub async fn main_entry_point<
         .try_into()
         .expect("Orchestrator didn't provide any builder addresses");
 
-    debug!(
-        "Assigned urls from orchestrator: {}",
-        run_config
-            .config
-            .builder_urls
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<String>>()
-            .join(",")
-    );
+    // // debug!(
+    //     "Assigned urls from orchestrator: {}",
+    //     run_config
+    //         .config
+    //         .builder_urls
+    //         .iter()
+    //         .map(ToString::to_string)
+    //         .collect::<Vec<String>>()
+    //         .join(",")
+    // );
 
     info!("Initializing networking");
     let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;

@@ -179,7 +179,7 @@ impl<'a, TYPES: NodeType> DerefMut for ConsensusWriteLockGuard<'a, TYPES> {
 impl<'a, TYPES: NodeType> Drop for ConsensusWriteLockGuard<'a, TYPES> {
     #[instrument(skip_all, target = "ConsensusWriteLockGuard")]
     fn drop(&mut self) {
-        // debug!("Write lock on consensus dropped");
+        // // debug!("Write lock on consensus dropped");
     }
 }
 
@@ -206,9 +206,9 @@ impl<'a, TYPES: NodeType> ConsensusUpgradableReadLockGuard<'a, TYPES> {
     pub async fn upgrade(mut guard: Self) -> ConsensusWriteLockGuard<'a, TYPES> {
         let inner_guard = unsafe { ManuallyDrop::take(&mut guard.lock_guard) };
         guard.taken = true;
-        debug!("Trying to upgrade upgradable read lock on consensus");
+        // debug!("Trying to upgrade upgradable read lock on consensus");
         let ret = RwLockUpgradableReadGuard::upgrade(inner_guard).await;
-        debug!("Upgraded upgradable read lock on consensus");
+        // debug!("Upgraded upgradable read lock on consensus");
         ConsensusWriteLockGuard::new(ret)
     }
 }
@@ -226,7 +226,7 @@ impl<'a, TYPES: NodeType> Drop for ConsensusUpgradableReadLockGuard<'a, TYPES> {
     fn drop(&mut self) {
         if !self.taken {
             unsafe { ManuallyDrop::drop(&mut self.lock_guard) }
-            debug!("Upgradable read lock on consensus dropped");
+            // debug!("Upgradable read lock on consensus dropped");
         }
     }
 }
@@ -619,7 +619,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             high_qc.view_number > self.high_qc.view_number,
             "High QC with an equal or higher view exists."
         );
-        debug!("Updating high QC");
+        // debug!("Updating high QC");
         self.high_qc = high_qc;
 
         Ok(())

@@ -108,7 +108,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     )
     .await
     {
-        debug!("Liveness Branch - Failed to update view; error = {e:#}");
+        // debug!("Liveness Branch - Failed to update view; error = {e:#}");
     }
 
     if !liveness_check {
@@ -278,7 +278,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     )
     .await
     {
-        debug!("Full Branch - Failed to update view; error = {e:#}");
+        // debug!("Full Branch - Failed to update view; error = {e:#}");
     }
 
     Ok(())

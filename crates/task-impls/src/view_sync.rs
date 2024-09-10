@@ -195,7 +195,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
         // This certificate is old, we can throw it away
         // If next view = cert round, then that means we should already have a task running for it
         if self.current_view > view {
-            debug!("Already in a higher view than the view sync message");
+            // debug!("Already in a higher view than the view sync message");
             return;
         }
 
@@ -203,7 +203,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
         if let Some(replica_task) = task_map.get_mut(&view) {
             // Forward event then return
-            debug!("Forwarding message");
+            // debug!("Forwarding message");
             let result = replica_task
                 .handle(Arc::clone(&event), sender.clone())
                 .await;
@@ -256,25 +256,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
     ) {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
-                // debug!("Received view sync cert for phase {:?}", certificate);
+                // // debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
-                // debug!("Received view sync cert for phase {:?}", certificate);
+                // // debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                // debug!("Received view sync cert for phase {:?}", certificate);
+                // // debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncTimeout(view, _, _) => {
-                // debug!("view sync timeout in main task {:?}", view);
+                // // debug!("view sync timeout in main task {:?}", view);
                 let view = *view;
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
@@ -286,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
-                    debug!("Forwarding message");
+                    // debug!("Forwarding message");
                     let result = relay_task
                         .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
@@ -301,7 +301,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 // We do not have a relay task already running, so start one
                 if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
-                    debug!("View sync vote sent to wrong leader");
+                    // debug!("View sync vote sent to wrong leader");
                     return;
                 }
 
@@ -325,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
-                    debug!("Forwarding message");
+                    // debug!("Forwarding message");
                     let result = relay_task
                         .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
@@ -340,7 +340,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 // We do not have a relay task already running, so start one
                 if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
-                    debug!("View sync vote sent to wrong leader");
+                    // debug!("View sync vote sent to wrong leader");
                     return;
                 }
 
@@ -364,7 +364,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
-                    debug!("Forwarding message");
+                    // debug!("Forwarding message");
                     let result = relay_task
                         .handle_vote_event(Arc::clone(&event), &event_stream)
                         .await;
@@ -379,7 +379,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 // We do not have a relay task already running, so start one
                 if self.membership.leader(vote_view + relay) != self.public_key {
                     // TODO ED This will occur because everyone is pulling down votes for now. Will be fixed in `https://github.com/EspressoSystems/HotShot/issues/1471`
-                    debug!("View sync vote sent to wrong leader");
+                    // debug!("View sync vote sent to wrong leader");
                     return;
                 }
 
@@ -400,10 +400,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
             &HotShotEvent::ViewChange(new_view) => {
                 let new_view = TYPES::Time::new(*new_view);
                 if self.current_view < new_view {
-                    debug!(
-                        "Change from view {} to view {} in view sync task",
-                        *self.current_view, *new_view
-                    );
+                    // // debug!(
+                    //     "Change from view {} to view {} in view sync task",
+                    //     *self.current_view, *new_view
+                    // );
 
                     self.current_view = new_view;
                     self.next_view = self.current_view;

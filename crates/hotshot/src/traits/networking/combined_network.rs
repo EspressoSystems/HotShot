@@ -187,26 +187,26 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 async_sleep(duration).await;
                 if receiver.try_recv().is_ok() {
                     // The task has been cancelled because the view progressed, it means the primary is working fine
-                    debug!(
-                        "Not sending on secondary after delay, task was canceled in view update"
-                    );
+                    // // debug!(
+                    //     "Not sending on secondary after delay, task was canceled in view update"
+                    // );
                     match primary_fail_counter.load(Ordering::Relaxed) {
                         0u64 => {
                             // The primary fail counter reached 0, the primary is now considered up
                             primary_down.store(false, Ordering::Relaxed);
-                            debug!("primary_fail_counter reached zero, primary_down set to false");
+                            // debug!("primary_fail_counter reached zero, primary_down set to false");
                         }
                         c => {
                             // Decrement the primary fail counter
                             primary_fail_counter.store(c - 1, Ordering::Relaxed);
-                            debug!("primary_fail_counter set to {:?}", c - 1);
+                            // debug!("primary_fail_counter set to {:?}", c - 1);
                         }
                     }
                     return Ok(());
                 }
                 // The task hasn't been cancelled, the primary probably failed.
                 // Increment the primary fail counter and send the message.
-                debug!("Sending on secondary after delay, message possibly has not reached recipient on primary");
+                // debug!("Sending on secondary after delay, message possibly has not reached recipient on primary");
                 primary_fail_counter.fetch_add(1, Ordering::Relaxed);
                 secondary_future.await
             });
@@ -224,11 +224,11 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                     }
                     _ => {
                         // The 'no delay counter' reached the threshold
-                        debug!(
-                            "Sent on secondary without delay more than {} times,\
-                            try delaying to check primary",
-                            COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
-                        );
+                        // // debug!(
+                        //     "Sent on secondary without delay more than {} times,\
+                        //     try delaying to check primary",
+                        //     COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL
+                        // );
                         // Reset the 'no delay counter'
                         self.no_delay_counter.store(0u64, Ordering::Relaxed);
                         // The primary is not considered down for the moment

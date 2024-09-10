@@ -174,7 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
+                    // debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
                 }
                 valid
             }),
@@ -303,9 +303,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             return;
         }
 
-        debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
+        // debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
         if self.proposal_dependencies.contains_key(&view_number) {
-            debug!("Task already exists");
+            // debug!("Task already exists");
             return;
         }
 
@@ -338,10 +338,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::Time) -> bool {
         if *self.latest_proposed_view < *new_view {
-            debug!(
-                "Updating latest proposed view from {} to {}",
-                *self.latest_proposed_view, *new_view
-            );
+            // // debug!(
+            //     "Updating latest proposed view from {} to {}",
+            //     *self.latest_proposed_view, *new_view
+            // );
 
             // Cancel the old dependency tasks.
             for view in (*self.latest_proposed_view + 1)..=(*new_view) {
@@ -368,14 +368,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) {
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
-                debug!(
-                    "Upgrade certificate received for view {}!",
-                    *cert.view_number
-                );
+                // // debug!(
+                //     "Upgrade certificate received for view {}!",
+                //     *cert.view_number
+                // );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.latest_proposed_view + 3 {
-                    debug!("Updating current formed_upgrade_certificate");
+                    // debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }

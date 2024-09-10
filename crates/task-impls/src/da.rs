@@ -95,10 +95,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
         match event.as_ref() {
             HotShotEvent::DaProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
-                debug!(
-                    "DA proposal received for view: {:?}",
-                    proposal.data.view_number()
-                );
+                // // debug!(
+                //     "DA proposal received for view: {:?}",
+                //     proposal.data.view_number()
+                // );
                 // ED NOTE: Assuming that the next view leader is the one who sends DA proposal for this view
                 let view = proposal.data.view_number();
 
@@ -147,7 +147,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
             HotShotEvent::DaProposalValidated(proposal, sender) => {
                 let curr_view = self.consensus.read().await.cur_view();
                 if curr_view > proposal.data.view_number() + 1 {
-                    tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
+                    // // tracing::// debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
                     return None;
                 }
                 // Proposal is fresh and valid, notify the application layer
@@ -164,10 +164,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 .await;
 
                 if !self.da_membership.has_stake(&self.public_key) {
-                    debug!(
-                        "We were not chosen for consensus committee on {:?}",
-                        self.cur_view
-                    );
+                    // // debug!(
+                    //     "We were not chosen for consensus committee on {:?}",
+                    //     self.cur_view
+                    // );
                     return None;
                 }
                 if let Err(e) = self.storage.write().await.append_da(proposal).await {
@@ -201,7 +201,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     return None;
                 };
 
-                debug!("Sending vote to the DA leader {:?}", vote.view_number());
+                // debug!("Sending vote to the DA leader {:?}", vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
                 let mut consensus = self.consensus.write().await;
@@ -254,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
-                debug!("DA vote recv, Main Task {:?}", vote.view_number());
+                // debug!("DA vote recv, Main Task {:?}", vote.view_number());
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.view_number();
                 if self.da_membership.leader(view) != self.public_key {
@@ -289,7 +289,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 if self.da_membership.leader(self.cur_view + 1) != self.public_key {
                     return None;
                 }
-                // debug!("Polling for DA votes for view {}", *self.cur_view + 1);
+                // // debug!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 return None;
             }

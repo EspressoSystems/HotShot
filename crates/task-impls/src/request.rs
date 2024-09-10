@@ -232,7 +232,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let Some(signature) = self.serialize_and_sign(&request) else {
             return;
         };
-        debug!("Requesting data: {:?}", request);
+        // debug!("Requesting data: {:?}", request);
         let handle = async_spawn(requester.run(request, signature));
 
         self.spawned_tasks.entry(view).or_default().push(handle);
@@ -356,11 +356,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 )
                 .await;
             }
-            tracing::debug!(
-                "Canceling vid request for view {:?}, cur view is {:?}",
-                view,
-                state.cur_view()
-            );
+            // // tracing::// debug!(
+            //     "Canceling vid request for view {:?}, cur view is {:?}",
+            //     view,
+            //     state.cur_view()
+            // );
         }
         cancel
     }

@@ -45,20 +45,20 @@ impl DHTBootstrapTask {
     /// Task's loop
     async fn run_loop(mut self) {
         loop {
-            tracing::debug!("looping bootstrap");
+            // tracing::debug!("looping bootstrap");
             if self.in_progress {
                 match self.rx.next().await {
                     Some(InputEvent::BootstrapFinished) => {
-                        tracing::debug!("Bootstrap finished");
+                        // tracing::debug!("Bootstrap finished");
                         self.in_progress = false;
                     }
                     Some(InputEvent::ShutdownBootstrap) => {
-                        tracing::debug!("ShutdownBootstrap received, shutting down");
+                        // // tracing::// debug!("ShutdownBootstrap received, shutting down");
                         break;
                     }
                     Some(_) => {}
                     None => {
-                        tracing::debug!("Bootstrap channel closed, exiting loop");
+                        // // tracing::// debug!("Bootstrap channel closed, exiting loop");
                         break;
                     }
                 }
@@ -67,21 +67,21 @@ impl DHTBootstrapTask {
             {
                 match maybe_event {
                     Some(InputEvent::StartBootstrap) => {
-                        tracing::debug!("Start bootstrap in bootstrap task");
+                        // tracing::debug!("Start bootstrap in bootstrap task");
                         self.bootstrap().await;
                     }
                     Some(InputEvent::ShutdownBootstrap) => {
-                        tracing::debug!("ShutdownBootstrap received, shutting down");
+                        // tracing::debug!("ShutdownBootstrap received, shutting down");
                         break;
                     }
                     Some(_) => {}
                     None => {
-                        tracing::debug!("Bootstrap channel closed, exiting loop");
+                        // tracing::debug!("Bootstrap channel closed, exiting loop");
                         break;
                     }
                 }
             } else {
-                tracing::debug!("Start bootstrap in bootstrap task after timeout");
+                // tracing::debug!("Start bootstrap in bootstrap task after timeout");
                 self.bootstrap().await;
             }
         }

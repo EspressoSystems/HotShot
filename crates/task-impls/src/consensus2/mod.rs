@@ -109,14 +109,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Consensus2TaskS
                 if let Err(e) =
                     handle_quorum_vote_recv(vote, Arc::clone(&event), &sender, self).await
                 {
-                    tracing::debug!("Failed to handle QuorumVoteRecv event; error = {e}");
+                    // // tracing::// debug!("Failed to handle QuorumVoteRecv event; error = {e}");
                 }
             }
             HotShotEvent::TimeoutVoteRecv(ref vote) => {
                 if let Err(e) =
                     handle_timeout_vote_recv(vote, Arc::clone(&event), &sender, self).await
                 {
-                    tracing::debug!("Failed to handle TimeoutVoteRecv event; error = {e}");
+                    // // tracing::// debug!("Failed to handle TimeoutVoteRecv event; error = {e}");
                 }
             }
             HotShotEvent::ViewChange(new_view_number) => {
@@ -126,12 +126,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Consensus2TaskS
             }
             HotShotEvent::Timeout(view_number) => {
                 if let Err(e) = handle_timeout(*view_number, &sender, self).await {
-                    tracing::debug!("Failed to handle Timeout event; error = {e}");
+                    // // tracing::// debug!("Failed to handle Timeout event; error = {e}");
                 }
             }
             HotShotEvent::LastDecidedViewUpdated(view_number) => {
                 if *view_number < self.last_decided_view {
-                    tracing::debug!("New decided view is not newer than ours");
+                    // // tracing::// debug!("New decided view is not newer than ours");
                 } else {
                     self.last_decided_view = *view_number;
                     if let Err(e) = self

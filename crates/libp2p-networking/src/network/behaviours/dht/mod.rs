@@ -275,7 +275,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                     GetRecordOk::FinishedWithNoAdditionalRecord {
                         cache_candidates: _,
                     } => {
-                        tracing::debug!("GetRecord Finished with No Additional Record");
+                        // // tracing::// debug!("GetRecord Finished with No Additional Record");
                         last = true;
                         0
                     }
@@ -437,7 +437,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                             warn!("DHT: finished query but client was no longer interested");
                         };
                     };
-                    debug!("Successfully got closest peers for key {:?}", key);
+                    // debug!("Successfully got closest peers for key {:?}", key);
                 }
                 Err(e) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
@@ -467,7 +467,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                     info!("Finished bootstrapping");
                     self.finish_bootstrap();
                 } else {
-                    debug!("Bootstrap in progress, {} nodes remaining", num_remaining);
+                    // debug!("Bootstrap in progress, {} nodes remaining", num_remaining);
                 }
                 return Some(NetworkEvent::IsBootstrapped);
             }
@@ -482,13 +482,13 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                 self.finish_bootstrap();
             }
             KademliaEvent::RoutablePeer { peer, address: _ } => {
-                debug!("Found routable peer {:?}", peer);
+                // debug!("Found routable peer {:?}", peer);
             }
             KademliaEvent::PendingRoutablePeer { peer, address: _ } => {
-                debug!("Found pending routable peer {:?}", peer);
+                // debug!("Found pending routable peer {:?}", peer);
             }
             KademliaEvent::UnroutablePeer { peer } => {
-                debug!("Found unroutable peer {:?}", peer);
+                // debug!("Found unroutable peer {:?}", peer);
             }
             KademliaEvent::RoutingUpdated {
                 peer: _,
@@ -497,13 +497,13 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                 bucket_range: _,
                 old_peer: _,
             } => {
-                debug!("Routing table updated");
+                // debug!("Routing table updated");
             }
             e @ KademliaEvent::OutboundQueryProgressed { .. } => {
-                debug!("Not handling dht event {:?}", e);
+                // debug!("Not handling dht event {:?}", e);
             }
             e => {
-                debug!("New unhandled swarm event: {e:?}");
+                // debug!("New unhandled swarm event: {e:?}");
             }
         }
         None

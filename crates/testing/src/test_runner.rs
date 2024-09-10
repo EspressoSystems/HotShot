@@ -409,7 +409,7 @@ where
             }
             let node_id = self.next_node_id;
             self.next_node_id += 1;
-            // tracing::debug!("launch node {}", i);
+            // // tracing::// debug!("launch node {}", i);
 
             let all_nodes = config.known_nodes_with_stake.clone();
             let da_nodes = config.known_da_nodes.clone();

@@ -151,7 +151,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     /// will start connecting to peers
     #[instrument(skip(self))]
     pub fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
-        debug!("Adding {} known peers", known_peers.len());
+        // debug!("Adding {} known peers", known_peers.len());
         let behaviour = self.swarm.behaviour_mut();
         let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
         let mut shuffled = known_peers.iter().collect::<Vec<_>>();
@@ -365,7 +365,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
             }
             Ok(qid) => {
-                debug!("Published record to DHT with qid {:?}", qid);
+                // debug!("Published record to DHT with qid {:?}", qid);
                 let query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query
@@ -393,7 +393,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             Ok(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
-                        debug!("Beginning Libp2p bootstrap");
+                        // debug!("Beginning Libp2p bootstrap");
                         let _ = self.swarm.behaviour_mut().dht.bootstrap();
                     }
                     ClientRequest::LookupPeer(pid, chan) => {
@@ -477,7 +477,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                         contents,
                         retry_count,
                     } => {
-                        debug!("Sending direct request to {:?}", pid);
+                        // debug!("Sending direct request to {:?}", pid);
                         let id = behaviour.add_direct_request(pid, contents.clone());
                         let req = DMRequest {
                             peer_id: pid,
@@ -504,7 +504,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                             .send_response(chan, response)
                             .is_err()
                         {
-                            debug!("Data response dropped because client is no longer connected");
+                            // debug!("Data response dropped because client is no longer connected");
                         }
                     }
                     ClientRequest::AddKnownPeers(peers) => {
@@ -533,7 +533,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
-        debug!("Swarm event observed {:?}", event);
+        // debug!("Swarm event observed {:?}", event);
 
         #[allow(deprecated)]
         match event {
@@ -551,10 +551,10 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                         ESTABLISHED_LIMIT, num_established
                     );
                 } else {
-                    debug!(
-                        "Connection established with {:?} at {:?} with {:?} concurrent dial errors",
-                        peer_id, endpoint, concurrent_dial_errors
-                    );
+                    // debug!(
+                    //     "Connection established with {:?} at {:?} with {:?} concurrent dial errors",
+                    //     peer_id, endpoint, concurrent_dial_errors
+                    // );
                 }
 
                 // Send the number of connected peers to the client
@@ -576,10 +576,10 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                         ESTABLISHED_LIMIT, num_established
                     );
                 } else {
-                    debug!(
-                        "Connection closed with {:?} at {:?} due to {:?}",
-                        peer_id, endpoint, cause
-                    );
+                    // debug!(
+                    //     "Connection closed with {:?} at {:?} due to {:?}",
+                    //     peer_id, endpoint, cause
+                    // );
                 }
 
                 // Send the number of connected peers to the client
@@ -592,7 +592,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 peer_id,
                 connection_id: _,
             } => {
-                debug!("Attempting to dial {:?}", peer_id);
+                // debug!("Attempting to dial {:?}", peer_id);
             }
             SwarmEvent::ListenerClosed {
                 listener_id: _,
@@ -650,11 +650,11 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                             message,
                         } => Some(NetworkEvent::GossipMsg(message.data)),
                         GossipEvent::Subscribed { peer_id, topic } => {
-                            debug!("Peer {:?} subscribed to topic {:?}", peer_id, topic);
+                            // debug!("Peer {:?} subscribed to topic {:?}", peer_id, topic);
                             None
                         }
                         GossipEvent::Unsubscribed { peer_id, topic } => {
-                            debug!("Peer {:?} unsubscribed from topic {:?}", peer_id, topic);
+                            // debug!("Peer {:?} unsubscribed from topic {:?}", peer_id, topic);
                             None
                         }
                         GossipEvent::GossipsubNotSupported { peer_id } => {
@@ -686,7 +686,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                                 }
                             },
                             autonat::Event::StatusChanged { old, new } => {
-                                debug!("AutoNAT Status changed. Old: {:?}, New: {:?}", old, new);
+                                // debug!("AutoNAT Status changed. Old: {:?}, New: {:?}", old, new);
                             }
                         };
                         None
@@ -736,7 +736,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                     .add_address(&peer_id, address.clone());
             }
             _ => {
-                debug!("Unhandled swarm event {:?}", event);
+                // debug!("Unhandled swarm event {:?}", event);
             }
         }
         Ok(())
@@ -767,14 +767,14 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 loop {
                     select! {
                         event = self.swarm.next() => {
-                            debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
+                            // debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
-                                debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                // debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
                         msg = fuse => {
-                            debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
+                            // debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 let _ = bootstrap_tx.send(InputEvent::ShutdownBootstrap).await;

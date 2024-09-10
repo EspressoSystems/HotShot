@@ -330,7 +330,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             .await
             .context("Failed to sign vote")
             .unwrap();
-            tracing::debug!("Sending Quorum Vote for view: {new_view:?}");
+            // // tracing::// debug!("Sending Quorum Vote for view: {new_view:?}");
             return vec![HotShotEvent::QuorumVoteSend(spoofed_vote)];
         }
         vec![event.clone()]

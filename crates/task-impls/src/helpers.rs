@@ -342,7 +342,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
             true
         },
     ) {
-        debug!("Leaf ascension failed; error={e}");
+        // debug!("Leaf ascension failed; error={e}");
     }
 
     res
@@ -398,11 +398,11 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
 
     if leaf_commitment != consensus_reader.high_qc().date().leaf_commit {
         // NOTE: This happens on the genesis block
-        debug!(
-            "They don't equal: {:?}   {:?}",
-            leaf_commitment,
-            consensus_reader.high_qc().date().leaf_commit
-        );
+        // // debug!(
+        //     "They don't equal: {:?}   {:?}",
+        //     leaf_commitment,
+        //     consensus_reader.high_qc().date().leaf_commit
+        // );
     }
 
     let leaf = consensus_reader
@@ -417,7 +417,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
 
     // Walk back until we find a decide
     if !reached_decided {
-        debug!("We have not reached decide");
+        // debug!("We have not reached decide");
         while let Some(next_parent_leaf) = consensus_reader.saved_leaves().get(&next_parent_hash) {
             if next_parent_leaf.view_number() <= consensus_reader.last_decided_view() {
                 break;
@@ -489,14 +489,14 @@ pub async fn validate_proposal_safety_and_liveness<
         // Update our internal storage of the proposal. The proposal is valid, so
         // we swallow this error and just log if it occurs.
         if let Err(e) = consensus_write.update_proposed_view(proposal.clone()) {
-            tracing::debug!("Internal proposal update failed; error = {e:#}");
+            // // tracing::// debug!("Internal proposal update failed; error = {e:#}");
         };
 
         // Update our persistent storage of the proposal. We also itentionally swallow
         // this error as it should not affect consensus and would, instead, imply an
         // issue on the sequencer side.
         if let Err(e) = storage.write().await.append_proposal(&proposal).await {
-            tracing::debug!("Persisting the proposal update failed; error = {e:#}");
+            // // tracing::// debug!("Persisting the proposal update failed; error = {e:#}");
         };
 
         // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
@@ -696,7 +696,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
 
     let old_view = *cur_view;
 
-    // debug!("Updating view from {} to {}", *old_view, *new_view);
+    // // debug!("Updating view from {} to {}", *old_view, *new_view);
 
     if *old_view / 100 != *new_view / 100 {
         // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):

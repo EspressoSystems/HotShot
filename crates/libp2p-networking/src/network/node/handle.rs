@@ -463,7 +463,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
         &self,
         known_peers: Vec<(PeerId, Multiaddr)>,
     ) -> Result<(), NetworkNodeHandleError> {
-        debug!("Adding {} known peers", known_peers.len());
+        // debug!("Adding {} known peers", known_peers.len());
         let req = ClientRequest::AddKnownPeers(known_peers);
         self.send_request(req).await
     }

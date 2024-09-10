@@ -293,12 +293,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                         self.spawn_vote_task(view, event_sender, event_receiver)
                             .await;
                     }
-                    Ok(None) => {}
-                    Err(e) => debug!("Failed to propose {e:#}"),
+                    Ok(None) => {},
+                    Err(_e) => {}, // debug!("Failed to propose {e:#}"),
                 }
             }
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                debug!("proposal validated view: {:?}", proposal.view_number());
+                // debug!("proposal validated view: {:?}", proposal.view_number());
                 if let Err(e) = handle_quorum_proposal_validated(
                     proposal,
                     event_sender.clone(),
@@ -311,7 +311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 }
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
-                debug!("Received quorum vote: {:?}", vote.view_number());
+                // debug!("Received quorum vote: {:?}", vote.view_number());
                 if self.quorum_membership.leader(vote.view_number() + 1) != self.public_key {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
@@ -359,16 +359,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 either::Right(qc) => {
                     self.proposal_cert = Some(ViewChangeEvidence::Timeout(qc.clone()));
 
-                    debug!(
-                        "Attempting to publish proposal after forming a TC for view {}",
-                        *qc.view_number
-                    );
+                    // debug!(
+                    //     "Attempting to publish proposal after forming a TC for view {}",
+                    //     *qc.view_number
+                    // );
 
                     if let Err(e) = self
                         .publish_proposal(qc.view_number + 1, event_sender, event_receiver)
                         .await
                     {
-                        debug!("Failed to propose; error = {e:?}");
+                        // debug!("Failed to propose; error = {e:?}");
                     };
                 }
                 either::Left(qc) => {
@@ -379,35 +379,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
                         tracing::trace!("{e:?}");
                     }
-                    debug!(
-                        "Attempting to publish proposal after forming a QC for view {}",
-                        *qc.view_number
-                    );
+                    // debug!(
+                    //     "Attempting to publish proposal after forming a QC for view {}",
+                    //     *qc.view_number
+                    // );
 
                     if let Err(e) = self
                         .publish_proposal(qc.view_number + 1, event_sender, event_receiver)
                         .await
                     {
-                        debug!("Failed to propose; error = {e:?}");
+                        // debug!("Failed to propose; error = {e:?}");
                     };
                 }
             },
             #[cfg(not(feature = "dependency-tasks"))]
             HotShotEvent::UpgradeCertificateFormed(cert) => {
-                debug!(
-                    "Upgrade certificate received for view {}!",
-                    *cert.view_number
-                );
+                // debug!(
+                //     "Upgrade certificate received for view {}!",
+                //     *cert.view_number
+                // );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.cur_view + 3 {
-                    debug!("Updating current formed_upgrade_certificate");
+                    // debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
             HotShotEvent::DaCertificateRecv(cert) => {
-                debug!("DAC Received for view {}!", *cert.view_number);
+                // debug!("DAC Received for view {}!", *cert.view_number);
                 let view = cert.view_number;
 
                 self.consensus
@@ -426,10 +426,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             HotShotEvent::VidShareRecv(disperse) => {
                 let view = disperse.data.view_number();
 
-                debug!(
-                    "VID disperse received for view: {:?} in consensus task",
-                    view
-                );
+                // debug!(
+                //     "VID disperse received for view: {:?} in consensus task",
+                //     view
+                // );
 
                 // Allow VID disperse date that is one view older, in case we have updated the
                 // view.
@@ -440,7 +440,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     return;
                 }
 
-                debug!("VID disperse data is not more than one view older.");
+                // debug!("VID disperse data is not more than one view older.");
 
                 if !self.validate_disperse(disperse) {
                     warn!("Failed to validated the VID dispersal/share sig.");
@@ -520,10 +520,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     return;
                 }
                 if !self.timeout_membership.has_stake(&self.public_key) {
-                    debug!(
-                        "We were not chosen for consensus committee on {:?}",
-                        self.cur_view
-                    );
+                    // // debug!(
+                    //     "We were not chosen for consensus committee on {:?}",
+                    //     self.cur_view
+                    // );
                     return;
                 }
 
@@ -549,10 +549,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     &self.output_event_stream,
                 )
                 .await;
-                debug!(
-                    "We did not receive evidence for view {} in time, sending timeout vote for that view!",
-                    *view
-                );
+                // // debug!(
+                //     "We did not receive evidence for view {} in time, sending timeout vote for that view!",
+                //     *view
+                // );
 
                 broadcast_event(
                     Event {
@@ -577,10 +577,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 auction_result,
             ) => {
                 let view = *view;
-                debug!(
-                    "got commit and meta {:?}, view {:?}",
-                    payload_commitment, view
-                );
+                // // debug!(
+                //     "got commit and meta {:?}, view {:?}",
+                //     payload_commitment, view
+                // );
                 self.payload_commitment_and_metadata = Some(CommitmentAndMetadata {
                     commitment: *payload_commitment,
                     builder_commitment: builder_commitment.clone(),
@@ -615,7 +615,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                                     .publish_proposal(view, event_sender, event_receiver)
                                     .await
                                 {
-                                    debug!("Failed to propose; error = {e:?}");
+                                    // debug!("Failed to propose; error = {e:?}");
                                 };
                             }
                         }
@@ -625,7 +625,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                                     .publish_proposal(view, event_sender, event_receiver)
                                     .await
                                 {
-                                    debug!("Failed to propose; error = {e:?}");
+                                    // debug!("Failed to propose; error = {e:?}");
                                 };
                             }
                         }
@@ -649,16 +649,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 if self.quorum_membership.leader(view) == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
-                    debug!(
-                        "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
-                        *certificate.view_number
-                    );
+                    // // debug!(
+                    //     "Attempting to publish proposal after forming a View Sync Finalized Cert for view {}",
+                    //     *certificate.view_number
+                    // );
 
                     if let Err(e) = self
                         .publish_proposal(view, event_sender, event_receiver)
                         .await
                     {
-                        debug!("Failed to propose; error = {e:?}");
+                        // debug!("Failed to propose; error = {e:?}");
                     };
                 }
             }
@@ -673,15 +673,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     && self.consensus.read().await.high_qc().view_number == proposal.view_number();
 
                 if should_propose {
-                    debug!(
-                        "Attempting to publish proposal after voting; now in view: {}",
-                        *new_view
-                    );
+                    // // debug!(
+                    //     "Attempting to publish proposal after voting; now in view: {}",
+                    //     *new_view
+                    // );
                     if let Err(e) = self
                         .publish_proposal(new_view, event_sender.clone(), event_receiver.clone())
                         .await
                     {
-                        debug!("failed to propose e = {:?}", e);
+                        // debug!("failed to propose e = {:?}", e);
                     }
                 }
                 if proposal.view_number() <= vote.view_number() {

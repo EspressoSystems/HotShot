@@ -95,7 +95,7 @@ impl DMBehaviour {
                     channel,
                     ..
                 } => {
-                    debug!("Received direct request {:?}", msg);
+                    // debug!("Received direct request {:?}", msg);
                     // receiver, not initiator.
                     // don't track. If we are disconnected, sender will reinitiate
                     Some(NetworkEvent::DirectRequest(msg, peer, channel))
@@ -106,7 +106,7 @@ impl DMBehaviour {
                 } => {
                     // success, finished.
                     if let Some(req) = self.in_progress_rr.remove(&request_id) {
-                        debug!("Received direct response {:?}", msg);
+                        // debug!("Received direct response {:?}", msg);
                         Some(NetworkEvent::DirectResponse(msg, req.peer_id))
                     } else {
                         warn!("Received response for unknown request id {:?}", request_id);
@@ -115,7 +115,7 @@ impl DMBehaviour {
                 }
             },
             e @ Event::ResponseSent { .. } => {
-                debug!("Response sent {:?}", e);
+                // debug!("Response sent {:?}", e);
                 None
             }
         }
@@ -131,7 +131,7 @@ impl DMBehaviour {
 
         req.retry_count -= 1;
 
-        debug!("Adding direct request {:?}", req);
+        // debug!("Adding direct request {:?}", req);
 
         self.in_progress_rr.insert(request_id, req);
     }

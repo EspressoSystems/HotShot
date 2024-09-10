@@ -111,7 +111,7 @@ impl<
         match accumulator.accumulate(vote, &self.membership).await {
             Either::Left(()) => None,
             Either::Right(cert) => {
-                debug!("Certificate Formed! {:?}", cert);
+                // debug!("Certificate Formed! {:?}", cert);
 
                 broadcast_event(
                     Arc::new(VOTE::make_cert_event(cert, &self.public_key)),
@@ -226,7 +226,7 @@ pub async fn handle_vote<
 {
     match collectors.entry(vote.view_number()) {
         Entry::Vacant(entry) => {
-            debug!("Starting vote handle for view {:?}", vote.view_number());
+            // debug!("Starting vote handle for view {:?}", vote.view_number());
             let info = AccumulatorInfo {
                 public_key,
                 membership: Arc::clone(membership),

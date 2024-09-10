@@ -379,7 +379,7 @@ async fn run_dht_rounds<K: SignatureKey + 'static>(
 ) {
     let mut rng = rand::thread_rng();
     for i in 0..num_rounds {
-        debug!("begin round {}", i);
+        // debug!("begin round {}", i);
         let msg_handle = random_handle(handles, &mut rng);
 
         // Create a random keypair

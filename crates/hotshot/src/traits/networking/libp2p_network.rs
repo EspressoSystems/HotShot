@@ -795,10 +795,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Ok(pid) => pid,
             Err(err) => {
                 self.inner.metrics.num_failed_messages.add(1);
-                debug!(
-                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
-                    request, recipient
-                );
+                // // debug!(
+                //     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                //     request, recipient
+                // );
                 return Err(NetworkError::Libp2p {
                     source: Box::new(err),
                 });
@@ -1008,10 +1008,10 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Ok(pid) => pid,
             Err(err) => {
                 self.inner.metrics.num_failed_messages.add(1);
-                debug!(
-                    "Failed to message {:?} because could not find recipient peer id for pk {:?}",
-                    message, recipient
-                );
+                // // debug!(
+                //     "Failed to message {:?} because could not find recipient peer id for pk {:?}",
+                //     message, recipient
+                // );
                 return Err(NetworkError::Libp2p {
                     source: Box::new(err),
                 });

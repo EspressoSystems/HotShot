@@ -127,7 +127,7 @@ impl<K: SignatureKey> MemoryNetwork<K> {
 
         async_spawn(
             async move {
-                debug!("Starting background task");
+                // debug!("Starting background task");
                 let mut task_stream: BoundedStream<Vec<u8>> = task_recv.into_stream();
                 trace!("Entering processing loop");
                 while let Some(vec) = task_stream.next().await {
@@ -324,7 +324,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
 
     #[instrument(name = "MemoryNetwork::direct_message")]
     async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
-        // debug!(?message, ?recipient, "Sending direct message");
+        // // debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
         trace!("Message bincoded, finding recipient");
         if let Some(node) = self.inner.master_map.map.get(&recipient) {

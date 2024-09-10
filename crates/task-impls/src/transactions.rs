@@ -293,11 +293,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             match bundle {
                 Ok(Ok(b)) => bundles.push(b),
                 Ok(Err(e)) => {
-                    tracing::debug!("Failed to retrieve bundle: {e}");
+                    // // tracing::// debug!("Failed to retrieve bundle: {e}");
                     continue;
                 }
                 Err(e) => {
-                    tracing::debug!("Failed to retrieve bundle: {e}");
+                    // // tracing::// debug!("Failed to retrieve bundle: {e}");
                     continue;
                 }
             }
@@ -438,7 +438,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
-                debug!("view change in transactions to view {:?}", view);
+                // debug!("view change in transactions to view {:?}", view);
                 if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
                 }
@@ -453,7 +453,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let next_view = self.cur_view + 1;
                 let next_leader = self.membership.leader(next_view) == self.public_key;
                 if !make_block && !next_leader {
-                    // debug!("Not next leader for view {:?}", self.cur_view);
+                    // // debug!("Not next leader for view {:?}", self.cur_view);
                     return None;
                 }
 
