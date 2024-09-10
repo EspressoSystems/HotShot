@@ -264,9 +264,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         tracing::error!("total: {:?}, len {}", results, results.len());
         tracing::error!("failed: {:?}, len {}", failed, failed.len());
         tracing::error!("success: {:?} len {}", success, success.len());
-        let num_incomplete_views = (self.ctx.round_results.len())
-            .saturating_sub(self.ctx.failed_views.len())
-            .saturating_sub(self.ctx.successful_views.len());
+        let num_incomplete_views = self.ctx.round_results.len()
+            - self.ctx.failed_views.len()
+            - self.ctx.successful_views.len();
 
         if self.ctx.successful_views.len() < num_successful_views {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
