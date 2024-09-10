@@ -127,6 +127,7 @@ pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
         }
 
         ensure!(
+          // i.e. num_nonempty_blocks / num_blocks >= threshold.0 / threshold.1
           num_nonempty_blocks * threshold.1 >= threshold.0 * num_blocks,
           "Failed to meet nonempty block threshold; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}"
         );

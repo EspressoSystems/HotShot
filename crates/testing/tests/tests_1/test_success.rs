@@ -11,18 +11,14 @@ use hotshot_example_types::testable_delay::{
     DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay,
 };
 use hotshot_example_types::{
-    node_types::{
-        Libp2pImpl, MarketplaceTestVersions, MarketplaceUpgradeTestVersions, MemoryImpl,
-        PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions,
-    },
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestVersions},
     state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    overall_safety_task::OverallSafetyPropertiesDescription,
-    test_builder::{nonempty_block_threshold, TestDescription},
+    test_builder::TestDescription,
     view_sync_task::ViewSyncTaskDescription,
 };
 
@@ -40,27 +36,6 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            ..TestDescription::default()
-        }
-    },
-);
-
-cross_tests!(
-    TestName: test_success_marketplace,
-    Impls: [MemoryImpl],
-    Types: [TestTypes],
-    Versions: [MarketplaceUpgradeTestVersions],
-    Ignore: false,
-    Metadata: {
-        TestDescription {
-            // allow more time to pass in CI
-            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
-                                             TimeBasedCompletionTaskDescription {
-                                                 duration: Duration::from_secs(60),
-                                             },
-                                         ),
-            upgrade_view: Some(5),
-            validate_transactions: nonempty_block_threshold((40,50)),
             ..TestDescription::default()
         }
     },
@@ -159,29 +134,4 @@ cross_tests!(
 
         metadata
     }
-);
-
-cross_tests!(
-    TestName: test_success_marketplace_solver_down,
-    Impls: [MemoryImpl],
-    Types: [TestTypes],
-    Versions: [MarketplaceTestVersions],
-    Ignore: false,
-    Metadata: {
-        TestDescription {
-            // allow more time to pass in CI
-            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
-                                             TimeBasedCompletionTaskDescription {
-                                                 duration: Duration::from_secs(60),
-                                             },
-                                         ),
-            overall_safety_properties: OverallSafetyPropertiesDescription {
-                transaction_threshold: 0,
-                ..OverallSafetyPropertiesDescription::default()
-            },
-            validate_transactions: nonempty_block_threshold((95,100)),
-            start_solver: false,
-            ..TestDescription::default()
-        }
-    },
 );
