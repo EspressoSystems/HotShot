@@ -764,7 +764,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                         return;
                     }
                     Either::Right(_) => {
-                        warn!("Event Handler shutdown");
+                        // warn!("Event Handler shutdown");
                         return;
                     }
                 }

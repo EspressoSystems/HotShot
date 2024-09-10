@@ -347,7 +347,7 @@ impl<
     ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
             if !state.write().await.update_action(action, view) {
-                warn!("Already actioned {:?} in view {:?}", action, view);
+                // warn!("Already actioned {:?} in view {:?}", action, view);
                 return Err(());
             }
             match storage.write().await.record_action(view, action).await {
