@@ -80,7 +80,11 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
-            .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+            .update_saved_leaves(
+                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                &handle.hotshot.upgrade_lock,
+            )
+            .await;
     }
 
     // We must send the genesis cert here to initialize hotshot successfully.
@@ -112,7 +116,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
             ),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
     ];
@@ -172,12 +176,16 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
-            .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+            .update_saved_leaves(
+                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                &handle.hotshot.upgrade_lock,
+            )
+            .await;
 
         consensus_writer
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
-                build_fake_view_with_leaf(view.leaf.clone()),
+                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
             )
             .unwrap();
     }
@@ -216,7 +224,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 genesis_cert.view_number(),
-                build_fake_view_with_leaf(genesis_leaf.clone()),
+                build_fake_view_with_leaf(genesis_leaf.clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -235,7 +243,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -254,7 +262,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -273,7 +281,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                build_fake_view_with_leaf(leaves[2].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -292,7 +300,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
+                build_fake_view_with_leaf(leaves[3].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
     ];
@@ -404,7 +412,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
         VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
         ValidatedStateUpdated(
             proposals[1].data.view_number(),
-            build_fake_view_with_leaf(leaves[1].clone()),
+            build_fake_view_with_leaf(leaves[1].clone(), &handle.hotshot.upgrade_lock).await,
         ),
     ]];
 
@@ -496,7 +504,7 @@ async fn test_quorum_proposal_task_view_sync() {
         VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
         ValidatedStateUpdated(
             proposals[0].data.view_number(),
-            build_fake_view_with_leaf(leaves[0].clone()),
+            build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
         ),
     ]];
 
@@ -548,11 +556,15 @@ async fn test_quorum_proposal_task_liveness_check() {
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
-            .update_saved_leaves(Leaf::from_quorum_proposal(&view.quorum_proposal.data));
+            .update_saved_leaves(
+                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                &handle.hotshot.upgrade_lock,
+            )
+            .await;
         consensus_writer
             .update_validated_state_map(
                 view.quorum_proposal.data.view_number(),
-                build_fake_view_with_leaf(view.leaf.clone()),
+                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
             )
             .unwrap();
     }
@@ -590,7 +602,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 genesis_cert.view_number(),
-                build_fake_view_with_leaf(genesis_leaf.clone()),
+                build_fake_view_with_leaf(genesis_leaf.clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -609,7 +621,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone()),
+                build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -628,7 +640,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone()),
+                build_fake_view_with_leaf(leaves[1].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -647,7 +659,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone()),
+                build_fake_view_with_leaf(leaves[2].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
         random![
@@ -666,7 +678,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
             ValidatedStateUpdated(
                 proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone()),
+                build_fake_view_with_leaf(leaves[3].clone(), &handle.hotshot.upgrade_lock).await,
             ),
         ],
     ];
