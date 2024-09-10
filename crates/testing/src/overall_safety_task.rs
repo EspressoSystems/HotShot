@@ -512,8 +512,6 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                 self.status = ViewStatus::Ok;
             }
         }
-
-        
     }
 
     /// generate leaves
