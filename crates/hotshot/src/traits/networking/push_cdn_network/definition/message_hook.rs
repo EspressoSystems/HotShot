@@ -53,8 +53,8 @@ impl<T: NodeType> HotShotMessageHook<T> {
             return Ok(HookResult::SkipMessage);
         }
 
-        // TODO: Deserialize the message
-        // let message = Self::deserialize_message(&direct.message)?;
+        // Make sure it is deserializable
+        // let (_, _) = Self::deserialize_message(&broadcast.message)?;
 
         Ok(HookResult::ProcessMessage)
     }
@@ -71,21 +71,23 @@ impl<T: NodeType> HotShotMessageHook<T> {
             return Ok(HookResult::SkipMessage);
         }
 
-        // TODO: Deserialize the message
-        // let message = Self::deserialize_message(&direct.message)?;
+        // Make sure it is deserializable
+        // let (_, _) = Self::deserialize_message(&direct.message)?;
 
         Ok(HookResult::ProcessMessage)
     }
 
-    // TODO
-    // fn deserialize_message(message: &[u8]) -> Result<Message<T>> {
+    // fn deserialize_message(message: &[u8]) -> Result<(Message<T>, Version)> {
     //     // Hack off the version
-    //     let (_, message) =
+    //     let (version, message) =
     //         Version::deserialize(&message).with_context(|| "failed to deserialize message")?;
 
     //     // Deserialize the message
-    //     Serializer::<StaticVersion<0, 1>>::deserialize_no_version(&message)
-    //         .with_context(|| "failed to deserialize message")
+    //     let message = Serializer::<StaticVersion<0, 1>>::deserialize_no_version(&message)
+    //         .with_context(|| "failed to deserialize message")?;
+
+    //     // Return the version and message
+    //     Ok((message, version))
     // }
 }
 

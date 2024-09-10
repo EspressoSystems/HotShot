@@ -157,7 +157,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
             membership.committee_qc_stake_table(),
             U256::from(Self::threshold(membership)),
         );
-        let Ok(commit) = self.date_commitment(upgrade_lock).await else {
+        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
             return false;
         };
         <TYPES::SignatureKey as SignatureKey>::check(
@@ -172,7 +172,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
     fn date(&self) -> &Self::Voteable {
         &self.data
     }
-    async fn date_commitment<V: Versions>(
+    async fn data_commitment<V: Versions>(
         &self,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<Commitment<VersionedVoteData<TYPES, VOTEABLE, V>>> {
