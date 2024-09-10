@@ -280,16 +280,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     return None;
                 }
 
-                if *view - *self.cur_view > 1 {
-                    warn!("View changed by more than 1 going to view {:?}", view);
-                }
+                // if *view - *self.cur_view > 1 {
+                //     // warn!("View changed by more than 1 going to view {:?}", view);
+                // }
                 self.cur_view = view;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
                 if self.da_membership.leader(self.cur_view + 1) != self.public_key {
                     return None;
                 }
-                debug!("Polling for DA votes for view {}", *self.cur_view + 1);
+                // debug!("Polling for DA votes for view {}", *self.cur_view + 1);
 
                 return None;
             }

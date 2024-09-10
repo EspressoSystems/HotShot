@@ -256,25 +256,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
     ) {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
-                debug!("Received view sync cert for phase {:?}", certificate);
+                // debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
-                debug!("Received view sync cert for phase {:?}", certificate);
+                // debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                debug!("Received view sync cert for phase {:?}", certificate);
+                // debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncTimeout(view, _, _) => {
-                debug!("view sync timeout in main task {:?}", view);
+                // debug!("view sync timeout in main task {:?}", view);
                 let view = *view;
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;

@@ -179,7 +179,7 @@ impl<'a, TYPES: NodeType> DerefMut for ConsensusWriteLockGuard<'a, TYPES> {
 impl<'a, TYPES: NodeType> Drop for ConsensusWriteLockGuard<'a, TYPES> {
     #[instrument(skip_all, target = "ConsensusWriteLockGuard")]
     fn drop(&mut self) {
-        debug!("Write lock on consensus dropped");
+        // debug!("Write lock on consensus dropped");
     }
 }
 

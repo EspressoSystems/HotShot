@@ -313,10 +313,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<Option<QuorumProposal<TYPES>>> {
     let sender = sender.clone();
-    debug!(
-        "Received Quorum Proposal for view {}",
-        *proposal.data.view_number
-    );
+    // debug!(
+    //     "Received Quorum Proposal for view {}",
+    //     *proposal.data.view_number
+    // );
 
     let cur_view = task_state.cur_view;
 

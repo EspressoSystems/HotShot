@@ -439,7 +439,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     // A copypasta of `ConsensusApi::send_event`
     // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     async fn send_external_event(&self, event: Event<TYPES>) {
-        debug!(?event, "send_external_event");
+        // debug!(?event, "send_external_event");
         broadcast_event(event, &self.external_event_stream.0).await;
     }
 

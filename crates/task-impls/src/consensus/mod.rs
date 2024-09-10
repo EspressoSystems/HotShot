@@ -277,7 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
     ) {
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
-                debug!("proposal recv view: {:?}", proposal.data.view_number());
+                // debug!("proposal recv view: {:?}", proposal.data.view_number());
                 match handle_quorum_proposal_recv(
                     proposal,
                     sender,

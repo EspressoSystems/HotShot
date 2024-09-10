@@ -116,7 +116,7 @@ pub(crate) async fn handle_view_change<
     );
 
     let old_view_number = task_state.cur_view;
-    debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
+    // debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
 
     // Move this node to the next view
     task_state.cur_view = new_view_number;
