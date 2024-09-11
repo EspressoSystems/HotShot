@@ -20,7 +20,7 @@ use twox_hash::xxh3::Hash64;
 #[derive(Clone)]
 struct Sma {
     /// The "inner" moving average object
-    sma: Arc<Mutex<SingleSumSMA<u64, u64, 10000>>>,
+    sma: Arc<Mutex<SingleSumSMA<u64, u64, 1000>>>,
 
     /// The previously calculated sum
     cached_sum: Arc<AtomicU64>,
@@ -74,8 +74,8 @@ struct Sample {
     /// The number of bytes sent since `last_committed_time`
     num_bytes_sent: u64,
 
-    /// The number of messages sent since `last_committed_time`
-    num_messages_sent: u64,
+    /// The last time the sample was checked
+    last_checked_time: Instant,
 
     /// The last time the sample was committed
     last_committed_time: Instant,
@@ -86,7 +86,7 @@ impl Sample {
     fn new() -> Self {
         Self {
             num_bytes_sent: 0,
-            num_messages_sent: 0,
+            last_checked_time: Instant::now(),
             last_committed_time: Instant::now(),
         }
     }
@@ -94,7 +94,6 @@ impl Sample {
     /// Add bytes to the sample and increment the number of messages sent
     fn add(&mut self, bytes: u64) {
         self.num_bytes_sent += bytes;
-        self.num_messages_sent += 1;
     }
 
     /// Get the number of bytes per second of the current sample
@@ -107,7 +106,7 @@ impl Sample {
     /// Reset the sample. This is used when the sample is committed.
     fn reset(&mut self) {
         self.num_bytes_sent = 0;
-        self.num_messages_sent = 0;
+        self.last_checked_time = Instant::now();
         self.last_committed_time = Instant::now();
     }
 }
@@ -115,8 +114,8 @@ impl Sample {
 #[derive(Clone)]
 /// The message hook for `HotShot` messages. Each user has a unique message hook.
 pub struct HotShotMessageHook {
-    /// The number of messages before checking against our average
-    num_messages_before_check: u64,
+    /// The sample check interval
+    sample_check_interval: Duration,
 
     /// The sample commit interval
     sample_commit_interval: Duration,
@@ -146,8 +145,8 @@ impl Default for HotShotMessageHook {
     /// If 100 < 0
     fn default() -> Self {
         Self {
-            num_messages_before_check: 10,
-            sample_commit_interval: Duration::from_secs(600),
+            sample_check_interval: Duration::from_secs(5),
+            sample_commit_interval: Duration::from_secs(120),
             allowed_multiple: 3,
 
             global_broadcast_bps: Sma::new(),
@@ -166,12 +165,12 @@ impl HotShotMessageHook {
     /// If 100 < 0
     #[must_use]
     pub fn new(
+        sample_check_interval: Duration,
         sample_commit_interval: Duration,
-        num_messages_before_check: u64,
         allowed_multiple: u64,
     ) -> Self {
         Self {
-            num_messages_before_check,
+            sample_check_interval,
             sample_commit_interval,
             allowed_multiple,
 
@@ -198,18 +197,12 @@ impl HotShotMessageHook {
         // Add the length to the local sample
         sample.add(message_len as u64);
 
-        // For every `num_messages_before_check` messages, check against the global average and potentially commit the sample
-        if sample.num_messages_sent % self.num_messages_before_check == 0
-            && sample.num_messages_sent != 0
-        {
-            // Commit the sample if the interval has elapsed
-            if sample.last_committed_time.elapsed() >= self.sample_commit_interval {
-                sma.commit_sample(sample);
-            }
-
+        // If we have surpassed the check interval, check the sample to make sure it does
+        // not exceed the `global average * allowed_multiple`
+        if sample.last_checked_time.elapsed() >= self.sample_check_interval {
             // Get our local and global bps
             let local_bps = sample.get();
-            let global_bps = sma.get();
+            let global_bps = sma.get().max(1000);
 
             // Calculate the maximum allowed bps
             let max_allowed_bps = global_bps * self.allowed_multiple;
@@ -226,6 +219,14 @@ impl HotShotMessageHook {
                     max_allowed_bps
                 ));
             }
+
+            // Reset the check time
+            sample.last_checked_time = Instant::now();
+        }
+
+        // Commit the sample if that interval has elapsed
+        if sample.last_committed_time.elapsed() >= self.sample_commit_interval {
+            sma.commit_sample(sample);
         }
 
         Ok(())
@@ -412,12 +413,12 @@ mod test {
             },
             local_broadcast_bps: Sample {
                 num_bytes_sent: 0,
-                num_messages_sent: 1,
+                last_checked_time: Instant::now().checked_sub(Duration::from_secs(1)).unwrap(),
                 last_committed_time: Instant::now()
                     .checked_sub(Duration::from_secs(1))
                     .unwrap_or(Instant::now()),
             },
-            num_messages_before_check: 1,
+            sample_check_interval: Duration::from_secs(1),
             sample_commit_interval: Duration::from_secs(1),
             allowed_multiple: 1,
             ..HotShotMessageHook::default()
@@ -448,12 +449,12 @@ mod test {
             },
             local_broadcast_bps: Sample {
                 num_bytes_sent: 0,
-                num_messages_sent: 1,
+                last_checked_time: Instant::now().checked_sub(Duration::from_secs(1)).unwrap(),
                 last_committed_time: Instant::now()
                     .checked_sub(Duration::from_secs(1))
                     .unwrap_or(Instant::now()),
             },
-            num_messages_before_check: 1,
+            sample_check_interval: Duration::from_secs(1),
             sample_commit_interval: Duration::from_secs(1),
             allowed_multiple: 1,
             ..HotShotMessageHook::default()
