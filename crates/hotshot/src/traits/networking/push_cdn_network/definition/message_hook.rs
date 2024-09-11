@@ -209,7 +209,7 @@ impl HotShotMessageHook {
 
             // Get our local and global bps
             let local_bps = sample.get();
-            let global_bps = sma.get().max(3000);
+            let global_bps = sma.get();
 
             // Calculate the maximum allowed bps
             let max_allowed_bps = global_bps * self.allowed_multiple;
