@@ -14,11 +14,15 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    overall_safety_task::OverallSafetyPropertiesDescription,
-    test_builder::{nonempty_block_threshold, BuilderChange, BuilderDescription, TestDescription},
+    test_builder::{
+        nonempty_block_limit, nonempty_block_threshold, BuilderChange, BuilderDescription,
+        TestDescription,
+    },
 };
 use vec1::vec1;
 
+// Test marketplace with the auction solver and fallback builder down
+// Requires no nonempty blocks be committed
 cross_tests!(
     TestName: test_marketplace_solver_down,
     Impls: [MemoryImpl],
@@ -33,17 +37,20 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            overall_safety_properties: OverallSafetyPropertiesDescription {
-                transaction_threshold: 0,
-                ..OverallSafetyPropertiesDescription::default()
-            },
-            validate_transactions: nonempty_block_threshold((95,100)),
+            fallback_builder:
+              BuilderDescription {
+                changes: HashMap::from([(0, BuilderChange::Down)])
+              },
+            validate_transactions: nonempty_block_limit((0,100)),
             start_solver: false,
             ..TestDescription::default()
         }
     },
 );
 
+// Test marketplace upgrade with no builder changes
+// Upgrade is proposed in view 5 and completes in view 25.
+// Requires 80% nonempty blocks
 cross_tests!(
     TestName: test_marketplace_upgrade,
     Impls: [MemoryImpl],
@@ -65,6 +72,8 @@ cross_tests!(
     },
 );
 
+// Test marketplace with both regular builders down but solver + fallback builder up
+// Requires 95% nonempty blocks
 cross_tests!(
     TestName: test_marketplace_builders_down,
     Impls: [MemoryImpl],
@@ -79,10 +88,6 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            overall_safety_properties: OverallSafetyPropertiesDescription {
-                transaction_threshold: 0,
-                ..OverallSafetyPropertiesDescription::default()
-            },
             builders: vec1![
               BuilderDescription {
                 changes: HashMap::from([(0, BuilderChange::Down)])
@@ -92,12 +97,13 @@ cross_tests!(
               }
             ],
             validate_transactions: nonempty_block_threshold((95,100)),
-            start_solver: false,
             ..TestDescription::default()
         }
     },
 );
 
+// Test marketplace with the fallback and one regular builder down
+// Requires at least 80% of blocks to be nonempty
 cross_tests!(
     TestName: test_marketplace_fallback_builder_down,
     Impls: [MemoryImpl],
@@ -112,16 +118,17 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            overall_safety_properties: OverallSafetyPropertiesDescription {
-                transaction_threshold: 0,
-                ..OverallSafetyPropertiesDescription::default()
-            },
+            builders: vec1![
+              BuilderDescription {
+                changes: HashMap::from([(0, BuilderChange::Down)])
+              },
+              BuilderDescription::default(),
+            ],
             fallback_builder:
               BuilderDescription {
                 changes: HashMap::from([(0, BuilderChange::Down)])
               },
-            validate_transactions: nonempty_block_threshold((95,100)),
-            start_solver: false,
+            validate_transactions: nonempty_block_threshold((80,100)),
             ..TestDescription::default()
         }
     },

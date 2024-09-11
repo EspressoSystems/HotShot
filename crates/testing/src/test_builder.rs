@@ -131,7 +131,36 @@ pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
         ensure!(
           // i.e. num_nonempty_blocks / num_blocks >= threshold.0 / threshold.1
           num_nonempty_blocks * threshold.1 >= threshold.0 * num_blocks,
-          "Failed to meet nonempty block threshold; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}"
+          "Failed to meet nonempty block threshold of {}/{}; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}", threshold.0, threshold.1
+        );
+
+        Ok(())
+    })
+}
+
+pub fn nonempty_block_limit(limit: (u64, u64)) -> TransactionValidator {
+    Arc::new(move |transactions| {
+        if matches!(limit, (_, 0)) {
+            return Ok(());
+        }
+
+        let blocks: Vec<_> = transactions.iter().filter(|(view, _)| *view != 0).collect();
+
+        let num_blocks = blocks.len() as u64;
+        let mut num_nonempty_blocks = 0;
+
+        ensure!(num_blocks > 0, "Failed to commit any non-genesis blocks");
+
+        for (_, num_transactions) in blocks {
+            if *num_transactions > 0 {
+                num_nonempty_blocks += 1;
+            }
+        }
+
+        ensure!(
+          // i.e. num_nonempty_blocks / num_blocks <= limit.0 / limit.1
+          num_nonempty_blocks * limit.1 <= limit.0 * num_blocks,
+          "Exceeded nonempty block limit of {}/{}; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}", limit.0, limit.1
         );
 
         Ok(())
