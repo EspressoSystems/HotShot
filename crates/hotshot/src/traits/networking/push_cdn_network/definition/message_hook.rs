@@ -1,6 +1,5 @@
 #![allow(clippy::unnecessary_wraps)]
 use std::hash::Hasher;
-use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -9,20 +8,12 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use cdn_broker::reexports::def::hook::{HookResult, MessageHookDef};
 use cdn_broker::reexports::message::{Broadcast, Direct, Message as PushCdnMessage};
-use hotshot_types::traits::node_implementation::NodeType;
 use lru::LruCache;
 use parking_lot::Mutex;
 use simple_moving_average::{SingleSumSMA, SMA as SmaTrait};
+use std::time::Duration;
+use tracing::warn;
 use twox_hash::xxh3::Hash64;
-
-/// The minimum number of seconds before a sample is committed
-const SAMPLE_COMMIT_INTERVAL_SECS: u64 = 100;
-
-/// The number of messages received before checking against/updating the global average
-const NUM_MESSAGES_BEFORE_CHECK: u64 = 5;
-
-/// The multiple of the global average that the local average must be less than
-const LOCAL_AVERAGE_MULTIPLE: u64 = 5;
 
 /// A wrapper around an `SMA` type that allows for atomic
 /// access of the previously calculated sum.
@@ -35,6 +26,16 @@ struct Sma {
     cached_sum: Arc<AtomicU64>,
 }
 
+/// The type of message being processed. Is used downstream to determine
+/// which sample and average to use when processing a message.
+#[derive(Eq, PartialEq, Clone, Copy)]
+enum MessageType {
+    /// A broadcast message
+    Broadcast,
+    /// A direct message
+    Direct,
+}
+
 impl Sma {
     /// Create a new `SMA`
     fn new() -> Self {
@@ -45,7 +46,7 @@ impl Sma {
     }
 
     /// Commit a sample to the `SMA`. This will update the cached sum.
-    fn commit_sample(&self, sample: &mut Sample) {
+    fn commit_sample(&mut self, sample: &mut Sample) {
         // Calculate the sample's average bytes per second and reset the sample
         let bytes_per_second = sample.get();
         sample.reset();
@@ -60,17 +61,9 @@ impl Sma {
         self.cached_sum.store(new_average, Ordering::Relaxed);
     }
 
-    /// Commit a sample if the
-    fn commit_sample_if_elapsed(&self, sample: &mut Sample) {
-        // Get the elapsed time since the last commit
-        if sample.last_committed_time.elapsed().as_secs() >= SAMPLE_COMMIT_INTERVAL_SECS {
-            self.commit_sample(sample);
-        }
-    }
-
     /// Get the cached (most currently updated) sum
     fn get(&self) -> u64 {
-        self.sma.lock().get_average()
+        self.cached_sum.load(Ordering::Relaxed)
     }
 }
 
@@ -121,72 +114,127 @@ impl Sample {
 
 #[derive(Clone)]
 /// The message hook for `HotShot` messages. Each user has a unique message hook.
-pub struct HotShotMessageHook<T: NodeType> {
+pub struct HotShotMessageHook {
+    /// The number of messages before checking against our average
+    num_messages_before_check: u64,
+
+    /// The sample commit interval
+    sample_commit_interval: Duration,
+
+    /// The multiple of our average that the local average is allowed to be
+    allowed_multiple: u64,
+
     /// The cache for message hashes. We use this to deduplicate a sliding window of
     /// 100 messages.
     message_hash_cache: LruCache<u64, ()>,
 
-    /// The moving average for the global broadcast bytes per second
+    /// The global moving average for the number of broadcast bytes per second
     global_broadcast_bps: Sma,
 
-    /// The moving average for the global direct bytes per second
-    global_direct_bps: Sma,
-
-    /// The hook-local sample for the local broadcast bytes per second
+    /// The local average for the number of broadcast bytes per second
     local_broadcast_bps: Sample,
 
-    /// The hook-local sample for the local direct bytes per second
-    local_direct_bps: Sample,
+    /// The global moving averagefor the number of direct bytes per second
+    global_direct_bps: Sma,
 
-    /// The phantom data for the node type
-    pd: PhantomData<T>,
+    /// The local average for the number of direct bytes per second
+    local_direct_bps: Sample,
 }
 
-impl<T: NodeType> Default for HotShotMessageHook<T> {
+impl Default for HotShotMessageHook {
     /// # Panics
     /// If 100 < 0
     fn default() -> Self {
         Self {
+            num_messages_before_check: 5,
+            sample_commit_interval: Duration::from_secs(100),
+            allowed_multiple: 2,
+
             global_broadcast_bps: Sma::new(),
             global_direct_bps: Sma::new(),
             local_broadcast_bps: Sample::new(),
             local_direct_bps: Sample::new(),
             message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
-            pd: PhantomData,
         }
     }
 }
 
-impl<T: NodeType> HotShotMessageHook<T> {
+impl HotShotMessageHook {
     /// Create a new `HotShotMessageHook`
     ///
     /// # Panics
     /// If 100 < 0
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(
+        sample_commit_interval: Duration,
+        num_messages_before_check: u64,
+        allowed_multiple: u64,
+    ) -> Self {
+        Self {
+            num_messages_before_check,
+            sample_commit_interval,
+            allowed_multiple,
+
+            global_broadcast_bps: Sma::new(),
+            global_direct_bps: Sma::new(),
+            local_broadcast_bps: Sample::new(),
+            local_direct_bps: Sample::new(),
+
+            message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
+        }
+    }
+
+    /// Process a message against the moving average
+    fn process_against_sma(&mut self, message_len: usize, message_type: MessageType) -> Result<()> {
+        // Match the sample and `SMA` based on the message type
+        let (sample, sma) = match message_type {
+            MessageType::Broadcast => (
+                &mut self.local_broadcast_bps,
+                &mut self.global_broadcast_bps,
+            ),
+            MessageType::Direct => (&mut self.local_direct_bps, &mut self.global_direct_bps),
+        };
+
+        // Add the length to the local sample
+        sample.add(message_len as u64);
+
+        // For every `num_messages_before_check` messages, check against the global average and potentially commit the sample
+        if sample.num_messages_sent % self.num_messages_before_check == 0
+            && sample.num_messages_sent != 0
+        {
+            // Commit the sample if the interval has elapsed
+            if sample.last_committed_time.elapsed() >= self.sample_commit_interval {
+                sma.commit_sample(sample);
+            }
+
+            // Get our local and global bps
+            let local_bps = sample.get();
+            let global_bps = sma.get();
+
+            // Calculate the maximum allowed bps
+            let max_allowed_bps = global_bps * self.allowed_multiple;
+
+            // If the local bps is greater than the allowed bps, kick the user
+            if global_bps != 0 && local_bps > max_allowed_bps {
+                warn!(
+                    "Local bps ({}) is greater than maximum allowed bps ({}), kicking user",
+                    local_bps, max_allowed_bps
+                );
+                return Err(anyhow::anyhow!(
+                    "Local bps ({}) is greater than maximum allowed bps ({}), kicking user",
+                    local_bps,
+                    max_allowed_bps
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     /// Process incoming broadcast messages from the user
     fn process_broadcast_message(&mut self, broadcast: &mut Broadcast) -> Result<HookResult> {
-        // Add the number of bytes in the message to the sample average
-        self.local_broadcast_bps.add(broadcast.message.len() as u64);
-
-        // For every 5 messages, check against the global average and potentially commit the sample
-        if self.local_broadcast_bps.num_messages_sent % NUM_MESSAGES_BEFORE_CHECK == 0
-            && self.local_broadcast_bps.num_messages_sent != 0
-        {
-            // Commit the sample if 100 seconds have passed
-            self.global_broadcast_bps
-                .commit_sample_if_elapsed(&mut self.local_broadcast_bps);
-
-            // Make sure our local average is not too high
-            let local_bps = self.local_broadcast_bps.get();
-            let global_bps = self.global_broadcast_bps.get();
-            if global_bps != 0 && local_bps > global_bps * LOCAL_AVERAGE_MULTIPLE {
-                return Ok(HookResult::SkipMessage);
-            }
-        }
+        // Process through the `SMA`
+        self.process_against_sma(broadcast.message.len(), MessageType::Broadcast)?;
 
         // Calculate the hash of the message
         let mut hasher = Hash64::default();
@@ -206,24 +254,8 @@ impl<T: NodeType> HotShotMessageHook<T> {
 
     /// Process incoming direct messages from the user
     fn process_direct_message(&mut self, direct: &mut Direct) -> Result<HookResult> {
-        // Add the number of bytes in the message to the local average
-        self.local_direct_bps.add(direct.message.len() as u64);
-
-        // For every 5 messages, check against the global average and potentially commit the sample
-        if self.local_direct_bps.num_messages_sent % NUM_MESSAGES_BEFORE_CHECK == 0
-            && self.local_direct_bps.num_messages_sent != 0
-        {
-            // Commit the sample if 100 seconds have passed
-            self.global_direct_bps
-                .commit_sample_if_elapsed(&mut self.local_direct_bps);
-
-            // Make sure our local average is not too high
-            let local_bps = self.local_direct_bps.get();
-            let global_bps = self.global_direct_bps.get();
-            if global_bps != 0 && local_bps > global_bps * LOCAL_AVERAGE_MULTIPLE {
-                return Ok(HookResult::SkipMessage);
-            }
-        }
+        // Process through the `SMA`
+        self.process_against_sma(direct.message.len(), MessageType::Direct)?;
 
         // Calculate the hash of the message
         let mut hasher = Hash64::default();
@@ -255,7 +287,7 @@ impl<T: NodeType> HotShotMessageHook<T> {
     // }
 }
 
-impl<T: NodeType> MessageHookDef for HotShotMessageHook<T> {
+impl MessageHookDef for HotShotMessageHook {
     /// Implement the hook trait for `HotShotMessageHook`
     fn on_message_received(&mut self, message: &mut PushCdnMessage) -> Result<HookResult> {
         match message {
@@ -269,5 +301,176 @@ impl<T: NodeType> MessageHookDef for HotShotMessageHook<T> {
 
             _ => Ok(HookResult::ProcessMessage),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn deduplication_broadcast() {
+        // Create a new message hook
+        let mut hook = HotShotMessageHook::default();
+
+        // Create a message
+        let mut message = Vec::new();
+        message.extend_from_slice(b"Hello, world!");
+
+        // Create a broadcast message
+        let mut broadcast = Broadcast {
+            message,
+            topics: vec![],
+        };
+
+        // Process the message, make sure it would've been sent
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::ProcessMessage,
+            "Message should have been processed but was not"
+        );
+
+        // Send it again, this time it should be skipped
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::SkipMessage,
+            "Message should have been skipped but was not"
+        );
+
+        // Alter the topics, it should be processed
+        broadcast.topics.push(1);
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::ProcessMessage,
+            "Same message with different topics should have been processed but was not"
+        );
+
+        // Alter the message, it should be processed
+        broadcast.message.extend_from_slice(b"!");
+        broadcast.topics.clear();
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::ProcessMessage,
+            "Different message with same topics should have been processed but was not"
+        );
+    }
+
+    #[test]
+    pub fn deduplication_direct() {
+        // Create a new message hook
+        let mut hook = HotShotMessageHook::default();
+
+        // Create a message
+        let mut message = Vec::new();
+        message.extend_from_slice(b"Hello, world!");
+
+        // Create a broadcast message
+        let mut direct = Direct {
+            message,
+            recipient: vec![],
+        };
+
+        // Process the message, make sure it would've been sent
+        let result = hook.process_direct_message(&mut direct);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::ProcessMessage,
+            "Message should have been processed but was not"
+        );
+
+        // Send it again, this time it should be skipped
+        let result = hook.process_direct_message(&mut direct);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::SkipMessage,
+            "Message should have been skipped but was not"
+        );
+
+        // Alter the topics, it should be processed
+        direct.recipient.push(1);
+        let result = hook.process_direct_message(&mut direct);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::ProcessMessage,
+            "Same message with different recipient should have been processed but was not"
+        );
+
+        // Alter the message, it should be processed
+        direct.message.extend_from_slice(b"!");
+        direct.recipient.clear();
+        let result = hook.process_direct_message(&mut direct);
+        assert!(
+            result.is_ok() && result.unwrap() == HookResult::ProcessMessage,
+            "Different message with same recipient should have been processed but was not"
+        );
+    }
+
+    #[test]
+    fn in_range() {
+        // Create a new message hook where each message is checked
+        let mut hook = HotShotMessageHook {
+            global_broadcast_bps: Sma {
+                cached_sum: Arc::new(AtomicU64::new(1000)),
+                sma: Arc::new(Mutex::new(SingleSumSMA::new())),
+            },
+            local_broadcast_bps: Sample {
+                num_bytes_sent: 0,
+                num_messages_sent: 1,
+                last_committed_time: Instant::now()
+                    .checked_sub(Duration::from_secs(1))
+                    .unwrap_or(Instant::now()),
+            },
+            num_messages_before_check: 1,
+            sample_commit_interval: Duration::from_secs(1),
+            allowed_multiple: 1,
+            ..HotShotMessageHook::default()
+        };
+
+        // Create a message just within the range (999 bytes)
+        let message = vec![0; 999];
+        let mut broadcast = Broadcast {
+            message,
+            topics: vec![],
+        };
+
+        // Process the message, make sure it would've been sent
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.is_ok(),
+            "Message should have been processed but was not",
+        );
+    }
+
+    #[test]
+    fn exceeding_range() {
+        // Create a new message hook where each message is checked
+        let mut hook = HotShotMessageHook {
+            global_broadcast_bps: Sma {
+                cached_sum: Arc::new(AtomicU64::new(1000)),
+                sma: Arc::new(Mutex::new(SingleSumSMA::new())),
+            },
+            local_broadcast_bps: Sample {
+                num_bytes_sent: 0,
+                num_messages_sent: 1,
+                last_committed_time: Instant::now()
+                    .checked_sub(Duration::from_secs(1))
+                    .unwrap_or(Instant::now()),
+            },
+            num_messages_before_check: 1,
+            sample_commit_interval: Duration::from_secs(1),
+            allowed_multiple: 1,
+            ..HotShotMessageHook::default()
+        };
+
+        // Create a message just outside the range (1001 bytes)
+        let message = vec![0; 1001];
+        let mut broadcast = Broadcast {
+            message,
+            topics: vec![],
+        };
+
+        // Process the message, make sure it would've not been sent
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.is_err(),
+            "Message should have been skipped but was not",
+        );
     }
 }

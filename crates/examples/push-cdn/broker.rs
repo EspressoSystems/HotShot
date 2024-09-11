@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
 
     // Create the message hooks
     let broker_message_hook = NoMessageHook;
-    let user_message_hook = HotShotMessageHook::new();
+    let user_message_hook = HotShotMessageHook::default();
 
     // Create config
     let broker_config: Config<ProductionDef<TestTypes>> = Config {

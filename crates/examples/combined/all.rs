@@ -74,7 +74,7 @@ async fn main() {
 
         // Create the message hooks
         let broker_message_hook = NoMessageHook;
-        let user_message_hook = HotShotMessageHook::new();
+        let user_message_hook = HotShotMessageHook::default();
 
         let config: cdn_broker::Config<TestingDef<TestTypes>> = cdn_broker::Config {
             discovery_endpoint: discovery_endpoint.clone(),

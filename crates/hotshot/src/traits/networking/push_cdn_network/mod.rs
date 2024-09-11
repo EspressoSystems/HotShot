@@ -192,7 +192,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
             let other_broker_identifier = format!("{other_public_address}/{other_public_address}");
 
             // Create the message hooks
-            let user_message_hook = HotShotMessageHook::new();
+            let user_message_hook = HotShotMessageHook::default();
 
             // Configure the broker
             let config: BrokerConfig<TestingDef<TYPES>> = BrokerConfig {

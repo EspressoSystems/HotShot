@@ -46,7 +46,7 @@ pub struct UserDef<T: NodeType>(PhantomData<T>);
 impl<T: NodeType> ConnectionDef for UserDef<T> {
     type Scheme = WrappedSignatureKey<T::SignatureKey>;
     type Protocol = Quic;
-    type MessageHook = HotShotMessageHook<T>;
+    type MessageHook = HotShotMessageHook;
 }
 
 /// The broker definition for the Push CDN.
