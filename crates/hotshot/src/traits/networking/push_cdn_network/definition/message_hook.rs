@@ -20,7 +20,7 @@ use twox_hash::xxh3::Hash64;
 #[derive(Clone)]
 struct Sma {
     /// The "inner" moving average object
-    sma: Arc<Mutex<SingleSumSMA<u64, u64, 1000>>>,
+    sma: Arc<Mutex<SingleSumSMA<u64, u64, 10000>>>,
 
     /// The previously calculated sum
     cached_sum: Arc<AtomicU64>,
@@ -55,10 +55,10 @@ impl Sma {
         let mut sma_guard = self.sma.lock();
         sma_guard.add_sample(bytes_per_second);
         let new_average = sma_guard.get_average();
-        drop(sma_guard);
 
         // Store the new average in the cached sum
         self.cached_sum.store(new_average, Ordering::Relaxed);
+        drop(sma_guard);
     }
 
     /// Get the cached (most currently updated) sum
@@ -146,9 +146,9 @@ impl Default for HotShotMessageHook {
     /// If 100 < 0
     fn default() -> Self {
         Self {
-            num_messages_before_check: 5,
-            sample_commit_interval: Duration::from_secs(100),
-            allowed_multiple: 2,
+            num_messages_before_check: 10,
+            sample_commit_interval: Duration::from_secs(600),
+            allowed_multiple: 3,
 
             global_broadcast_bps: Sma::new(),
             global_direct_bps: Sma::new(),
