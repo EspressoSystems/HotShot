@@ -27,7 +27,7 @@ const LOCAL_AVERAGE_MULTIPLE: u64 = 5;
 /// A wrapper around an `SMA` type that allows for atomic
 /// access of the previously calculated sum.
 #[derive(Clone)]
-struct SMA {
+struct Sma {
     /// The "inner" moving average object
     sma: Arc<Mutex<SingleSumSMA<u64, u64, 1000>>>,
 
@@ -35,7 +35,7 @@ struct SMA {
     cached_sum: Arc<AtomicU64>,
 }
 
-impl SMA {
+impl Sma {
     /// Create a new `SMA`
     fn new() -> Self {
         Self {
@@ -127,10 +127,10 @@ pub struct HotShotMessageHook<T: NodeType> {
     message_hash_cache: LruCache<u64, ()>,
 
     /// The moving average for the global broadcast bytes per second
-    global_broadcast_bps: SMA,
+    global_broadcast_bps: Sma,
 
     /// The moving average for the global direct bytes per second
-    global_direct_bps: SMA,
+    global_direct_bps: Sma,
 
     /// The hook-local sample for the local broadcast bytes per second
     local_broadcast_bps: Sample,
@@ -147,8 +147,8 @@ impl<T: NodeType> Default for HotShotMessageHook<T> {
     /// If 100 < 0
     fn default() -> Self {
         Self {
-            global_broadcast_bps: SMA::new(),
-            global_direct_bps: SMA::new(),
+            global_broadcast_bps: Sma::new(),
+            global_direct_bps: Sma::new(),
             local_broadcast_bps: Sample::new(),
             local_direct_bps: Sample::new(),
             message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
