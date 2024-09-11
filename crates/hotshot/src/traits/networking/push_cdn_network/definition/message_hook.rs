@@ -147,7 +147,7 @@ impl Default for HotShotMessageHook {
         Self {
             sample_check_interval: Duration::from_secs(5),
             sample_commit_interval: Duration::from_secs(120),
-            allowed_multiple: 3,
+            allowed_multiple: 4,
 
             global_broadcast_bps: Sma::new(),
             global_direct_bps: Sma::new(),
@@ -202,7 +202,7 @@ impl HotShotMessageHook {
         if sample.last_checked_time.elapsed() >= self.sample_check_interval {
             // Get our local and global bps
             let local_bps = sample.get();
-            let global_bps = sma.get().max(1000);
+            let global_bps = sma.get().max(2000);
 
             // Calculate the maximum allowed bps
             let max_allowed_bps = global_bps * self.allowed_multiple;
