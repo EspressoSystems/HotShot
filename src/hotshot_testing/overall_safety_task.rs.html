@@ -591,6 +591,9 @@
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -842,9 +845,12 @@
             expected_views_to_fail,
         }: OverallSafetyPropertiesDescription&lt;TYPES&gt; = <span class="self">self</span>.properties.clone();
 
-        <span class="kw">let </span>num_incomplete_views = <span class="self">self</span>.ctx.round_results.len()
-            - <span class="self">self</span>.ctx.successful_views.len()
-            - <span class="self">self</span>.ctx.failed_views.len();
+        <span class="kw">let </span>num_incomplete_views = <span class="self">self
+            </span>.ctx
+            .round_results
+            .len()
+            .saturating_sub(<span class="self">self</span>.ctx.successful_views.len())
+            .saturating_sub(<span class="self">self</span>.ctx.failed_views.len());
 
         <span class="kw">if </span><span class="self">self</span>.ctx.successful_views.len() &lt; num_successful_views {
             <span class="kw">return </span>TestResult::Fail(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::NotEnoughDecides {
