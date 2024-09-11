@@ -423,8 +423,8 @@ mod test {
             ..HotShotMessageHook::default()
         };
 
-        // Create a message just within the range (999 bytes)
-        let message = vec![0; 999];
+        // Create a message just within the range (800 bytes)
+        let message = vec![0; 800];
         let mut broadcast = Broadcast {
             message,
             topics: vec![],
@@ -459,8 +459,8 @@ mod test {
             ..HotShotMessageHook::default()
         };
 
-        // Create a message just outside the range (1001 bytes)
-        let message = vec![0; 1001];
+        // Create a message just outside the range (1200 bytes)
+        let message = vec![0; 1200];
         let mut broadcast = Broadcast {
             message,
             topics: vec![],
