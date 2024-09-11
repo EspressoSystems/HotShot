@@ -322,7 +322,7 @@ async fn test_all_restart() {
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
     let mut catchup_nodes = vec![];
-    for i in 1..20 {
+    for i in 0..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: UpDown::Restart,
@@ -384,7 +384,7 @@ async fn test_all_restart_cdn() {
     let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> =
         TestDescription::default();
     let mut catchup_nodes = vec![];
-    for i in 1..20 {
+    for i in 0..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: UpDown::Restart,
@@ -450,12 +450,8 @@ async fn test_all_restart_one_da() {
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
 
-    let node_0_down = vec![ChangeNode {
-        idx: 0,
-        updown: UpDown::Restart,
-    }];
     let mut catchup_nodes = vec![];
-    for i in 1..20 {
+    for i in 0..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: UpDown::Restart,
