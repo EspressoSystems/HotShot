@@ -165,8 +165,19 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                 let paired_up = (leaf_chain.to_vec(), (*qc).clone());
                 match self.ctx.round_results.entry(view_number) {
                     Entry::Occupied(mut o) => {
-                        o.get_mut()
-                            .insert_into_result(id, paired_up, maybe_block_size)
+                        let entry = o.get_mut();
+                        let leaf = entry.insert_into_result(id, paired_up, maybe_block_size);
+
+                        // Here we noticed is a node may start up and time out waiting for a proposal
+                        // So we add the timeout to failed_views, but eventually the proposal is received we decide on the view
+                        // If we do indeed have a view timeout for the node at this point we want to remove it
+                        entry.cleanup_previous_timeouts_on_view(
+                            &mut self.ctx.failed_views,
+                            &view_number,
+                            &(id as u64),
+                        );
+
+                        leaf
                     }
                     Entry::Vacant(v) => {
                         let mut round_result = RoundResult::default();
@@ -249,12 +260,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             expected_views_to_fail,
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
 
-        let num_incomplete_views = self
-            .ctx
-            .round_results
-            .len()
-            .saturating_sub(self.ctx.successful_views.len())
-            .saturating_sub(self.ctx.failed_views.len());
+        let num_incomplete_views = self.ctx.round_results.len()
+            - self.ctx.successful_views.len()
+            - self.ctx.failed_views.len();
 
         if self.ctx.successful_views.len() < num_successful_views {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
@@ -539,6 +547,40 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
             }
         }
         leaves
+    }
+
+    fn cleanup_previous_timeouts_on_view(
+        &mut self,
+        failed_views: &mut HashSet<TYPES::Time>,
+        view_number: &TYPES::Time,
+        id: &u64,
+    ) {
+        // check if this node had a previous timeout
+        match self.failed_nodes.get(id) {
+            Some(error) => match error.as_ref() {
+                HotShotError::ViewTimeoutError {
+                    view_number,
+                    state: _,
+                } => {
+                    tracing::debug!(
+                        "Node {} originally timeout for view: {:?}. It has now been decided on.",
+                        id,
+                        view_number
+                    );
+                    self.failed_nodes.remove(id);
+                }
+                _ => return,
+            },
+            None => return,
+        }
+
+        // check if no more failed nodes
+        if self.failed_nodes.is_empty() && failed_views.remove(view_number) {
+            tracing::debug!(
+                "Removed view {:?} from failed views, all nodes have agreed upon view.",
+                view_number
+            );
+        }
     }
 }
 
