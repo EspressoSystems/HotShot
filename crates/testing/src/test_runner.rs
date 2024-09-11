@@ -341,14 +341,14 @@ where
 
     pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
         &self,
-    ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>) {
+    ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>, Url) {
         let config = self.launcher.resource_generator.config.clone();
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
             let builder_port = portpicker::pick_unused_port().expect("No free ports");
             let builder_url =
-                Url::parse(&format!("http://localhost:{builder_port}")).expect("Valid URL");
+                Url::parse(&format!("http://localhost:{builder_port}")).expect("Invalid URL");
             let builder_task = B::start(
                 config.num_nodes_with_stake.into(),
                 builder_url.clone(),
@@ -360,7 +360,21 @@ where
             builder_urls.push(builder_url);
         }
 
-        (builder_tasks, builder_urls)
+        let fallback_builder_port = portpicker::pick_unused_port().expect("No free ports");
+        let fallback_builder_url =
+            Url::parse(&format!("http://localhost:{fallback_builder_port}")).expect("Invalid URL");
+
+        let fallback_builder_task = B::start(
+            config.num_nodes_with_stake.into(),
+            fallback_builder_url.clone(),
+            B::Config::default(),
+            self.launcher.metadata.fallback_builder.changes.clone(),
+        )
+        .await;
+
+        builder_tasks.push(fallback_builder_task);
+
+        (builder_tasks, builder_urls, fallback_builder_url)
     }
 
     /// Add auction solver.
@@ -402,7 +416,8 @@ where
         let config = self.launcher.resource_generator.config.clone();
         let known_nodes_with_stake = config.known_nodes_with_stake.clone();
 
-        let (mut builder_tasks, builder_urls) = self.init_builders::<B>().await;
+        let (mut builder_tasks, builder_urls, fallback_builder_url) =
+            self.init_builders::<B>().await;
 
         if self.launcher.metadata.start_solver {
             self.add_solver(builder_urls.clone()).await;
@@ -465,7 +480,7 @@ where
                 marketplace_config.auction_results_provider = new_auction_results_provider.into();
             }
 
-            marketplace_config.fallback_builder_url = builder_urls.first().unwrap().clone();
+            marketplace_config.fallback_builder_url = fallback_builder_url.clone();
 
             let network_clone = network.clone();
             let networks_ready_future = async move {

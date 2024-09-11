@@ -93,6 +93,8 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     pub view_sync_properties: ViewSyncTaskDescription,
     /// description of builders to run
     pub builders: Vec1<BuilderDescription>,
+    /// description of fallback builder to run
+    pub fallback_builder: BuilderDescription,
     /// description of the solver to run
     pub solver: FakeSolverApiDescription,
     /// nodes with byzantine behaviour
@@ -243,7 +245,7 @@ pub enum BuilderChange {
 }
 
 /// Metadata describing builder behaviour during a test
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BuilderDescription {
     /// view number -> change to builder status
     pub changes: HashMap<u64, BuilderChange>,
@@ -403,14 +405,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             ),
             unreliable_network: None,
             view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
-            builders: vec1::vec1![
-                BuilderDescription {
-                    changes: HashMap::new()
-                },
-                BuilderDescription {
-                    changes: HashMap::new()
-                }
-            ],
+            builders: vec1::vec1![BuilderDescription::default(), BuilderDescription::default(),],
+            fallback_builder: BuilderDescription::default(),
             solver: FakeSolverApiDescription {
                 // Default to a 10% error rate.
                 error_pct: 0.1,
