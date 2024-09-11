@@ -413,7 +413,7 @@ mod test {
         // Create a new message hook where each message is checked
         let mut hook = HotShotMessageHook {
             global_broadcast_bps: Sma {
-                cached_sum: Arc::new(AtomicU64::new(1000)),
+                cached_sum: Arc::new(AtomicU64::new(2000)),
                 sma: Arc::new(Mutex::new(SingleSumSMA::new())),
             },
             local_broadcast_bps: Sample {
@@ -430,7 +430,7 @@ mod test {
         };
 
         // Create a message just within the range (800 bytes)
-        let message = vec![0; 800];
+        let message = vec![0; 1800];
         let mut broadcast = Broadcast {
             message,
             topics: vec![],
@@ -449,7 +449,7 @@ mod test {
         // Create a new message hook where each message is checked
         let mut hook = HotShotMessageHook {
             global_broadcast_bps: Sma {
-                cached_sum: Arc::new(AtomicU64::new(1000)),
+                cached_sum: Arc::new(AtomicU64::new(2000)),
                 sma: Arc::new(Mutex::new(SingleSumSMA::new())),
             },
             local_broadcast_bps: Sample {
@@ -466,7 +466,7 @@ mod test {
         };
 
         // Create a message just outside the range (1200 bytes)
-        let message = vec![0; 1200];
+        let message = vec![0; 2200];
         let mut broadcast = Broadcast {
             message,
             topics: vec![],
