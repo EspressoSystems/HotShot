@@ -467,7 +467,7 @@ async fn test_all_restart_one_da() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Restart all the nodes in view 13
-        node_changes: vec![(12, node_0_down), (13, catchup_nodes)],
+        node_changes: vec![(13, catchup_nodes)],
     };
     metadata.view_sync_properties =
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
