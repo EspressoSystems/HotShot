@@ -12,7 +12,7 @@ use lru::LruCache;
 use parking_lot::Mutex;
 use simple_moving_average::{SingleSumSMA, SMA as SmaTrait};
 use std::time::Duration;
-use tracing::warn;
+use tracing::error;
 use twox_hash::xxh3::Hash64;
 
 /// A wrapper around an `SMA` type that allows for atomic
@@ -147,7 +147,7 @@ impl Default for HotShotMessageHook {
         Self {
             sample_check_interval: Duration::from_secs(5),
             sample_commit_interval: Duration::from_secs(120),
-            allowed_multiple: 4,
+            allowed_multiple: 3,
 
             global_broadcast_bps: Sma::new(),
             global_direct_bps: Sma::new(),
@@ -202,14 +202,19 @@ impl HotShotMessageHook {
         if sample.last_checked_time.elapsed() >= self.sample_check_interval {
             // Get our local and global bps
             let local_bps = sample.get();
-            let global_bps = sma.get().max(2000);
+            let mut global_bps = sma.get();
+
+            // Clamp the global bps to a minimum of 2000 if it's not zero (meaning uninitialized)
+            if global_bps > 0 {
+                global_bps = std::cmp::max(global_bps, 2000);
+            }
 
             // Calculate the maximum allowed bps
             let max_allowed_bps = global_bps * self.allowed_multiple;
 
             // If the local bps is greater than the allowed bps, kick the user
             if global_bps != 0 && local_bps > max_allowed_bps {
-                warn!(
+                error!(
                     "Local bps ({}) is greater than maximum allowed bps ({}), kicking user",
                     local_bps, max_allowed_bps
                 );
