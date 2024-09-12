@@ -23,6 +23,9 @@ async fn test_catchup() {
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
         next_view_timeout: 2000,
+        // increase the round delay for this test
+        // TODO: remove this delay increase for test - https://github.com/EspressoSystems/HotShot/issues/3673
+        round_start_delay: 200,
         ..Default::default()
     };
     let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> =
@@ -41,7 +44,7 @@ async fn test_catchup() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
-        node_changes: vec![(8, catchup_node)],
+        node_changes: vec![(13, catchup_node)],
     };
 
     metadata.completion_task_description =
