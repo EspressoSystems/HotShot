@@ -82,6 +82,12 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
         expected_failed_views: HashSet<TYPES::Time>,
         actual_failed_views: HashSet<TYPES::Time>,
     },
+    /// This is a case where we have too many failured + succesful views over round results
+    /// This should never be the case and requires debugging if we see this get thrown
+    NotEnoughRoundResults {
+        results_count: usize,
+        views_count: usize,
+    },
 }
 
 /// Data availability task state
@@ -260,9 +266,20 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             expected_views_to_fail,
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
 
-        let num_incomplete_views = self.ctx.round_results.len()
-            - self.ctx.successful_views.len()
-            - self.ctx.failed_views.len();
+        let views_count = self.ctx.failed_views.len() + self.ctx.successful_views.len();
+        let results_count = self.ctx.round_results.len();
+
+        // This can cause tests to crash if we do the subtracting to get `num_incomplete_views` below, so throw an error instead
+        // Use this instead of saturating_sub as that could hide a real problem
+        if views_count > results_count {
+            return TestResult::Fail(Box::new(
+                OverallSafetyTaskErr::<TYPES>::NotEnoughRoundResults {
+                    results_count: results_count,
+                    views_count: views_count,
+                },
+            ));
+        }
+        let num_incomplete_views = views_count - results_count;
 
         if self.ctx.successful_views.len() < num_successful_views {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
@@ -575,7 +592,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         }
 
         // check if no more failed nodes
-        if self.failed_nodes.is_empty() && failed_views.remove(view_number) {
+        if self.failed_nodes.is_empty() && failed_views.contains(view_number) {
             tracing::debug!(
                 "Removed view {:?} from failed views, all nodes have agreed upon view.",
                 view_number
