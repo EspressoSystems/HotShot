@@ -269,8 +269,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         let views_count = self.ctx.failed_views.len() + self.ctx.successful_views.len();
         let results_count = self.ctx.round_results.len();
 
-        // This can cause tests to crash if we do the subtracting to get `num_incomplete_views` below, so throw an error instead
-        // Use this instead of saturating_sub as that could hide a real problem
+        // This can cause tests to crash if we do the subtracting to get `num_incomplete_views` below
+        // So lets fail return an error instead
+        // Use this check instead of saturating_sub as that could hide a real problem
         if views_count > results_count {
             return TestResult::Fail(Box::new(
                 OverallSafetyTaskErr::<TYPES>::NotEnoughRoundResults {
@@ -592,7 +593,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         }
 
         // check if no more failed nodes
-        if self.failed_nodes.is_empty() && failed_views.contains(view_number) {
+        if self.failed_nodes.is_empty() && failed_views.remove(view_number) {
             tracing::debug!(
                 "Removed view {:?} from failed views, all nodes have agreed upon view.",
                 view_number
