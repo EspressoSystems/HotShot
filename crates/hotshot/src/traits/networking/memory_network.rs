@@ -383,7 +383,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
             .map_err(|_x| NetworkError::ShutDown)?;
         self.inner
             .in_flight_message_count
-            .fetch_sub(ret.len(), Ordering::Relaxed);
+            .fetch_sub(1, Ordering::Relaxed);
         Ok(ret)
     }
 }
