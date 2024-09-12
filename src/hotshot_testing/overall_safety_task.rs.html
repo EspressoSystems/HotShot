@@ -594,6 +594,66 @@
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -678,6 +738,12 @@
         expected_failed_views: HashSet&lt;TYPES::Time&gt;,
         actual_failed_views: HashSet&lt;TYPES::Time&gt;,
     },
+    <span class="doccomment">/// This is a case where we have too many failed + succesful views over round results
+    /// This should never be the case and requires debugging if we see this get thrown
+    </span>NotEnoughRoundResults {
+        results_count: usize,
+        views_count: usize,
+    },
 }
 
 <span class="doccomment">/// Data availability task state
@@ -761,8 +827,19 @@
                 <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
                 <span class="kw">match </span><span class="self">self</span>.ctx.round_results.entry(view_number) {
                     Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                        o.get_mut()
-                            .insert_into_result(id, paired_up, maybe_block_size)
+                        <span class="kw">let </span>entry = o.get_mut();
+                        <span class="kw">let </span>leaf = entry.insert_into_result(id, paired_up, maybe_block_size);
+
+                        <span class="comment">// Here we noticed is a node may start up and time out waiting for a proposal
+                        // So we add the timeout to failed_views, but eventually the proposal is received we decide on the view
+                        // If we do indeed have a view timeout for the node at this point we want to remove it
+                        </span>entry.cleanup_previous_timeouts_on_view(
+                            <span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx.failed_views,
+                            <span class="kw-2">&amp;</span>view_number,
+                            <span class="kw-2">&amp;</span>(id <span class="kw">as </span>u64),
+                        );
+
+                        leaf
                     }
                     Entry::Vacant(v) =&gt; {
                         <span class="kw">let </span><span class="kw-2">mut </span>round_result = RoundResult::default();
@@ -845,12 +922,21 @@
             expected_views_to_fail,
         }: OverallSafetyPropertiesDescription&lt;TYPES&gt; = <span class="self">self</span>.properties.clone();
 
-        <span class="kw">let </span>num_incomplete_views = <span class="self">self
-            </span>.ctx
-            .round_results
-            .len()
-            .saturating_sub(<span class="self">self</span>.ctx.successful_views.len())
-            .saturating_sub(<span class="self">self</span>.ctx.failed_views.len());
+        <span class="kw">let </span>views_count = <span class="self">self</span>.ctx.failed_views.len() + <span class="self">self</span>.ctx.successful_views.len();
+        <span class="kw">let </span>results_count = <span class="self">self</span>.ctx.round_results.len();
+
+        <span class="comment">// This can cause tests to crash if we do the subtracting to get `num_incomplete_views` below
+        // So lets fail return an error instead
+        // Use this check instead of saturating_sub as that could hide a real problem
+        </span><span class="kw">if </span>views_count &gt; results_count {
+            <span class="kw">return </span>TestResult::Fail(Box::new(
+                OverallSafetyTaskErr::&lt;TYPES&gt;::NotEnoughRoundResults {
+                    results_count,
+                    views_count,
+                },
+            ));
+        }
+        <span class="kw">let </span>num_incomplete_views = results_count - views_count;
 
         <span class="kw">if </span><span class="self">self</span>.ctx.successful_views.len() &lt; num_successful_views {
             <span class="kw">return </span>TestResult::Fail(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::NotEnoughDecides {
@@ -1135,6 +1221,40 @@
             }
         }
         leaves
+    }
+
+    <span class="kw">fn </span>cleanup_previous_timeouts_on_view(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        failed_views: <span class="kw-2">&amp;mut </span>HashSet&lt;TYPES::Time&gt;,
+        view_number: <span class="kw-2">&amp;</span>TYPES::Time,
+        id: <span class="kw-2">&amp;</span>u64,
+    ) {
+        <span class="comment">// check if this node had a previous timeout
+        </span><span class="kw">match </span><span class="self">self</span>.failed_nodes.get(id) {
+            <span class="prelude-val">Some</span>(error) =&gt; <span class="kw">match </span>error.as_ref() {
+                HotShotError::ViewTimeoutError {
+                    view_number,
+                    state: <span class="kw">_</span>,
+                } =&gt; {
+                    <span class="macro">tracing::debug!</span>(
+                        <span class="string">"Node {} originally timeout for view: {:?}. It has now been decided on."</span>,
+                        id,
+                        view_number
+                    );
+                    <span class="self">self</span>.failed_nodes.remove(id);
+                }
+                <span class="kw">_ </span>=&gt; <span class="kw">return</span>,
+            },
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
+        }
+
+        <span class="comment">// check if no more failed nodes
+        </span><span class="kw">if </span><span class="self">self</span>.failed_nodes.is_empty() &amp;&amp; failed_views.remove(view_number) {
+            <span class="macro">tracing::debug!</span>(
+                <span class="string">"Removed view {:?} from failed views, all nodes have agreed upon view."</span>,
+                view_number
+            );
+        }
     }
 }
 
