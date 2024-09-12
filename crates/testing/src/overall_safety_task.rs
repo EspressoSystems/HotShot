@@ -82,7 +82,7 @@ pub enum OverallSafetyTaskErr<TYPES: NodeType> {
         expected_failed_views: HashSet<TYPES::Time>,
         actual_failed_views: HashSet<TYPES::Time>,
     },
-    /// This is a case where we have too many failured + succesful views over round results
+    /// This is a case where we have too many failed + succesful views over round results
     /// This should never be the case and requires debugging if we see this get thrown
     NotEnoughRoundResults {
         results_count: usize,
@@ -274,12 +274,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         if views_count > results_count {
             return TestResult::Fail(Box::new(
                 OverallSafetyTaskErr::<TYPES>::NotEnoughRoundResults {
-                    results_count: results_count,
-                    views_count: views_count,
+                    results_count,
+                    views_count,
                 },
             ));
         }
-        let num_incomplete_views = views_count - results_count;
+        let num_incomplete_views = results_count - views_count;
 
         if self.ctx.successful_views.len() < num_successful_views {
             return TestResult::Fail(Box::new(OverallSafetyTaskErr::<TYPES>::NotEnoughDecides {
