@@ -41,7 +41,7 @@ async fn test_catchup() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
-        node_changes: vec![(13, catchup_node)],
+        node_changes: vec![(8, catchup_node)],
     };
 
     metadata.completion_task_description =
