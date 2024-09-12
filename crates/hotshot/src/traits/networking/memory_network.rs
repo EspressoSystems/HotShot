@@ -371,14 +371,14 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
     ///
     /// # Errors
     /// If the other side of the channel is closed
-    #[instrument(name = "MemoryNetwork::recv_msgs", skip_all)]
-    async fn recv_msgs(&self) -> Result<Vec<Vec<u8>>, NetworkError> {
+    #[instrument(name = "MemoryNetwork::recv_messages", skip_all)]
+    async fn recv_message(&self) -> Result<Vec<u8>, NetworkError> {
         let ret = self
             .inner
             .output
             .lock()
             .await
-            .drain_at_least_one()
+            .recv()
             .await
             .map_err(|_x| NetworkError::ShutDown)?;
         self.inner
