@@ -1148,7 +1148,7 @@
     ///
     /// # Errors
     /// - If we fail to receive messages. Will trigger a retry automatically.
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>recv_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
         <span class="comment">// Receive a message
         </span><span class="kw">let </span>message = <span class="self">self</span>.client.receive_message().<span class="kw">await</span>;
 
@@ -1179,7 +1179,7 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[]);
         };
 
-        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[message])
+        <span class="prelude-val">Ok</span>(message)
     }
 
     <span class="doccomment">/// Do nothing here, as we don't need to look up nodes.

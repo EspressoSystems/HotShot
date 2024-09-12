@@ -985,7 +985,7 @@
     ///
     /// # Errors
     /// If there is a network-related failure.
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt;;
+    </span><span class="kw">async fn </span>recv_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt;;
 
     <span class="doccomment">/// Ask request the network for some data.  Returns the request ID for that data,
     /// The ID returned can be used for cancelling the request

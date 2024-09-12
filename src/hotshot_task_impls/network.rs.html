@@ -732,9 +732,6 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -839,109 +836,106 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkMessageTaskState&lt;TYPES&gt; {
     <span class="attr">#[instrument(skip_all, name = <span class="string">"Network message task"</span>, level = <span class="string">"trace"</span>)]
-    </span><span class="doccomment">/// Handle the message.
-    </span><span class="kw">pub async fn </span>handle_messages(<span class="kw-2">&amp;mut </span><span class="self">self</span>, messages: Vec&lt;Message&lt;TYPES&gt;&gt;) {
-        <span class="comment">// We will send only one event for a vector of transactions.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>transactions = Vec::new();
-        <span class="kw">for </span>message <span class="kw">in </span>messages {
-            <span class="macro">tracing::trace!</span>(<span class="string">"Received message from network:\n\n{message:?}"</span>);
-            <span class="kw">let </span>sender = message.sender;
-            <span class="kw">match </span>message.kind {
-                MessageKind::Consensus(consensus_message) =&gt; {
-                    <span class="kw">let </span>event = <span class="kw">match </span>consensus_message {
-                        SequencingMessage::General(general_message) =&gt; <span class="kw">match </span>general_message {
-                            GeneralConsensusMessage::Proposal(proposal) =&gt; {
-                                HotShotEvent::QuorumProposalRecv(proposal, sender)
-                            }
-                            GeneralConsensusMessage::ProposalRequested(req, sig) =&gt; {
-                                HotShotEvent::QuorumProposalRequestRecv(req, sig)
-                            }
-                            GeneralConsensusMessage::LeaderProposalAvailable(proposal) =&gt; {
-                                HotShotEvent::QuorumProposalResponseRecv(proposal)
-                            }
-                            GeneralConsensusMessage::Vote(vote) =&gt; {
-                                HotShotEvent::QuorumVoteRecv(vote.clone())
-                            }
-                            GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) =&gt; {
-                                HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
-                            }
-                            GeneralConsensusMessage::ViewSyncPreCommitCertificate(
-                                view_sync_message,
-                            ) =&gt; HotShotEvent::ViewSyncPreCommitCertificate2Recv(view_sync_message),
+    </span><span class="doccomment">/// Handles a (deserialized) message from the network
+    </span><span class="kw">pub async fn </span>handle_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message: Message&lt;TYPES&gt;) {
+        <span class="macro">tracing::trace!</span>(<span class="string">"Received message from network:\n\n{message:?}"</span>);
 
-                            GeneralConsensusMessage::ViewSyncCommitVote(view_sync_message) =&gt; {
-                                HotShotEvent::ViewSyncCommitVoteRecv(view_sync_message)
-                            }
-                            GeneralConsensusMessage::ViewSyncCommitCertificate(
-                                view_sync_message,
-                            ) =&gt; HotShotEvent::ViewSyncCommitCertificate2Recv(view_sync_message),
+        <span class="comment">// Match the message kind and send the appropriate event to the internal event stream
+        </span><span class="kw">let </span>sender = message.sender;
+        <span class="kw">match </span>message.kind {
+            <span class="comment">// Handle consensus messages
+            </span>MessageKind::Consensus(consensus_message) =&gt; {
+                <span class="kw">let </span>event = <span class="kw">match </span>consensus_message {
+                    SequencingMessage::General(general_message) =&gt; <span class="kw">match </span>general_message {
+                        GeneralConsensusMessage::Proposal(proposal) =&gt; {
+                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                        }
+                        GeneralConsensusMessage::ProposalRequested(req, sig) =&gt; {
+                            HotShotEvent::QuorumProposalRequestRecv(req, sig)
+                        }
+                        GeneralConsensusMessage::LeaderProposalAvailable(proposal) =&gt; {
+                            HotShotEvent::QuorumProposalResponseRecv(proposal)
+                        }
+                        GeneralConsensusMessage::Vote(vote) =&gt; {
+                            HotShotEvent::QuorumVoteRecv(vote.clone())
+                        }
+                        GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) =&gt; {
+                            HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
+                        }
+                        GeneralConsensusMessage::ViewSyncPreCommitCertificate(
+                            view_sync_message,
+                        ) =&gt; HotShotEvent::ViewSyncPreCommitCertificate2Recv(view_sync_message),
 
-                            GeneralConsensusMessage::ViewSyncFinalizeVote(view_sync_message) =&gt; {
-                                HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
-                            }
-                            GeneralConsensusMessage::ViewSyncFinalizeCertificate(
-                                view_sync_message,
-                            ) =&gt; HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message),
+                        GeneralConsensusMessage::ViewSyncCommitVote(view_sync_message) =&gt; {
+                            HotShotEvent::ViewSyncCommitVoteRecv(view_sync_message)
+                        }
+                        GeneralConsensusMessage::ViewSyncCommitCertificate(view_sync_message) =&gt; {
+                            HotShotEvent::ViewSyncCommitCertificate2Recv(view_sync_message)
+                        }
 
-                            GeneralConsensusMessage::TimeoutVote(message) =&gt; {
-                                HotShotEvent::TimeoutVoteRecv(message)
-                            }
-                            GeneralConsensusMessage::UpgradeProposal(message) =&gt; {
-                                HotShotEvent::UpgradeProposalRecv(message, sender)
-                            }
-                            GeneralConsensusMessage::UpgradeVote(message) =&gt; {
-                                <span class="macro">error!</span>(<span class="string">"Received upgrade vote!"</span>);
-                                HotShotEvent::UpgradeVoteRecv(message)
-                            }
-                        },
-                        SequencingMessage::Da(da_message) =&gt; <span class="kw">match </span>da_message {
-                            DaConsensusMessage::DaProposal(proposal) =&gt; {
-                                HotShotEvent::DaProposalRecv(proposal, sender)
-                            }
-                            DaConsensusMessage::DaVote(vote) =&gt; {
-                                HotShotEvent::DaVoteRecv(vote.clone())
-                            }
-                            DaConsensusMessage::DaCertificate(cert) =&gt; {
-                                HotShotEvent::DaCertificateRecv(cert)
-                            }
-                            DaConsensusMessage::VidDisperseMsg(proposal) =&gt; {
-                                HotShotEvent::VidShareRecv(proposal)
-                            }
-                        },
-                    };
-                    <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
-                    // `TransactionsRecv` event) so we can send one event for a vector of messages.
-                    // &lt;https://github.com/EspressoSystems/HotShot/issues/1428&gt;
-                    </span>broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream).<span class="kw">await</span>;
-                }
-                MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
-                    DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
-                        transactions.push(transaction);
-                    }
-                    DataMessage::DataResponse(<span class="kw">_</span>) | DataMessage::RequestData(<span class="kw">_</span>) =&gt; {
-                        <span class="macro">warn!</span>(<span class="string">"Request and Response messages should not be received in the NetworkMessage task"</span>);
-                    }
-                },
+                        GeneralConsensusMessage::ViewSyncFinalizeVote(view_sync_message) =&gt; {
+                            HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
+                        }
+                        GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) =&gt; {
+                            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
+                        }
 
-                MessageKind::External(data) =&gt; {
-                    <span class="comment">// Send the external message to the external event stream so it can be processed
-                    </span>broadcast_event(
-                        Event {
-                            view_number: TYPES::Time::new(<span class="number">1</span>),
-                            event: EventType::ExternalMessageReceived(data),
-                        },
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream,
+                        GeneralConsensusMessage::TimeoutVote(message) =&gt; {
+                            HotShotEvent::TimeoutVoteRecv(message)
+                        }
+                        GeneralConsensusMessage::UpgradeProposal(message) =&gt; {
+                            HotShotEvent::UpgradeProposalRecv(message, sender)
+                        }
+                        GeneralConsensusMessage::UpgradeVote(message) =&gt; {
+                            <span class="macro">error!</span>(<span class="string">"Received upgrade vote!"</span>);
+                            HotShotEvent::UpgradeVoteRecv(message)
+                        }
+                    },
+                    SequencingMessage::Da(da_message) =&gt; <span class="kw">match </span>da_message {
+                        DaConsensusMessage::DaProposal(proposal) =&gt; {
+                            HotShotEvent::DaProposalRecv(proposal, sender)
+                        }
+                        DaConsensusMessage::DaVote(vote) =&gt; HotShotEvent::DaVoteRecv(vote.clone()),
+                        DaConsensusMessage::DaCertificate(cert) =&gt; {
+                            HotShotEvent::DaCertificateRecv(cert)
+                        }
+                        DaConsensusMessage::VidDisperseMsg(proposal) =&gt; {
+                            HotShotEvent::VidShareRecv(proposal)
+                        }
+                    },
+                };
+                <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
+                // `TransactionsRecv` event) so we can send one event for a vector of messages.
+                // &lt;https://github.com/EspressoSystems/HotShot/issues/1428&gt;
+                </span>broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream).<span class="kw">await</span>;
+            }
+
+            <span class="comment">// Handle data messages
+            </span>MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
+                DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
+                    broadcast_event(
+                        Arc::new(HotShotEvent::TransactionsRecv(<span class="macro">vec!</span>[transaction])),
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream,
                     )
                     .<span class="kw">await</span>;
                 }
-            };
-        }
-        <span class="kw">if </span>!transactions.is_empty() {
-            broadcast_event(
-                Arc::new(HotShotEvent::TransactionsRecv(transactions)),
-                <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream,
-            )
-            .<span class="kw">await</span>;
+                DataMessage::DataResponse(<span class="kw">_</span>) | DataMessage::RequestData(<span class="kw">_</span>) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">"Request and Response messages should not be received in the NetworkMessage task"</span>);
+                }
+            },
+
+            <span class="comment">// Handle external messages
+            </span>MessageKind::External(data) =&gt; {
+                <span class="comment">// Send the external message to the external event stream so it can be processed
+                </span>broadcast_event(
+                    Event {
+                        view_number: TYPES::Time::new(<span class="number">1</span>),
+                        event: EventType::ExternalMessageReceived(data),
+                    },
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream,
+                )
+                .<span class="kw">await</span>;
+            }
         }
     }
 }

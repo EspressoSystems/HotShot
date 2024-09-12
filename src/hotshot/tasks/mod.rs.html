@@ -593,22 +593,6 @@
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -619,10 +603,10 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 </span><span class="kw">pub mod </span>task_state;
-<span class="kw">use </span>std::{fmt::Debug, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{fmt::Debug, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::broadcast;
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
+<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::{
@@ -646,7 +630,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
     constants::EVENT_CHANNEL_SIZE,
-    message::{Messages, UpgradeLock},
+    message::{Message, UpgradeLock},
     request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,
@@ -730,53 +714,37 @@
     <span class="kw">let </span>task_handle = async_spawn(<span class="kw">async move </span>{
         <span class="macro">futures::pin_mut!</span>(shutdown_signal);
 
-        <span class="kw">let </span>recv_stream = stream::unfold((), |()| <span class="kw">async </span>{
-            <span class="kw">let </span>msgs = <span class="kw">match </span>network.recv_msgs().<span class="kw">await </span>{
-                <span class="prelude-val">Ok</span>(msgs) =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>deserialized_messages = Vec::new();
-                    <span class="kw">for </span>msg <span class="kw">in </span>msgs {
-                        <span class="kw">let </span>deserialized_message = <span class="kw">match </span>upgrade_lock.deserialize(<span class="kw-2">&amp;</span>msg).<span class="kw">await </span>{
-                            <span class="prelude-val">Ok</span>(deserialized) =&gt; deserialized,
-                            <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">tracing::error!</span>(<span class="string">"Failed to deserialize message: {}"</span>, e);
-                                <span class="kw">continue</span>;
-                            }
-                        };
-                        deserialized_messages.push(deserialized_message);
-                    }
-                    Messages(deserialized_messages)
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">tracing::error!</span>(<span class="string">"failed to receive messages: {err}"</span>);
-                    Messages(<span class="macro">vec!</span>[])
-                }
-            };
-            <span class="prelude-val">Some</span>((msgs, ()))
-        });
-
-        <span class="kw">let </span>fused_recv_stream = recv_stream.boxed().fuse();
-        <span class="macro">futures::pin_mut!</span>(fused_recv_stream);
-
         <span class="kw">loop </span>{
-            <span class="macro">futures::select!</span> {
-                () = shutdown_signal =&gt; {
+            <span class="comment">// Wait for one of the following to resolve:
+            </span><span class="macro">futures::select!</span> {
+                <span class="comment">// Wait for a shutdown signal
+                </span>() = shutdown_signal =&gt; {
                     <span class="macro">tracing::error!</span>(<span class="string">"Shutting down network message task"</span>);
                     <span class="kw">return</span>;
                 }
-                msgs_option = fused_recv_stream.next() =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(msgs) = msgs_option {
-                        <span class="kw">if </span>msgs.<span class="number">0</span>.is_empty() {
-                            <span class="comment">// TODO: Stop sleeping here: https://github.com/EspressoSystems/HotShot/issues/2558
-                            </span>async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
-                        } <span class="kw">else </span>{
-                            state.handle_messages(msgs.<span class="number">0</span>).<span class="kw">await</span>;
+
+                <span class="comment">// Wait for a message from the network
+                </span>message = network.recv_message().fuse() =&gt; {
+                    <span class="comment">// Make sure the message did not fail
+                    </span><span class="kw">let </span>message = <span class="kw">match </span>message {
+                        <span class="prelude-val">Ok</span>(message) =&gt; message,
+                        <span class="prelude-val">Err</span>(e) =&gt; {
+                            <span class="macro">tracing::error!</span>(<span class="string">"Failed to receive message: {:?}"</span>, e);
+                            <span class="kw">continue</span>;
                         }
-                    } <span class="kw">else </span>{
-                        <span class="comment">// Stream has ended, which shouldn't happen in this case.
-                        // You might want to handle this situation, perhaps by breaking the loop or logging an error.
-                        </span><span class="macro">tracing::error!</span>(<span class="string">"Network message stream unexpectedly ended"</span>);
-                        <span class="kw">return</span>;
-                    }
+                    };
+
+                    <span class="comment">// Deserialize the message
+                    </span><span class="kw">let </span>deserialized_message: Message&lt;TYPES&gt; = <span class="kw">match </span>upgrade_lock.deserialize(<span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
+                        <span class="prelude-val">Ok</span>(message) =&gt; message,
+                        <span class="prelude-val">Err</span>(e) =&gt; {
+                            <span class="macro">tracing::error!</span>(<span class="string">"Failed to deserialize message: {:?}"</span>, e);
+                            <span class="kw">continue</span>;
+                        }
+                    };
+
+                    <span class="comment">// Handle the message
+                    </span>state.handle_message(deserialized_message).<span class="kw">await</span>;
                 }
             }
         }

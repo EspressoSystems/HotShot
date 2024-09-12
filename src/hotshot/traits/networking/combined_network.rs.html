@@ -532,10 +532,6 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -555,6 +551,8 @@
     },
     time::Duration,
 };
+
+<span class="kw">use </span>parking_lot::RwLock <span class="kw">as </span>PlRwLock;
 
 <span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::{
@@ -606,7 +604,7 @@
     </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Last n seen messages to prevent processing duplicates
-    </span>message_cache: Arc&lt;RwLock&lt;LruCache&lt;u64, ()&gt;&gt;&gt;,
+    </span>message_cache: Arc&lt;PlRwLock&lt;LruCache&lt;u64, ()&gt;&gt;&gt;,
 
     <span class="doccomment">/// How many times primary failed to deliver
     </span>primary_fail_counter: Arc&lt;AtomicU64&gt;,
@@ -644,7 +642,7 @@
 
         <span class="self">Self </span>{
             networks,
-            message_cache: Arc::new(RwLock::new(LruCache::new(
+            message_cache: Arc::new(PlRwLock::new(LruCache::new(
                 NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
             ))),
             primary_fail_counter: Arc::new(AtomicU64::new(<span class="number">0</span>)),
@@ -842,7 +840,7 @@
                 );
 
                 <span class="comment">// We want to use the same message cache between the two networks
-                </span><span class="kw">let </span>message_cache = Arc::new(RwLock::new(LruCache::new(
+                </span><span class="kw">let </span>message_cache = Arc::new(PlRwLock::new(LruCache::new(
                     NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                 )));
 
@@ -1004,35 +1002,29 @@
     ///
     /// # Errors
     /// Does not error
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt; {
-        <span class="comment">// recv on both networks because nodes may be accessible only on either. discard duplicates
-        // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
-        </span><span class="kw">let </span><span class="kw-2">mut </span>primary_fut = <span class="self">self</span>.primary().recv_msgs().fuse();
-        <span class="kw">let </span><span class="kw-2">mut </span>secondary_fut = <span class="self">self</span>.secondary().recv_msgs().fuse();
+    </span><span class="kw">async fn </span>recv_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
+        <span class="kw">loop </span>{
+            <span class="comment">// Receive from both networks
+            </span><span class="kw">let </span><span class="kw-2">mut </span>primary_fut = <span class="self">self</span>.primary().recv_message().fuse();
+            <span class="kw">let </span><span class="kw-2">mut </span>secondary_fut = <span class="self">self</span>.secondary().recv_message().fuse();
 
-        <span class="kw">let </span>msgs = <span class="macro">select!</span> {
-            p = primary_fut =&gt; p<span class="question-mark">?</span>,
-            s = secondary_fut =&gt; s<span class="question-mark">?</span>,
-        };
+            <span class="comment">// Wait for one to return a message
+            </span><span class="kw">let </span>message = <span class="macro">select!</span> {
+                p = primary_fut =&gt; p<span class="question-mark">?</span>,
+                s = secondary_fut =&gt; s<span class="question-mark">?</span>,
+            };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>filtered_msgs = Vec::with_capacity(msgs.len());
-
-        <span class="comment">// For each message,
-        </span><span class="kw">for </span>msg <span class="kw">in </span>msgs {
             <span class="comment">// Calculate hash of the message
-            </span><span class="kw">let </span>message_hash = calculate_hash_of(<span class="kw-2">&amp;</span>msg);
+            </span><span class="kw">let </span>message_hash = calculate_hash_of(<span class="kw-2">&amp;</span>message);
 
-            <span class="comment">// Add the hash to the cache
-            </span><span class="kw">if </span>!<span class="self">self</span>.message_cache.read().<span class="kw">await</span>.contains(<span class="kw-2">&amp;</span>message_hash) {
-                <span class="comment">// If the message is not in the cache, process it
-                </span>filtered_msgs.push(msg.clone());
+            <span class="comment">// Check if the hash is in the cache
+            </span><span class="kw">if </span>!<span class="self">self</span>.message_cache.read().contains(<span class="kw-2">&amp;</span>message_hash) {
+                <span class="comment">// Add the hash to the cache
+                </span><span class="self">self</span>.message_cache.write().put(message_hash, ());
 
-                <span class="comment">// Add it to the cache
-                </span><span class="self">self</span>.message_cache.write().<span class="kw">await</span>.put(message_hash, ());
+                <span class="kw">break </span><span class="prelude-val">Ok</span>(message);
             }
         }
-
-        <span class="prelude-val">Ok</span>(filtered_msgs)
     }
 
     <span class="kw">fn </span>queue_node_lookup(

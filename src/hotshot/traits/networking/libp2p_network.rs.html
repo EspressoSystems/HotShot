@@ -2161,12 +2161,12 @@
     ///
     /// # Errors
     /// If there is a network-related failure.
-    </span><span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_msgs"</span>, skip_all)]
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, NetworkError&gt; {
+    </span><span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::recv_message"</span>, skip_all)]
+    </span><span class="kw">async fn </span>recv_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
         <span class="kw">let </span>result = <span class="self">self
             </span>.inner
             .receiver
-            .drain_at_least_one()
+            .recv()
             .<span class="kw">await
             </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
 
