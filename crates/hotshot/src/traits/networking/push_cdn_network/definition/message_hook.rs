@@ -102,9 +102,7 @@ impl Sample {
 
     /// Get the number of bytes per second of the current sample
     fn get(&self) -> u64 {
-        self.num_bytes_sent
-            .checked_div(self.last_committed_time.elapsed().as_secs().max(1))
-            .unwrap_or(1)
+        self.num_bytes_sent / self.last_committed_time.elapsed().as_secs().max(1)
     }
 
     /// Reset the sample. This is used when the sample is committed.
@@ -201,6 +199,11 @@ impl HotShotMessageHook {
 
         // Get the current time
         let now = Instant::now();
+
+        // Commit the sample if that interval has elapsed
+        if now.duration_since(sample.last_committed_time) >= self.sample_commit_interval {
+            sma.commit_sample(sample);
+        }
 
         // Skip the message if we need to cool down
         if sample.cooldown_until > now {
