@@ -237,18 +237,27 @@ impl HotShotMessageHook {
         Ok(())
     }
 
+    /// Process against the local message cache. This is used to deduplicate messages.
+    /// Returns `true` if the message has been seen before, `false` otherwise.
+    ///
+    /// - `auxiliary_data` is used to take into account the message recipient or topics associated.
+    fn already_seen(&mut self, message: &[u8], auxiliary_data: &[u8]) -> bool {
+        // Calculate the hash of the message
+        let mut hasher = Hash64::default();
+        hasher.write(message);
+        hasher.write(auxiliary_data);
+
+        // Add it, returning if we've seen it before
+        self.message_hash_cache.put(hasher.finish(), ()).is_some()
+    }
+
     /// Process incoming broadcast messages from the user
     fn process_broadcast_message(&mut self, broadcast: &mut Broadcast) -> Result<HookResult> {
         // Process through the `SMA`
         self.process_against_sma(broadcast.message.len(), MessageType::Broadcast)?;
 
-        // Calculate the hash of the message
-        let mut hasher = Hash64::default();
-        hasher.write(&broadcast.message);
-        hasher.write(&broadcast.topics);
-
-        // Make sure we have not already seen it
-        if self.message_hash_cache.put(hasher.finish(), ()).is_some() {
+        // Skip the message if we've already seen it
+        if self.already_seen(&broadcast.message, &broadcast.topics) {
             return Ok(HookResult::SkipMessage);
         }
 
@@ -263,13 +272,8 @@ impl HotShotMessageHook {
         // Process through the `SMA`
         self.process_against_sma(direct.message.len(), MessageType::Direct)?;
 
-        // Calculate the hash of the message
-        let mut hasher = Hash64::default();
-        hasher.write(&direct.message);
-        hasher.write(&direct.recipient);
-
-        // Make sure we have not already seen it
-        if self.message_hash_cache.put(hasher.finish(), ()).is_some() {
+        // Skip the message if we've already seen it
+        if self.already_seen(&direct.message, &direct.recipient) {
             return Ok(HookResult::SkipMessage);
         }
 
