@@ -12,7 +12,6 @@ use lru::LruCache;
 use parking_lot::Mutex;
 use simple_moving_average::{SingleSumSMA, SMA as SmaTrait};
 use std::time::Duration;
-use tracing::error;
 use twox_hash::xxh3::Hash64;
 
 /// A wrapper around an `SMA` type that allows for atomic
@@ -184,7 +183,8 @@ impl HotShotMessageHook {
     }
 
     /// Process a message against the moving average
-    fn process_against_sma(&mut self, message_len: usize, message_type: MessageType) -> Result<()> {
+    /// Returns whether or not the message should be skipped.
+    fn process_against_sma(&mut self, message_len: usize, message_type: MessageType) -> HookResult {
         // Match the sample and `SMA` based on the message type
         let (sample, sma) = match message_type {
             MessageType::Broadcast => (
@@ -204,25 +204,17 @@ impl HotShotMessageHook {
             let local_bps = sample.get();
             let mut global_bps = sma.get();
 
-            // Clamp the global bps to a minimum of 2000 if it's not zero (meaning uninitialized)
+            // Clamp the global bps to a minimum of 4000 if it's not zero (meaning uninitialized)
             if global_bps > 0 {
-                global_bps = std::cmp::max(global_bps, 2000);
+                global_bps = std::cmp::max(global_bps, 5000);
             }
 
             // Calculate the maximum allowed bps
             let max_allowed_bps = global_bps * self.allowed_multiple;
 
-            // If the local bps is greater than the allowed bps, kick the user
+            // If the local bps is greater than the allowed bps, skip the message
             if global_bps != 0 && local_bps > max_allowed_bps {
-                error!(
-                    "Local bps ({}) is greater than maximum allowed bps ({}), kicking user",
-                    local_bps, max_allowed_bps
-                );
-                return Err(anyhow::anyhow!(
-                    "Local bps ({}) is greater than maximum allowed bps ({}), kicking user",
-                    local_bps,
-                    max_allowed_bps
-                ));
+                return HookResult::SkipMessage;
             }
 
             // Reset the check time
@@ -234,14 +226,14 @@ impl HotShotMessageHook {
             sma.commit_sample(sample);
         }
 
-        Ok(())
+        HookResult::ProcessMessage
     }
 
     /// Process against the local message cache. This is used to deduplicate messages.
     /// Returns `true` if the message has been seen before, `false` otherwise.
     ///
     /// - `auxiliary_data` is used to take into account the message recipient or topics associated.
-    fn already_seen(&mut self, message: &[u8], auxiliary_data: &[u8]) -> bool {
+    fn message_already_seen(&mut self, message: &[u8], auxiliary_data: &[u8]) -> bool {
         // Calculate the hash of the message
         let mut hasher = Hash64::default();
         hasher.write(message);
@@ -253,11 +245,15 @@ impl HotShotMessageHook {
 
     /// Process incoming broadcast messages from the user
     fn process_broadcast_message(&mut self, broadcast: &mut Broadcast) -> Result<HookResult> {
-        // Process through the `SMA`
-        self.process_against_sma(broadcast.message.len(), MessageType::Broadcast)?;
+        // Process through the `SMA`. Skip if it's over the threshold
+        let HookResult::ProcessMessage =
+            self.process_against_sma(broadcast.message.len(), MessageType::Broadcast)
+        else {
+            return Ok(HookResult::SkipMessage);
+        };
 
         // Skip the message if we've already seen it
-        if self.already_seen(&broadcast.message, &broadcast.topics) {
+        if self.message_already_seen(&broadcast.message, &broadcast.topics) {
             return Ok(HookResult::SkipMessage);
         }
 
@@ -269,11 +265,15 @@ impl HotShotMessageHook {
 
     /// Process incoming direct messages from the user
     fn process_direct_message(&mut self, direct: &mut Direct) -> Result<HookResult> {
-        // Process through the `SMA`
-        self.process_against_sma(direct.message.len(), MessageType::Direct)?;
+        // Process through the `SMA`. Skip if it's over the threshold
+        let HookResult::ProcessMessage =
+            self.process_against_sma(direct.message.len(), MessageType::Direct)
+        else {
+            return Ok(HookResult::SkipMessage);
+        };
 
         // Skip the message if we've already seen it
-        if self.already_seen(&direct.message, &direct.recipient) {
+        if self.message_already_seen(&direct.message, &direct.recipient) {
             return Ok(HookResult::SkipMessage);
         }
 
