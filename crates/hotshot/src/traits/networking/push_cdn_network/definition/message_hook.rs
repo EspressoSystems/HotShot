@@ -12,6 +12,7 @@ use lru::LruCache;
 use parking_lot::Mutex;
 use simple_moving_average::{SingleSumSMA, SMA as SmaTrait};
 use std::time::Duration;
+use tracing::warn;
 use twox_hash::xxh3::Hash64;
 
 /// A wrapper around an `SMA` type that allows for atomic
@@ -73,6 +74,9 @@ struct Sample {
     /// The number of bytes sent since `last_committed_time`
     num_bytes_sent: u64,
 
+    /// When we should start processing messages again
+    cooldown_until: Instant,
+
     /// The last time the sample was checked
     last_checked_time: Instant,
 
@@ -85,6 +89,7 @@ impl Sample {
     fn new() -> Self {
         Self {
             num_bytes_sent: 0,
+            cooldown_until: Instant::now(),
             last_checked_time: Instant::now(),
             last_committed_time: Instant::now(),
         }
@@ -98,8 +103,8 @@ impl Sample {
     /// Get the number of bytes per second of the current sample
     fn get(&self) -> u64 {
         self.num_bytes_sent
-            .checked_div(self.last_committed_time.elapsed().as_secs())
-            .unwrap_or(0)
+            .checked_div(self.last_committed_time.elapsed().as_secs().max(1))
+            .unwrap_or(1)
     }
 
     /// Reset the sample. This is used when the sample is committed.
@@ -113,6 +118,10 @@ impl Sample {
 #[derive(Clone)]
 /// The message hook for `HotShot` messages. Each user has a unique message hook.
 pub struct HotShotMessageHook {
+    /// The cache for message hashes. We use this to deduplicate a sliding window of
+    /// 100 messages.
+    message_hash_cache: LruCache<u64, ()>,
+
     /// The sample check interval
     sample_check_interval: Duration,
 
@@ -121,10 +130,6 @@ pub struct HotShotMessageHook {
 
     /// The multiple of our average that the local average is allowed to be
     allowed_multiple: u64,
-
-    /// The cache for message hashes. We use this to deduplicate a sliding window of
-    /// 100 messages.
-    message_hash_cache: LruCache<u64, ()>,
 
     /// The global moving average for the number of broadcast bytes per second
     global_broadcast_bps: Sma,
@@ -146,7 +151,7 @@ impl Default for HotShotMessageHook {
         Self {
             sample_check_interval: Duration::from_secs(5),
             sample_commit_interval: Duration::from_secs(120),
-            allowed_multiple: 3,
+            allowed_multiple: 4,
 
             global_broadcast_bps: Sma::new(),
             global_direct_bps: Sma::new(),
@@ -194,17 +199,25 @@ impl HotShotMessageHook {
             MessageType::Direct => (&mut self.local_direct_bps, &mut self.global_direct_bps),
         };
 
+        // Get the current time
+        let now = Instant::now();
+
+        // Skip the message if we need to cool down
+        if sample.cooldown_until > now {
+            return HookResult::SkipMessage;
+        }
+
         // Add the length to the local sample
         sample.add(message_len as u64);
 
         // If we have surpassed the check interval, check the sample to make sure it does
         // not exceed the `global average * allowed_multiple`
-        if sample.last_checked_time.elapsed() >= self.sample_check_interval {
+        if now.duration_since(sample.last_checked_time) >= self.sample_check_interval {
             // Get our local and global bps
             let local_bps = sample.get();
             let mut global_bps = sma.get();
 
-            // Clamp the global bps to a minimum of 4000 if it's not zero (meaning uninitialized)
+            // Clamp the global bps to a minimum if it's not zero (meaning uninitialized)
             if global_bps > 0 {
                 global_bps = std::cmp::max(global_bps, 5000);
             }
@@ -212,8 +225,14 @@ impl HotShotMessageHook {
             // Calculate the maximum allowed bps
             let max_allowed_bps = global_bps * self.allowed_multiple;
 
-            // If the local bps is greater than the allowed bps, skip the message
+            // If the local bps is greater than the allowed bps, calculate the cooldown and skip
+            // the message
             if global_bps != 0 && local_bps > max_allowed_bps {
+                // Set the cooldown to the time it would take to get the local bps to the max allowed
+                sample.cooldown_until =
+                    Instant::now() + Duration::from_secs(local_bps / max_allowed_bps);
+
+                // Skip the message
                 return HookResult::SkipMessage;
             }
 
@@ -222,7 +241,7 @@ impl HotShotMessageHook {
         }
 
         // Commit the sample if that interval has elapsed
-        if sample.last_committed_time.elapsed() >= self.sample_commit_interval {
+        if now.duration_since(sample.last_committed_time) >= self.sample_commit_interval {
             sma.commit_sample(sample);
         }
 
@@ -249,6 +268,7 @@ impl HotShotMessageHook {
         let HookResult::ProcessMessage =
             self.process_against_sma(broadcast.message.len(), MessageType::Broadcast)
         else {
+            warn!("Broadcast message not processed due to high message rate");
             return Ok(HookResult::SkipMessage);
         };
 
@@ -269,6 +289,7 @@ impl HotShotMessageHook {
         let HookResult::ProcessMessage =
             self.process_against_sma(direct.message.len(), MessageType::Direct)
         else {
+            warn!("Direct message not processed due to high message rate");
             return Ok(HookResult::SkipMessage);
         };
 
@@ -414,27 +435,27 @@ mod test {
 
     #[test]
     fn in_range() {
-        // Create a new message hook where each message is checked
+        // Create a new message hook
         let mut hook = HotShotMessageHook {
+            sample_check_interval: Duration::from_secs(1),
+            allowed_multiple: 1,
             global_broadcast_bps: Sma {
-                cached_sum: Arc::new(AtomicU64::new(2000)),
+                // Pretend we've seen an average of 5000 bytes per second
+                cached_sum: Arc::new(AtomicU64::new(5000)),
                 sma: Arc::new(Mutex::new(SingleSumSMA::new())),
             },
             local_broadcast_bps: Sample {
                 num_bytes_sent: 0,
+                cooldown_until: Instant::now(),
+                // Pretend we need to check the sample
                 last_checked_time: Instant::now().checked_sub(Duration::from_secs(1)).unwrap(),
-                last_committed_time: Instant::now()
-                    .checked_sub(Duration::from_secs(1))
-                    .unwrap_or(Instant::now()),
+                last_committed_time: Instant::now(),
             },
-            sample_check_interval: Duration::from_secs(1),
-            sample_commit_interval: Duration::from_secs(1),
-            allowed_multiple: 1,
-            ..HotShotMessageHook::default()
+            ..Default::default()
         };
 
-        // Create a message just within the range (800 bytes)
-        let message = vec![0; 1800];
+        // Create a message just within the range
+        let message = vec![0; 4800];
         let mut broadcast = Broadcast {
             message,
             topics: vec![],
@@ -450,37 +471,63 @@ mod test {
 
     #[test]
     fn exceeding_range() {
-        // Create a new message hook where each message is checked
+        // Create a new message hook
         let mut hook = HotShotMessageHook {
+            sample_check_interval: Duration::from_secs(1),
+            allowed_multiple: 1,
             global_broadcast_bps: Sma {
-                cached_sum: Arc::new(AtomicU64::new(2000)),
+                // Pretend we've seen an average of 5000 bytes per second
+                cached_sum: Arc::new(AtomicU64::new(5000)),
                 sma: Arc::new(Mutex::new(SingleSumSMA::new())),
             },
             local_broadcast_bps: Sample {
                 num_bytes_sent: 0,
+                cooldown_until: Instant::now(),
+                // Pretend we need to check the sample
                 last_checked_time: Instant::now().checked_sub(Duration::from_secs(1)).unwrap(),
-                last_committed_time: Instant::now()
-                    .checked_sub(Duration::from_secs(1))
-                    .unwrap_or(Instant::now()),
+                last_committed_time: Instant::now(),
             },
-            sample_check_interval: Duration::from_secs(1),
-            sample_commit_interval: Duration::from_secs(1),
-            allowed_multiple: 1,
-            ..HotShotMessageHook::default()
+            ..Default::default()
         };
 
-        // Create a message just outside the range (1200 bytes)
-        let message = vec![0; 2200];
+        // Create a message exceeding the range
+        let message = vec![0; 10000];
         let mut broadcast = Broadcast {
             message,
             topics: vec![],
         };
 
-        // Process the message, make sure it would've not been sent
+        // Process the message, make sure it would've been sent
         let result = hook.process_broadcast_message(&mut broadcast);
         assert!(
-            result.is_err(),
+            result.unwrap() == HookResult::SkipMessage,
             "Message should have been skipped but was not",
+        );
+
+        // Wait one second, make sure it's still skipped
+        let message = vec![1; 10000];
+        let mut broadcast = Broadcast {
+            message,
+            topics: vec![],
+        };
+        std::thread::sleep(Duration::from_millis(1000));
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.unwrap() == HookResult::SkipMessage,
+            "Message should have been skipped but was not",
+        );
+
+        // Wait another second and some change, make sure it's processed
+        let message = vec![2; 1];
+        let mut broadcast = Broadcast {
+            message,
+            topics: vec![],
+        };
+        std::thread::sleep(Duration::from_millis(1500));
+        let result = hook.process_broadcast_message(&mut broadcast);
+        assert!(
+            result.unwrap() == HookResult::ProcessMessage,
+            "Message should have been processed but was not",
         );
     }
 }
