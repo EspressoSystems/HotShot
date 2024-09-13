@@ -188,14 +188,16 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::collections::BTreeMap;
-<span class="kw">use </span>std::num::NonZeroU64;
+</span><span class="kw">use </span>std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_types::{
@@ -373,7 +375,11 @@
 
     <span class="doccomment">/// Get the voting upgrade threshold for the committee
     </span><span class="kw">fn </span>upgrade_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
-        NonZeroU64::new(((<span class="self">self</span>.stake_table.len() <span class="kw">as </span>u64 * <span class="number">9</span>) / <span class="number">10</span>) + <span class="number">1</span>).unwrap()
+        NonZeroU64::new(max(
+            (<span class="self">self</span>.stake_table.len() <span class="kw">as </span>u64 * <span class="number">9</span>) / <span class="number">10</span>,
+            ((<span class="self">self</span>.stake_table.len() <span class="kw">as </span>u64 * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1</span>,
+        ))
+        .unwrap()
     }
 }
 </code></pre></div></section></main></body></html>
