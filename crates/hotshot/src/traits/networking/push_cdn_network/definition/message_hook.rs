@@ -132,7 +132,7 @@ pub struct HotShotMessageHook {
     /// The local average for the number of broadcast bytes per second
     local_broadcast_bps: Sample,
 
-    /// The global moving averagefor the number of direct bytes per second
+    /// The global moving average for the number of direct bytes per second
     global_direct_bps: Sma,
 
     /// The local average for the number of direct bytes per second
