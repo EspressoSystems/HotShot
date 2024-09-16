@@ -521,7 +521,7 @@ mod test {
             message,
             topics: vec![],
         };
-        std::thread::sleep(Duration::from_millis(1500));
+        std::thread::sleep(Duration::from_millis(3000));
         let result = hook.process_broadcast_message(&mut broadcast);
         assert!(
             result.unwrap() == HookResult::ProcessMessage,
