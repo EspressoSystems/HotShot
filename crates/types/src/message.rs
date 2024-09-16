@@ -198,8 +198,17 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
 
+    /// A peer node needs a VID share from the commitee.
+    VidRequested(
+        VidRequestPayload<TYPES>,
+        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ),
+
     /// The leader has responded with a valid proposal.
     LeaderProposalAvailable(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// The leader has responded with a valid VID share.
+    VidResponseAvailable(Proposal<TYPES, VidDisperseShare<TYPES>>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]

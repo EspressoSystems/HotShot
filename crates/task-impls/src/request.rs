@@ -166,24 +166,55 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         view: TYPES::Time,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        let requests = self.build_requests(view).await;
-        if requests.is_empty() {
+        // If we already have the VID shares for the next view, do nothing.
+        if self.state.read().await.vid_shares().contains_key(&view) {
             return;
         }
-        requests
-            .into_iter()
-            .for_each(|r| self.run_delay(r, sender.clone(), view));
-    }
 
-    /// Creates the request structures for all types that are needed.
-    #[instrument(skip_all, target = "NetworkRequestState", fields(id = self.id, view = *view))]
-    async fn build_requests(&self, view: TYPES::Time) -> Vec<RequestKind<TYPES>> {
-        let mut reqs = Vec::new();
-        if !self.state.read().await.vid_shares().contains_key(&view) {
-            reqs.push(RequestKind::Vid(view, self.public_key.clone()));
-        }
-        // TODO request other things
-        reqs
+        let request = VidRequestPayload {
+            view_number: view,
+            key: self.public_key,
+        };
+
+        // First sign the request for the VID shares.
+        let signature = TYPES::SignatureKey::sign(&self.private_key, &request.commit()).unwrap();
+
+        // Then, broadcast the request to the DA committee.
+        broadcast_event(
+            HotShotEvent::VidRequestSend(request, signature).into(),
+            &sender,
+        )
+        .await;
+
+        // Spawn a background task to await the arrival of VidResponseRecv
+        let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT, async move {
+            let mut response = None;
+            while response.is_none() {
+                let event = EventDependency::new(
+                    event_receiver.clone(),
+                    Box::new(move |event| {
+                        let event = event.as_ref();
+                        if let HotShotEvent::VidResponseRecv(proposal) = event {
+                            *view_number == view
+                        } else {
+                            false
+                        }
+                    }),
+                )
+                .completed()
+                .await;
+            }
+
+            if let Some(hs_event) = response.as_ref() {
+                if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
+                    
+                }
+            }
+        })
+        .await
+        else {
+            bail!("Request for proposal failed");
+        };
     }
 
     /// Sign the serialized version of the request

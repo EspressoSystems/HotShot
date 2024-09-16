@@ -411,6 +411,20 @@ impl<
                 )),
                 TransmitType::Direct(sender_key),
             )),
+            HotShotEvent::VidRequestSend(req, signature) => Some((
+                req.key.clone(),
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::VidRequested(req.clone(), signature),
+                )),
+                TransmitType::DaCommitteeBroadcast,
+            )),
+            HotShotEvent::VidResponseSend(sender_key, proposal) => Some((
+                sender_key.clone(),
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::VidResponseAvailable(proposal),
+                )),
+                TransmitType::Direct(sender_key),
+            )),
             HotShotEvent::VidDisperseSend(proposal, sender) => {
                 self.handle_vid_disperse_proposal(proposal, &sender).await;
                 None

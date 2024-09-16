@@ -55,9 +55,28 @@ pub struct ProposalRequestPayload<TYPES: NodeType> {
     pub key: TYPES::SignatureKey,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct VidRequestPayload<TYPES: NodeType> {
+    /// The view number that we're requesting VID shares for.
+    pub view_number: TYPES::Time,
+
+    /// Our public key. The ensures that the receipient can reply to
+    /// us directly.
+    pub key: TYPES::SignatureKey,
+}
+
 impl<TYPES: NodeType> Committable for ProposalRequestPayload<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
         RawCommitmentBuilder::new("signed proposal request commitment")
+            .u64_field("view number", *self.view_number)
+            .var_size_bytes(&self.key.to_bytes())
+            .finalize()
+    }
+}
+
+impl<TYPES: NodeType> Committable for VidRequestPayload<TYPES> {
+    fn commit(&self) -> committable::Commitment<Self> {
+        RawCommitmentBuilder::new("signed VID request commitment")
             .u64_field("view number", *self.view_number)
             .var_size_bytes(&self.key.to_bytes())
             .finalize()
