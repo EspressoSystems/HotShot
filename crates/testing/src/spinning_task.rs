@@ -138,6 +138,7 @@ where
                                             TYPES::Time::genesis(),
                                             BTreeMap::new(),
                                             self.high_qc.clone(),
+                                            None,
                                             Vec::new(),
                                             BTreeMap::new(),
                                         );
@@ -222,6 +223,7 @@ where
                                         )
                                         .await,
                                     ),
+                                    read_storage.decided_upgrade_certificate().await,
                                     Vec::new(),
                                     BTreeMap::new(),
                                 );

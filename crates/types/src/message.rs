@@ -398,6 +398,15 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
         }
     }
 
+    #[allow(clippy::new_without_default)]
+    /// Create a new `UpgradeLock` from an optional upgrade certificate
+    pub fn from_certificate(certificate: &Option<UpgradeCertificate<TYPES>>) -> Self {
+        Self {
+            decided_upgrade_certificate: Arc::new(RwLock::new(certificate.clone())),
+            _pd: PhantomData::<V>,
+        }
+    }
+
     /// Calculate the version applied in a view, based on the provided upgrade lock.
     ///
     /// # Errors
