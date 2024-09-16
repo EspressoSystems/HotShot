@@ -200,6 +200,11 @@ impl HotShotMessageHook {
         // Get the current time
         let now = Instant::now();
 
+        // Skip the message if we need to cool down
+        if sample.cooldown_until > now {
+            return HookResult::SkipMessage;
+        }
+
         // Commit the sample if that interval has elapsed
         if now.duration_since(sample.last_committed_time) >= self.sample_commit_interval {
             sma.commit_sample(sample);
@@ -207,11 +212,6 @@ impl HotShotMessageHook {
 
         // Add the length to the local sample
         sample.add(message_len as u64);
-
-        // Skip the message if we need to cool down
-        if sample.cooldown_until > now {
-            return HookResult::SkipMessage;
-        }
 
         // If we have surpassed the check interval, check the sample to make sure it does
         // not exceed the `global average * allowed_multiple`
