@@ -23,6 +23,9 @@ async fn test_catchup() {
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
         next_view_timeout: 2000,
+        // increase the round delay for this test
+        // TODO: remove this delay increase for test - https://github.com/EspressoSystems/HotShot/issues/3673
+        round_start_delay: 200,
         ..Default::default()
     };
     let mut metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> =
@@ -322,7 +325,7 @@ async fn test_all_restart() {
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
     let mut catchup_nodes = vec![];
-    for i in 1..20 {
+    for i in 0..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: UpDown::Restart,
@@ -384,7 +387,7 @@ async fn test_all_restart_cdn() {
     let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> =
         TestDescription::default();
     let mut catchup_nodes = vec![];
-    for i in 1..20 {
+    for i in 0..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: UpDown::Restart,
@@ -450,12 +453,8 @@ async fn test_all_restart_one_da() {
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
 
-    let node_0_down = vec![ChangeNode {
-        idx: 0,
-        updown: UpDown::Restart,
-    }];
     let mut catchup_nodes = vec![];
-    for i in 1..20 {
+    for i in 0..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: UpDown::Restart,
@@ -471,7 +470,7 @@ async fn test_all_restart_one_da() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Restart all the nodes in view 13
-        node_changes: vec![(12, node_0_down), (13, catchup_nodes)],
+        node_changes: vec![(13, catchup_nodes)],
     };
     metadata.view_sync_properties =
         hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);

@@ -3109,6 +3109,7 @@ dependencies = [
  "libp2p-networking",
  "lru 0.12.4",
  "num_enum",
+ "parking_lot",
  "portpicker",
  "rand 0.8.5",
  "serde",
