@@ -233,9 +233,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[0].data.block_header.metadata.clone(),
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
                 None,
@@ -252,9 +250,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[1].data.block_header.metadata.clone(),
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
                 None,
@@ -271,9 +267,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(4)),
                 builder_commitment.clone(),
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[2].data.block_header.metadata.clone(),
                 ViewNumber::new(4),
                 vec1![builder_fee.clone()],
                 None,
@@ -290,9 +284,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(5)),
                 builder_commitment,
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[3].data.block_header.metadata.clone(),
                 ViewNumber::new(5),
                 vec1![builder_fee.clone()],
                 None,
@@ -611,9 +603,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[0].data.block_header.metadata.clone(),
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
                 None,
@@ -630,9 +620,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[1].data.block_header.metadata.clone(),
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
                 None,
@@ -649,9 +637,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(4)),
                 builder_commitment.clone(),
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[2].data.block_header.metadata.clone(),
                 ViewNumber::new(4),
                 vec1![builder_fee.clone()],
                 None,
@@ -668,9 +654,7 @@ async fn test_quorum_proposal_task_liveness_check() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(5)),
                 builder_commitment,
-                TestMetadata {
-                    num_transactions: 0
-                },
+                proposals[3].data.block_header.metadata.clone(),
                 ViewNumber::new(5),
                 vec1![builder_fee.clone()],
                 None,
