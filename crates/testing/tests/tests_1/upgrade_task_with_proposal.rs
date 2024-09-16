@@ -194,7 +194,7 @@ async fn test_upgrade_task_with_proposal() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(2)),
                 builder_commitment.clone(),
-                proposals[0].data.block_header.metadata.clone(),
+                proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
                 None,
@@ -212,7 +212,7 @@ async fn test_upgrade_task_with_proposal() {
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(&quorum_membership, ViewNumber::new(3)),
                 builder_commitment.clone(),
-                proposals[1].data.block_header.metadata.clone(),
+                proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
                 None,
