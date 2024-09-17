@@ -583,6 +583,15 @@
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -600,7 +609,7 @@
 <span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
-    block_types::{TestBlockHeader, TestBlockPayload, TestMetadata, TestTransaction},
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
     node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
@@ -624,6 +633,7 @@
         BlockPayload,
     },
 };
+<span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
 
 <span class="kw">use </span><span class="kw">crate</span>::helpers::{
@@ -702,12 +712,16 @@
         )
         .<span class="kw">await</span>;
 
-        <span class="kw">let </span>block_header = TestBlockHeader {
-            block_number: <span class="number">1</span>,
-            timestamp: <span class="number">1</span>,
+        <span class="kw">let </span>block_header = TestBlockHeader::new(
+            <span class="kw-2">&amp;</span>Leaf::&lt;TestTypes&gt;::genesis(
+                <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                <span class="kw-2">&amp;</span>TestInstanceState::default(),
+            )
+            .<span class="kw">await</span>,
             payload_commitment,
             builder_commitment,
-        };
+            metadata,
+        );
 
         <span class="kw">let </span>quorum_proposal_inner = QuorumProposal::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
@@ -729,7 +743,7 @@
 
         <span class="kw">let </span>da_proposal_inner = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: TestMetadata,
+            metadata,
             view_number: genesis_view,
         };
 
@@ -926,11 +940,15 @@
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
         };
 
+        <span class="kw">let </span>random = thread_rng().gen_range(<span class="number">0</span>..=u64::MAX);
+
         <span class="kw">let </span>block_header = TestBlockHeader {
             block_number: <span class="kw-2">*</span>next_view,
             timestamp: <span class="kw-2">*</span>next_view,
             payload_commitment,
             builder_commitment,
+            metadata,
+            random,
         };
 
         <span class="kw">let </span>proposal = QuorumProposal::&lt;TestTypes&gt; {
@@ -966,7 +984,7 @@
 
         <span class="kw">let </span>da_proposal_inner = DaProposal::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
-            metadata: TestMetadata,
+            metadata,
             view_number: next_view,
         };
 

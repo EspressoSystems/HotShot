@@ -59,6 +59,7 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -66,9 +67,10 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
-</span><span class="kw">use super</span>::{network::Topic, node_implementation::NodeType};
+</span><span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
+
+<span class="kw">use super</span>::{network::Topic, node_implementation::NodeType};
 <span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
-<span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
 <span class="doccomment">/// A protocol for determining membership in and participating in a committee.
 </span><span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;:
