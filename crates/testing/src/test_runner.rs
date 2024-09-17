@@ -103,7 +103,7 @@ where
                 if matches!(change.updown, UpDown::Up) {
                     late_start_nodes.insert(change.idx.try_into().unwrap());
                 }
-                if matches!(change.updown, UpDown::Restart) {
+                if matches!(change.updown, UpDown::RestartDown(_)) {
                     restart_nodes.insert(change.idx.try_into().unwrap());
                 }
             }
@@ -190,8 +190,9 @@ where
             )
             .await,
             async_delay_config: self.launcher.metadata.async_delay_config,
+            restart_contexts: HashMap::new(),
         };
-        let spinning_task = TestTask::<SpinningTask<TYPES, I, V>>::new(
+        let spinning_task = TestTask::<SpinningTask<TYPES, N, I, V>>::new(
             spinning_task_state,
             event_rxs.clone(),
             test_receiver.clone(),

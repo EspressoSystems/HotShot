@@ -13,7 +13,9 @@ use anyhow::Result;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::join_all;
-use hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
+use hotshot::{
+    traits::TestableNodeImplementation, types::EventType, HotShotInitializer, SystemContext,
+};
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     state_types::{TestInstanceState, TestValidatedState},
@@ -46,7 +48,12 @@ pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 pub struct SpinningTaskErr {}
 
 /// Spinning task state
-pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
+pub struct SpinningTask<
+    TYPES: NodeType,
+    N: ConnectedNetwork<TYPES::SignatureKey>,
+    I: TestableNodeImplementation<TYPES>,
+    V: Versions,
+> {
     /// handle to the nodes
     pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// late start nodes
@@ -61,6 +68,8 @@ pub struct SpinningTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V
     pub(crate) high_qc: QuorumCertificate<TYPES>,
     /// Add specified delay to async calls
     pub(crate) async_delay_config: DelayConfig,
+    /// Context stored for nodes to be restarted with
+    pub(crate) restart_contexts: HashMap<usize, RestartContext<TYPES, N, I, V>>,
 }
 
 #[async_trait]
@@ -69,7 +78,7 @@ impl<
         I: TestableNodeImplementation<TYPES>,
         N: ConnectedNetwork<TYPES::SignatureKey>,
         V: Versions,
-    > TestTaskState for SpinningTask<TYPES, I, V>
+    > TestTaskState for SpinningTask<TYPES, N, I, V>
 where
     I: TestableNodeImplementation<TYPES>,
     I: NodeImplementation<
@@ -188,7 +197,7 @@ where
                                 node.handle.shut_down().await;
                             }
                         }
-                        UpDown::Restart => {
+                        UpDown::RestartDown(delay_views) => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
@@ -253,8 +262,28 @@ where
                                         ),
                                     )
                                     .await;
-                                new_nodes.push((context, idx));
-                                new_networks.push(network.clone());
+                                if delay_views == 0 {
+                                    new_nodes.push((context, idx));
+                                    new_networks.push(network.clone());
+                                } else {
+                                    let up_view = view_number + delay_views;
+                                    let change = ChangeNode {
+                                        idx,
+                                        updown: UpDown::RestartUp,
+                                    };
+                                    self.changes.entry(up_view).or_default().push(change);
+                                    let new_ctx = RestartContext {
+                                        context,
+                                        network: network.clone(),
+                                    };
+                                    self.restart_contexts.insert(idx, new_ctx);
+                                }
+                            }
+                        }
+                        UpDown::RestartUp => {
+                            if let Some(ctx) = self.restart_contexts.remove(&idx) {
+                                new_nodes.push((ctx.context, idx));
+                                new_networks.push(ctx.network.clone());
                             }
                         }
                         UpDown::NetworkUp => {
@@ -307,6 +336,17 @@ where
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct RestartContext<
+    TYPES: NodeType,
+    N: ConnectedNetwork<TYPES::SignatureKey>,
+    I: TestableNodeImplementation<TYPES>,
+    V: Versions,
+> {
+    context: Arc<SystemContext<TYPES, I, V>>,
+    network: Arc<N>,
+}
+
 /// Spin the node up or down
 #[derive(Clone, Debug)]
 pub enum UpDown {
@@ -318,8 +358,10 @@ pub enum UpDown {
     NetworkUp,
     /// spin the node's network down
     NetworkDown,
-    /// restart the node
-    Restart,
+    /// Take a node down to be restarted after a number of views
+    RestartDown(u64),
+    /// Start a node up again after it's been shutdown for restart.  This
+    RestartUp,
 }
 
 /// denotes a change in node state
