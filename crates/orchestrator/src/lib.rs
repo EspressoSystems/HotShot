@@ -106,6 +106,12 @@ struct OrchestratorState<KEY: SignatureKey> {
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
     /// create a new [`OrchestratorState`]
     pub fn new(network_config: NetworkConfig<KEY>) -> Self {
+        let mut peer_pub_ready = false;
+
+        if network_config.enable_registration_verification {
+            peer_pub_ready = true;
+        }
+
         let builders = if matches!(network_config.builder, BuilderType::External) {
             network_config.config.builder_urls.clone().into()
         } else {
@@ -115,7 +121,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             latest_index: 0,
             tmp_latest_index: 0,
             config: network_config,
-            peer_pub_ready: false,
+            peer_pub_ready,
             pub_posted: HashMap::new(),
             nodes_connected: 0,
             start: false,
@@ -246,6 +252,144 @@ pub trait OrchestratorApi<KEY: SignatureKey> {
     fn get_builders(&self) -> Result<Vec<Url>, ServerError>;
 }
 
+impl<KEY> OrchestratorState<KEY>
+where
+    KEY: serde::Serialize + Clone + SignatureKey + 'static,
+{
+    fn register_unknown(
+        &mut self,
+        pubkey: &mut Vec<u8>,
+        da_requested: bool,
+        libp2p_address: Option<Multiaddr>,
+        libp2p_public_key: Option<PeerId>,
+    ) -> Result<(u64, bool), ServerError> {
+        if let Some((node_index, is_da)) = self.pub_posted.get(pubkey) {
+            return Ok((*node_index, *is_da));
+        }
+
+        if !self.accepting_new_keys {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::FORBIDDEN,
+                message:
+                    "Network has been started manually, and is no longer registering new keys."
+                        .to_string(),
+            });
+        }
+
+        let node_index = self.pub_posted.len() as u64;
+
+        // Deserialize the public key
+        let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+
+        self.config
+            .config
+            .known_nodes_with_stake
+            .push(staked_pubkey.clone());
+
+        let mut added_to_da = false;
+
+        let da_full =
+            self.config.config.known_da_nodes.len() >= self.config.config.da_staked_committee_size;
+
+        #[allow(clippy::nonminimal_bool)]
+        // We add the node to the DA committee depending on either its node index or whether it requested membership.
+        //
+        // Since we issue `node_index` incrementally, if we are deciding DA membership by node_index
+        // we only need to check that the DA committee is not yet full.
+        //
+        // Note: this logically simplifies to (self.config.indexed_da || da_requested) && !da_full,
+        // but writing it that way makes it a little less clear to me.
+        if (self.config.indexed_da || (!self.config.indexed_da && da_requested)) && !da_full {
+            self.config.config.known_da_nodes.push(staked_pubkey);
+            added_to_da = true;
+        }
+
+        self.pub_posted
+            .insert(pubkey.clone(), (node_index, added_to_da));
+
+        // If the orchestrator is set up for libp2p and we have supplied the proper
+        // Libp2p data, add our node to the list of bootstrap nodes.
+        if self.config.libp2p_config.clone().is_some() {
+            if let (Some(libp2p_public_key), Some(libp2p_address)) =
+                (libp2p_public_key, libp2p_address)
+            {
+                // Push to our bootstrap nodes
+                self.config
+                    .libp2p_config
+                    .as_mut()
+                    .unwrap()
+                    .bootstrap_nodes
+                    .push((libp2p_public_key, libp2p_address));
+            }
+        }
+
+        tracing::error!("Posted public key for node_index {node_index}");
+
+        // node_index starts at 0, so once it matches `num_nodes_with_stake`
+        // we will have registered one node too many. hence, we want `node_index + 1`.
+        if node_index + 1 >= (self.config.config.num_nodes_with_stake.get() as u64) {
+            self.peer_pub_ready = true;
+            self.accepting_new_keys = false;
+        }
+        Ok((node_index, added_to_da))
+    }
+
+    fn register_from_list(
+        &mut self,
+        pubkey: &mut Vec<u8>,
+        _da_requested: bool,
+        libp2p_address: Option<Multiaddr>,
+        libp2p_public_key: Option<PeerId>,
+    ) -> Result<(u64, bool), ServerError> {
+        // if we've already registered this node before, we just retrieve its info from `pub_posted`
+        if let Some((node_index, is_da)) = self.pub_posted.get(pubkey) {
+            return Ok((*node_index, *is_da));
+        }
+
+        // Deserialize the public key
+        let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
+
+        // Check if the node is allowed to connect, returning its index if so.
+        let Some(node_index) = self
+            .config
+            .config
+            .known_nodes_with_stake
+            .iter()
+            .position(|pubkey| *pubkey == staked_pubkey)
+        else {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::FORBIDDEN,
+                message: "You are unauthorized to register with the orchestrator".to_string(),
+            });
+        };
+
+        let added_to_da = self.config.config.known_da_nodes.contains(&staked_pubkey);
+
+        self.pub_posted
+            .insert(pubkey.clone(), (node_index as u64, added_to_da));
+
+        // If the orchestrator is set up for libp2p and we have supplied the proper
+        // Libp2p data, add our node to the list of bootstrap nodes.
+        if self.config.libp2p_config.clone().is_some() {
+            if let (Some(libp2p_public_key), Some(libp2p_address)) =
+                (libp2p_public_key, libp2p_address)
+            {
+                // Push to our bootstrap nodes
+                self.config
+                    .libp2p_config
+                    .as_mut()
+                    .unwrap()
+                    .bootstrap_nodes
+                    .push((libp2p_public_key, libp2p_address));
+            }
+        }
+
+        tracing::error!("Node {node_index} has registered.");
+
+        Ok((node_index as u64, added_to_da))
+    }
+}
+
 impl<KEY> OrchestratorApi<KEY> for OrchestratorState<KEY>
 where
     KEY: serde::Serialize + Clone + SignatureKey + 'static,
@@ -316,88 +460,11 @@ where
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<(u64, bool), ServerError> {
-        if let Some((node_index, is_da)) = self.pub_posted.get(pubkey) {
-            return Ok((*node_index, *is_da));
+        if self.config.enable_registration_verification {
+            self.register_from_list(pubkey, da_requested, libp2p_address, libp2p_public_key)
+        } else {
+            self.register_unknown(pubkey, da_requested, libp2p_address, libp2p_public_key)
         }
-
-        if !self.accepting_new_keys {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::FORBIDDEN,
-                message:
-                    "Network has been started manually, and is no longer registering new keys."
-                        .to_string(),
-            });
-        }
-
-        let node_index = self.pub_posted.len() as u64;
-
-        // Deserialize the public key
-        let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
-
-        // Check if the node is allowed to connect
-        if self.config.enable_registration_verification
-            && !self
-                .config
-                .public_keys
-                .contains(&staked_pubkey.stake_table_entry.public_key())
-        {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::FORBIDDEN,
-                message: "You are unauthorized to register with the orchestrator".to_string(),
-            });
-        }
-
-        self.config
-            .config
-            .known_nodes_with_stake
-            .push(staked_pubkey.clone());
-
-        let mut added_to_da = false;
-
-        let da_full =
-            self.config.config.known_da_nodes.len() >= self.config.config.da_staked_committee_size;
-
-        #[allow(clippy::nonminimal_bool)]
-        // We add the node to the DA committee depending on either its node index or whether it requested membership.
-        //
-        // Since we issue `node_index` incrementally, if we are deciding DA membership by node_index
-        // we only need to check that the DA committee is not yet full.
-        //
-        // Note: this logically simplifies to (self.config.indexed_da || da_requested) && !da_full,
-        // but writing it that way makes it a little less clear to me.
-        if (self.config.indexed_da || (!self.config.indexed_da && da_requested)) && !da_full {
-            self.config.config.known_da_nodes.push(staked_pubkey);
-            added_to_da = true;
-        }
-
-        self.pub_posted
-            .insert(pubkey.clone(), (node_index, added_to_da));
-
-        // If the orchestrator is set up for libp2p and we have supplied the proper
-        // Libp2p data, add our node to the list of bootstrap nodes.
-        if self.config.libp2p_config.clone().is_some() {
-            if let (Some(libp2p_public_key), Some(libp2p_address)) =
-                (libp2p_public_key, libp2p_address)
-            {
-                // Push to our bootstrap nodes
-                self.config
-                    .libp2p_config
-                    .as_mut()
-                    .unwrap()
-                    .bootstrap_nodes
-                    .push((libp2p_public_key, libp2p_address));
-            }
-        }
-
-        tracing::error!("Posted public key for node_index {node_index}");
-
-        // node_index starts at 0, so once it matches `num_nodes_with_stake`
-        // we will have registered one node too many. hence, we want `node_index + 1`.
-        if node_index + 1 >= (self.config.config.num_nodes_with_stake.get() as u64) {
-            self.peer_pub_ready = true;
-            self.accepting_new_keys = false;
-        }
-        Ok((node_index, added_to_da))
     }
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
@@ -768,8 +835,29 @@ where
         network_config.manual_start_password = env_password.ok();
     }
 
-    network_config.config.known_nodes_with_stake = vec![];
-    network_config.config.known_da_nodes = vec![];
+    if network_config.enable_registration_verification {
+        network_config.config.known_nodes_with_stake = network_config
+            .public_keys
+            .iter()
+            .map(|keys| PeerConfig {
+                stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
+                state_ver_key: keys.state_ver_key.clone(),
+            })
+            .collect();
+
+        network_config.config.known_da_nodes = network_config
+            .da_public_keys
+            .iter()
+            .map(|keys| PeerConfig {
+                //stake_table_entry: <KEY as SignatureKey>::StakeTableEntry::public_key(&keys.stake_table_key),
+                stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
+                state_ver_key: keys.state_ver_key.clone(),
+            })
+            .collect();
+    } else {
+        network_config.config.known_nodes_with_stake = vec![];
+        network_config.config.known_da_nodes = vec![];
+    }
 
     if !network_config.enable_registration_verification {
         tracing::error!("REGISTRATION VERIFICATION IS TURNED OFF");
