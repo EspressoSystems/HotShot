@@ -222,6 +222,27 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 2. The proposal has been correctly signed by the leader of the current view
     /// 3. The justify QC is valid
     QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// Send a VID request to the network; emitted to the DA committee. Includes the node's public key and signature.
+    VidRequestSend(
+        ProposalRequestPayload<TYPES>,
+        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ),
+
+    /// Receive a VID request from the network; Received by a node in the DA committee. Includes the node's public key and signature.
+    VidRequestRecv(
+        ProposalRequestPayload<TYPES>,
+        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ),
+
+    /// Send a VID response to the network; emitted to the sending node.
+    VidResponseSend(
+        TYPES::SignatureKey,
+        Proposal<TYPES, VidDisperseShare<TYPES>>,
+    ),
+
+    /// Receive a VID response from the network; received by the node that triggered the VID request.
+    VidResponseRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
 }
 
 impl<TYPES: NodeType> HotShotEvent<TYPES> {
@@ -300,6 +321,10 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             }
             HotShotEvent::DaCertificateValidated(cert) => Some(cert.view_number),
             HotShotEvent::UpgradeCertificateFormed(cert) => Some(cert.view_number()),
+            HotShotEvent::VidRequestSend(_, _) => todo!(),
+            HotShotEvent::VidRequestRecv(_, _) => todo!(),
+            HotShotEvent::VidResponseSend(_, _) => todo!(),
+            HotShotEvent::VidResponseRecv(_) => todo!(),
         }
     }
 }
@@ -557,6 +582,10 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     proposal.data.view_number()
                 )
             }
+            HotShotEvent::VidRequestSend(_, _) => todo!(),
+            HotShotEvent::VidRequestRecv(_, _) => todo!(),
+            HotShotEvent::VidResponseSend(_, _) => todo!(),
+            HotShotEvent::VidResponseRecv(_) => todo!(),
         }
     }
 }

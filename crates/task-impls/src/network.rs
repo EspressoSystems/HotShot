@@ -73,7 +73,10 @@ pub fn da_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
 pub fn vid_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::VidDisperseSend(_, _) | HotShotEvent::ViewChange(_)
+        HotShotEvent::VidDisperseSend(_, _)
+            | HotShotEvent::ViewChange(_)
+            | HotShotEvent::VidResponseSend(..)
+            | HotShotEvent::VidRequestSend(..)
     )
 }
 
@@ -155,6 +158,13 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::UpgradeVote(message) => {
                             error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
+                        }
+                        GeneralConsensusMessage::VidRequested(message, sender) => {
+                            // error!("received");
+                            HotShotEvent::VidRequestRecv(message, sender)
+                        }
+                        GeneralConsensusMessage::VidResponseAvailable(message) => {
+                            HotShotEvent::VidResponseRecv(message)
                         }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
@@ -519,7 +529,26 @@ impl<
                     .await;
                 None
             }
-
+            HotShotEvent::VidRequestSend(req, signature) => {
+                error!("send vid request (network)");
+                Some((
+                    req.key.clone(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::VidRequested(req.clone(), signature),
+                    )),
+                    TransmitType::DaCommitteeBroadcast,
+                ))
+            }
+            HotShotEvent::VidResponseSend(sender_key, proposal) => {
+                error!("vid response send");
+                Some((
+                    sender_key.clone(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::VidResponseAvailable(proposal),
+                    )),
+                    TransmitType::Direct(sender_key),
+                ))
+            }
             _ => None,
         }
     }
