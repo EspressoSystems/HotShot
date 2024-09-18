@@ -560,7 +560,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
-                        info!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
+                        error!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
 
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -630,7 +630,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     .await;
                 }
 
-                info!(
+                error!(
                     "View sync protocol has received view sync evidence to update the view to {}",
                     *self.next_view
                 );
@@ -652,7 +652,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
-                        info!(
+                        error!(
                             "Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}",
                             relay
                         );
@@ -748,7 +748,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
-                        info!("Vote sending timed out in ViewSyncTrigger");
+                        error!("Vote sending timed out in ViewSyncTrigger");
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(*next_view),
@@ -814,7 +814,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         let last_cert = last_seen_certificate.clone();
                         async move {
                             async_sleep(timeout).await;
-                            info!(
+                            error!(
                                 "Vote sending timed out in ViewSyncTimeout relay = {}",
                                 relay
                             );

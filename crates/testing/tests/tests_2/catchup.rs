@@ -515,13 +515,26 @@ async fn test_staggered_restart() {
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
 
-    let mut catchup_nodes = vec![];
-    for i in 0..20 {
-        catchup_nodes.push(ChangeNode {
+    let mut down_da_nodes = vec![];
+    for i in 1..4 {
+        down_da_nodes.push(ChangeNode {
             idx: i,
-            updown: UpDown::RestartDown(0),
-        })
+            updown: UpDown::RestartDown(20),
+        });
     }
+
+    let mut down_regular_nodes = vec![];
+    for i in 4..10 {
+        down_regular_nodes.push(ChangeNode {
+            idx: i,
+            updown: UpDown::RestartDown(0)
+        });
+    }
+    // restart the last da so it gets the new libp2p routing table
+    down_regular_nodes.push(ChangeNode{
+        idx: 0,
+        updown: UpDown::RestartDown(0)
+    });
 
     metadata.start_nodes = 10;
     metadata.num_nodes_with_stake = 10;
@@ -531,21 +544,22 @@ async fn test_staggered_restart() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Restart all the nodes in view 13
-        node_changes: vec![(13, catchup_nodes)],
+        node_changes: vec![(13, down_da_nodes), (33, down_regular_nodes)],
     };
     metadata.view_sync_properties =
-        hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
+        hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 50);
 
+    // Give the test some extra time because we are purposely timing out views
     metadata.completion_task_description =
         CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
             TimeBasedCompletionTaskDescription {
-                duration: Duration::from_secs(60),
+                duration: Duration::from_secs(240),
             },
         );
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
         // Make sure we keep committing rounds after the catchup, but not the full 50.
         num_successful_views: 22,
-        num_failed_views: 15,
+        num_failed_views: 30,
         ..Default::default()
     };
 

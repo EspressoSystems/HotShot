@@ -488,13 +488,15 @@ impl<
                 )),
                 TransmitType::Broadcast,
             )),
-            HotShotEvent::TimeoutVoteSend(vote) => Some((
+            HotShotEvent::TimeoutVoteSend(vote) => {
+                error!("sending timeout vote");
+                Some((
                 vote.signing_key(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::TimeoutVote(vote.clone()),
                 )),
                 TransmitType::Direct(membership.leader(vote.view_number() + 1)),
-            )),
+            ))},
             HotShotEvent::UpgradeProposalSend(proposal, sender) => Some((
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(

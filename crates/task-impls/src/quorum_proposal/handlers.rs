@@ -225,7 +225,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             signature,
             _pd: PhantomData,
         };
-        debug!(
+        error!(
             "Sending proposal for view {:?}",
             proposed_leaf.view_number(),
         );

@@ -60,7 +60,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
 
     let old_view = *cur_view;
 
-    debug!("Updating view from {} to {}", *old_view, *new_view);
+    error!("Updating view from {} to {}", *old_view, *new_view);
 
     if *old_view / 100 != *new_view / 100 {
         // TODO (https://github.com/EspressoSystems/HotShot/issues/2296):

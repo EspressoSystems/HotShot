@@ -10,6 +10,7 @@ use std::{
 };
 
 use anyhow::Result;
+use async_broadcast::broadcast;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::join_all;
@@ -23,6 +24,7 @@ use hotshot_example_types::{
     testable_delay::DelayConfig,
 };
 use hotshot_types::{
+    constants::EVENT_CHANNEL_SIZE,
     data::Leaf,
     event::Event,
     simple_certificate::QuorumCertificate,
@@ -221,7 +223,7 @@ where
                                     self.last_decided_leaf.clone(),
                                     TestInstanceState::new(self.async_delay_config.clone()),
                                     None,
-                                    view_number,
+                                    read_storage.last_actioned_view().await,
                                     read_storage.last_actioned_view().await,
                                     read_storage.proposals_cloned().await,
                                     read_storage.high_qc_cloned().await.unwrap_or(
@@ -242,6 +244,7 @@ where
                                     // For tests, make the node DA based on its index
                                     node_id < config.da_staked_committee_size as u64,
                                 );
+                                let internal_chan = broadcast(EVENT_CHANNEL_SIZE);
                                 let context =
                                     TestRunner::<TYPES, I, V, N>::add_node_with_config_and_channels(
                                         node_id,
@@ -252,13 +255,10 @@ where
                                         validator_config,
                                         (*read_storage).clone(),
                                         marketplace_config.clone(),
-                                        (
-                                            node.handle.internal_channel_sender(),
-                                            node.handle.internal_event_stream_receiver_known_impl(),
-                                        ),
+                                        internal_chan,
                                         (
                                             node.handle.external_channel_sender(),
-                                            node.handle.event_stream_known_impl(),
+                                            node.handle.event_stream_known_impl().new_receiver(),
                                         ),
                                     )
                                     .await;
@@ -310,6 +310,7 @@ where
             join_all(ready_futs).await;
 
             while let Some((node, id)) = new_nodes.pop() {
+                tracing::error!("starting node {} back up", id);
                 let handle = node.run_tasks().await;
 
                 // Create the node and add it to the state, so we can shut them
