@@ -239,7 +239,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    error!(
+    debug!(
         "We did not receive evidence for view {} in time, sending timeout vote for that view!",
         *view_number
     );

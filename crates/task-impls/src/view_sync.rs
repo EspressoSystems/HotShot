@@ -630,7 +630,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     .await;
                 }
 
-                error!(
+                info!(
                     "View sync protocol has received view sync evidence to update the view to {}",
                     *self.next_view
                 );
