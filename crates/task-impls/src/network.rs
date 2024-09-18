@@ -491,12 +491,13 @@ impl<
             HotShotEvent::TimeoutVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 Some((
-                vote.signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::TimeoutVote(vote.clone()),
-                )),
-                TransmitType::Direct(membership.leader(vote.view_number() + 1)),
-            ))},
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::TimeoutVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(membership.leader(vote.view_number() + 1)),
+                ))
+            }
             HotShotEvent::UpgradeProposalSend(proposal, sender) => Some((
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(

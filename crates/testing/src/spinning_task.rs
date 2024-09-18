@@ -310,7 +310,7 @@ where
             join_all(ready_futs).await;
 
             while let Some((node, id)) = new_nodes.pop() {
-                tracing::error!("starting node {} back up", id);
+                tracing::error!("Starting node {} back up", id);
                 let handle = node.run_tasks().await;
 
                 // Create the node and add it to the state, so we can shut them

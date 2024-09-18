@@ -527,13 +527,13 @@ async fn test_staggered_restart() {
     for i in 4..10 {
         down_regular_nodes.push(ChangeNode {
             idx: i,
-            updown: UpDown::RestartDown(0)
+            updown: UpDown::RestartDown(0),
         });
     }
     // restart the last da so it gets the new libp2p routing table
-    down_regular_nodes.push(ChangeNode{
+    down_regular_nodes.push(ChangeNode {
         idx: 0,
-        updown: UpDown::RestartDown(0)
+        updown: UpDown::RestartDown(0),
     });
 
     metadata.start_nodes = 10;

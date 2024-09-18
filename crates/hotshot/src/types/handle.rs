@@ -245,7 +245,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let next_view_timeout = self.hotshot.config.next_view_timeout;
         let start_view = self.hotshot.start_view;
 
-        tracing::error!("spawning timeout task with start view {:?}", start_view);
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
         async_spawn({

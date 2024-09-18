@@ -25,7 +25,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use tracing::error;
 
 use crate::{types::SystemContextHandle, Versions};
 
@@ -222,7 +221,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
         let timeout_task = handle.spawn_initial_timeout_task();
-        error!("Starting consensus with curr view {:?}", handle.cur_view().await);
 
         Self {
             consensus: OuterConsensus::new(consensus),
