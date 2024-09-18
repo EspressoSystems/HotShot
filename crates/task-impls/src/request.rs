@@ -20,7 +20,9 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
-use hotshot_task::task::TaskState;
+use hotshot_task::{
+    task::TaskState,
+};
 use hotshot_types::{
     consensus::OuterConsensus,
     message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
@@ -93,13 +95,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         &mut self,
         event: Arc<Self::Event>,
         sender: &Sender<Arc<Self::Event>>,
-        _receiver: &Receiver<Arc<Self::Event>>,
+        receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.view_number();
                 if prop_view >= self.view {
-                    self.spawn_requests(prop_view, sender.clone()).await;
+                    self.spawn_requests(prop_view, sender, receiver).await;
                 }
                 Ok(())
             }
@@ -137,6 +139,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
                 Ok(())
             }
+            HotShotEvent::VidRequestRecv(req, _sig) => {
+                error!("vid event handle");
+                let state = self.state.read().await;
+                if let Some(Some(vid_share)) = state
+                    .vid_shares()
+                    .get(&req.view_number)
+                    .map(|shares| shares.get(&req.key).cloned())
+                {
+                    broadcast_event(
+                        HotShotEvent::VidResponseSend(self.public_key.clone(), vid_share.clone())
+                            .into(),
+                        sender,
+                    )
+                    .await;
+                    error!("sent vid share");
+                }
+
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -164,8 +185,72 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     async fn spawn_requests(
         &mut self,
         view: TYPES::Time,
-        sender: Sender<Arc<HotShotEvent<TYPES>>>,
+        sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+        _receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
+        // tracing::error!("spawn");
+        // If we already have the VID shares for the next view, do nothing.
+        if self.state.read().await.vid_shares().contains_key(&view) {
+            // tracing::error!("here");
+            return;
+        }
+        tracing::error!("need");
+
+        // let request = ProposalRequestPayload {
+        //     view_number: view,
+        //     key: self.public_key.clone(),
+        // };
+
+        // // First sign the request for the VID shares.
+        // if let Some(signature) =
+        //     self.serialize_and_sign(&RequestKind::Vid(view, self.public_key.clone()))
+        // {
+        //     tracing::error!("sending vid req");
+        //     broadcast_event(
+        //         HotShotEvent::VidRequestSend(request, signature).into(),
+        //         sender,
+        //     )
+        //     .await;
+
+        //     let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT, async move {
+        //         let mut response = None;
+        //         while response.is_none() {
+        //             let event = EventDependency::new(
+        //                 receiver.clone(),
+        //                 Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
+        //                     let event = event.as_ref();
+        //                     if let HotShotEvent::VidResponseRecv(proposal) = event {
+        //                         proposal.data.view_number() == view
+        //                     } else {
+        //                         false
+        //                     }
+        //                 }),
+        //             )
+        //             .completed()
+        //             .await;
+
+        //             if let Some(hs_event) = event.as_ref() {
+        //                 if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
+        //                     response = Some(proposal.clone());
+        //                 }
+        //             }
+        //         }
+
+        //         response
+        //     })
+        //     .await
+        //     else {
+        //         // todo
+        //         panic!("Request for proposal failed");
+        //     };
+        // } else {
+        //     panic!("Request for proposal failed");
+        // }
+
+        // Then, broadcast the request to the DA committee.
+
+        // Spawn a background task to await the arrival of VidResponseRecv
+
         let requests = self.build_requests(view).await;
         if requests.is_empty() {
             return;
@@ -350,6 +435,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 .get(&view)
                 .map(|shares| shares.get(&self.public_key).cloned())
             {
+                error!("got");
                 broadcast_event(
                     Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
                     &self.sender,
