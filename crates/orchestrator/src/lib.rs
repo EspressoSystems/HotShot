@@ -349,13 +349,11 @@ where
         // Deserialize the public key
         let staked_pubkey = PeerConfig::<KEY>::from_bytes(pubkey).unwrap();
 
-        // Check if the node is allowed to connect, returning its index if so.
-        let Some(node_index) = self
-            .config
-            .config
-            .known_nodes_with_stake
-            .iter()
-            .position(|pubkey| *pubkey == staked_pubkey)
+        // Check if the node is allowed to connect, returning its index and config entry if so.
+        let Some((node_index, node_config)) =
+            self.config.public_keys.iter().enumerate().find(|keys| {
+                keys.1.stake_table_key == staked_pubkey.stake_table_entry.public_key()
+            })
         else {
             return Err(ServerError {
                 status: tide_disco::StatusCode::FORBIDDEN,
@@ -363,7 +361,7 @@ where
             });
         };
 
-        let added_to_da = self.config.config.known_da_nodes.contains(&staked_pubkey);
+        let added_to_da = node_config.da;
 
         self.pub_posted
             .insert(pubkey.clone(), (node_index as u64, added_to_da));
@@ -846,10 +844,10 @@ where
             .collect();
 
         network_config.config.known_da_nodes = network_config
-            .da_public_keys
+            .public_keys
             .iter()
+            .filter(|keys| keys.da)
             .map(|keys| PeerConfig {
-                //stake_table_entry: <KEY as SignatureKey>::StakeTableEntry::public_key(&keys.stake_table_key),
                 stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
                 state_ver_key: keys.state_ver_key.clone(),
             })
