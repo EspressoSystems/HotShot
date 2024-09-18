@@ -489,7 +489,7 @@ impl<
                 TransmitType::Broadcast,
             )),
             HotShotEvent::TimeoutVoteSend(vote) => {
-                error!("sending timeout vote");
+                *maybe_action = Some(HotShotAction::Vote);
                 Some((
                 vote.signing_key(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
