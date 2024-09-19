@@ -345,6 +345,50 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -357,10 +401,13 @@
 };
 
 <span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>async_broadcast::broadcast;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::future::join_all;
-<span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, types::EventType, HotShotInitializer};
+<span class="kw">use </span>hotshot::{
+    traits::TestableNodeImplementation, types::EventType, HotShotInitializer, SystemContext,
+};
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
     block_types::TestBlockHeader,
@@ -369,6 +416,7 @@
     testable_delay::DelayConfig,
 };
 <span class="kw">use </span>hotshot_types::{
+    constants::EVENT_CHANNEL_SIZE,
     data::Leaf,
     event::Event,
     simple_certificate::QuorumCertificate,
@@ -394,7 +442,12 @@
 </span><span class="kw">pub struct </span>SpinningTaskErr {}
 
 <span class="doccomment">/// Spinning task state
-</span><span class="kw">pub struct </span>SpinningTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
+</span><span class="kw">pub struct </span>SpinningTask&lt;
+    TYPES: NodeType,
+    N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
+    I: TestableNodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt; {
     <span class="doccomment">/// handle to the nodes
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I, V&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// late start nodes
@@ -409,6 +462,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) high_qc: QuorumCertificate&lt;TYPES&gt;,
     <span class="doccomment">/// Add specified delay to async calls
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) async_delay_config: DelayConfig,
+    <span class="doccomment">/// Context stored for nodes to be restarted with
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) restart_contexts: HashMap&lt;usize, RestartContext&lt;TYPES, N, I, V&gt;&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -421,7 +476,7 @@
         I: TestableNodeImplementation&lt;TYPES&gt;,
         N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
         V: Versions,
-    &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, I, V&gt;
+    &gt; TestTaskState <span class="kw">for </span>SpinningTask&lt;TYPES, N, I, V&gt;
 <span class="kw">where
     </span>I: TestableNodeImplementation&lt;TYPES&gt;,
     I: NodeImplementation&lt;
@@ -464,7 +519,7 @@
             </span><span class="kw">if let </span><span class="prelude-val">Some</span>(operations) = <span class="self">self</span>.changes.remove(<span class="kw-2">&amp;</span>view_number) {
                 <span class="kw">for </span>ChangeNode { idx, updown } <span class="kw">in </span>operations {
                     <span class="kw">match </span>updown {
-                        UpDown::Up =&gt; {
+                        NodeAction::Up =&gt; {
                             <span class="kw">let </span>node_id = idx.try_into().unwrap();
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.late_start.remove(<span class="kw-2">&amp;</span>node_id) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} spinning up late"</span>, idx);
@@ -534,13 +589,13 @@
                                 <span class="self">self</span>.handles.write().<span class="kw">await</span>.push(node);
                             }
                         }
-                        UpDown::Down =&gt; {
+                        NodeAction::Down =&gt; {
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get_mut(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} shutting down"</span>, idx);
                                 node.handle.shut_down().<span class="kw">await</span>;
                             }
                         }
-                        UpDown::Restart =&gt; {
+                        NodeAction::RestartDown(delay_views) =&gt; {
                             <span class="kw">let </span>node_id = idx.try_into().unwrap();
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get_mut(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} shutting down"</span>, idx);
@@ -564,7 +619,7 @@
                                     <span class="self">self</span>.last_decided_leaf.clone(),
                                     TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
                                     <span class="prelude-val">None</span>,
-                                    view_number,
+                                    read_storage.last_actioned_view().<span class="kw">await</span>,
                                     read_storage.last_actioned_view().<span class="kw">await</span>,
                                     read_storage.proposals_cloned().<span class="kw">await</span>,
                                     read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
@@ -585,6 +640,7 @@
                                     <span class="comment">// For tests, make the node DA based on its index
                                     </span>node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64,
                                 );
+                                <span class="kw">let </span>internal_chan = broadcast(EVENT_CHANNEL_SIZE);
                                 <span class="kw">let </span>context =
                                     TestRunner::&lt;TYPES, I, V, N&gt;::add_node_with_config_and_channels(
                                         node_id,
@@ -595,27 +651,44 @@
                                         validator_config,
                                         (<span class="kw-2">*</span>read_storage).clone(),
                                         marketplace_config.clone(),
-                                        (
-                                            node.handle.internal_channel_sender(),
-                                            node.handle.internal_event_stream_receiver_known_impl(),
-                                        ),
+                                        internal_chan,
                                         (
                                             node.handle.external_channel_sender(),
-                                            node.handle.event_stream_known_impl(),
+                                            node.handle.event_stream_known_impl().new_receiver(),
                                         ),
                                     )
                                     .<span class="kw">await</span>;
-                                new_nodes.push((context, idx));
-                                new_networks.push(network.clone());
+                                <span class="kw">if </span>delay_views == <span class="number">0 </span>{
+                                    new_nodes.push((context, idx));
+                                    new_networks.push(network.clone());
+                                } <span class="kw">else </span>{
+                                    <span class="kw">let </span>up_view = view_number + delay_views;
+                                    <span class="kw">let </span>change = ChangeNode {
+                                        idx,
+                                        updown: NodeAction::RestartUp,
+                                    };
+                                    <span class="self">self</span>.changes.entry(up_view).or_default().push(change);
+                                    <span class="kw">let </span>new_ctx = RestartContext {
+                                        context,
+                                        network: network.clone(),
+                                    };
+                                    <span class="self">self</span>.restart_contexts.insert(idx, new_ctx);
+                                }
                             }
                         }
-                        UpDown::NetworkUp =&gt; {
+                        NodeAction::RestartUp =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(ctx) = <span class="self">self</span>.restart_contexts.remove(<span class="kw-2">&amp;</span>idx) {
+                                new_nodes.push((ctx.context, idx));
+                                new_networks.push(ctx.network.clone());
+                            }
+                        }
+                        NodeAction::NetworkUp =&gt; {
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} networks resuming"</span>, idx);
                                 handle.network.resume();
                             }
                         }
-                        UpDown::NetworkDown =&gt; {
+                        NodeAction::NetworkDown =&gt; {
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.handles.write().<span class="kw">await</span>.get(idx) {
                                 <span class="macro">tracing::error!</span>(<span class="string">"Node {} networks pausing"</span>, idx);
                                 handle.network.pause();
@@ -633,6 +706,7 @@
             join_all(ready_futs).<span class="kw">await</span>;
 
             <span class="kw">while let </span><span class="prelude-val">Some</span>((node, id)) = new_nodes.pop() {
+                <span class="macro">tracing::error!</span>(<span class="string">"Starting node {} back up"</span>, id);
                 <span class="kw">let </span>handle = node.run_tasks().<span class="kw">await</span>;
 
                 <span class="comment">// Create the node and add it to the state, so we can shut them
@@ -659,9 +733,20 @@
     }
 }
 
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RestartContext&lt;
+    TYPES: NodeType,
+    N: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
+    I: TestableNodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt; {
+    context: Arc&lt;SystemContext&lt;TYPES, I, V&gt;&gt;,
+    network: Arc&lt;N&gt;,
+}
+
 <span class="doccomment">/// Spin the node up or down
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub enum </span>UpDown {
+</span><span class="kw">pub enum </span>NodeAction {
     <span class="doccomment">/// spin the node up
     </span>Up,
     <span class="doccomment">/// spin the node down
@@ -670,8 +755,11 @@
     </span>NetworkUp,
     <span class="doccomment">/// spin the node's network down
     </span>NetworkDown,
-    <span class="doccomment">/// restart the node
-    </span>Restart,
+    <span class="doccomment">/// Take a node down to be restarted after a number of views
+    </span>RestartDown(u64),
+    <span class="doccomment">/// Start a node up again after it's been shutdown for restart.  This
+    /// should only be created following a `ResartDown`
+    </span>RestartUp,
 }
 
 <span class="doccomment">/// denotes a change in node state
@@ -680,7 +768,7 @@
     <span class="doccomment">/// the index of the node
     </span><span class="kw">pub </span>idx: usize,
     <span class="doccomment">/// spin the node or node's network up or down
-    </span><span class="kw">pub </span>updown: UpDown,
+    </span><span class="kw">pub </span>updown: NodeAction,
 }
 
 <span class="doccomment">/// description of the spinning task

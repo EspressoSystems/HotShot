@@ -748,6 +748,7 @@
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -807,7 +808,7 @@
 <span class="kw">use crate</span>::{
     block_builder::{BuilderTask, TestBuilderImplementation},
     completion_task::CompletionTaskDescription,
-    spinning_task::{ChangeNode, SpinningTask, UpDown},
+    spinning_task::{ChangeNode, NodeAction, SpinningTask},
     test_builder::create_test_handle,
     test_launcher::{Network, TestLauncher},
     test_task::{TestResult, TestTask},
@@ -855,10 +856,10 @@
         <span class="kw">let </span><span class="kw-2">mut </span>restart_nodes: HashSet&lt;u64&gt; = HashSet::new();
         <span class="kw">for </span>(<span class="kw">_</span>, changes) <span class="kw">in </span><span class="kw-2">&amp;</span>spinning_changes {
             <span class="kw">for </span>change <span class="kw">in </span>changes {
-                <span class="kw">if </span><span class="macro">matches!</span>(change.updown, UpDown::Up) {
+                <span class="kw">if </span><span class="macro">matches!</span>(change.updown, NodeAction::Up) {
                     late_start_nodes.insert(change.idx.try_into().unwrap());
                 }
-                <span class="kw">if </span><span class="macro">matches!</span>(change.updown, UpDown::Restart) {
+                <span class="kw">if </span><span class="macro">matches!</span>(change.updown, NodeAction::RestartDown(<span class="kw">_</span>)) {
                     restart_nodes.insert(change.idx.try_into().unwrap());
                 }
             }
@@ -945,8 +946,9 @@
             )
             .<span class="kw">await</span>,
             async_delay_config: <span class="self">self</span>.launcher.metadata.async_delay_config,
+            restart_contexts: HashMap::new(),
         };
-        <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, I, V&gt;&gt;::new(
+        <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, N, I, V&gt;&gt;::new(
             spinning_task_state,
             event_rxs.clone(),
             test_receiver.clone(),

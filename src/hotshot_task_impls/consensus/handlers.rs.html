@@ -920,6 +920,7 @@
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
 <a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1062,8 +1063,9 @@
     };
 
     <span class="macro">debug!</span>(
-        <span class="string">"Sending proposal for view {:?}"</span>,
+        <span class="string">"Sending proposal for view {:?} ID: {}"</span>,
         proposed_leaf.view_number(),
+        id,
     );
 
     async_sleep(Duration::from_millis(round_start_delay)).<span class="kw">await</span>;
