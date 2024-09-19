@@ -3,40 +3,7 @@ indexed_da = true
 transactions_per_round = 10
 transaction_size = 1000
 node_index = 0
-seed = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-]
+seed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 start_delay_seconds = 0
 cdn_marshal_address = "127.0.0.1:9000"
 public_keys = [
@@ -60,7 +27,6 @@ public_keys = [
 
     { stake_table_key = "BLS_VER_KEY~PAAQNgOYfj3GiVX7LxSlkXfOCDSnNKZDqPVYQ_jBMxKzOCn0PXbqQ62kKPenWOmCxiCE7X158s-VenBna6MjHJgf61eBAO-3-OyTP5NWVx49RTgHhQf2iMTKk2iqK2gjnjZimBU135YU4lQFtrG-ZgRezwqkC5vy8V-q46fschIG", state_ver_key = "SCHNORR_VER_KEY~APKGX39-mOmApq6jMdIEiuuyddJ_k8xFeIwU1Zs2zShH1rI--eZR180Us5vqNWmK3zAidScvVcW4bAsOMHB3LPg", stake = 1, da = true }
 ]
-enable_registration_verification = true
 
 [config]
 num_nodes_with_stake = 10

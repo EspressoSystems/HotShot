@@ -171,8 +171,6 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
     pub public_keys: Vec<PeerConfigKeys<KEY>>,
-    /// Whether or not to disable registration verification.
-    pub enable_registration_verification: bool,
 }
 
 /// the source of the network config
@@ -405,7 +403,6 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             builder: BuilderType::default(),
             random_builder: None,
             public_keys: vec![],
-            enable_registration_verification: true,
         }
     }
 }
@@ -456,11 +453,10 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     #[serde(default)]
     pub random_builder: Option<RandomBuilderConfig>,
     /// The list of public keys that are allowed to connect to the orchestrator
+    ///
+    /// If nonempty, this list becomes the stake table and is used to determine DA membership (ignoring the node's request).
     #[serde(default)]
     pub public_keys: Vec<PeerConfigKeys<KEY>>,
-    /// Whether or not to disable registration verification.
-    #[serde(default)]
-    pub enable_registration_verification: bool,
 }
 
 impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
@@ -493,7 +489,6 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             builder: val.builder,
             random_builder: val.random_builder,
             public_keys: val.public_keys,
-            enable_registration_verification: val.enable_registration_verification,
         }
     }
 }

@@ -101,15 +101,22 @@ struct OrchestratorState<KEY: SignatureKey> {
     accepting_new_keys: bool,
     /// Builder address pool
     builders: Vec<Url>,
+    /// whether we are using a fixed stake table, disabling public key registration
+    fixed_stake_table: bool,
 }
 
 impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
     /// create a new [`OrchestratorState`]
     pub fn new(network_config: NetworkConfig<KEY>) -> Self {
         let mut peer_pub_ready = false;
+        let mut fixed_stake_table = false;
 
-        if network_config.enable_registration_verification {
+        if network_config.config.known_nodes_with_stake.is_empty() {
+            println!("No nodes were loaded from the config file. Nodes will be allowed to register dynamically.");
+        } else {
+            println!("Initializing orchestrator with fixed stake table.");
             peer_pub_ready = true;
+            fixed_stake_table = true;
         }
 
         let builders = if matches!(network_config.builder, BuilderType::External) {
@@ -117,6 +124,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
         } else {
             vec![]
         };
+
         OrchestratorState {
             latest_index: 0,
             tmp_latest_index: 0,
@@ -130,6 +138,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             manual_start_allowed: true,
             accepting_new_keys: true,
             builders,
+            fixed_stake_table,
         }
     }
 
@@ -256,6 +265,8 @@ impl<KEY> OrchestratorState<KEY>
 where
     KEY: serde::Serialize + Clone + SignatureKey + 'static,
 {
+    /// register a node with an unknown public key.
+    /// this method should be used when we don't have a fixed stake table
     fn register_unknown(
         &mut self,
         pubkey: &mut Vec<u8>,
@@ -334,10 +345,11 @@ where
         Ok((node_index, added_to_da))
     }
 
+    /// register a node on the fixed stake table, which was loaded at startup
     fn register_from_list(
         &mut self,
         pubkey: &mut Vec<u8>,
-        _da_requested: bool,
+        da_requested: bool,
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<(u64, bool), ServerError> {
@@ -360,6 +372,14 @@ where
                 message: "You are unauthorized to register with the orchestrator".to_string(),
             });
         };
+
+        // Check that our recorded DA status for the node matches what the node actually requested
+        if node_config.da != da_requested {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BAD_REQUEST,
+                message: format!("Mismatch in DA status in registration for node {}. DA requested: {}, expected: {}", node_index, da_requested, node_config.da),
+          });
+        }
 
         let added_to_da = node_config.da;
 
@@ -458,7 +478,7 @@ where
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<(u64, bool), ServerError> {
-        if self.config.enable_registration_verification {
+        if self.fixed_stake_table {
             self.register_from_list(pubkey, da_requested, libp2p_address, libp2p_public_key)
         } else {
             self.register_unknown(pubkey, da_requested, libp2p_address, libp2p_public_key)
@@ -833,33 +853,24 @@ where
         network_config.manual_start_password = env_password.ok();
     }
 
-    if network_config.enable_registration_verification {
-        network_config.config.known_nodes_with_stake = network_config
-            .public_keys
-            .iter()
-            .map(|keys| PeerConfig {
-                stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
-                state_ver_key: keys.state_ver_key.clone(),
-            })
-            .collect();
+    network_config.config.known_nodes_with_stake = network_config
+        .public_keys
+        .iter()
+        .map(|keys| PeerConfig {
+            stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
+            state_ver_key: keys.state_ver_key.clone(),
+        })
+        .collect();
 
-        network_config.config.known_da_nodes = network_config
-            .public_keys
-            .iter()
-            .filter(|keys| keys.da)
-            .map(|keys| PeerConfig {
-                stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
-                state_ver_key: keys.state_ver_key.clone(),
-            })
-            .collect();
-    } else {
-        network_config.config.known_nodes_with_stake = vec![];
-        network_config.config.known_da_nodes = vec![];
-    }
-
-    if !network_config.enable_registration_verification {
-        tracing::error!("REGISTRATION VERIFICATION IS TURNED OFF");
-    }
+    network_config.config.known_da_nodes = network_config
+        .public_keys
+        .iter()
+        .filter(|keys| keys.da)
+        .map(|keys| PeerConfig {
+            stake_table_entry: keys.stake_table_key.stake_table_entry(keys.stake),
+            state_ver_key: keys.state_ver_key.clone(),
+        })
+        .collect();
 
     let web_api =
         define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
