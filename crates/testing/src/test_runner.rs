@@ -57,7 +57,7 @@ use super::{
 use crate::{
     block_builder::{BuilderTask, TestBuilderImplementation},
     completion_task::CompletionTaskDescription,
-    spinning_task::{ChangeNode, SpinningTask, UpDown},
+    spinning_task::{ChangeNode, NodeAction, SpinningTask},
     test_builder::create_test_handle,
     test_launcher::{Network, TestLauncher},
     test_task::{TestResult, TestTask},
@@ -105,10 +105,10 @@ where
         let mut restart_nodes: HashSet<u64> = HashSet::new();
         for (_, changes) in &spinning_changes {
             for change in changes {
-                if matches!(change.updown, UpDown::Up) {
+                if matches!(change.updown, NodeAction::Up) {
                     late_start_nodes.insert(change.idx.try_into().unwrap());
                 }
-                if matches!(change.updown, UpDown::RestartDown(_)) {
+                if matches!(change.updown, NodeAction::RestartDown(_)) {
                     restart_nodes.insert(change.idx.try_into().unwrap());
                 }
             }

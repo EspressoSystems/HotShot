@@ -128,7 +128,7 @@ where
             if let Some(operations) = self.changes.remove(&view_number) {
                 for ChangeNode { idx, updown } in operations {
                     match updown {
-                        UpDown::Up => {
+                        NodeAction::Up => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.late_start.remove(&node_id) {
                                 tracing::error!("Node {} spinning up late", idx);
@@ -198,13 +198,13 @@ where
                                 self.handles.write().await.push(node);
                             }
                         }
-                        UpDown::Down => {
+                        NodeAction::Down => {
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
                             }
                         }
-                        UpDown::RestartDown(delay_views) => {
+                        NodeAction::RestartDown(delay_views) => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
@@ -274,7 +274,7 @@ where
                                     let up_view = view_number + delay_views;
                                     let change = ChangeNode {
                                         idx,
-                                        updown: UpDown::RestartUp,
+                                        updown: NodeAction::RestartUp,
                                     };
                                     self.changes.entry(up_view).or_default().push(change);
                                     let new_ctx = RestartContext {
@@ -285,19 +285,19 @@ where
                                 }
                             }
                         }
-                        UpDown::RestartUp => {
+                        NodeAction::RestartUp => {
                             if let Some(ctx) = self.restart_contexts.remove(&idx) {
                                 new_nodes.push((ctx.context, idx));
                                 new_networks.push(ctx.network.clone());
                             }
                         }
-                        UpDown::NetworkUp => {
+                        NodeAction::NetworkUp => {
                             if let Some(handle) = self.handles.write().await.get(idx) {
                                 tracing::error!("Node {} networks resuming", idx);
                                 handle.network.resume();
                             }
                         }
-                        UpDown::NetworkDown => {
+                        NodeAction::NetworkDown => {
                             if let Some(handle) = self.handles.write().await.get(idx) {
                                 tracing::error!("Node {} networks pausing", idx);
                                 handle.network.pause();
@@ -355,7 +355,7 @@ pub(crate) struct RestartContext<
 
 /// Spin the node up or down
 #[derive(Clone, Debug)]
-pub enum UpDown {
+pub enum NodeAction {
     /// spin the node up
     Up,
     /// spin the node down
@@ -367,6 +367,7 @@ pub enum UpDown {
     /// Take a node down to be restarted after a number of views
     RestartDown(u64),
     /// Start a node up again after it's been shutdown for restart.  This
+    /// should only be created following a `ResartDown`
     RestartUp,
 }
 
@@ -376,7 +377,7 @@ pub struct ChangeNode {
     /// the index of the node
     pub idx: usize,
     /// spin the node or node's network up or down
-    pub updown: UpDown,
+    pub updown: NodeAction,
 }
 
 /// description of the spinning task
