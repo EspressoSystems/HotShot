@@ -6,7 +6,7 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
-    sync::{atomic::AtomicBool, Arc},
+    sync::Arc,
 };
 
 use async_compatibility_layer::art::async_spawn;
@@ -56,8 +56,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
-            shutdown_flag: Arc::new(AtomicBool::new(false)),
-            spawned_tasks: BTreeMap::new(),
         }
     }
 }

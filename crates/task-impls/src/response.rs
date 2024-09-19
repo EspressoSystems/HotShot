@@ -6,33 +6,23 @@
 
 use std::{sync::Arc, time::Duration};
 
-use async_broadcast::Receiver;
+use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use futures::{FutureExt, StreamExt};
-use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
-    message::{
-        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage,
-    },
-    request_response::{NetworkMsgResponseChannel, RequestReceiver},
-    traits::{
-        election::Membership,
-        network::{DataRequest, RequestKind, ResponseMessage},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-    },
+    message::Proposal,
+    request_response::ProposalRequestPayload,
+    traits::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey},
 };
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
-use crate::events::HotShotEvent;
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 /// Time to wait for txns before sending `ResponseMessage::NotFound`
 const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 
@@ -42,8 +32,6 @@ const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 pub struct NetworkResponseState<TYPES: NodeType> {
     /// Locked consensus state
     consensus: LockedConsensusState<TYPES>,
-    /// Receiver for requests
-    receiver: RequestReceiver,
     /// Quorum membership for checking if requesters have state
     quorum: Arc<TYPES::Membership>,
     /// This replicas public key
@@ -58,7 +46,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
-        receiver: RequestReceiver,
         quorum: Arc<TYPES::Membership>,
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -66,7 +53,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     ) -> Self {
         Self {
             consensus,
-            receiver,
             quorum,
             pub_key,
             private_key,
@@ -76,18 +62,21 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
     /// Run the request response loop until a `HotShotEvent::Shutdown` is received.
     /// Or the stream is closed.
-    async fn run_loop(mut self, shutdown: EventDependency<Arc<HotShotEvent<TYPES>>>) {
-        let mut shutdown = Box::pin(shutdown.completed().fuse());
+    async fn run_loop(
+        self,
+        mut receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+        sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    ) {
         loop {
-            futures::select! {
-                req = self.receiver.next() => {
-                    match req {
-                        Some((msg, chan)) => self.handle_message(msg, chan).await,
-                        None => return,
+            match receiver.recv_direct().await {
+                Ok(event) => {
+                    // break loop when false, this means shutdown received
+                    if !self.handle_event(event, &sender).await {
+                        return;
                     }
-                },
-                _ = shutdown => {
-                    return;
+                }
+                Err(_) => {
+                    tracing::error!("error");
                 }
             }
         }
@@ -95,47 +84,36 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
     /// Handle an incoming message.  First validates the sender, then handles the contained request.
     /// Sends the response via `chan`
-    async fn handle_message(&self, raw_req: Vec<u8>, chan: NetworkMsgResponseChannel<Vec<u8>>) {
-        let req: Message<TYPES> = match bincode::deserialize(&raw_req) {
-            Ok(deserialized) => deserialized,
-            Err(e) => {
-                tracing::error!("Failed to deserialize message! Error: {e}");
-                return;
-            }
-        };
-        let sender = req.sender.clone();
-
-        match req.kind {
-            MessageKind::Data(DataMessage::RequestData(request)) => {
-                if !self.valid_sender(&sender) || !valid_signature::<TYPES>(&request, &sender) {
-                    let serialized_msg = match bincode::serialize(
-                        &self.make_msg(ResponseMessage::Denied),
-                    ) {
-                        Ok(serialized) => serialized,
-                        Err(e) => {
-                            tracing::error!("Failed to serialize outgoing message: this should never happen. Error: {e}");
-                            return;
-                        }
-                    };
-                    let _ = chan.sender.send(serialized_msg);
-                    return;
+    async fn handle_event(
+        &self,
+        event: Arc<HotShotEvent<TYPES>>,
+        send_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+    ) -> bool {
+        match event.as_ref() {
+            HotShotEvent::VidRequestRecv(request, sender) => {
+                if !self.valid_sender(&request.key) || !valid_signature::<TYPES>(request, sender) {
+                    tracing::warn!("Request not valid!");
+                    return true;
                 }
-
-                let response = self.handle_request(request).await;
-                let serialized_response = match bincode::serialize(&response) {
-                    Ok(serialized) => serialized,
-                    Err(e) => {
-                        tracing::error!("Failed to serialize outgoing message: this should never happen. Error: {e}");
-                        return;
-                    }
-                };
-                let _ = chan.sender.send(serialized_response);
+                if let Some(proposal) = self
+                    .get_or_calc_vid_share(request.view_number, &self.pub_key.clone())
+                    .await
+                {
+                    broadcast_event(
+                        HotShotEvent::VidResponseSend(request.key.clone(), proposal).into(),
+                        send_stream,
+                    )
+                    .await;
+                }
             }
-            msg => tracing::error!(
-                "Received message that wasn't a DataRequest in the request task.  Message: {:?}",
-                msg
-            ),
+            HotShotEvent::Shutdown => {
+                tracing::error!("received shutdown in runloop");
+                return false;
+            }
+            _ => {}
         }
+
+        true
     }
 
     /// Get the VID share from consensus storage, or calculate it from the payload for
@@ -192,56 +170,22 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .cloned()
     }
 
-    /// Handle the request contained in the message. Returns the response we should send
-    /// First parses the kind and passes to the appropriate handler for the specific type
-    /// of the request.
-    async fn handle_request(&self, req: DataRequest<TYPES>) -> Message<TYPES> {
-        match req.request {
-            RequestKind::Vid(view, pub_key) => {
-                let Some(share) = self.get_or_calc_vid_share(view, &pub_key).await else {
-                    return self.make_msg(ResponseMessage::NotFound);
-                };
-                let seq_msg = SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(share));
-                self.make_msg(ResponseMessage::Found(seq_msg))
-            }
-            // TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
-            RequestKind::DaProposal(_view) => self.make_msg(ResponseMessage::NotFound),
-            RequestKind::Proposal(view) => self.make_msg(self.respond_with_proposal(view).await),
-        }
-    }
-
-    /// Helper to turn a `ResponseMessage` into a `Message` by filling
-    /// in the surrounding fields and creating the `MessageKind`
-    fn make_msg(&self, msg: ResponseMessage<TYPES>) -> Message<TYPES> {
-        Message {
-            sender: self.pub_key.clone(),
-            kind: MessageKind::Data(DataMessage::DataResponse(msg)),
-        }
-    }
     /// Makes sure the sender is allowed to send a request.
     fn valid_sender(&self, sender: &TYPES::SignatureKey) -> bool {
         self.quorum.has_stake(sender)
-    }
-    /// Lookup the proposal for the view and respond if it's found/not found
-    async fn respond_with_proposal(&self, view: TYPES::Time) -> ResponseMessage<TYPES> {
-        match self.consensus.read().await.last_proposals().get(&view) {
-            Some(prop) => ResponseMessage::Found(SequencingMessage::General(
-                GeneralConsensusMessage::Proposal(prop.clone()),
-            )),
-            None => ResponseMessage::NotFound,
-        }
     }
 }
 
 /// Check the signature
 fn valid_signature<TYPES: NodeType>(
-    req: &DataRequest<TYPES>,
-    sender: &TYPES::SignatureKey,
+    req: &ProposalRequestPayload<TYPES>,
+    sender_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
 ) -> bool {
-    let Ok(data) = bincode::serialize(&req.request) else {
+    let Ok(data) = bincode::serialize(&req) else {
+        tracing::error!("serialize failed");
         return false;
     };
-    sender.validate(&req.signature, &Sha256::digest(data))
+    req.key.validate(sender_sig, &Sha256::digest(data))
 }
 
 /// Spawn the network response task to handle incoming request for data
@@ -250,10 +194,7 @@ fn valid_signature<TYPES: NodeType>(
 pub fn run_response_task<TYPES: NodeType>(
     task_state: NetworkResponseState<TYPES>,
     event_stream: Receiver<Arc<HotShotEvent<TYPES>>>,
+    sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> JoinHandle<()> {
-    let dep = EventDependency::new(
-        event_stream,
-        Box::new(|e| matches!(e.as_ref(), HotShotEvent::Shutdown)),
-    );
-    async_spawn(task_state.run_loop(dep))
+    async_spawn(task_state.run_loop(event_stream, sender))
 }

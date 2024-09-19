@@ -160,7 +160,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
                         GeneralConsensusMessage::VidRequested(message, sender) => {
-                            // error!("received");
                             HotShotEvent::VidRequestRecv(message, sender)
                         }
                         GeneralConsensusMessage::VidResponseAvailable(message) => {
@@ -176,6 +175,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::DaCertificateRecv(cert)
                         }
                         DaConsensusMessage::VidDisperseMsg(proposal) => {
+                            // tracing::error!("vid share receive");
                             HotShotEvent::VidShareRecv(proposal)
                         }
                     },
@@ -539,16 +539,13 @@ impl<
                     TransmitType::DaCommitteeBroadcast,
                 ))
             }
-            HotShotEvent::VidResponseSend(sender_key, proposal) => {
-                error!("vid response send");
-                Some((
-                    sender_key.clone(),
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::VidResponseAvailable(proposal),
-                    )),
-                    TransmitType::Direct(sender_key),
-                ))
-            }
+            HotShotEvent::VidResponseSend(sender_key, proposal) => Some((
+                sender_key.clone(),
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::VidResponseAvailable(proposal),
+                )),
+                TransmitType::Direct(sender_key),
+            )),
             _ => None,
         }
     }
