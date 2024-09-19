@@ -163,6 +163,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::VidRequestRecv(message, sender)
                         }
                         GeneralConsensusMessage::VidResponseAvailable(message) => {
+                            tracing::error!("response available");
                             HotShotEvent::VidResponseRecv(message)
                         }
                     },
