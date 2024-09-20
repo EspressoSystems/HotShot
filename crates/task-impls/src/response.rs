@@ -34,8 +34,6 @@ pub struct NetworkResponseState<TYPES: NodeType> {
     consensus: LockedConsensusState<TYPES>,
     /// Quorum membership for checking if requesters have state
     quorum: Arc<TYPES::Membership>,
-    /// This replicas public key
-    pub_key: TYPES::SignatureKey,
     /// This replicas private key
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// The node's id
@@ -47,14 +45,12 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
         quorum: Arc<TYPES::Membership>,
-        pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         id: u64,
     ) -> Self {
         Self {
             consensus,
             quorum,
-            pub_key,
             private_key,
             id,
         }
@@ -96,7 +92,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     return true;
                 }
                 if let Some(proposal) = self
-                    .get_or_calc_vid_share(request.view_number, &self.pub_key.clone())
+                    .get_or_calc_vid_share(request.view_number, &request.key)
                     .await
                 {
                     broadcast_event(

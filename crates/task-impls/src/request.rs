@@ -116,24 +116,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
                 Ok(())
             }
-            HotShotEvent::VidResponseRecv(proposal) => {
-                // Make sure that this request came from who we think it did
-                tracing::error!("share received");
-                let state = &mut self.state.read().await;
-                if let Some(Some(vid_share)) = state
-                    .vid_shares()
-                    .get(&proposal.data.view_number())
-                    .map(|shares| shares.get(&self.public_key).cloned())
-                {
-                    tracing::error!("broadcast");
-                    broadcast_event(
-                        Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
-                        &sender,
-                    )
-                    .await;
-                }
-                Ok(())
-            }
+            // HotShotEvent::VidResponseRecv(proposal) => {
+            //     // Make sure that this request came from who we think it did
+            //     let state = &mut self.state.read().await;
+            //     if let Some(Some(vid_share)) = state
+            //         .vid_shares()
+            //         .get(&proposal.data.view_number())
+            //         .map(|shares| shares.get(&self.public_key).cloned())
+            //     {
+            //         broadcast_event(
+            //             Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+            //             &sender,
+            //         )
+            //         .await;
+            //     }
+            //     Ok(())
+            // }
             _ => Ok(()),
         }
     }
@@ -168,44 +166,44 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             )
             .await;
 
-            // let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT, async move {
-            //     let mut response = None;
-            //     while response.is_none() {
-            //         let event = EventDependency::new(
-            //             receiver.clone(),
-            //             Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
-            //                 let event = event.as_ref();
-            //                 if let HotShotEvent::VidResponseRecv(proposal) = event {
-            //                     proposal.data.view_number() == view
-            //                 } else {
-            //                     false
-            //                 }
-            //             }),
-            //         )
-            //         .completed()
-            //         .await;
+            let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT, async move {
+                let mut response = None;
+                while response.is_none() {
+                    let event = EventDependency::new(
+                        receiver.clone(),
+                        Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
+                            let event = event.as_ref();
+                            if let HotShotEvent::VidResponseRecv(proposal) = event {
+                                proposal.data.view_number() == view
+                            } else {
+                                false
+                            }
+                        }),
+                    )
+                    .completed()
+                    .await;
 
-            //         if let Some(hs_event) = event.as_ref() {
-            //             if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
-            //                 response = Some(proposal.clone());
-            //             }
-            //         }
-            //     }
+                    if let Some(hs_event) = event.as_ref() {
+                        if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
+                            response = Some(proposal.clone());
+                        }
+                    }
+                }
 
-            //     response
-            // })
-            // .await
-            // else {
-            //     tracing::error!("no response");
-            //     return;
-            // };
+                response
+            })
+            .await
+            else {
+                // tracing::error!("no response");
+                return;
+            };
 
             // tracing::error!("broadcast: {:?}", response);
-            // broadcast_event(
-            //     Arc::new(HotShotEvent::VidShareRecv(response.clone())),
-            //     sender,
-            // )
-            // .await;
+            broadcast_event(
+                Arc::new(HotShotEvent::VidShareRecv(response.clone())),
+                sender,
+            )
+            .await;
         }
     }
 

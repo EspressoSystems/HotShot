@@ -163,7 +163,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::VidRequestRecv(message, sender)
                         }
                         GeneralConsensusMessage::VidResponseAvailable(message) => {
-                            tracing::error!("response available");
                             HotShotEvent::VidResponseRecv(message)
                         }
                     },
@@ -530,16 +529,13 @@ impl<
                     .await;
                 None
             }
-            HotShotEvent::VidRequestSend(req, signature) => {
-                error!("send vid request (network)");
-                Some((
-                    req.key.clone(),
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::VidRequested(req.clone(), signature),
-                    )),
-                    TransmitType::DaCommitteeBroadcast,
-                ))
-            }
+            HotShotEvent::VidRequestSend(req, signature) => Some((
+                req.key.clone(),
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::VidRequested(req.clone(), signature),
+                )),
+                TransmitType::DaCommitteeBroadcast,
+            )),
             HotShotEvent::VidResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
