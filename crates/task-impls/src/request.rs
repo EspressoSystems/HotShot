@@ -166,7 +166,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             )
             .await;
 
-            let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT, async move {
+            let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT*2, async move {
                 let mut response = None;
                 while response.is_none() {
                     let event = EventDependency::new(

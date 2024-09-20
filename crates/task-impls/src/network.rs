@@ -175,7 +175,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::DaCertificateRecv(cert)
                         }
                         DaConsensusMessage::VidDisperseMsg(proposal) => {
-                            // tracing::error!("vid share receive");
                             HotShotEvent::VidShareRecv(proposal)
                         }
                     },
