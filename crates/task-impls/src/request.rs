@@ -4,11 +4,13 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_timeout;
+use async_compatibility_layer::art::{async_spawn, async_timeout};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::{
@@ -25,6 +27,8 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use tracing::instrument;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
@@ -57,6 +61,14 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// The node's id
     pub id: u64,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for NetworkRequestState<TYPES, I> {
+    fn drop(&mut self) {
+        futures::executor::block_on(async move { self.cancel_subtasks().await });
+    }
 }
 
 /// Alias for a signature
@@ -77,7 +89,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.view_number();
-                if prop_view >= self.view {
+
+                // If we already have the VID shares for the next view, do nothing.
+                if prop_view >= self.view
+                    && !self
+                        .state
+                        .read()
+                        .await
+                        .vid_shares()
+                        .contains_key(&prop_view)
+                {
                     self.spawn_requests(prop_view, sender, receiver).await;
                 }
                 Ok(())
@@ -116,43 +137,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
                 Ok(())
             }
-            // HotShotEvent::VidResponseRecv(proposal) => {
-            //     // Make sure that this request came from who we think it did
-            //     let state = &mut self.state.read().await;
-            //     if let Some(Some(vid_share)) = state
-            //         .vid_shares()
-            //         .get(&proposal.data.view_number())
-            //         .map(|shares| shares.get(&self.public_key).cloned())
-            //     {
-            //         broadcast_event(
-            //             Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
-            //             &sender,
-            //         )
-            //         .await;
-            //     }
-            //     Ok(())
-            // }
             _ => Ok(()),
         }
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    async fn cancel_subtasks(&mut self) {
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
+
+            for handle in handles {
+                #[cfg(async_executor_impl = "async-std")]
+                handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
+            }
+        }
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
-    /// Spawns tasks for a given view to retrieve any data needed.
+    /// Creates and signs the payload, then will create a request task
     async fn spawn_requests(
         &mut self,
         view: TYPES::Time,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
-        // If we already have the VID shares for the next view, do nothing.
-        let state = &mut self.state.read().await;
-        if state.vid_shares().contains_key(&view) {
-            return;
-        }
-
         let request = ProposalRequestPayload {
             view_number: view,
             key: self.public_key.clone(),
@@ -165,46 +177,55 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 sender,
             )
             .await;
+            self.create_vid_request_task(sender.clone(), receiver.clone(), view);
+        }
+    }
 
-            let Ok(Some(response)) = async_timeout(REQUEST_TIMEOUT * 2, async move {
-                let mut response = None;
-                while response.is_none() {
-                    let event = EventDependency::new(
-                        receiver.clone(),
-                        Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
-                            let event = event.as_ref();
-                            if let HotShotEvent::VidResponseRecv(proposal) = event {
-                                proposal.data.view_number() == view
-                            } else {
-                                false
+    /// Creates a task that will wait for the vid the response
+    fn create_vid_request_task(
+        &mut self,
+        sender: Sender<Arc<HotShotEvent<TYPES>>>,
+        receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+        view: TYPES::Time,
+    ) {
+        let handle = async_spawn(async move {
+            for _ in 0..3 {
+                let timeout = async_timeout(REQUEST_TIMEOUT, async {
+                    let mut response = None;
+                    while response.is_none() {
+                        let event = EventDependency::new(
+                            receiver.clone(),
+                            Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
+                                let event = event.as_ref();
+                                if let HotShotEvent::VidResponseRecv(proposal) = event {
+                                    proposal.data.view_number() == view
+                                } else {
+                                    false
+                                }
+                            }),
+                        )
+                        .completed()
+                        .await;
+
+                        if let Some(hs_event) = event.as_ref() {
+                            if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
+                                response = Some(proposal.clone());
                             }
-                        }),
-                    )
-                    .completed()
-                    .await;
-
-                    if let Some(hs_event) = event.as_ref() {
-                        if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
-                            response = Some(proposal.clone());
                         }
                     }
+
+                    response
+                })
+                .await;
+
+                // check if success otherwise retry until max attempts is reached
+                if let Ok(Some(response)) = timeout {
+                    broadcast_event(Arc::new(HotShotEvent::VidShareRecv(response)), &sender).await;
+                    return;
                 }
-
-                response
-            })
-            .await
-            else {
-                // tracing::error!("no response");
-                return;
-            };
-
-            // tracing::error!("broadcast: {:?}", response);
-            broadcast_event(
-                Arc::new(HotShotEvent::VidShareRecv(response.clone())),
-                sender,
-            )
-            .await;
-        }
+            }
+        });
+        self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
     /// Sign the serialized version of the request
