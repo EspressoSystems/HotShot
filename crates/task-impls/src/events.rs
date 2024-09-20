@@ -321,10 +321,11 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             }
             HotShotEvent::DaCertificateValidated(cert) => Some(cert.view_number),
             HotShotEvent::UpgradeCertificateFormed(cert) => Some(cert.view_number()),
-            HotShotEvent::VidRequestSend(_, _) => todo!(),
-            HotShotEvent::VidRequestRecv(_, _) => todo!(),
-            HotShotEvent::VidResponseSend(_, _) => todo!(),
-            HotShotEvent::VidResponseRecv(_) => todo!(),
+            HotShotEvent::VidRequestSend(request, _) | HotShotEvent::VidRequestRecv(request, _) => {
+                Some(request.view_number)
+            }
+            HotShotEvent::VidResponseSend(_, proposal)
+            | HotShotEvent::VidResponseRecv(proposal) => Some(proposal.data.view_number),
         }
     }
 }
@@ -582,10 +583,26 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     proposal.data.view_number()
                 )
             }
-            HotShotEvent::VidRequestSend(_, _) => todo!(),
-            HotShotEvent::VidRequestRecv(_, _) => todo!(),
-            HotShotEvent::VidResponseSend(_, _) => todo!(),
-            HotShotEvent::VidResponseRecv(_) => todo!(),
+            HotShotEvent::VidRequestSend(request, _) => {
+                write!(f, "VidRequestSend(view_number={:?}", request.view_number)
+            }
+            HotShotEvent::VidRequestRecv(request, _) => {
+                write!(f, "VidRequestRecv(view_number={:?}", request.view_number)
+            }
+            HotShotEvent::VidResponseSend(_, proposal) => {
+                write!(
+                    f,
+                    "VidResponseSend(view_number={:?}",
+                    proposal.data.view_number
+                )
+            }
+            HotShotEvent::VidResponseRecv(proposal) => {
+                write!(
+                    f,
+                    "VidResponseRecv(view_number={:?}",
+                    proposal.data.view_number
+                )
+            }
         }
     }
 }
