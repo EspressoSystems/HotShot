@@ -735,6 +735,14 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -742,7 +750,6 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="kw">use </span>std::{
-    collections::HashSet,
     env, fs,
     net::SocketAddr,
     num::NonZeroUsize,
@@ -754,8 +761,8 @@
 
 <span class="kw">use </span>clap::ValueEnum;
 <span class="kw">use </span>hotshot_types::{
-    constants::REQUEST_DATA_DELAY, traits::signature_key::SignatureKey, ExecutionType,
-    HotShotConfig, PeerConfig, ValidatorConfig,
+    constants::REQUEST_DATA_DELAY, light_client::StateVerKey, traits::signature_key::SignatureKey,
+    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>serde_inline_default::serde_inline_default;
@@ -821,6 +828,20 @@
     </span>Simple,
     <span class="doccomment">/// Random integrated builder will be started and used by each hotshot node
     </span>Random,
+}
+
+<span class="doccomment">/// Node PeerConfig keys
+</span><span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(bound(deserialize = <span class="string">""</span>))]
+</span><span class="kw">pub struct </span>PeerConfigKeys&lt;KEY: SignatureKey&gt; {
+    <span class="doccomment">/// The peer's public key
+    </span><span class="kw">pub </span>stake_table_key: KEY,
+    <span class="doccomment">/// the peer's state public key
+    </span><span class="kw">pub </span>state_ver_key: StateVerKey,
+    <span class="doccomment">/// the peer's stake
+    </span><span class="kw">pub </span>stake: u64,
+    <span class="doccomment">/// whether the node is a DA node
+    </span><span class="kw">pub </span>da: bool,
 }
 
 <span class="doccomment">/// Options controlling how the random builder generates blocks
@@ -894,9 +915,7 @@
     <span class="doccomment">/// random builder config
     </span><span class="kw">pub </span>random_builder: <span class="prelude-ty">Option</span>&lt;RandomBuilderConfig&gt;,
     <span class="doccomment">/// The list of public keys that are allowed to connect to the orchestrator
-    </span><span class="kw">pub </span>public_keys: HashSet&lt;KEY&gt;,
-    <span class="doccomment">/// Whether or not to disable registration verification.
-    </span><span class="kw">pub </span>enable_registration_verification: bool,
+    </span><span class="kw">pub </span>public_keys: Vec&lt;PeerConfigKeys&lt;KEY&gt;&gt;,
 }
 
 <span class="doccomment">/// the source of the network config
@@ -1128,8 +1147,7 @@
             commit_sha: String::new(),
             builder: BuilderType::default(),
             random_builder: <span class="prelude-val">None</span>,
-            public_keys: HashSet::new(),
-            enable_registration_verification: <span class="bool-val">true</span>,
+            public_keys: <span class="macro">vec!</span>[],
         }
     }
 }
@@ -1180,11 +1198,10 @@
     </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>random_builder: <span class="prelude-ty">Option</span>&lt;RandomBuilderConfig&gt;,
     <span class="doccomment">/// The list of public keys that are allowed to connect to the orchestrator
+    ///
+    /// If nonempty, this list becomes the stake table and is used to determine DA membership (ignoring the node's request).
     </span><span class="attr">#[serde(default)]
-    </span><span class="kw">pub </span>public_keys: HashSet&lt;KEY&gt;,
-    <span class="doccomment">/// Whether or not to disable registration verification.
-    </span><span class="attr">#[serde(default)]
-    </span><span class="kw">pub </span>enable_registration_verification: bool,
+    </span><span class="kw">pub </span>public_keys: Vec&lt;PeerConfigKeys&lt;KEY&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; From&lt;NetworkConfigFile&lt;K&gt;&gt; <span class="kw">for </span>NetworkConfig&lt;K&gt; {
@@ -1217,7 +1234,6 @@
             builder: val.builder,
             random_builder: val.random_builder,
             public_keys: val.public_keys,
-            enable_registration_verification: val.enable_registration_verification,
         }
     }
 }

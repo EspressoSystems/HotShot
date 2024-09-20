@@ -1963,8 +1963,8 @@
     </span><span class="kw">let </span>my_own_validator_config =
         NetworkConfig::&lt;TYPES::SignatureKey&gt;::generate_init_validator_config(
             <span class="kw-2">&amp;</span>orchestrator_client,
-            <span class="comment">// This is false for now, we only use it to generate the keypair
-            </span><span class="bool-val">false</span>,
+            <span class="comment">// we assign nodes to the DA committee by default
+            </span><span class="bool-val">true</span>,
         )
         .<span class="kw">await</span>;
 
