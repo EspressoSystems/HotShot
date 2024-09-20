@@ -439,21 +439,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 }
 
                 self.num_timeouts_tracked += 1;
-                let leader = self.membership.leader(view_number);
-                error!(
-                    %leader,
-                    leader_mnemonic = cdn_proto::util::mnemonic(&leader),
-                    view_number = *view_number,
-                    num_timeouts_tracked = self.num_timeouts_tracked,
-                    "view timed out",
-                );
+                // let leader = self.membership.leader(view_number);
+                // error!(
+                //     %leader,
+                //     leader_mnemonic = cdn_proto::util::mnemonic(&leader),
+                //     view_number = *view_number,
+                //     num_timeouts_tracked = self.num_timeouts_tracked,
+                //     "view timed out",
+                // );
 
                 if self.num_timeouts_tracked >= 3 {
                     error!("Too many consecutive timeouts!  This shouldn't happen");
                 }
 
                 if self.num_timeouts_tracked >= 2 {
-                    error!("Starting view sync protocol for view {}", *view_number + 1);
+                    // error!("Starting view sync protocol for view {}", *view_number + 1);
 
                     self.send_to_or_create_replica(
                         Arc::new(HotShotEvent::ViewSyncTrigger(view_number + 1)),

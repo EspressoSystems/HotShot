@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_spawn, async_timeout};
+use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
@@ -21,6 +21,7 @@ use hotshot_types::{
     consensus::OuterConsensus,
     request_response::ProposalRequestPayload,
     traits::{
+        network::ConnectedNetwork,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
@@ -99,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, sender, receiver).await;
+                    self.spawn_requests(prop_view, sender, receiver);
                 }
                 Ok(())
             }
@@ -159,7 +160,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
     /// Creates and signs the payload, then will create a request task
-    async fn spawn_requests(
+    fn spawn_requests(
         &mut self,
         view: TYPES::Time,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -172,24 +173,40 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
         // First sign the request for the VID shares.
         if let Some(signature) = self.serialize_and_sign(&request) {
-            broadcast_event(
-                HotShotEvent::VidRequestSend(request, signature).into(),
-                sender,
-            )
-            .await;
-            self.create_vid_request_task(sender.clone(), receiver.clone(), view);
+            self.create_vid_request_task(
+                request,
+                signature,
+                sender.clone(),
+                receiver.clone(),
+                view,
+            );
         }
     }
 
     /// Creates a task that will wait for the vid the response
     fn create_vid_request_task(
         &mut self,
+        request: ProposalRequestPayload<TYPES>,
+        signature: Signature<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
     ) {
-        let handle = async_spawn(async move {
-            for _ in 0..3 {
+        let network = Arc::clone(&self.network);
+        let delay = self.delay;
+        async_spawn(async move {
+            // Do the delay only if primary is up and then start sending
+            if !network.is_primary_down() {
+                async_sleep(delay).await;
+            }
+            broadcast_event(
+                HotShotEvent::VidRequestSend(request, signature).into(),
+                &sender,
+            )
+            .await;
+
+            // start waiting
+            for _ in 0..4 {
                 let timeout = async_timeout(REQUEST_TIMEOUT, async {
                     let mut response = None;
                     while response.is_none() {
@@ -225,7 +242,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 }
             }
         });
-        self.spawned_tasks.entry(view).or_default().push(handle);
+        // self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
     /// Sign the serialized version of the request
