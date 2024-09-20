@@ -467,8 +467,8 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
             // Associated constants cannot be used in pattern matches, so we do this trick instead.
             v if v == V::Base::VERSION => Serializer::<V::Base>::serialize(&message),
             v if v == V::Upgrade::VERSION => Serializer::<V::Upgrade>::serialize(&message),
-            _ => {
-                bail!("Attempted to serialize with an incompatible version. This should be impossible.");
+            v => {
+                bail!("Attempted to serialize with version {}, which is incompatible. This should be impossible.", v);
             }
         };
 
@@ -491,8 +491,8 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
         let deserialized_message: M = match actual_version {
             v if v == V::Base::VERSION => Serializer::<V::Base>::deserialize(message),
             v if v == V::Upgrade::VERSION => Serializer::<V::Upgrade>::deserialize(message),
-            _ => {
-                bail!("Cannot deserialize message!");
+            v => {
+                bail!("Cannot deserialize message with stated version {}", v);
             }
         }
         .context("Failed to deserialize message!")?;
