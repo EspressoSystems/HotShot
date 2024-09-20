@@ -56,60 +56,47 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         }
     }
 
-    /// Run the request response loop until a `HotShotEvent::Shutdown` is received.
-    /// Or the stream is closed.
-    async fn run_loop(
+    /// Process request events or loop until a `HotShotEvent::Shutdown` is received.
+    async fn run_response_loop(
         self,
         mut receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-        sender: Sender<Arc<HotShotEvent<TYPES>>>,
+        event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
         loop {
             match receiver.recv_direct().await {
                 Ok(event) => {
                     // break loop when false, this means shutdown received
-                    if !self.handle_event(event, &sender).await {
-                        return;
+                    match event.as_ref() {
+                        HotShotEvent::VidRequestRecv(request, sender_sig) => {
+                            // Verify request is valid
+                            if !self.valid_sender(&request.key)
+                                || !valid_signature::<TYPES>(request, sender_sig)
+                            {
+                                continue;
+                            }
+                            if let Some(proposal) = self
+                                .get_or_calc_vid_share(request.view_number, &request.key)
+                                .await
+                            {
+                                broadcast_event(
+                                    HotShotEvent::VidResponseSend(request.key.clone(), proposal)
+                                        .into(),
+                                    &event_sender,
+                                )
+                                .await;
+                            }
+                        }
+                        HotShotEvent::Shutdown => {
+                            return;
+                        }
+                        _ => {}
                     }
                 }
-                Err(_) => {
-                    tracing::error!("error");
+                Err(e) => {
+                    tracing::error!("Failed to receive event. {:?}", e);
                 }
             }
         }
-    }
-
-    /// Handle an incoming message.  First validates the sender, then handles the contained request.
-    /// Sends the response via `chan`
-    async fn handle_event(
-        &self,
-        event: Arc<HotShotEvent<TYPES>>,
-        send_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> bool {
-        match event.as_ref() {
-            HotShotEvent::VidRequestRecv(request, sender) => {
-                if !self.valid_sender(&request.key) || !valid_signature::<TYPES>(request, sender) {
-                    tracing::warn!("Request not valid!");
-                    return true;
-                }
-                if let Some(proposal) = self
-                    .get_or_calc_vid_share(request.view_number, &request.key)
-                    .await
-                {
-                    broadcast_event(
-                        HotShotEvent::VidResponseSend(request.key.clone(), proposal).into(),
-                        send_stream,
-                    )
-                    .await;
-                }
-            }
-            HotShotEvent::Shutdown => {
-                tracing::error!("received shutdown in runloop");
-                return false;
-            }
-            _ => {}
-        }
-
-        true
     }
 
     /// Get the VID share from consensus storage, or calculate it from the payload for
@@ -178,7 +165,6 @@ fn valid_signature<TYPES: NodeType>(
     sender_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
 ) -> bool {
     let Ok(data) = bincode::serialize(&req) else {
-        tracing::error!("serialize failed");
         return false;
     };
     req.key.validate(sender_sig, &Sha256::digest(data))
@@ -192,5 +178,5 @@ pub fn run_response_task<TYPES: NodeType>(
     event_stream: Receiver<Arc<HotShotEvent<TYPES>>>,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> JoinHandle<()> {
-    async_spawn(task_state.run_loop(event_stream, sender))
+    async_spawn(task_state.run_response_loop(event_stream, sender))
 }
