@@ -885,6 +885,10 @@
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
 <a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -899,7 +903,7 @@
 </span><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::OpenOptions,
     io::{<span class="self">self</span>, ErrorKind},
     time::Duration,
@@ -977,7 +981,7 @@
     /// Will be set to true once all nodes post they are ready to start
     </span>start: bool,
     <span class="doccomment">/// The total nodes that have posted they are ready to start
-    </span>nodes_connected: u64,
+    </span>nodes_connected: HashSet&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// The results of the benchmarks
     </span>bench_results: BenchResults,
     <span class="doccomment">/// The number of nodes that have posted their results
@@ -1018,7 +1022,7 @@
             config: network_config,
             peer_pub_ready,
             pub_posted: HashMap::new(),
-            nodes_connected: <span class="number">0</span>,
+            nodes_connected: HashSet::new(),
             start: <span class="bool-val">false</span>,
             bench_results: BenchResults::default(),
             nodes_post_results: <span class="number">0</span>,
@@ -1421,12 +1425,16 @@
             });
         }
 
-        <span class="self">self</span>.nodes_connected += <span class="number">1</span>;
-
-        <span class="macro">tracing::error!</span>(<span class="string">"Nodes connected: {}"</span>, <span class="self">self</span>.nodes_connected);
+        <span class="comment">// `HashSet::insert()` returns whether the node was newly inserted (true) or not
+        </span><span class="kw">if </span><span class="self">self</span>.nodes_connected.insert(peer_config.clone()) {
+            <span class="macro">tracing::error!</span>(
+                <span class="string">"Node {peer_config} connected. Total nodes connected: {}"</span>,
+                <span class="self">self</span>.nodes_connected.len()
+            );
+        }
 
         <span class="comment">// i.e. nodes_connected &gt;= num_nodes_with_stake * (start_threshold.0 / start_threshold.1)
-        </span><span class="kw">if </span><span class="self">self</span>.nodes_connected * <span class="self">self</span>.config.config.start_threshold.<span class="number">1
+        </span><span class="kw">if </span><span class="self">self</span>.nodes_connected.len() <span class="kw">as </span>u64 * <span class="self">self</span>.config.config.start_threshold.<span class="number">1
             </span>&gt;= (<span class="self">self</span>.config.config.num_nodes_with_stake.get() <span class="kw">as </span>u64)
                 * <span class="self">self</span>.config.config.start_threshold.<span class="number">0
         </span>{
