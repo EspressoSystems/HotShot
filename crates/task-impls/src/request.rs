@@ -21,13 +21,13 @@ use hotshot_types::{
     consensus::OuterConsensus,
     request_response::ProposalRequestPayload,
     traits::{
+        election::Membership,
         network::ConnectedNetwork,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
 };
-use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
@@ -192,21 +192,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         view: TYPES::Time,
     ) {
+        let state = OuterConsensus::new(Arc::clone(&self.state.inner_consensus));
+        let membership = self.quorum_membership.clone();
         let network = Arc::clone(&self.network);
         let delay = self.delay;
+        let pub_key = self.public_key.clone();
         async_spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
                 async_sleep(delay).await;
             }
-            broadcast_event(
-                HotShotEvent::VidRequestSend(request, signature).into(),
-                &sender,
-            )
-            .await;
+
+            let mut request_vid = true;
 
             // start waiting
-            for _ in 0..4 {
+            while !Self::cancel_vid(&state, &sender, &pub_key, &view).await {
+                // we broadcast to all DA nodes, no need to resend
+                if request_vid {
+                    broadcast_event(
+                        HotShotEvent::VidRequestSend(request.clone(), signature.clone()).into(),
+                        &sender,
+                    )
+                    .await;
+                    request_vid = false;
+                }
                 let timeout = async_timeout(REQUEST_TIMEOUT, async {
                     let mut response = None;
                     while response.is_none() {
@@ -214,7 +223,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                             receiver.clone(),
                             Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
                                 let event = event.as_ref();
-                                if let HotShotEvent::VidResponseRecv(proposal) = event {
+                                if let HotShotEvent::VidResponseRecv(_sender_key, proposal) = event
+                                {
                                     proposal.data.view_number() == view
                                 } else {
                                     false
@@ -225,8 +235,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                         .await;
 
                         if let Some(hs_event) = event.as_ref() {
-                            if let HotShotEvent::VidResponseRecv(proposal) = hs_event.as_ref() {
-                                response = Some(proposal.clone());
+                            if let HotShotEvent::VidResponseRecv(sender_pub_key, proposal) =
+                                hs_event.as_ref()
+                            {
+                                // validate from someone in DA for view and signature is valid
+                                if membership.committee_members(view).contains(sender_pub_key)
+                                    && sender_pub_key.validate(
+                                        &proposal.signature,
+                                        proposal.data.payload_commitment.as_ref(),
+                                    )
+                                {
+                                    response = Some(proposal.clone());
+                                }
                             }
                         }
                     }
@@ -245,16 +265,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         // self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
+    /// Returns true if we got the data we wanted, or the view has moved on.
+    async fn cancel_vid(
+        state: &OuterConsensus<TYPES>,
+        sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+        public_key: &<TYPES as NodeType>::SignatureKey,
+        view: &TYPES::Time,
+    ) -> bool {
+        let state = state.read().await;
+
+        let cancel = state.vid_shares().contains_key(view) || state.cur_view() > *view;
+        if cancel {
+            tracing::error!("cancel");
+            if let Some(Some(vid_share)) = state
+                .vid_shares()
+                .get(view)
+                .map(|shares| shares.get(public_key).cloned())
+            {
+                tracing::error!("cancel2");
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                    sender,
+                )
+                .await;
+            }
+            tracing::debug!(
+                "Canceling vid request for view {:?}, cur view is {:?}",
+                view,
+                state.cur_view()
+            );
+        }
+        cancel
+    }
+
     /// Sign the serialized version of the request
     fn serialize_and_sign(
         &self,
         request: &ProposalRequestPayload<TYPES>,
     ) -> Option<Signature<TYPES>> {
-        let Ok(data) = bincode::serialize(&request) else {
-            tracing::error!("Failed to serialize request!");
-            return None;
-        };
-        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
+        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, request.commit().as_ref())
         else {
             tracing::error!("Failed to sign Data Request");
             return None;

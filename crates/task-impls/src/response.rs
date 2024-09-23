@@ -10,6 +10,7 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use committable::Committable;
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
@@ -17,7 +18,6 @@ use hotshot_types::{
     request_response::ProposalRequestPayload,
     traits::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey},
 };
-use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
@@ -34,6 +34,8 @@ pub struct NetworkResponseState<TYPES: NodeType> {
     consensus: LockedConsensusState<TYPES>,
     /// Quorum membership for checking if requesters have state
     quorum: Arc<TYPES::Membership>,
+    /// This replicas public key
+    pub_key: TYPES::SignatureKey,
     /// This replicas private key
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// The node's id
@@ -45,12 +47,14 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
         quorum: Arc<TYPES::Membership>,
+        pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         id: u64,
     ) -> Self {
         Self {
             consensus,
             quorum,
+            pub_key,
             private_key,
             id,
         }
@@ -79,8 +83,12 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                                 .await
                             {
                                 broadcast_event(
-                                    HotShotEvent::VidResponseSend(request.key.clone(), proposal)
-                                        .into(),
+                                    HotShotEvent::VidResponseSend(
+                                        request.key.clone(),
+                                        self.pub_key.clone(),
+                                        proposal,
+                                    )
+                                    .into(),
                                     &event_sender,
                                 )
                                 .await;
@@ -161,13 +169,10 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
 /// Check the signature
 fn valid_signature<TYPES: NodeType>(
-    req: &ProposalRequestPayload<TYPES>,
+    request: &ProposalRequestPayload<TYPES>,
     sender_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
 ) -> bool {
-    let Ok(data) = bincode::serialize(&req) else {
-        return false;
-    };
-    req.key.validate(sender_sig, &Sha256::digest(data))
+    request.key.validate(sender_sig, request.commit().as_ref())
 }
 
 /// Spawn the network response task to handle incoming request for data

@@ -237,12 +237,18 @@ pub enum HotShotEvent<TYPES: NodeType> {
 
     /// Send a VID response to the network; emitted to the sending node.
     VidResponseSend(
+        /// Sender key
+        TYPES::SignatureKey,
+        /// Signing key
         TYPES::SignatureKey,
         Proposal<TYPES, VidDisperseShare<TYPES>>,
     ),
 
     /// Receive a VID response from the network; received by the node that triggered the VID request.
-    VidResponseRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidResponseRecv(
+        TYPES::SignatureKey,
+        Proposal<TYPES, VidDisperseShare<TYPES>>,
+    ),
 }
 
 impl<TYPES: NodeType> HotShotEvent<TYPES> {
@@ -324,8 +330,8 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             HotShotEvent::VidRequestSend(request, _) | HotShotEvent::VidRequestRecv(request, _) => {
                 Some(request.view_number)
             }
-            HotShotEvent::VidResponseSend(_, proposal)
-            | HotShotEvent::VidResponseRecv(proposal) => Some(proposal.data.view_number),
+            HotShotEvent::VidResponseSend(_, _, proposal)
+            | HotShotEvent::VidResponseRecv(_, proposal) => Some(proposal.data.view_number),
         }
     }
 }
@@ -589,14 +595,14 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::VidRequestRecv(request, _) => {
                 write!(f, "VidRequestRecv(view_number={:?}", request.view_number)
             }
-            HotShotEvent::VidResponseSend(_, proposal) => {
+            HotShotEvent::VidResponseSend(_, _, proposal) => {
                 write!(
                     f,
                     "VidResponseSend(view_number={:?}",
                     proposal.data.view_number
                 )
             }
-            HotShotEvent::VidResponseRecv(proposal) => {
+            HotShotEvent::VidResponseRecv(_, proposal) => {
                 write!(
                     f,
                     "VidResponseRecv(view_number={:?}",

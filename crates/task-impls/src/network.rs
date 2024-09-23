@@ -163,7 +163,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::VidRequestRecv(message, sender)
                         }
                         GeneralConsensusMessage::VidResponseAvailable(message) => {
-                            HotShotEvent::VidResponseRecv(message)
+                            HotShotEvent::VidResponseRecv(sender, message)
                         }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
@@ -535,8 +535,8 @@ impl<
                 )),
                 TransmitType::DaCommitteeBroadcast,
             )),
-            HotShotEvent::VidResponseSend(sender_key, proposal) => Some((
-                sender_key.clone(),
+            HotShotEvent::VidResponseSend(sender_key, signing_key, proposal) => Some((
+                signing_key,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::VidResponseAvailable(proposal),
                 )),

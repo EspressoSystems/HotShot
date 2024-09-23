@@ -83,6 +83,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     let state = NetworkResponseState::<TYPES>::new(
         handle.hotshot.consensus(),
         handle.hotshot.memberships.quorum_membership.clone().into(),
+        handle.public_key().clone(),
         handle.private_key().clone(),
         handle.hotshot.id,
     );
