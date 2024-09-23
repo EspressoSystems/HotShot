@@ -88,7 +88,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
         spawn(async move {
             loop {
                 if let Ok(TestEvent::Shutdown) = self.test_receiver.try_recv() {
-                    error!("Test Shudown received")
+                    error!("Test Shudown received");
                     break self.state.check().await;
                 }
 
