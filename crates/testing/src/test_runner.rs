@@ -328,6 +328,8 @@ where
             node.handle.shut_down().await;
         }
 
+        tracing::error!("Nodes shtudown");
+
         #[cfg(async_executor_impl = "async-std")]
         completion_handle.cancel().await;
         #[cfg(async_executor_impl = "tokio")]

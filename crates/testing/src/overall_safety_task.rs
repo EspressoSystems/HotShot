@@ -222,6 +222,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             match view.status.clone() {
                 ViewStatus::Ok => {
                     self.ctx.successful_views.insert(view_number);
+                    // if a view succeeds remove it from the failed views
+                    self.ctx.failed_views.remove(&view_number);
                     if self.ctx.successful_views.len() >= num_successful_views {
                         let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
                     }
@@ -580,7 +582,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
                     view_number,
                     state: _,
                 } => {
-                    tracing::debug!(
+                    tracing::warn!(
                         "Node {} originally timeout for view: {:?}. It has now been decided on.",
                         id,
                         view_number
@@ -594,7 +596,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
 
         // check if no more failed nodes
         if self.failed_nodes.is_empty() && failed_views.remove(view_number) {
-            tracing::debug!(
+            tracing::warn!(
                 "Removed view {:?} from failed views, all nodes have agreed upon view.",
                 view_number
             );
