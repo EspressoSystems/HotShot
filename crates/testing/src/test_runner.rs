@@ -271,6 +271,21 @@ where
 
         let mut error_list = vec![];
 
+        let mut nodes = handles.write().await;
+
+        for node in &mut *nodes {
+            node.handle.shut_down().await;
+        }
+
+        // Shutdown all of the servers at the end
+        // Aborting here doesn't cause any problems because we don't maintain any state
+        if let Some(solver_server) = solver_server {
+            #[cfg(async_executor_impl = "async-std")]
+            solver_server.1.cancel().await;
+            #[cfg(async_executor_impl = "tokio")]
+            solver_server.1.abort();
+        }
+
         #[cfg(async_executor_impl = "async-std")]
         {
             let results = join_all(task_futs).await;
@@ -312,21 +327,6 @@ where
                 handle.abort();
             }
             completion_handle.abort();
-        }
-
-        let mut nodes = handles.write().await;
-
-        for node in &mut *nodes {
-            node.handle.shut_down().await;
-        }
-
-        // Shutdown all of the servers at the end
-        // Aborting here doesn't cause any problems because we don't maintain any state
-        if let Some(solver_server) = solver_server {
-            #[cfg(async_executor_impl = "async-std")]
-            solver_server.1.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
-            solver_server.1.abort();
         }
 
         assert!(
