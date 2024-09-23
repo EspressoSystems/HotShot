@@ -164,6 +164,10 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
     }
 
     /// Output the results to a csv file according to orchestrator state
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the `scripts/benchmarks_results/results.csv` file cannot be opened for writing.
     pub fn output_to_csv(&self) {
         let output_csv = BenchResultsDownloadConfig {
             commit_sha: self.config.commit_sha.clone(),
@@ -442,7 +446,7 @@ where
                     .as_mut()
                     .unwrap()
                     .bootstrap_nodes
-                    .push((libp2p_public_key.clone(), libp2p_address.clone()));
+                    .push((libp2p_public_key, libp2p_address.clone()));
 
                 // Only identify the node if it is not already identified
                 if self
@@ -452,14 +456,14 @@ where
                     tracing::debug!("Node {node_index} has already posted to the orchestrator; Total nodes identified: {}", self.nodes_identified.len());
                     return Err(ServerError {
                         status: tide_disco::StatusCode::BAD_REQUEST,
-                        message: format!(
-                            "You have already posted your identity to the orchestrator."
-                        ),
+                        message: "You have already posted your identity to the orchestrator."
+                            .to_string(),
                     });
                 }
             }
         }
 
+        #[allow(clippy::cast_possible_truncation)]
         Ok(node_index as u16)
     }
 
