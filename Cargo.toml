@@ -57,11 +57,8 @@ espresso-systems-common = { git = "https://github.com/espressosystems/espresso-s
 ethereum-types = { version = "0.14", default-features = false, features = [
   "serialize",
 ] }
-derive_more = { version = "1.0", features = [ "from" ]  }
+derive_more = { version = "1.0", features = ["from"] }
 futures = { version = "0.3", default-features = false }
-# TODO generic-array should not be a direct dependency
-# https://github.com/EspressoSystems/HotShot/issues/1850
-generic-array = { version = "0.14.7", features = ["serde"] }
 jf-crhf = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-signature = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
