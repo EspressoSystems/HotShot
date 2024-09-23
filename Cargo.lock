@@ -1320,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.9#a7523f310b92b15f943b9adffe48fe304eb30e01"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1344,7 +1344,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.9#a7523f310b92b15f943b9adffe48fe304eb30e01"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1360,7 +1360,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.9#a7523f310b92b15f943b9adffe48fe304eb30e01"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1374,7 +1374,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.9#a7523f310b92b15f943b9adffe48fe304eb30e01"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -3114,12 +3114,14 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
+ "simple_moving_average",
  "snafu",
  "surf-disco",
  "time 0.3.36",
  "tokio",
  "toml",
  "tracing",
+ "twox-hash",
  "url",
  "vbs",
 ]
@@ -6087,9 +6089,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.26.1"
+version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e902a69d09078829137b4a5d9d082e0490393537badd7c91a3d69d14639e115f"
+checksum = "e0d7a6955c7511f60f3ba9e86c6d02b3c3f144f8c24b288d1f4e18074ab8bbec"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -6098,7 +6100,6 @@ dependencies = [
  "futures",
  "futures-util",
  "itoa",
- "num-bigint",
  "percent-encoding",
  "pin-project-lite 0.2.14",
  "ryu",
@@ -6924,6 +6925,15 @@ name = "simdutf8"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
+
+[[package]]
+name = "simple_moving_average"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a4b144ad185430cd033299e2c93e465d5a7e65fbb858593dc57181fa13cd310"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "slab"
@@ -8197,6 +8207,16 @@ dependencies = [
  "thiserror",
  "url",
  "utf-8",
+]
+
+[[package]]
+name = "twox-hash"
+version = "1.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
+dependencies = [
+ "cfg-if",
+ "static_assertions",
 ]
 
 [[package]]

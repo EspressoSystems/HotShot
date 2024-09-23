@@ -39,7 +39,7 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Gets the data which was voted on by this vote
     fn date(&self) -> &Self::Commitment;
     /// Gets the Data commitment of the vote
-    fn date_commitment(&self) -> Commitment<Self::Commitment>;
+    fn data_commitment(&self) -> Commitment<Self::Commitment>;
 
     /// Gets the public signature key of the votes creator/sender
     fn signing_key(&self) -> TYPES::SignatureKey;
@@ -83,7 +83,7 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Get the commitment which was voted on
     fn date(&self) -> &Self::Voteable;
     /// Get the vote commitment which the votes commit to
-    fn date_commitment<V: Versions>(
+    fn data_commitment<V: Versions>(
         &self,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> impl std::future::Future<Output = Result<Commitment<VersionedVoteData<TYPES, Self::Voteable, V>>>>;
