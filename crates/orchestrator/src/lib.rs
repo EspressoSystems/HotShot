@@ -76,10 +76,6 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 #[derive(Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
 struct OrchestratorState<KEY: SignatureKey> {
-    /// Tracks the latest node index we have generated a configuration for
-    latest_index: u16,
-    /// Tracks the latest temporary index we have generated for init validator's key pair
-    tmp_latest_index: u16,
     /// The network configuration
     config: NetworkConfig<KEY>,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
@@ -89,8 +85,10 @@ struct OrchestratorState<KEY: SignatureKey> {
     /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
-    /// The total nodes that have posted they are ready to start
+    /// The nodes that have posted they are ready to start
     nodes_connected: HashSet<PeerConfig<KEY>>,
+    /// The nodes that have posted that they are ready to receive a configuration
+    nodes_identified: HashSet<(Multiaddr, PeerId)>,
     /// The results of the benchmarks
     bench_results: BenchResults,
     /// The number of nodes that have posted their results
@@ -126,12 +124,11 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
         };
 
         OrchestratorState {
-            latest_index: 0,
-            tmp_latest_index: 0,
             config: network_config,
             peer_pub_ready,
             pub_posted: HashMap::new(),
             nodes_connected: HashSet::new(),
+            nodes_identified: HashSet::new(),
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
@@ -421,10 +418,9 @@ where
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<u16, ServerError> {
-        let node_index = self.latest_index;
-        self.latest_index += 1;
+        let node_index = self.nodes_identified.len();
 
-        if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() {
+        if node_index >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Network has reached capacity".to_string(),
@@ -444,8 +440,23 @@ where
                     .unwrap()
                     .bootstrap_nodes
                     .push((libp2p_public_key, libp2p_address));
+
+                // Only identify the node if it is not already identified
+                if self
+                    .nodes_identified
+                    .insert((libp2p_address, libp2p_public_key))
+                {
+                    tracing::debug!("Node {node_index} has already posted to the orchestrator; Total nodes identified: {}", self.nodes_identified.len());
+                    return Err(ServerError {
+                        status: tide_disco::StatusCode::BAD_REQUEST,
+                        message: format!(
+                            "You have already posted your identity to the orchestrator."
+                        ),
+                    });
+                }
             }
         }
+
         Ok(node_index)
     }
 
@@ -518,7 +529,7 @@ where
         Ok(self.start)
     }
 
-    // Assumes nodes do not post 'ready' twice
+    // A node may post when it's ready to start.
     fn post_ready(&mut self, peer_config: &PeerConfig<KEY>) -> Result<(), ServerError> {
         // If we have not disabled registration verification.
         // Is this node allowed to connect?
