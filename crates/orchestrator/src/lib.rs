@@ -75,7 +75,9 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
 /// The state of the orchestrator
 #[derive(Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
-struct OrchestratorState<KEY: SignatureKey> {
+pub struct OrchestratorState<KEY: SignatureKey> {
+    /// Tracks the latest temporary index we have generated for init validator's key pair
+    tmp_latest_index: u16,
     /// The network configuration
     config: NetworkConfig<KEY>,
     /// Whether the network configuration has been updated with all the peer's public keys/configs
@@ -124,6 +126,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
         };
 
         OrchestratorState {
+            tmp_latest_index: 0,
             config: network_config,
             peer_pub_ready,
             pub_posted: HashMap::new(),
@@ -439,7 +442,7 @@ where
                     .as_mut()
                     .unwrap()
                     .bootstrap_nodes
-                    .push((libp2p_public_key, libp2p_address));
+                    .push((libp2p_public_key.clone(), libp2p_address.clone()));
 
                 // Only identify the node if it is not already identified
                 if self
@@ -457,7 +460,7 @@ where
             }
         }
 
-        Ok(node_index)
+        Ok(node_index as u16)
     }
 
     // Assumes nodes will set their own index that they received from the
