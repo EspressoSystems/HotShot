@@ -179,8 +179,8 @@
 
 </span><span class="kw">use </span>ark_serialize::SerializationError;
 <span class="kw">use </span>bitvec::{slice::BitSlice, vec::BitVec};
+<span class="kw">use </span>digest::generic_array::GenericArray;
 <span class="kw">use </span>ethereum_types::U256;
-<span class="kw">use </span>generic_array::GenericArray;
 <span class="kw">use </span>jf_signature::{
     bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair, SignKey, VerKey},
     SignatureError, SignatureScheme,
