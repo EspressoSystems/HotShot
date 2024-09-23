@@ -186,7 +186,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Vid disperse share has been received from the network; handled by the consensus task
     ///
     /// Like [`HotShotEvent::DaProposalRecv`].
-    VidShareRecv(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidShareRecv(
+        TYPES::SignatureKey,
+        Proposal<TYPES, VidDisperseShare<TYPES>>,
+    ),
     /// VID share data is validated.
     VidShareValidated(Proposal<TYPES, VidDisperseShare<TYPES>>),
     /// Upgrade proposal has been received from the network
@@ -295,7 +298,7 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::LeafDecided(_)
             | HotShotEvent::TransactionsRecv(_) => None,
             HotShotEvent::VidDisperseSend(proposal, _) => Some(proposal.data.view_number()),
-            HotShotEvent::VidShareRecv(proposal) | HotShotEvent::VidShareValidated(proposal) => {
+            HotShotEvent::VidShareRecv(_, proposal) | HotShotEvent::VidShareValidated(proposal) => {
                 Some(proposal.data.view_number())
             }
             HotShotEvent::UpgradeProposalRecv(proposal, _)
@@ -516,7 +519,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 "VidDisperseSend(view_number={:?})",
                 proposal.data.view_number()
             ),
-            HotShotEvent::VidShareRecv(proposal) => write!(
+            HotShotEvent::VidShareRecv(_, proposal) => write!(
                 f,
                 "VIDShareRecv(view_number={:?})",
                 proposal.data.view_number()

@@ -216,7 +216,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                     .await;
                     request_vid = false;
                 }
-                let timeout = async_timeout(REQUEST_TIMEOUT, async {
+                let result = async_timeout(REQUEST_TIMEOUT, async {
                     let mut response = None;
                     while response.is_none() {
                         let event = EventDependency::new(
@@ -245,7 +245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                                         proposal.data.payload_commitment.as_ref(),
                                     )
                                 {
-                                    response = Some(proposal.clone());
+                                    response = Some((sender_pub_key.clone(), proposal.clone()));
                                 }
                             }
                         }
@@ -256,8 +256,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 .await;
 
                 // check if success otherwise retry until max attempts is reached
-                if let Ok(Some(response)) = timeout {
-                    broadcast_event(Arc::new(HotShotEvent::VidShareRecv(response)), &sender).await;
+                if let Ok(Some(response)) = result {
+                    broadcast_event(
+                        Arc::new(HotShotEvent::VidShareRecv(response.0, response.1)),
+                        &sender,
+                    )
+                    .await;
                     return;
                 }
             }
@@ -276,15 +280,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
         let cancel = state.vid_shares().contains_key(view) || state.cur_view() > *view;
         if cancel {
-            tracing::error!("cancel");
             if let Some(Some(vid_share)) = state
                 .vid_shares()
                 .get(view)
                 .map(|shares| shares.get(public_key).cloned())
             {
-                tracing::error!("cancel2");
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
+                    Arc::new(HotShotEvent::VidShareRecv(
+                        public_key.clone(),
+                        vid_share.clone(),
+                    )),
                     sender,
                 )
                 .await;

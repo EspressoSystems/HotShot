@@ -581,7 +581,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
-            HotShotEvent::VidShareRecv(disperse) => {
+            HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
                 trace!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
@@ -594,24 +594,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // * From the right leader for this view.
                 // * Calculated and signed by the current node.
                 // * Signed by one of the staked DA committee members.
-                if !self
-                    .quorum_membership
-                    .leader(view)
-                    .validate(&disperse.signature, payload_commitment.as_ref())
+                if !sender.validate(&disperse.signature, payload_commitment.as_ref())
+                    && !self
+                        .quorum_membership
+                        .leader(view)
+                        .validate(&disperse.signature, payload_commitment.as_ref())
                     && !self
                         .public_key
                         .validate(&disperse.signature, payload_commitment.as_ref())
                 {
-                    let mut validated = false;
-                    for da_member in self.da_membership.committee_members(view) {
-                        if da_member.validate(&disperse.signature, payload_commitment.as_ref()) {
-                            validated = true;
-                            break;
-                        }
-                    }
-                    if !validated {
-                        return;
-                    }
+                    tracing::error!("Recieved VID share from sender not in DA");
+                    return;
                 }
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
