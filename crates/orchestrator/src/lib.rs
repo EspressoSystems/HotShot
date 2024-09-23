@@ -90,7 +90,7 @@ pub struct OrchestratorState<KEY: SignatureKey> {
     /// The nodes that have posted they are ready to start
     nodes_connected: HashSet<PeerConfig<KEY>>,
     /// The nodes that have posted that they are ready to receive a configuration
-    nodes_identified: HashSet<(Multiaddr, PeerId)>,
+    nodes_identified: HashMap<(Multiaddr, PeerId), u16>,
     /// The results of the benchmarks
     bench_results: BenchResults,
     /// The number of nodes that have posted their results
@@ -131,7 +131,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             peer_pub_ready,
             pub_posted: HashMap::new(),
             nodes_connected: HashSet::new(),
-            nodes_identified: HashSet::new(),
+            nodes_identified: HashMap::new(),
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
@@ -425,46 +425,46 @@ where
         libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> Result<u16, ServerError> {
-        let node_index = self.nodes_identified.len();
+        let (Some(libp2p_address), Some(libp2p_public_key)) = (libp2p_address, libp2p_public_key)
+        else {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BAD_REQUEST,
+                message: "Both libp2p_address and libp2p_public_key must be provided".to_string(),
+            });
+        };
 
-        if node_index >= self.config.config.num_nodes_with_stake.get() {
+        let key = (libp2p_address.clone(), libp2p_public_key);
+
+        if let Some(&node_index) = self.nodes_identified.get(&key) {
+            return Ok(node_index);
+        }
+
+        #[allow(clippy::cast_possible_truncation)]
+        let node_index = self.nodes_identified.len() as u16;
+
+        if usize::from(node_index) >= self.config.config.num_nodes_with_stake.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BAD_REQUEST,
                 message: "Network has reached capacity".to_string(),
             });
         }
 
-        // If the orchestrator is set up for libp2p and we have supplied the proper
-        // Libp2p data, add our node to the list of bootstrap nodes.
-        if self.config.libp2p_config.clone().is_some() {
-            if let (Some(libp2p_public_key), Some(libp2p_address)) =
-                (libp2p_public_key, libp2p_address)
-            {
-                // Push to our bootstrap nodes
-                self.config
-                    .libp2p_config
-                    .as_mut()
-                    .unwrap()
-                    .bootstrap_nodes
-                    .push((libp2p_public_key, libp2p_address.clone()));
-
-                // Only identify the node if it is not already identified
-                if self
-                    .nodes_identified
-                    .insert((libp2p_address, libp2p_public_key))
-                {
-                    tracing::debug!("Node {node_index} has already posted to the orchestrator; Total nodes identified: {}", self.nodes_identified.len());
-                    return Err(ServerError {
-                        status: tide_disco::StatusCode::BAD_REQUEST,
-                        message: "You have already posted your identity to the orchestrator."
-                            .to_string(),
-                    });
-                }
-            }
+        // If the orchestrator is set up for libp2p, add our node to the list of bootstrap nodes.
+        if let Some(libp2p_config) = self.config.libp2p_config.as_mut() {
+            // Push to our bootstrap nodes
+            libp2p_config
+                .bootstrap_nodes
+                .push((libp2p_public_key, libp2p_address.clone()));
         }
 
-        #[allow(clippy::cast_possible_truncation)]
-        Ok(node_index as u16)
+        self.nodes_identified.insert(key, node_index);
+
+        tracing::debug!(
+            "Node {node_index} has posted to the orchestrator; Total nodes identified: {}",
+            self.nodes_identified.len()
+        );
+
+        Ok(node_index)
     }
 
     // Assumes nodes will set their own index that they received from the
