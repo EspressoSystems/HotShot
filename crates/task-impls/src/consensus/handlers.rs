@@ -218,14 +218,16 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType, V: V
         .filter(|cert| cert.is_valid_for_view(&view))
         .cloned();
 
-    // FIXME - This is not great, and will be fixed later.
-    // If it's > July, 2024 and this is still here, something has gone horribly wrong.
-    let cnm = commitment_and_metadata
-        .clone()
-        .context("Cannot propose because we don't have the VID payload commitment and metadata")?;
+    ensure!(
+        commitment_and_metadata.is_some(),
+        "Cannot propose because we don't have the VID payload commitment and metadata"
+    );
+
+    // This is a safe unwrap due to the prior ensure call.
+    let commitment_and_metadata = commitment_and_metadata.unwrap();
 
     ensure!(
-        cnm.block_view == view,
+        commitment_and_metadata.block_view == view,
         "Cannot propose because our VID payload commitment and metadata is for an older view."
     );
 
@@ -236,7 +238,7 @@ pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType, V: V
             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
             sender,
             view,
-            cnm,
+            commitment_and_metadata,
             parent_leaf.clone(),
             state,
             proposal_upgrade_certificate,
