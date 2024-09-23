@@ -3426,7 +3426,6 @@ dependencies = [
  "espresso-systems-common",
  "ethereum-types",
  "futures",
- "generic-array",
  "jf-pcs",
  "jf-signature",
  "jf-utils",
