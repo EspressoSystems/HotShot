@@ -65,7 +65,7 @@ test-ci-1 *ARGS:
 
 test-ci-2 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=warn cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 -nocapture
+  RUST_LOG=warn cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture
 
 test-ci-3 *ARGS:
   echo Testing {{ARGS}}
