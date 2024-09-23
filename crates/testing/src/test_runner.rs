@@ -332,7 +332,6 @@ where
         completion_handle.cancel().await;
         #[cfg(async_executor_impl = "tokio")]
         completion_handle.abort();
-        
 
         assert!(
             error_list.is_empty(),
