@@ -56,7 +56,7 @@ async fn test_quorum_vote_task_success() {
     let consensus = handle.hotshot.consensus().clone();
     let mut consensus_writer = consensus.write().await;
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
-        leaders.push(view.public_key);
+        leaders.push(view.leader_public_key);
         proposals.push(view.quorum_proposal.clone());
         leaves.push(view.leaf.clone());
         dacs.push(view.da_certificate.clone());
