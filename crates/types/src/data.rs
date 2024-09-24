@@ -755,15 +755,10 @@ pub fn serialize_signature2<TYPES: NodeType>(
 
 impl<TYPES: NodeType> Committable for Leaf<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        // Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
         RawCommitmentBuilder::new("leaf commitment")
             .u64_field("view number", *self.view_number)
-            .u64_field("block number", self.height())
-            .field("parent Leaf commitment", self.parent_commitment)
-            .var_size_field(
-                "block payload commitment",
-                self.payload_commitment().as_ref(),
-            )
+            .field("parent leaf commitment", self.parent_commitment)
+            .field("block header", self.block_header.commit())
             .field("justify qc", self.justify_qc.commit())
             .optional("upgrade certificate", &self.upgrade_certificate)
             .finalize()
