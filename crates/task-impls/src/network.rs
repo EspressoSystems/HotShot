@@ -189,24 +189,24 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     )
                     .await;
                 }
-                DataMessage::DataResponse(response) => match response {
-                    ResponseMessage::Found(message) => match message {
-                        SequencingMessage::Da(da_message) => match da_message {
-                            DaConsensusMessage::VidDisperseMsg(proposal) => {
-                                broadcast_event(
-                                    Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
-                                    &self.internal_event_stream,
-                                )
-                                .await;
+                DataMessage::DataResponse(response) => {
+                    if let ResponseMessage::Found(message) = response {
+                        match message {
+                            SequencingMessage::Da(da_message) => {
+                                if let DaConsensusMessage::VidDisperseMsg(proposal) = da_message {
+                                    broadcast_event(
+                                        Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
+                                        &self.internal_event_stream,
+                                    )
+                                    .await;
+                                }
                             }
-                            _ => {}
-                        },
-                        SequencingMessage::General(_) => {}
-                    },
-                    _ => {}
-                },
-                DataMessage::RequestData(data) => match data.request {
-                    RequestKind::Vid(view_number, key) => {
+                            SequencingMessage::General(_) => {}
+                        }
+                    }
+                }
+                DataMessage::RequestData(data) => {
+                    if let RequestKind::Vid(view_number, key) = data.request {
                         broadcast_event(
                             Arc::new(HotShotEvent::VidRequestRecv(
                                 ProposalRequestPayload { view_number, key },
@@ -216,8 +216,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         )
                         .await;
                     }
-                    _ => {}
-                },
+                }
             },
 
             // Handle external messages
@@ -556,7 +555,7 @@ impl<
                 let data_request = DataRequest {
                     view: req.view_number,
                     request: RequestKind::Vid(req.view_number, req.key.clone()),
-                    signature: signature,
+                    signature,
                 };
                 Some((
                     req.key.clone(),
