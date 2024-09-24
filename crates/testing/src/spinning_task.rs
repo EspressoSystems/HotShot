@@ -339,8 +339,11 @@ where
                 };
                 start_futs.push(fut);
             }
-            join_all(start_futs).await;
-            tracing::error!("nodes all started");
+            if !start_futs.is_empty() {
+                join_all(start_futs).await;
+                tracing::error!("nodes all started");
+            }
+
             // update our latest view
             self.latest_view = Some(view_number);
         }
