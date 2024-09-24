@@ -148,10 +148,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
     }
 
     fn date_commitment(&self) -> Commitment<DATA> {
-        committable::RawCommitmentBuilder::new("Vote")
-            .var_size_bytes(self.data.commit().as_ref())
-            .u64(*self.view_number)
-            .finalize()
+        self.data.commit()
     }
 }
 
