@@ -250,6 +250,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         async_spawn({
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
+                tracing::error!("initial timeout hit for view {:?}", start_view + 1);
                 broadcast_event(
                     Arc::new(HotShotEvent::Timeout(start_view + 1)),
                     &event_stream,

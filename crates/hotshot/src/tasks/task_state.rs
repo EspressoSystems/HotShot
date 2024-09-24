@@ -282,7 +282,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
-        let timeout_task = handle.spawn_initial_timeout_task();
 
         Self {
             latest_proposed_view: handle.cur_view().await,
@@ -297,7 +296,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             storage: Arc::clone(&handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
-            timeout_task,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
