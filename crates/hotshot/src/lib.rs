@@ -379,6 +379,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         // if not cancelled
         async_spawn({
             async move {
+                tracing::error!("initial timeout spawned for view {:?}", start_view + 1);
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
                 tracing::error!("initial timeout hit for view {:?}", start_view + 1);
                 broadcast_event(
