@@ -322,7 +322,7 @@ where
                     tracing::error!("Starting node {} back up", id);
                     let handle = node.run_tasks().await;
                     tracing::error!("tasks running");
-    
+
                     // Create the node and add it to the state, so we can shut them
                     // down properly later to avoid the overflow error in the overall
                     // safety task.
@@ -333,13 +333,14 @@ where
                     };
                     node.handle.hotshot.start_consensus().await;
                     tracing::error!("consensus start");
-    
+
                     handles.write().await[id] = node;
                     tracing::error!("handles written");
                 };
                 start_futs.push(fut);
             }
             join_all(start_futs).await;
+            tracing::error!("nodes all started");
             // update our latest view
             self.latest_view = Some(view_number);
         }
