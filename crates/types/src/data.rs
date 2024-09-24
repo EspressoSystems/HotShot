@@ -445,6 +445,7 @@ pub struct Leaf<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> Leaf<TYPES> {
+    #[allow(clippy::unused_async)]
     /// Calculate the leaf commitment,
     /// which is gated on the version to include the block header.
     pub async fn commit<V: Versions>(
