@@ -344,6 +344,7 @@ where
                     format!("{acc}\n\n{error:?}")
                 })
         );
+        tracing::error!("run test exiting, should be completed");
     }
 
     pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
