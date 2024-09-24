@@ -743,6 +743,18 @@
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1150,6 +1162,18 @@
             public_keys: <span class="macro">vec!</span>[],
         }
     }
+}
+
+<span class="doccomment">/// a network config stored in a file
+</span><span class="attr">#[serde_inline_default]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(bound(deserialize = <span class="string">""</span>))]
+</span><span class="kw">pub struct </span>PublicKeysFile&lt;KEY: SignatureKey&gt; {
+    <span class="doccomment">/// The list of public keys that are allowed to connect to the orchestrator
+    ///
+    /// If nonempty, this list becomes the stake table and is used to determine DA membership (ignoring the node's request).
+    </span><span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>public_keys: Vec&lt;PeerConfigKeys&lt;KEY&gt;&gt;,
 }
 
 <span class="doccomment">/// a network config stored in a file
