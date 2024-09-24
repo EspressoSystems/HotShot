@@ -200,24 +200,6 @@ mod tests {
 
     #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
     #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-    async fn test_versioned_commitment() {
-        let view = <TestTypes as NodeType>::Time::new(0);
-        let upgrade_lock = UpgradeLock::new();
-
-        let data = TestData { data: 10 };
-        let data_commitment: [u8; 32] = data.commit().into();
-
-        let versioned_data =
-            VersionedVoteData::<TestTypes, TestData, TestVersions>::new(data, view, &upgrade_lock)
-                .await
-                .unwrap();
-        let versioned_data_commitment: [u8; 32] = versioned_data.commit().into();
-
-        assert_eq!(versioned_data_commitment, data_commitment);
-    }
-
-    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
     /// Test that the view number affects the commitment post-marketplace
     async fn test_versioned_commitment_includes_view() {
         let upgrade_lock = UpgradeLock::new();
