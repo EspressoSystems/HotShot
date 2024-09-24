@@ -20,9 +20,13 @@ use hotshot_types::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
         SequencingMessage, UpgradeLock,
     },
+    request_response::ProposalRequestPayload,
     traits::{
         election::Membership,
-        network::{BroadcastDelay, ConnectedNetwork, TransmitType, ViewMessage},
+        network::{
+            BroadcastDelay, ConnectedNetwork, DataRequest, RequestKind, ResponseMessage,
+            TransmitType, ViewMessage,
+        },
         node_implementation::{ConsensusTime, NodeType, Versions},
         storage::Storage,
     },
@@ -159,12 +163,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
-                        GeneralConsensusMessage::VidRequested(message, sender) => {
-                            HotShotEvent::VidRequestRecv(message, sender)
-                        }
-                        GeneralConsensusMessage::VidResponseAvailable(message) => {
-                            HotShotEvent::VidResponseRecv(sender, message)
-                        }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
                         DaConsensusMessage::DaProposal(proposal) => {
@@ -191,9 +189,35 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     )
                     .await;
                 }
-                DataMessage::DataResponse(_) | DataMessage::RequestData(_) => {
-                    warn!("Request and Response messages should not be received in the NetworkMessage task");
-                }
+                DataMessage::DataResponse(response) => match response {
+                    ResponseMessage::Found(message) => match message {
+                        SequencingMessage::Da(da_message) => match da_message {
+                            DaConsensusMessage::VidDisperseMsg(proposal) => {
+                                broadcast_event(
+                                    Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
+                                    &self.internal_event_stream,
+                                )
+                                .await;
+                            }
+                            _ => {}
+                        },
+                        SequencingMessage::General(_) => {}
+                    },
+                    _ => {}
+                },
+                DataMessage::RequestData(data) => match data.request {
+                    RequestKind::Vid(view_number, key) => {
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VidRequestRecv(
+                                ProposalRequestPayload { view_number, key },
+                                data.signature,
+                            )),
+                            &self.internal_event_stream,
+                        )
+                        .await;
+                    }
+                    _ => {}
+                },
             },
 
             // Handle external messages
@@ -528,20 +552,28 @@ impl<
                     .await;
                 None
             }
-            HotShotEvent::VidRequestSend(req, signature) => Some((
-                req.key.clone(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::VidRequested(req.clone(), signature),
-                )),
-                TransmitType::DaCommitteeBroadcast,
-            )),
-            HotShotEvent::VidResponseSend(sender_key, signing_key, proposal) => Some((
-                signing_key,
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::VidResponseAvailable(proposal),
-                )),
-                TransmitType::Direct(sender_key),
-            )),
+            HotShotEvent::VidRequestSend(req, signature) => {
+                let data_request = DataRequest {
+                    view: req.view_number,
+                    request: RequestKind::Vid(req.view_number, req.key.clone()),
+                    signature: signature,
+                };
+                Some((
+                    req.key.clone(),
+                    MessageKind::Data(DataMessage::RequestData(data_request)),
+                    TransmitType::DaCommitteeBroadcast,
+                ))
+            }
+            HotShotEvent::VidResponseSend(sender_key, signing_key, proposal) => {
+                let da_message = DaConsensusMessage::VidDisperseMsg(proposal);
+                let sequencing_msg = SequencingMessage::Da(da_message);
+                let response_message = ResponseMessage::Found(sequencing_msg);
+                Some((
+                    signing_key,
+                    MessageKind::Data(DataMessage::DataResponse(response_message)),
+                    TransmitType::Direct(sender_key),
+                ))
+            }
             _ => None,
         }
     }

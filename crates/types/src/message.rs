@@ -200,15 +200,6 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
 
     /// The leader has responded with a valid proposal.
     LeaderProposalAvailable(Proposal<TYPES, QuorumProposal<TYPES>>),
-
-    /// A peer node needs a VID share from the commitee.
-    VidRequested(
-        ProposalRequestPayload<TYPES>,
-        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ),
-
-    /// The leader has responded with a valid VID share.
-    VidResponseAvailable(Proposal<TYPES, VidDisperseShare<TYPES>>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -274,10 +265,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                     GeneralConsensusMessage::UpgradeProposal(message) => message.data.view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) => message.view_number(),
-                    GeneralConsensusMessage::VidRequested(proposal, _) => proposal.view_number,
-                    GeneralConsensusMessage::VidResponseAvailable(proposal) => {
-                        proposal.data.view_number()
-                    }
                 }
             }
             SequencingMessage::Da(da_message) => {
@@ -321,8 +308,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
 
                 GeneralConsensusMessage::UpgradeProposal(_) => MessagePurpose::UpgradeProposal,
                 GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::UpgradeVote,
-                GeneralConsensusMessage::VidRequested(_, _)
-                | GeneralConsensusMessage::VidResponseAvailable(_) => MessagePurpose::VidDisperse,
             },
             SequencingMessage::Da(da_message) => match da_message {
                 DaConsensusMessage::DaProposal(_) => MessagePurpose::Proposal,
