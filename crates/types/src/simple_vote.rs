@@ -11,7 +11,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 use anyhow::Result;
 use committable::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use vbs::version::{StaticVersionType, Version};
+use vbs::version::Version;
 
 use crate::{
     data::Leaf,
@@ -148,7 +148,10 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
     }
 
     fn date_commitment(&self) -> Commitment<DATA> {
-        self.data.commit()
+        committable::RawCommitmentBuilder::new("Vote")
+            .var_size_bytes(self.data.commit().as_ref())
+            .u64(*self.view_number)
+            .finalize()
     }
 }
 
@@ -240,16 +243,10 @@ impl<TYPES: NodeType, DATA: Voteable, V: Versions> Committable
     for VersionedVoteData<TYPES, DATA, V>
 {
     fn commit(&self) -> Commitment<Self> {
-        if self.version < V::Marketplace::VERSION {
-            let bytes: [u8; 32] = self.data.commit().into();
-
-            Commitment::<Self>::from_raw(bytes)
-        } else {
-            committable::RawCommitmentBuilder::new("Vote")
-                .var_size_bytes(self.data.commit().as_ref())
-                .u64(*self.view)
-                .finalize()
-        }
+        committable::RawCommitmentBuilder::new("Vote")
+            .var_size_bytes(self.data.commit().as_ref())
+            .u64(*self.view)
+            .finalize()
     }
 }
 
