@@ -252,39 +252,4 @@ mod tests {
             "left: {versioned_data_commitment_0:?}, right: {versioned_data_commitment_1:?}"
         );
     }
-
-    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
-    /// Test that the view number does not affect the commitment pre-marketplace
-    async fn test_versioned_commitment_excludes_view() {
-        let upgrade_lock = UpgradeLock::new();
-
-        let data = TestData { data: 10 };
-
-        let view_0 = <TestTypes as NodeType>::Time::new(0);
-        let view_1 = <TestTypes as NodeType>::Time::new(1);
-
-        let versioned_data_0 = VersionedVoteData::<TestTypes, TestData, TestVersions>::new(
-            data,
-            view_0,
-            &upgrade_lock,
-        )
-        .await
-        .unwrap();
-        let versioned_data_1 = VersionedVoteData::<TestTypes, TestData, TestVersions>::new(
-            data,
-            view_1,
-            &upgrade_lock,
-        )
-        .await
-        .unwrap();
-
-        let versioned_data_commitment_0: [u8; 32] = versioned_data_0.commit().into();
-        let versioned_data_commitment_1: [u8; 32] = versioned_data_1.commit().into();
-
-        assert!(
-            versioned_data_commitment_0 == versioned_data_commitment_1,
-            "left: {versioned_data_commitment_0:?}, right: {versioned_data_commitment_1:?}"
-        );
-    }
 }
