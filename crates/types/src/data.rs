@@ -452,13 +452,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         &self,
         _upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Commitment<Self> {
-        RawCommitmentBuilder::new("leaf commitment")
-            .u64_field("view number", *self.view_number)
-            .field("parent leaf commitment", self.parent_commitment)
-            .field("block header", self.block_header.commit())
-            .field("justify qc", self.justify_qc.commit())
-            .optional("upgrade certificate", &self.upgrade_certificate)
-            .finalize()
+        <Self as Committable>::commit(self)
     }
 }
 
