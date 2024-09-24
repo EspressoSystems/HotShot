@@ -183,7 +183,7 @@ mod tests {
     };
     use serde::{Deserialize, Serialize};
 
-    use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes, TestVersions};
+    use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes};
     #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Hash, Eq)]
     /// Dummy data used for test
     struct TestData {
