@@ -314,22 +314,32 @@ where
             }
             join_all(ready_futs).await;
 
+            let mut start_futs = vec![];
+
             while let Some((node, id)) = new_nodes.pop() {
-                tracing::error!("Starting node {} back up", id);
-                let handle = node.run_tasks().await;
-
-                // Create the node and add it to the state, so we can shut them
-                // down properly later to avoid the overflow error in the overall
-                // safety task.
-                let node = Node {
-                    node_id: id.try_into().unwrap(),
-                    network: node.network.clone(),
-                    handle,
+                let handles = self.handles.clone();
+                let fut = async move {
+                    tracing::error!("Starting node {} back up", id);
+                    let handle = node.run_tasks().await;
+                    tracing::error!("tasks running");
+    
+                    // Create the node and add it to the state, so we can shut them
+                    // down properly later to avoid the overflow error in the overall
+                    // safety task.
+                    let node = Node {
+                        node_id: id.try_into().unwrap(),
+                        network: node.network.clone(),
+                        handle,
+                    };
+                    node.handle.hotshot.start_consensus().await;
+                    tracing::error!("consensus start");
+    
+                    handles.write().await[id] = node;
+                    tracing::error!("handles written");
                 };
-                node.handle.hotshot.start_consensus().await;
-
-                self.handles.write().await[id] = node;
+                start_futs.push(fut);
             }
+            join_all(start_futs).await;
             // update our latest view
             self.latest_view = Some(view_number);
         }
