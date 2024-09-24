@@ -935,23 +935,6 @@
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -986,7 +969,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
 <span class="kw">use </span>tracing::error;
-<span class="kw">use </span>vbs::version::StaticVersionType;
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use crate</span>::{
@@ -1400,25 +1382,14 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf&lt;TYPES&gt; {
-    <span class="doccomment">/// Calculate the leaf commitment,
+    <span class="attr">#[allow(clippy::unused_async)]
+    </span><span class="doccomment">/// Calculate the leaf commitment,
     /// which is gated on the version to include the block header.
     </span><span class="kw">pub async fn </span>commit&lt;V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>version = upgrade_lock.version_infallible(<span class="self">self</span>.view_number).<span class="kw">await</span>;
-
-        <span class="kw">if </span>version &lt; V::Marketplace::VERSION {
-            &lt;<span class="self">Self </span><span class="kw">as </span>Committable&gt;::commit(<span class="self">self</span>)
-        } <span class="kw">else </span>{
-            RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
-                .u64_field(<span class="string">"view number"</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
-                .field(<span class="string">"parent leaf commitment"</span>, <span class="self">self</span>.parent_commitment)
-                .field(<span class="string">"block header"</span>, <span class="self">self</span>.block_header.commit())
-                .field(<span class="string">"justify qc"</span>, <span class="self">self</span>.justify_qc.commit())
-                .optional(<span class="string">"upgrade certificate"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_certificate)
-                .finalize()
-        }
+        &lt;<span class="self">Self </span><span class="kw">as </span>Committable&gt;::commit(<span class="self">self</span>)
     }
 }
 
@@ -1745,15 +1716,10 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>Leaf&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; committable::Commitment&lt;<span class="self">Self</span>&gt; {
-        <span class="comment">// Skip the transaction commitments, so that the repliacs can reconstruct the leaf.
-        </span>RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
+        RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
             .u64_field(<span class="string">"view number"</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
-            .u64_field(<span class="string">"block number"</span>, <span class="self">self</span>.height())
-            .field(<span class="string">"parent Leaf commitment"</span>, <span class="self">self</span>.parent_commitment)
-            .var_size_field(
-                <span class="string">"block payload commitment"</span>,
-                <span class="self">self</span>.payload_commitment().as_ref(),
-            )
+            .field(<span class="string">"parent leaf commitment"</span>, <span class="self">self</span>.parent_commitment)
+            .field(<span class="string">"block header"</span>, <span class="self">self</span>.block_header.commit())
             .field(<span class="string">"justify qc"</span>, <span class="self">self</span>.justify_qc.commit())
             .optional(<span class="string">"upgrade certificate"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_certificate)
             .finalize()
