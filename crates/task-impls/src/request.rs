@@ -4,7 +4,14 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -62,6 +69,8 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// The node's id
     pub id: u64,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub shutdown_flag: Arc<AtomicBool>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
@@ -143,6 +152,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
     }
 
     async fn cancel_subtasks(&mut self) {
+        self.shutdown_flag.store(true, Ordering::Relaxed);
         while !self.spawned_tasks.is_empty() {
             let Some((_, handles)) = self.spawned_tasks.pop_first() else {
                 break;
@@ -197,6 +207,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let network = Arc::clone(&self.network);
         let delay = self.delay;
         let pub_key = self.public_key.clone();
+        let shutdown_flag = Arc::clone(&self.shutdown_flag);
         async_spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
@@ -205,9 +216,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
             let mut request_vid = true;
 
-            // start waiting
-            while !Self::cancel_vid(&state, &sender, &pub_key, &view).await {
-                // we broadcast to all DA nodes, no need to resend
+            while !Self::cancel_vid(&state, &sender, &pub_key, &view, &shutdown_flag).await {
+                // We will send request to all DA nodes, only broadcast this event once per view
                 if request_vid {
                     broadcast_event(
                         HotShotEvent::VidRequestSend(request.clone(), signature.clone()).into(),
@@ -216,57 +226,68 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                     .await;
                     request_vid = false;
                 }
-                let result = async_timeout(REQUEST_TIMEOUT, async {
-                    let mut response = None;
-                    while response.is_none() {
-                        let event = EventDependency::new(
-                            receiver.clone(),
-                            Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
-                                let event = event.as_ref();
-                                if let HotShotEvent::VidResponseRecv(_sender_key, proposal) = event
-                                {
-                                    proposal.data.view_number() == view
-                                } else {
-                                    false
-                                }
-                            }),
-                        )
-                        .completed()
-                        .await;
 
-                        if let Some(hs_event) = event.as_ref() {
-                            if let HotShotEvent::VidResponseRecv(sender_pub_key, proposal) =
-                                hs_event.as_ref()
-                            {
-                                // validate from someone in DA for view and signature is valid
-                                if membership.committee_members(view).contains(sender_pub_key)
-                                    && sender_pub_key.validate(
-                                        &proposal.signature,
-                                        proposal.data.payload_commitment.as_ref(),
-                                    )
-                                {
-                                    response = Some((sender_pub_key.clone(), proposal.clone()));
-                                }
-                            }
-                        }
-                    }
-
-                    response
-                })
-                .await;
-
-                // check if success otherwise retry until max attempts is reached
-                if let Ok(Some(response)) = result {
-                    broadcast_event(
-                        Arc::new(HotShotEvent::VidShareRecv(response.0, response.1)),
-                        &sender,
-                    )
-                    .await;
+                if Self::handle_response(&receiver, &sender, &membership, view).await {
                     return;
                 }
             }
         });
-        // self.spawned_tasks.entry(view).or_default().push(handle);
+    }
+
+    async fn handle_response(
+        receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
+        sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+        membership: &TYPES::Membership,
+        view: TYPES::Time,
+    ) -> bool {
+        let result = async_timeout(REQUEST_TIMEOUT, async {
+            let mut response = None;
+            while response.is_none() {
+                let event = EventDependency::new(
+                    receiver.clone(),
+                    Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
+                        let event = event.as_ref();
+                        if let HotShotEvent::VidResponseRecv(_sender_key, proposal) = event {
+                            proposal.data.view_number() == view
+                        } else {
+                            false
+                        }
+                    }),
+                )
+                .completed()
+                .await;
+
+                if let Some(hs_event) = event.as_ref() {
+                    if let HotShotEvent::VidResponseRecv(sender_pub_key, proposal) =
+                        hs_event.as_ref()
+                    {
+                        // validate from someone in DA for view and signature is valid
+                        if membership.committee_members(view).contains(sender_pub_key)
+                            && sender_pub_key.validate(
+                                &proposal.signature,
+                                proposal.data.payload_commitment.as_ref(),
+                            )
+                        {
+                            response = Some((sender_pub_key.clone(), proposal.clone()));
+                        }
+                    }
+                }
+            }
+
+            response
+        })
+        .await;
+
+        // check if success otherwise retry until max attempts is reached
+        if let Ok(Some(response)) = result {
+            broadcast_event(
+                Arc::new(HotShotEvent::VidShareRecv(response.0, response.1)),
+                sender,
+            )
+            .await;
+            return true;
+        }
+        false
     }
 
     /// Returns true if we got the data we wanted, or the view has moved on.
@@ -275,10 +296,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         public_key: &<TYPES as NodeType>::SignatureKey,
         view: &TYPES::Time,
+        shutdown_flag: &Arc<AtomicBool>,
     ) -> bool {
         let state = state.read().await;
 
-        let cancel = state.vid_shares().contains_key(view) || state.cur_view() > *view;
+        let cancel = shutdown_flag.load(Ordering::Relaxed)
+            || state.vid_shares().contains_key(view)
+            || state.cur_view() > *view;
         if cancel {
             if let Some(Some(vid_share)) = state
                 .vid_shares()

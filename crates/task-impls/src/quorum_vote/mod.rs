@@ -590,22 +590,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = disperse.data.payload_commitment;
+
                 // Check whether the data satisfies one of the following.
-                // * From the right leader for this view.
                 // * Calculated and signed by the current node.
-                // * Signed by one of the staked DA committee members.
-                if !sender.validate(&disperse.signature, payload_commitment.as_ref())
+                // * Signed by sender of VID share and verify sender is in DA
+                let sender_sig_validated =
+                    sender.validate(&disperse.signature, payload_commitment.as_ref());
+
+                if (sender_sig_validated
                     && !self
                         .quorum_membership
-                        .leader(view)
-                        .validate(&disperse.signature, payload_commitment.as_ref())
-                    && !self
-                        .public_key
-                        .validate(&disperse.signature, payload_commitment.as_ref())
+                        .committee_members(view)
+                        .contains(sender))
+                    || (!sender_sig_validated
+                        && !self
+                            .public_key
+                            .validate(&disperse.signature, payload_commitment.as_ref()))
                 {
-                    tracing::error!("Recieved VID share from sender not in DA");
+                    tracing::warn!("Failed to validated the VID dispersal/share sig.");
                     return;
                 }
+
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
                 #[allow(clippy::no_effect)]
