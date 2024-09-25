@@ -732,9 +732,6 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -907,10 +904,7 @@
                         }
                     },
                 };
-                <span class="comment">// TODO (Keyao benchmarking) Update these event variants (similar to the
-                // `TransactionsRecv` event) so we can send one event for a vector of messages.
-                // &lt;https://github.com/EspressoSystems/HotShot/issues/1428&gt;
-                </span>broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream).<span class="kw">await</span>;
+                broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream).<span class="kw">await</span>;
             }
 
             <span class="comment">// Handle data messages
@@ -1035,8 +1029,8 @@
                 sender: sender.clone(),
                 kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
                     DaConsensusMessage::VidDisperseMsg(proposal),
-                )), <span class="comment">// TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
-            </span>};
+                )),
+            };
             <span class="kw">let </span>serialized_message = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.serialize(<span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1100,7 +1094,7 @@
     /// which will be used to create a message and transmit on the wire.
     /// Returns `None` if the parsing result should not be sent on the wire.
     /// Handles the `VidDisperseSend` event separately using a helper method.
-    </span><span class="attr">#[allow(clippy::too_many_lines)] </span><span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/1704
+    </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>parse_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,

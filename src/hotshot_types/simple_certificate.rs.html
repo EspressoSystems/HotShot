@@ -266,27 +266,6 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -487,27 +466,6 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; UpgradeCertificate&lt;TYPES&gt; {
-    <span class="comment">// TODO: Replace this function with `is_relevant` after the following issue is done:
-    // https://github.com/EspressoSystems/HotShot/issues/3357.
-    </span><span class="doccomment">/// Determines whether or not a certificate is relevant (i.e. we still have time to reach a
-    /// decide)
-    ///
-    /// # Errors
-    /// Returns an error when the certificate is no longer relevant
-    </span><span class="kw">pub fn </span>temp_is_relevant(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
-        decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">ensure!</span>(
-            <span class="self">self</span>.data.decide_by &gt;= view_number
-                || decided_upgrade_certificate.is_some_and(|cert| cert == <span class="kw-2">*</span><span class="self">self</span>),
-            <span class="string">"Upgrade certificate is no longer relevant."
-        </span>);
-
-        <span class="prelude-val">Ok</span>(())
-    }
-
     <span class="doccomment">/// Determines whether or not a certificate is relevant (i.e. we still have time to reach a
     /// decide)
     ///

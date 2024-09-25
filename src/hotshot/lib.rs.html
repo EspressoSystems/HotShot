@@ -1027,8 +1027,6 @@
 <a href="#1025" id="1025">1025</a>
 <a href="#1026" id="1026">1026</a>
 <a href="#1027" id="1027">1027</a>
-<a href="#1028" id="1028">1028</a>
-<a href="#1029" id="1029">1029</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1467,8 +1465,6 @@
     }
 
     <span class="doccomment">/// Emit an external event
-    </span><span class="comment">// A copypasta of `ConsensusApi::send_event`
-    // TODO: remove with https://github.com/EspressoSystems/HotShot/issues/2407
     </span><span class="kw">async fn </span>send_external_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">"send_external_event"</span>);
         broadcast_event(event, <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream.<span class="number">0</span>).<span class="kw">await</span>;

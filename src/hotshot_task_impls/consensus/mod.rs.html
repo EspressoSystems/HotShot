@@ -745,6 +745,7 @@
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -761,6 +762,7 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::future::join_all;
+<span class="kw">use </span>handlers::publish_proposal_from_commitment_and_metadata;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
@@ -785,7 +787,7 @@
 
 <span class="kw">use crate</span>::{
     consensus::handlers::{
-        handle_quorum_proposal_recv, handle_quorum_proposal_validated, publish_proposal_if_able,
+        handle_quorum_proposal_recv, handle_quorum_proposal_validated,
         update_state_and_vote_if_able, VoteInfo,
     },
     events::HotShotEvent,
@@ -938,7 +940,7 @@
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_if_able(
+        <span class="kw">let </span>create_and_send_proposal_handle = publish_proposal_from_commitment_and_metadata(
             view,
             event_sender,
             event_receiver,

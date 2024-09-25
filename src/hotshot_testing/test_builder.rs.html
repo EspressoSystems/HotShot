@@ -567,10 +567,6 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -908,9 +904,7 @@
     </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
         TestDescription::&lt;TYPES, I, V&gt; {
-            <span class="comment">// TODO: remove once we have fixed the DHT timeout issue
-            // https://github.com/EspressoSystems/HotShot/issues/2088
-            </span>num_bootstrap_nodes: num_nodes_with_stake,
+            num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
@@ -944,8 +938,6 @@
             <span class="comment">// The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
-            // TODO: Update message broadcasting to avoid hanging
-            // &lt;https://github.com/EspressoSystems/HotShot/issues/1567&gt;
             </span>da_staked_committee_size: <span class="number">14</span>,
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {

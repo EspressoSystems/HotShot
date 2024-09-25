@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_and_send_proposal","handle_quorum_proposal_recv","handle_quorum_proposal_validated","publish_proposal_from_commitment_and_metadata","publish_proposal_if_able","update_state_and_vote_if_able"],"struct":["VoteInfo"]};
+window.SIDEBAR_ITEMS = {"fn":["create_and_send_proposal","handle_quorum_proposal_recv","handle_quorum_proposal_validated","publish_proposal_from_commitment_and_metadata","update_state_and_vote_if_able"],"struct":["VoteInfo"]};
