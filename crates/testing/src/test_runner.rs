@@ -165,7 +165,6 @@ where
         let completion_task = CompletionTask {
             tx: test_sender.clone(),
             rx: test_receiver.clone(),
-            handles: Arc::clone(&handles),
             duration: time_based.duration,
         };
 
