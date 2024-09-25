@@ -17,6 +17,7 @@ use hotshot_types::traits::node_implementation::{NodeType, Versions};
 use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
+use tracing::error;
 
 use crate::{test_runner::Node, test_task::TestEvent};
 
@@ -46,12 +47,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions>
                 .await
                 .is_err()
             {
+                error!("Completion task timed out");
                 broadcast_event(TestEvent::Shutdown, &self.tx).await;
             }
-
-            for node in &mut self.handles.write().await.iter_mut() {
-                node.handle.shut_down().await;
-            }
+            error!("test exited before completion task");
         })
     }
     async fn wait_for_shutdown(&mut self) {
