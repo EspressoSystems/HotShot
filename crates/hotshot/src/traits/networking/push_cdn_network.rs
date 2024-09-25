@@ -356,7 +356,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                     error!("broker stopped: {err}");
                 }
                 error!("broker exited");
-        });
+            });
         }
 
         // Get the port to use for the marshal

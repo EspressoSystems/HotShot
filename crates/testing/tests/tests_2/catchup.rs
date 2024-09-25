@@ -5,7 +5,10 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup() {
     use std::time::Duration;
@@ -68,7 +71,10 @@ async fn test_catchup() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_cdn() {
     use std::time::Duration;
@@ -123,7 +129,10 @@ async fn test_catchup_cdn() {
 
 /// Test that one node catches up and has successful views after coming back
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_one_node() {
     use std::time::Duration;
@@ -179,7 +188,10 @@ async fn test_catchup_one_node() {
 
 /// Same as `test_catchup` except we start the nodes after their leadership so they join during view sync
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_in_view_sync() {
     use std::time::Duration;
@@ -242,7 +254,10 @@ async fn test_catchup_in_view_sync() {
 // Almost the same as `test_catchup`, but with catchup nodes reloaded from anchor leaf rather than
 // initialized from genesis.
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_catchup_reload() {
     use std::time::Duration;
@@ -302,7 +317,10 @@ async fn test_catchup_reload() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_all_restart() {
     use std::time::Duration;
@@ -364,7 +382,10 @@ async fn test_all_restart() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_all_restart_cdn() {
     use std::time::Duration;
@@ -430,7 +451,10 @@ async fn test_all_restart_cdn() {
 /// meaning that the entire DA also does not have the proposal, but we're still able to
 /// move on because the *leader* does have the proposal.
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_all_restart_one_da() {
     use std::time::Duration;
@@ -496,7 +520,10 @@ async fn test_all_restart_one_da() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread", worker_threads = 1))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_staggered_restart() {
     use std::time::Duration;
