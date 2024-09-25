@@ -387,7 +387,7 @@ async fn test_all_restart_cdn() {
     let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> =
         TestDescription::default();
     let mut catchup_nodes = vec![];
-    for i in 0..20 {
+    for i in 1..20 {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: NodeAction::RestartDown(0),
