@@ -84,7 +84,6 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
             // We want to iterate until the proposal is not None, or until we reach the timeout.
             let mut proposal = None;
             while proposal.is_none() {
-                error!("requesting proposal loop");
                 // First, capture the output from the event dependency
                 let event = EventDependency::new(
                     event_receiver.clone(),
