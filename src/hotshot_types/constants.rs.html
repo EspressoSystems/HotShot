@@ -67,6 +67,10 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -113,8 +117,12 @@
 <span class="doccomment">/// The offset for how far in the future we will send out a `QuorumProposal` with an `UpgradeCertificate` we form. This is also how far in advance of sending a `QuorumProposal` we begin collecting votes on an `UpgradeProposal`.
 </span><span class="kw">pub const </span>UPGRADE_PROPOSE_OFFSET: u64 = <span class="number">5</span>;
 
-<span class="doccomment">/// The offset for how far in the future the upgrade certificate we attach should be decided on (or else discarded).
+<span class="attr">#[cfg(test)]
+</span><span class="doccomment">/// The offset for how far in the future the upgrade certificate we attach should be decided on (or else discarded).
 </span><span class="kw">pub const </span>UPGRADE_DECIDE_BY_OFFSET: u64 = UPGRADE_PROPOSE_OFFSET + <span class="number">5</span>;
+<span class="attr">#[cfg(not(test))]
+</span><span class="doccomment">/// The offset for how far in the future the upgrade certificate we attach should be decided on (or else discarded).
+</span><span class="kw">pub const </span>UPGRADE_DECIDE_BY_OFFSET: u64 = UPGRADE_PROPOSE_OFFSET + <span class="number">100</span>;
 
 <span class="doccomment">/// The offset for how far in the future the upgrade actually begins.
 </span><span class="kw">pub const </span>UPGRADE_BEGIN_OFFSET: u64 = UPGRADE_DECIDE_BY_OFFSET + <span class="number">5</span>;

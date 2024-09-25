@@ -136,6 +136,16 @@
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -151,7 +161,10 @@
     consensus::OuterConsensus,
     data::QuorumProposal,
     event::{Event, EventType},
-    traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+    traits::{
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        storage::Storage,
+    },
     vote::HasViewNumber,
 };
 <span class="kw">use </span>tracing::{debug, instrument};
@@ -198,6 +211,13 @@
             .<span class="kw">await</span>;
         <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
         drop(decided_certificate_lock);
+
+        <span class="kw">let _ </span>= task_state
+            .storage
+            .write()
+            .<span class="kw">await
+            </span>.update_decided_upgrade_certificate(<span class="prelude-val">Some</span>(cert.clone()))
+            .<span class="kw">await</span>;
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;

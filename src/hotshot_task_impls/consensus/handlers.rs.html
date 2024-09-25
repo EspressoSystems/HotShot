@@ -885,6 +885,13 @@
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
 <a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1427,6 +1434,13 @@
             .<span class="kw">await</span>;
         <span class="kw-2">*</span>decided_certificate_lock = <span class="prelude-val">Some</span>(cert.clone());
         drop(decided_certificate_lock);
+
+        <span class="kw">let _ </span>= task_state
+            .storage
+            .write()
+            .<span class="kw">await
+            </span>.update_decided_upgrade_certificate(<span class="prelude-val">Some</span>(cert.clone()))
+            .<span class="kw">await</span>;
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus = task_state.consensus.write().<span class="kw">await</span>;

@@ -337,8 +337,6 @@
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -610,10 +608,8 @@
                         old_version: V::Base::VERSION,
                         new_version: V::Upgrade::VERSION,
                         new_version_hash: V::UPGRADE_HASH.to_vec(),
-                        <span class="comment">// We schedule the upgrade to begin 15 views in the future
-                        </span>old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
-                        <span class="comment">// and end 20 views in the future
-                        </span>new_version_first_view: TYPES::Time::new(view + UPGRADE_FINISH_OFFSET),
+                        old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
+                        new_version_first_view: TYPES::Time::new(view + UPGRADE_FINISH_OFFSET),
                         decide_by: TYPES::Time::new(view + UPGRADE_DECIDE_BY_OFFSET),
                     };
 

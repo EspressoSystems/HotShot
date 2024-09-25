@@ -389,6 +389,8 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -545,6 +547,7 @@
                                             TYPES::Time::genesis(),
                                             BTreeMap::new(),
                                             <span class="self">self</span>.high_qc.clone(),
+                                            <span class="prelude-val">None</span>,
                                             Vec::new(),
                                             BTreeMap::new(),
                                         );
@@ -629,6 +632,7 @@
                                         )
                                         .<span class="kw">await</span>,
                                     ),
+                                    read_storage.decided_upgrade_certificate().<span class="kw">await</span>,
                                     Vec::new(),
                                     BTreeMap::new(),
                                 );

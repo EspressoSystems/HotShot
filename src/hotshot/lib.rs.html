@@ -1027,6 +1027,12 @@
 <a href="#1025" id="1025">1025</a>
 <a href="#1026" id="1026">1026</a>
 <a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1078,7 +1084,7 @@
     data::{Leaf, QuorumProposal},
     event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::QuorumCertificate,
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -1284,7 +1290,8 @@
         <span class="kw">let </span>(internal_tx, internal_rx) = internal_channel;
         <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, <span class="kw-2">mut </span>external_rx) = external_channel;
 
-        <span class="kw">let </span>upgrade_lock = UpgradeLock::&lt;TYPES, V&gt;::new();
+        <span class="kw">let </span>upgrade_lock =
+            UpgradeLock::&lt;TYPES, V&gt;::from_certificate(<span class="kw-2">&amp;</span>initializer.decided_upgrade_certificate);
 
         <span class="comment">// Allow overflow on the channel, otherwise sending to it may block.
         </span>external_rx.set_overflow(<span class="bool-val">true</span>);
@@ -1988,6 +1995,8 @@
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     </span>high_qc: QuorumCertificate&lt;TYPES&gt;,
+    <span class="doccomment">/// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
+    </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Undecided leafs that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
     </span>undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
@@ -2015,6 +2024,7 @@
             actioned_view: TYPES::Time::new(<span class="number">0</span>),
             saved_proposals: BTreeMap::new(),
             high_qc,
+            decided_upgrade_certificate: <span class="prelude-val">None</span>,
             undecided_leafs: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,
@@ -2037,6 +2047,7 @@
         actioned_view: TYPES::Time,
         saved_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
+        decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
         undecided_state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -2049,6 +2060,7 @@
             actioned_view,
             saved_proposals,
             high_qc,
+            decided_upgrade_certificate,
             undecided_leafs,
             undecided_state,
         }
