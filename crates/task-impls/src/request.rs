@@ -356,7 +356,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                 )
                 .await;
             }
-            tracing::debug!(
+            tracing::info!(
                 "Canceling vid request for view {:?}, cur view is {:?}",
                 view,
                 state.cur_view()
