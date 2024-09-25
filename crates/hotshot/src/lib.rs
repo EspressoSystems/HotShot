@@ -377,9 +377,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
 
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
+        let id = self.id;
         async_spawn({
             async move {
-                tracing::error!("initial timeout spawned for view {:?}", start_view + 1);
+                tracing::error!(
+                    "initial timeout spawned for view {:?}, id = {}, timeout millis = {}",
+                    start_view + 1,
+                    id,
+                    next_view_timeout
+                );
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
                 tracing::error!("initial timeout hit for view {:?}", start_view + 1);
                 broadcast_event(
