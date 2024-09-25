@@ -234,6 +234,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         });
     }
 
+    /// Wait for the response after we send out the request
+    /// Returns true if we get a response, otherwise false
     async fn handle_response(
         receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -290,7 +292,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         false
     }
 
-    /// Returns true if we got the data we wanted, or the view has moved on.
+    /// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
     async fn cancel_vid(
         state: &OuterConsensus<TYPES>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
