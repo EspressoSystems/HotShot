@@ -52,12 +52,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             view: handle.cur_view().await,
             delay: handle.hotshot.config.data_request_delay,
             da_membership: handle.hotshot.memberships.da_membership.clone(),
-            quorum_membership: handle.hotshot.memberships.quorum_membership.clone(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
-            spawned_tasks: BTreeMap::new(),
         }
     }
 }

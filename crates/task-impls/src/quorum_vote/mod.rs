@@ -590,24 +590,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = disperse.data.payload_commitment;
+                // Check sender of VID disperse share is signed by DA committee member
+                let validate_sender = sender
+                    .validate(&disperse.signature, payload_commitment.as_ref())
+                    && self.da_membership.committee_members(view).contains(sender);
 
                 // Check whether the data satisfies one of the following.
+                // * From the right leader for this view.
                 // * Calculated and signed by the current node.
-                // * Signed by sender of VID share and verify sender is in DA
-                let sender_sig_validated =
-                    sender.validate(&disperse.signature, payload_commitment.as_ref());
-
-                if (sender_sig_validated
-                    && !self
+                let validated = self
+                    .public_key
+                    .validate(&disperse.signature, payload_commitment.as_ref())
+                    || self
                         .quorum_membership
-                        .committee_members(view)
-                        .contains(sender))
-                    || (!sender_sig_validated
-                        && !self
-                            .public_key
-                            .validate(&disperse.signature, payload_commitment.as_ref()))
-                {
-                    tracing::warn!("Failed to validated the VID dispersal/share sig.");
+                        .leader(view)
+                        .validate(&disperse.signature, payload_commitment.as_ref());
+                if !validate_sender && !validated {
+                    warn!("Failed to validated the VID dispersal/share sig.");
                     return;
                 }
 

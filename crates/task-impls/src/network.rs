@@ -68,6 +68,8 @@ pub fn da_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
         HotShotEvent::DaProposalSend(_, _)
             | HotShotEvent::QuorumProposalRequestSend(..)
             | HotShotEvent::QuorumProposalResponseSend(..)
+            | HotShotEvent::VidResponseSend(..)
+            | HotShotEvent::VidRequestSend(..)
             | HotShotEvent::DaVoteSend(_)
             | HotShotEvent::ViewChange(_)
     )
@@ -77,10 +79,7 @@ pub fn da_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
 pub fn vid_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
     !matches!(
         event.as_ref(),
-        HotShotEvent::VidDisperseSend(_, _)
-            | HotShotEvent::ViewChange(_)
-            | HotShotEvent::VidResponseSend(..)
-            | HotShotEvent::VidRequestSend(..)
+        HotShotEvent::VidDisperseSend(_, _) | HotShotEvent::ViewChange(_)
     )
 }
 
@@ -551,7 +550,7 @@ impl<
                     .await;
                 None
             }
-            HotShotEvent::VidRequestSend(req, signature) => {
+            HotShotEvent::VidRequestSend(req, signature, to) => {
                 let data_request = DataRequest {
                     view: req.view_number,
                     request: RequestKind::Vid(req.view_number, req.key.clone()),
@@ -560,7 +559,7 @@ impl<
                 Some((
                     req.key.clone(),
                     MessageKind::Data(DataMessage::RequestData(data_request)),
-                    TransmitType::DaCommitteeBroadcast,
+                    TransmitType::Direct(to),
                 ))
             }
             HotShotEvent::VidResponseSend(sender_key, signing_key, proposal) => {

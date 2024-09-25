@@ -226,10 +226,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 3. The justify QC is valid
     QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
 
-    /// Send a VID request to the network; emitted to the DA committee. Includes the node's public key and signature.
+    /// Send a VID request to the network; emitted to on of the members of DA committee.
+    /// Includes the node's public key and signature as well as public key of DA committee who we want to send to.
     VidRequestSend(
         ProposalRequestPayload<TYPES>,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+        TYPES::SignatureKey,
     ),
 
     /// Receive a VID request from the network; Received by a node in the DA committee. Includes the node's public key and signature.
@@ -330,9 +332,8 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             }
             HotShotEvent::DaCertificateValidated(cert) => Some(cert.view_number),
             HotShotEvent::UpgradeCertificateFormed(cert) => Some(cert.view_number()),
-            HotShotEvent::VidRequestSend(request, _) | HotShotEvent::VidRequestRecv(request, _) => {
-                Some(request.view_number)
-            }
+            HotShotEvent::VidRequestSend(request, _, _)
+            | HotShotEvent::VidRequestRecv(request, _) => Some(request.view_number),
             HotShotEvent::VidResponseSend(_, _, proposal)
             | HotShotEvent::VidResponseRecv(_, proposal) => Some(proposal.data.view_number),
         }
@@ -592,7 +593,7 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     proposal.data.view_number()
                 )
             }
-            HotShotEvent::VidRequestSend(request, _) => {
+            HotShotEvent::VidRequestSend(request, _, _) => {
                 write!(f, "VidRequestSend(view_number={:?}", request.view_number)
             }
             HotShotEvent::VidRequestRecv(request, _) => {

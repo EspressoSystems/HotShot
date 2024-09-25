@@ -5,7 +5,6 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{
-    collections::BTreeMap,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -16,8 +15,6 @@ use std::{
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::{
@@ -35,8 +32,7 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use rand::{seq::SliceRandom, thread_rng};
 use tracing::instrument;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
@@ -61,8 +57,6 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub delay: Duration,
     /// DA Membership
     pub da_membership: TYPES::Membership,
-    /// Quorum Membership
-    pub quorum_membership: TYPES::Membership,
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
     /// This nodes private/signing key, used to sign requests.
@@ -71,8 +65,6 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub id: u64,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
-    /// A flag indicating that `HotShotEvent::Shutdown` has been received
-    pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for NetworkRequestState<TYPES, I> {
@@ -153,18 +145,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
     async fn cancel_subtasks(&mut self) {
         self.shutdown_flag.store(true, Ordering::Relaxed);
-        while !self.spawned_tasks.is_empty() {
-            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
-                break;
-            };
-
-            for handle in handles {
-                #[cfg(async_executor_impl = "async-std")]
-                handle.cancel().await;
-                #[cfg(async_executor_impl = "tokio")]
-                handle.abort();
-            }
-        }
     }
 }
 
@@ -203,31 +183,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         view: TYPES::Time,
     ) {
         let state = OuterConsensus::new(Arc::clone(&self.state.inner_consensus));
-        let membership = self.quorum_membership.clone();
+        let da_membership = self.da_membership.clone();
         let network = Arc::clone(&self.network);
         let delay = self.delay;
         let pub_key = self.public_key.clone();
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
+        let mut recipients: Vec<_> = self
+            .da_membership
+            .committee_members(view)
+            .into_iter()
+            .collect();
+        // Randomize the recipients so all replicas don't overload the same 1 recipients
+        // and so we don't implicitly rely on the same replica all the time.
+        recipients.shuffle(&mut thread_rng());
         async_spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
                 async_sleep(delay).await;
             }
 
-            let mut request_vid = true;
-
+            let mut recipients_it = recipients.iter().cycle();
             while !Self::cancel_vid(&state, &sender, &pub_key, &view, &shutdown_flag).await {
-                // We will send request to all DA nodes, only broadcast this event once per view
-                if request_vid {
-                    broadcast_event(
-                        HotShotEvent::VidRequestSend(request.clone(), signature.clone()).into(),
-                        &sender,
+                broadcast_event(
+                    HotShotEvent::VidRequestSend(
+                        request.clone(),
+                        signature.clone(),
+                        recipients_it.next().unwrap().clone(),
                     )
-                    .await;
-                    request_vid = false;
-                }
+                    .into(),
+                    &sender,
+                )
+                .await;
 
-                if Self::handle_response(&receiver, &sender, &membership, view).await {
+                if Self::handle_response(&receiver, &sender, &da_membership, view).await {
                     return;
                 }
             }
@@ -239,7 +227,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     async fn handle_response(
         receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-        membership: &TYPES::Membership,
+        da_membership: &TYPES::Membership,
         view: TYPES::Time,
     ) -> bool {
         let result = async_timeout(REQUEST_TIMEOUT, async {
@@ -263,8 +251,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                     if let HotShotEvent::VidResponseRecv(sender_pub_key, proposal) =
                         hs_event.as_ref()
                     {
-                        // validate from someone in DA for view and signature is valid
-                        if membership.committee_members(view).contains(sender_pub_key)
+                        if da_membership
+                            .committee_members(view)
+                            .contains(sender_pub_key)
                             && sender_pub_key.validate(
                                 &proposal.signature,
                                 proposal.data.payload_commitment.as_ref(),

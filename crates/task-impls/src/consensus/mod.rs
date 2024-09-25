@@ -152,22 +152,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         let view = disperse.data.view_number();
         let payload_commitment = disperse.data.payload_commitment;
 
-        // Check whether the data satisfies one of the following.
-        // * Calculated and signed by the current node.
-        // * Signed by sender of VID share and verify sender is in DA
-        let sender_sig_validated =
-            sender.validate(&disperse.signature, payload_commitment.as_ref());
+        // Check sender of VID disperse share is signed by DA committee member
+        let validate_sender = sender.validate(&disperse.signature, payload_commitment.as_ref())
+            && self.da_membership.committee_members(view).contains(sender);
 
-        if (sender_sig_validated
-            && !self
+        // Check whether the data satisfies one of the following.
+        // * From the right leader for this view.
+        // * Calculated and signed by the current node.
+        let validated = self
+            .public_key
+            .validate(&disperse.signature, payload_commitment.as_ref())
+            || self
                 .quorum_membership
-                .committee_members(view)
-                .contains(sender))
-            || (!sender_sig_validated
-                && !self
-                    .public_key
-                    .validate(&disperse.signature, payload_commitment.as_ref()))
-        {
+                .leader(view)
+                .validate(&disperse.signature, payload_commitment.as_ref());
+        if !validate_sender && !validated {
             return false;
         }
 
