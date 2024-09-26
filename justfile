@@ -65,7 +65,7 @@ test-ci-1 *ARGS:
 
 test-ci-2 *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=info cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" {{ARGS}} -- --test-threads=1
+  RUST_LOG=info cargo test tests_2 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1
 
 test-ci-3 *ARGS:
   echo Testing {{ARGS}}
@@ -150,7 +150,7 @@ test_view_sync_task:
 
 test_quorum_proposal_recv_task:
   echo Testing the quorum proposal recv task
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
 
 test_upgrade_task:
   echo Testing the upgrade task without dependency tasks
