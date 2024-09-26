@@ -323,6 +323,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DelayedRequester<TYPES, I> {
                         }
                         Err(e) => {
                             error!("Failed to deserialize response: {e}");
+                            async_sleep(REQUEST_TIMEOUT).await;
                         }
                     }
                 }
