@@ -85,7 +85,6 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
     pub fn run(mut self) -> JoinHandle<TestResult> {
-        error!("runnign test loop");
         spawn(async move {
             loop {
                 if let Ok(TestEvent::Shutdown) = self.test_receiver.try_recv() {
@@ -106,7 +105,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     }
                     Ok((Err(e), _id, _)) => {
                         error!("Error from one channel in test task {:?}", e);
-                        async_sleep(Duration::from_millis(100)).await;
+                        async_sleep(Duration::from_millis(4000)).await;
                     }
                     _ => {}
                 };
