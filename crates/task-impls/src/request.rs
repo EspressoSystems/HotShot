@@ -36,6 +36,8 @@ use hotshot_types::{
 };
 use rand::{seq::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
+#[cfg(async_executor_impl = "tokio")]
+use tokio::task::JoinHandle;
 use tracing::instrument;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
