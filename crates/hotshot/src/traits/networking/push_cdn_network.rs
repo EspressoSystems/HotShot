@@ -355,7 +355,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 if let Err(err) = broker.start().await {
                     error!("broker stopped: {err}");
                 }
-                error!("broker exited");
             });
         }
 
@@ -382,9 +381,8 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
             // Error if we stopped unexpectedly
             if let Err(err) = marshal.start().await {
-                error!("broker stopped: {err}");
+                error!("marshal stopped: {err}");
             }
-            error!("marshall exited");
         });
 
         // This function is called for each client we spawn

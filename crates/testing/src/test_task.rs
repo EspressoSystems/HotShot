@@ -89,7 +89,6 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
         spawn(async move {
             loop {
                 if let Ok(TestEvent::Shutdown) = self.test_receiver.try_recv() {
-                    error!("Test Shudown received");
                     break self.state.check().await;
                 }
 
@@ -106,7 +105,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                             .inspect_err(|e| tracing::error!("{e}"));
                     }
                     Ok((Err(e), _id, _)) => {
-                        error!("error from one channel in test task {:?}", e);
+                        error!("Error from one channel in test task {:?}", e);
                         async_sleep(Duration::from_millis(100)).await;
                     }
                     _ => {}

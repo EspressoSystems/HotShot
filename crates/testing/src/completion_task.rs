@@ -14,7 +14,6 @@ use hotshot_task_impls::helpers::broadcast_event;
 use snafu::Snafu;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::error;
 
 use crate::test_task::TestEvent;
 
@@ -40,10 +39,8 @@ impl CompletionTask {
                 .await
                 .is_err()
             {
-                error!("Completion task timed out");
                 broadcast_event(TestEvent::Shutdown, &self.tx).await;
             }
-            error!("test exited before completion task");
         })
     }
     async fn wait_for_shutdown(&mut self) {

@@ -273,7 +273,6 @@ where
         #[cfg(async_executor_impl = "async-std")]
         {
             let results = join_all(task_futs).await;
-            tracing::error!("test tasks joined");
             for result in results {
                 match result {
                     TestResult::Pass => {
@@ -296,7 +295,6 @@ where
         {
             let results = join_all(task_futs).await;
 
-            tracing::error!("test tasks joined");
             for result in results {
                 match result {
                     Ok(res) => match res {
@@ -326,8 +324,7 @@ where
         for node in &mut *nodes {
             node.handle.shut_down().await;
         }
-
-        tracing::error!("Nodes shtudown");
+        tracing::info!("Nodes shtudown");
 
         #[cfg(async_executor_impl = "async-std")]
         completion_handle.cancel().await;
@@ -343,7 +340,6 @@ where
                     format!("{acc}\n\n{error:?}")
                 })
         );
-        tracing::error!("run test exiting, should be completed");
     }
 
     pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
