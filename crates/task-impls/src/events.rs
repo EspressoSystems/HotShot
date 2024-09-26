@@ -25,7 +25,8 @@ use hotshot_types::{
         ViewSyncPreCommitVote,
     },
     traits::{
-        block_contents::BuilderFee, network::DataRequest, node_implementation::NodeType, signature_key::SignatureKey, BlockPayload
+        block_contents::BuilderFee, network::DataRequest, node_implementation::NodeType,
+        signature_key::SignatureKey, BlockPayload,
     },
     utils::{BuilderCommitment, View},
     vid::VidCommitment,
@@ -235,12 +236,9 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::SignatureKey,
     ),
 
-    /// Receive a VID request from the network; Received by a node in the DA committee. 
+    /// Receive a VID request from the network; Received by a node in the DA committee.
     /// Includes the data request and nodes public key.
-    VidRequestRecv(
-        DataRequest<TYPES>,
-        TYPES::SignatureKey,
-    ),
+    VidRequestRecv(DataRequest<TYPES>, TYPES::SignatureKey),
 
     /// Send a VID response to the network; emitted to the sending node.
     /// Includes nodes public key, recipient public key, and vid disperse

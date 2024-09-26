@@ -14,9 +14,12 @@ use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
     message::Proposal,
-    traits::{election::Membership, network::DataRequest, node_implementation::NodeType, signature_key::SignatureKey},
+    traits::{
+        election::Membership, network::DataRequest, node_implementation::NodeType,
+        signature_key::SignatureKey,
+    },
 };
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
@@ -77,9 +80,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                             {
                                 continue;
                             }
-                            if let Some(proposal) = self
-                                .get_or_calc_vid_share(request.view, sender)
-                                .await
+                            if let Some(proposal) =
+                                self.get_or_calc_vid_share(request.view, sender).await
                             {
                                 broadcast_event(
                                     HotShotEvent::VidResponseSend(

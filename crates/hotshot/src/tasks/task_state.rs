@@ -56,6 +56,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
+            spawned_tasks: BTreeMap::new(),
         }
     }
 }

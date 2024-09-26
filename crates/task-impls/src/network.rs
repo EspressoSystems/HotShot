@@ -23,8 +23,8 @@ use hotshot_types::{
     traits::{
         election::Membership,
         network::{
-            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage,
-            TransmitType, ViewMessage,
+            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, TransmitType,
+            ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
         storage::Storage,
@@ -207,10 +207,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     let req_data = data.clone();
                     if let RequestKind::Vid(_view_number, _key) = req_data.request {
                         broadcast_event(
-                            Arc::new(HotShotEvent::VidRequestRecv(
-                                data,
-                                sender,
-                            )),
+                            Arc::new(HotShotEvent::VidRequestRecv(data, sender)),
                             &self.internal_event_stream,
                         )
                         .await;
@@ -550,13 +547,11 @@ impl<
                     .await;
                 None
             }
-            HotShotEvent::VidRequestSend(req, sender, to) => {
-                Some((
-                    sender,
-                    MessageKind::Data(DataMessage::RequestData(req)),
-                    TransmitType::Direct(to),
-                ))
-            }
+            HotShotEvent::VidRequestSend(req, sender, to) => Some((
+                sender,
+                MessageKind::Data(DataMessage::RequestData(req)),
+                TransmitType::Direct(to),
+            )),
             HotShotEvent::VidResponseSend(sender, to, proposal) => {
                 let da_message = DaConsensusMessage::VidDisperseMsg(proposal);
                 let sequencing_msg = SequencingMessage::Da(da_message);

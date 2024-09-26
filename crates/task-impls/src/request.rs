@@ -5,6 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{
+    collections::BTreeMap,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -15,6 +16,8 @@ use std::{
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
+#[cfg(async_executor_impl = "async-std")]
+use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::{
@@ -22,12 +25,14 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::OuterConsensus, traits::{
+    consensus::OuterConsensus,
+    traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
-    }, vote::HasViewNumber
+    },
+    vote::HasViewNumber,
 };
 use rand::{seq::SliceRandom, thread_rng};
 use sha2::{Digest, Sha256};
@@ -63,6 +68,8 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub id: u64,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
+    /// A flag indicating that `HotShotEvent::Shutdown` has been received
+    pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for NetworkRequestState<TYPES, I> {
@@ -143,6 +150,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
     async fn cancel_subtasks(&mut self) {
         self.shutdown_flag.store(true, Ordering::Relaxed);
+
+        while !self.spawned_tasks.is_empty() {
+            let Some((_, handles)) = self.spawned_tasks.pop_first() else {
+                break;
+            };
+
+            for handle in handles {
+                #[cfg(async_executor_impl = "async-std")]
+                handle.cancel().await;
+                #[cfg(async_executor_impl = "tokio")]
+                handle.abort();
+            }
+        }
     }
 }
 
@@ -186,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let data_request = DataRequest::<TYPES> {
             request,
             view,
-            signature
+            signature,
         };
         let mut recipients: Vec<_> = self
             .da_membership
@@ -196,7 +216,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         // Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         recipients.shuffle(&mut thread_rng());
-        async_spawn(async move {
+        let handle = async_spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
                 async_sleep(delay).await;
@@ -204,7 +224,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
             let mut recipients_it = recipients.iter().cycle();
             while !Self::cancel_vid(&state, &sender, &pub_key, &view, &shutdown_flag).await {
-                
                 broadcast_event(
                     HotShotEvent::VidRequestSend(
                         data_request.clone(),
@@ -221,6 +240,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 }
             }
         });
+        self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
     /// Wait for the response after we send out the request
@@ -320,10 +340,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     }
 
     /// Sign the serialized version of the request
-    fn serialize_and_sign(
-        &self,
-        request: &RequestKind<TYPES>,
-    ) -> Option<Signature<TYPES>> {
+    fn serialize_and_sign(&self, request: &RequestKind<TYPES>) -> Option<Signature<TYPES>> {
         let Ok(data) = bincode::serialize(&request) else {
             tracing::error!("Failed to serialize request!");
             return None;
