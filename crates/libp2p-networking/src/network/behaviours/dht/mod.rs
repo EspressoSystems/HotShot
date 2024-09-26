@@ -464,7 +464,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                 ..
             } => {
                 if num_remaining == 0 {
-                    info!("Finished bootstrapping");
+                    // info!("Finished bootstrapping");
                     self.finish_bootstrap();
                 } else {
                     debug!("Bootstrap in progress, {} nodes remaining", num_remaining);

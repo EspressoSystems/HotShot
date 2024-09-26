@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
 use futures::{channel::mpsc, StreamExt};
+use tracing::info;
 
 use crate::network::ClientRequest;
 
@@ -45,43 +46,50 @@ impl DHTBootstrapTask {
     /// Task's loop
     async fn run_loop(mut self) {
         loop {
-            tracing::debug!("looping bootstrap");
+            tracing::info!("looping bootstrap");
             if self.in_progress {
                 match self.rx.next().await {
                     Some(InputEvent::BootstrapFinished) => {
-                        tracing::debug!("Bootstrap finished");
+                        tracing::info!("Bootstrap finished");
                         self.in_progress = false;
                     }
                     Some(InputEvent::ShutdownBootstrap) => {
-                        tracing::debug!("ShutdownBootstrap received, shutting down");
+                        tracing::info!("ShutdownBootstrap received, shutting down");
                         break;
                     }
-                    Some(_) => {}
+                    Some(InputEvent::StartBootstrap) => {
+                        tracing::warn!("Trying to start bootstrap that's already in progress");
+                        continue;
+                    }
                     None => {
-                        tracing::debug!("Bootstrap channel closed, exiting loop");
+                        tracing::info!("Bootstrap channel closed, exiting loop");
                         break;
                     }
                 }
             } else if let Ok(maybe_event) =
                 art::async_timeout(Duration::from_secs(120), self.rx.next()).await
             {
+                tracing::info!("not in progress got event");
                 match maybe_event {
                     Some(InputEvent::StartBootstrap) => {
-                        tracing::debug!("Start bootstrap in bootstrap task");
+                        tracing::info!("Start bootstrap in bootstrap task");
                         self.bootstrap().await;
                     }
                     Some(InputEvent::ShutdownBootstrap) => {
-                        tracing::debug!("ShutdownBootstrap received, shutting down");
+                        tracing::info!("ShutdownBootstrap received, shutting down");
                         break;
                     }
-                    Some(_) => {}
+                    Some(InputEvent::BootstrapFinished) => {
+                        tracing::info!("not in progress got bootstrap finished");
+                        art::async_sleep(Duration::from_secs(60)).await;
+                    }
                     None => {
-                        tracing::debug!("Bootstrap channel closed, exiting loop");
+                        tracing::info!("Bootstrap channel closed, exiting loop");
                         break;
                     }
                 }
             } else {
-                tracing::debug!("Start bootstrap in bootstrap task after timeout");
+                tracing::info!("Start bootstrap in bootstrap task after timeout");
                 self.bootstrap().await;
             }
         }

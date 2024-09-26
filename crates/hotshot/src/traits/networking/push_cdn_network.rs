@@ -447,8 +447,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
     async fn spawn_request_receiver_task(
         &self,
     ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
-        let (mut _tx, rx) = mpsc::channel(1);
-        Some(rx)
+        None
     }
 
     /// Pause sending and receiving on the PushCDN network.
