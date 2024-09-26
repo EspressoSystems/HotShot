@@ -19,8 +19,6 @@ use hotshot_types::{
     error::HotShotError,
     traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
 use tracing::instrument;
 
 use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext, Versions};
