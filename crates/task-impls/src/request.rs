@@ -22,17 +22,15 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::OuterConsensus,
-    request_response::ProposalRequestPayload,
-    traits::{
+    consensus::OuterConsensus, traits::{
         election::Membership,
-        network::ConnectedNetwork,
+        network::{ConnectedNetwork, DataRequest, RequestKind},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
-    },
-    vote::HasViewNumber,
+    }, vote::HasViewNumber
 };
 use rand::{seq::SliceRandom, thread_rng};
+use sha2::{Digest, Sha256};
 use tracing::instrument;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
@@ -156,10 +154,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
-        let request = ProposalRequestPayload {
-            view_number: view,
-            key: self.public_key.clone(),
-        };
+        let request = RequestKind::Vid(view, self.public_key.clone());
 
         // First sign the request for the VID shares.
         if let Some(signature) = self.serialize_and_sign(&request) {
@@ -176,7 +171,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     /// Creates a task that will wait for the vid the response
     fn create_vid_request_task(
         &mut self,
-        request: ProposalRequestPayload<TYPES>,
+        request: RequestKind<TYPES>,
         signature: Signature<TYPES>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
         receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
@@ -188,6 +183,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let delay = self.delay;
         let pub_key = self.public_key.clone();
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
+        let data_request = DataRequest::<TYPES> {
+            request,
+            view,
+            signature
+        };
         let mut recipients: Vec<_> = self
             .da_membership
             .committee_members(view)
@@ -204,10 +204,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
             let mut recipients_it = recipients.iter().cycle();
             while !Self::cancel_vid(&state, &sender, &pub_key, &view, &shutdown_flag).await {
+                
                 broadcast_event(
                     HotShotEvent::VidRequestSend(
-                        request.clone(),
-                        signature.clone(),
+                        data_request.clone(),
+                        pub_key.clone(),
                         recipients_it.next().unwrap().clone(),
                     )
                     .into(),
@@ -321,9 +322,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     /// Sign the serialized version of the request
     fn serialize_and_sign(
         &self,
-        request: &ProposalRequestPayload<TYPES>,
+        request: &RequestKind<TYPES>,
     ) -> Option<Signature<TYPES>> {
-        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, request.commit().as_ref())
+        let Ok(data) = bincode::serialize(&request) else {
+            tracing::error!("Failed to serialize request!");
+            return None;
+        };
+        let Ok(signature) = TYPES::SignatureKey::sign(&self.private_key, &Sha256::digest(data))
         else {
             tracing::error!("Failed to sign Data Request");
             return None;

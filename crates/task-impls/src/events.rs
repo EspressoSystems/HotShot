@@ -25,8 +25,7 @@ use hotshot_types::{
         ViewSyncPreCommitVote,
     },
     traits::{
-        block_contents::BuilderFee, node_implementation::NodeType, signature_key::SignatureKey,
-        BlockPayload,
+        block_contents::BuilderFee, network::DataRequest, node_implementation::NodeType, signature_key::SignatureKey, BlockPayload
     },
     utils::{BuilderCommitment, View},
     vid::VidCommitment,
@@ -227,24 +226,28 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal<TYPES>>),
 
     /// Send a VID request to the network; emitted to on of the members of DA committee.
-    /// Includes the node's public key and signature as well as public key of DA committee who we want to send to.
+    /// Includes the data request, node's public key and signature as well as public key of DA committee who we want to send to.
     VidRequestSend(
-        ProposalRequestPayload<TYPES>,
-        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+        DataRequest<TYPES>,
+        // Sender
+        TYPES::SignatureKey,
+        // Recipient
         TYPES::SignatureKey,
     ),
 
-    /// Receive a VID request from the network; Received by a node in the DA committee. Includes the node's public key and signature.
+    /// Receive a VID request from the network; Received by a node in the DA committee. 
+    /// Includes the data request and nodes public key.
     VidRequestRecv(
-        ProposalRequestPayload<TYPES>,
-        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+        DataRequest<TYPES>,
+        TYPES::SignatureKey,
     ),
 
     /// Send a VID response to the network; emitted to the sending node.
+    /// Includes nodes public key, recipient public key, and vid disperse
     VidResponseSend(
         /// Sender key
         TYPES::SignatureKey,
-        /// Signing key
+        /// Recipient key
         TYPES::SignatureKey,
         Proposal<TYPES, VidDisperseShare<TYPES>>,
     ),
@@ -333,7 +336,7 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             HotShotEvent::DaCertificateValidated(cert) => Some(cert.view_number),
             HotShotEvent::UpgradeCertificateFormed(cert) => Some(cert.view_number()),
             HotShotEvent::VidRequestSend(request, _, _)
-            | HotShotEvent::VidRequestRecv(request, _) => Some(request.view_number),
+            | HotShotEvent::VidRequestRecv(request, _) => Some(request.view),
             HotShotEvent::VidResponseSend(_, _, proposal)
             | HotShotEvent::VidResponseRecv(_, proposal) => Some(proposal.data.view_number),
         }
@@ -594,10 +597,10 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 )
             }
             HotShotEvent::VidRequestSend(request, _, _) => {
-                write!(f, "VidRequestSend(view_number={:?}", request.view_number)
+                write!(f, "VidRequestSend(view_number={:?}", request.view)
             }
             HotShotEvent::VidRequestRecv(request, _) => {
-                write!(f, "VidRequestRecv(view_number={:?}", request.view_number)
+                write!(f, "VidRequestRecv(view_number={:?}", request.view)
             }
             HotShotEvent::VidResponseSend(_, _, proposal) => {
                 write!(

@@ -10,14 +10,13 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use committable::Committable;
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
     message::Proposal,
-    request_response::ProposalRequestPayload,
-    traits::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey},
+    traits::{election::Membership, network::DataRequest, node_implementation::NodeType, signature_key::SignatureKey},
 };
+use sha2::{Sha256, Digest};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
@@ -71,21 +70,21 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 Ok(event) => {
                     // break loop when false, this means shutdown received
                     match event.as_ref() {
-                        HotShotEvent::VidRequestRecv(request, sender_sig) => {
+                        HotShotEvent::VidRequestRecv(request, sender) => {
                             // Verify request is valid
-                            if !self.valid_sender(&request.key)
-                                || !valid_signature::<TYPES>(request, sender_sig)
+                            if !self.valid_sender(sender)
+                                || !valid_signature::<TYPES>(request, sender)
                             {
                                 continue;
                             }
                             if let Some(proposal) = self
-                                .get_or_calc_vid_share(request.view_number, &request.key)
+                                .get_or_calc_vid_share(request.view, sender)
                                 .await
                             {
                                 broadcast_event(
                                     HotShotEvent::VidResponseSend(
-                                        request.key.clone(),
                                         self.pub_key.clone(),
+                                        sender.clone(),
                                         proposal,
                                     )
                                     .into(),
@@ -169,10 +168,13 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
 /// Check the signature
 fn valid_signature<TYPES: NodeType>(
-    request: &ProposalRequestPayload<TYPES>,
-    sender_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    req: &DataRequest<TYPES>,
+    sender: &TYPES::SignatureKey,
 ) -> bool {
-    request.key.validate(sender_sig, request.commit().as_ref())
+    let Ok(data) = bincode::serialize(&req.request) else {
+        return false;
+    };
+    sender.validate(&req.signature, &Sha256::digest(data))
 }
 
 /// Spawn the network response task to handle incoming request for data

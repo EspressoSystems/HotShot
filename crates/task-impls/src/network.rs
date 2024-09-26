@@ -20,11 +20,10 @@ use hotshot_types::{
         DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
         SequencingMessage, UpgradeLock,
     },
-    request_response::ProposalRequestPayload,
     traits::{
         election::Membership,
         network::{
-            BroadcastDelay, ConnectedNetwork, DataRequest, RequestKind, ResponseMessage,
+            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage,
             TransmitType, ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
@@ -205,11 +204,12 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     }
                 }
                 DataMessage::RequestData(data) => {
-                    if let RequestKind::Vid(view_number, key) = data.request {
+                    let req_data = data.clone();
+                    if let RequestKind::Vid(_view_number, _key) = req_data.request {
                         broadcast_event(
                             Arc::new(HotShotEvent::VidRequestRecv(
-                                ProposalRequestPayload { view_number, key },
-                                data.signature,
+                                data,
+                                sender,
                             )),
                             &self.internal_event_stream,
                         )
@@ -550,26 +550,21 @@ impl<
                     .await;
                 None
             }
-            HotShotEvent::VidRequestSend(req, signature, to) => {
-                let data_request = DataRequest {
-                    view: req.view_number,
-                    request: RequestKind::Vid(req.view_number, req.key.clone()),
-                    signature,
-                };
+            HotShotEvent::VidRequestSend(req, sender, to) => {
                 Some((
-                    req.key.clone(),
-                    MessageKind::Data(DataMessage::RequestData(data_request)),
+                    sender,
+                    MessageKind::Data(DataMessage::RequestData(req)),
                     TransmitType::Direct(to),
                 ))
             }
-            HotShotEvent::VidResponseSend(sender_key, signing_key, proposal) => {
+            HotShotEvent::VidResponseSend(sender, to, proposal) => {
                 let da_message = DaConsensusMessage::VidDisperseMsg(proposal);
                 let sequencing_msg = SequencingMessage::Da(da_message);
                 let response_message = ResponseMessage::Found(sequencing_msg);
                 Some((
-                    signing_key,
+                    sender,
                     MessageKind::Data(DataMessage::DataResponse(response_message)),
-                    TransmitType::Direct(sender_key),
+                    TransmitType::Direct(to),
                 ))
             }
             _ => None,
