@@ -8,7 +8,6 @@ use std::time::Duration;
 
 use async_compatibility_layer::{art, channel::UnboundedSender};
 use futures::{channel::mpsc, StreamExt};
-use tracing::info;
 
 use crate::network::ClientRequest;
 
@@ -81,7 +80,6 @@ impl DHTBootstrapTask {
                     }
                     Some(InputEvent::BootstrapFinished) => {
                         tracing::info!("not in progress got bootstrap finished");
-                        art::async_sleep(Duration::from_secs(60)).await;
                     }
                     None => {
                         tracing::info!("Bootstrap channel closed, exiting loop");

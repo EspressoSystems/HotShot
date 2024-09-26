@@ -30,7 +30,7 @@ use libp2p::kad::{
 };
 use libp2p_identity::PeerId;
 use store::ValidatedStore;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 /// Additional DHT record functionality
 pub mod record;
