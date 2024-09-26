@@ -21,7 +21,6 @@ pub trait Membership<TYPES: NodeType>:
         eligible_leaders: Vec<PeerConfig<TYPES::SignatureKey>>,
         committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
         committee_topic: Topic,
-        #[cfg(feature = "fixed-leader-election")] fixed_leader_for_gpuvid: usize,
     ) -> Self;
 
     /// Get all participants in the committee (including their stake)

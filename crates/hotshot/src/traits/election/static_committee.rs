@@ -16,7 +16,6 @@ use hotshot_types::{
     },
     PeerConfig,
 };
-use rand::{rngs::StdRng, Rng};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
@@ -34,12 +33,6 @@ pub struct GeneralStaticCommittee<T: NodeType> {
     indexed_stake_table:
         BTreeMap<T::SignatureKey, <T::SignatureKey as SignatureKey>::StakeTableEntry>,
 
-    // /// The members of the committee
-    // committee_members: BTreeSet<T::SignatureKey>,
-    #[cfg(feature = "fixed-leader-election")]
-    /// The number of fixed leaders for gpuvid
-    fixed_leader_for_gpuvid: usize,
-
     /// The network topic of the committee
     committee_topic: Topic,
 }
@@ -53,7 +46,6 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
         eligible_leaders: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
         committee_members: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
         committee_topic: Topic,
-        #[cfg(feature = "fixed-leader-election")] fixed_leader_for_gpuvid: usize,
     ) -> Self {
         // For each eligible leader, get the stake table entry
         let eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
@@ -85,8 +77,6 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
             stake_table: members,
             indexed_stake_table,
             committee_topic,
-            #[cfg(feature = "fixed-leader-election")]
-            fixed_leader_for_gpuvid,
         }
     }
 
@@ -129,42 +119,9 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
         self.committee_topic.clone()
     }
 
-    #[cfg(not(any(
-        feature = "randomized-leader-election",
-        feature = "fixed-leader-election"
-    )))]
     /// Index the vector of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
-        let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.eligible_leaders.len();
-        let res = self.eligible_leaders[index].clone();
-        TYPES::SignatureKey::public_key(&res)
-//        let index = *view_number as usize % self.eligible_leaders.len();
-//        let res = self.eligible_leaders[index].clone();
-//        TYPES::SignatureKey::public_key(&res)
-    }
-
-    #[cfg(feature = "fixed-leader-election")]
-    /// Only get leader in fixed set
-    /// Index the fixed vector (first fixed_leader_for_gpuvid element) of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        if self.fixed_leader_for_gpuvid <= 0
-            || self.fixed_leader_for_gpuvid > self.eligible_leaders.len()
-        {
-            panic!("fixed_leader_for_gpuvid is not set correctly.");
-        }
-        let index = *view_number as usize % self.fixed_leader_for_gpuvid;
-        let res = self.eligible_leaders[index].clone();
-        TYPES::SignatureKey::public_key(&res)
-    }
-
-    #[cfg(feature = "randomized-leader-election")]
-    /// Index the vector of public keys with a random number generated using the current view number as a seed
-    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
-        let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.eligible_leaders.len();
+        let index = *view_number as usize % self.eligible_leaders.len();
         let res = self.eligible_leaders[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }

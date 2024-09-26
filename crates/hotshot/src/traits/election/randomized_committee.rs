@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::BTreeMap, num::NonZeroU64};
+use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
 use ethereum_types::U256;
 use hotshot_types::{
@@ -16,11 +16,12 @@ use hotshot_types::{
     },
     PeerConfig,
 };
+use rand::{rngs::StdRng, Rng};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
 /// The static committee election
-pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
+pub struct GeneralStaticCommittee<T: NodeType> {
     /// The nodes eligible for leadership.
     /// NOTE: This is currently a hack because the DA leader needs to be the quorum
     /// leader but without voting rights.
@@ -38,9 +39,9 @@ pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<T> = StaticCommitteeLeaderForTwoViews<T>;
+pub type RandomizedCommittee<T> = GeneralStaticCommittee<T>;
 
-impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYPES> {
+impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     /// Create a new election
     fn new(
         eligible_leaders: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
@@ -121,8 +122,9 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
 
     /// Index the vector of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let index =
-            usize::try_from((*view_number / 2) % self.eligible_leaders.len() as u64).unwrap();
+        let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
+        let randomized_view_number: usize = rng.gen();
+        let index = randomized_view_number % self.eligible_leaders.len();
         let res = self.eligible_leaders[index].clone();
         TYPES::SignatureKey::public_key(&res)
     }
@@ -144,6 +146,10 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
 
     /// Get the voting upgrade threshold for the committee
     fn upgrade_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.stake_table.len() as u64 * 9) / 10) + 1).unwrap()
+        NonZeroU64::new(max(
+            (self.stake_table.len() as u64 * 9) / 10,
+            ((self.stake_table.len() as u64 * 2) / 3) + 1,
+        ))
+        .unwrap()
     }
 }

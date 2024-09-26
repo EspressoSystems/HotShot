@@ -380,7 +380,16 @@ pub trait RunDa<
 
         let network = self.network();
 
-        let all_nodes = config.config.known_nodes_with_stake.clone();
+        let all_nodes = if cfg!(feature = "fixed-leader-election") {
+            let mut vec = config.config.known_nodes_with_stake.clone();
+
+            vec.truncate(config.config.fixed_leader_for_gpuvid);
+
+            vec
+        } else {
+            config.config.known_nodes_with_stake.clone()
+        };
+
         let da_nodes = config.config.known_da_nodes.clone();
 
         // Create the quorum membership from all nodes
@@ -388,19 +397,12 @@ pub trait RunDa<
             all_nodes.clone(),
             all_nodes.clone(),
             Topic::Global,
-            #[cfg(feature = "fixed-leader-election")]
-            config.config.fixed_leader_for_gpuvid,
         );
 
         // Create the quorum membership from all nodes, specifying the committee
         // as the known da nodes
-        let da_membership = <TYPES as NodeType>::Membership::new(
-            all_nodes.clone(),
-            da_nodes,
-            Topic::Da,
-            #[cfg(feature = "fixed-leader-election")]
-            config.config.fixed_leader_for_gpuvid,
-        );
+        let da_membership =
+            <TYPES as NodeType>::Membership::new(all_nodes.clone(), da_nodes, Topic::Da);
 
         let memberships = Memberships {
             quorum_membership: quorum_membership.clone(),

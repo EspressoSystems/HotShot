@@ -142,27 +142,6 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
         }
     }
 
-    /// get election type in use
-    #[must_use]
-    pub fn election_type() -> String {
-        // leader is chosen in index order
-        #[cfg(not(any(
-            feature = "randomized-leader-election",
-            feature = "fixed-leader-election"
-        )))]
-        let election_type = "static-leader-selection".to_string();
-
-        // leader is from a fixed set
-        #[cfg(feature = "fixed-leader-election")]
-        let election_type = "fixed-leader-election".to_string();
-
-        // leader is randomly chosen
-        #[cfg(feature = "randomized-leader-election")]
-        let election_type = "randomized-leader-election".to_string();
-
-        election_type
-    }
-
     /// Output the results to a csv file according to orchestrator state
     pub fn output_to_csv(&self) {
         let output_csv = BenchResultsDownloadConfig {
@@ -173,7 +152,6 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             transactions_per_round: self.config.transactions_per_round,
             transaction_size: self.bench_results.transaction_size_in_bytes,
             rounds: self.config.rounds,
-            leader_election_type: OrchestratorState::<KEY>::election_type(),
             partial_results: self.bench_results.partial_results.clone(),
             avg_latency_in_sec: self.bench_results.avg_latency_in_sec,
             minimum_latency_in_sec: self.bench_results.minimum_latency_in_sec,
