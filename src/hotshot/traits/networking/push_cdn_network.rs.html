@@ -599,7 +599,6 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -983,7 +982,7 @@
 
             <span class="comment">// Error if we stopped unexpectedly
             </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = marshal.start().<span class="kw">await </span>{
-                <span class="macro">error!</span>(<span class="string">"broker stopped: {err}"</span>);
+                <span class="macro">error!</span>(<span class="string">"marshal stopped: {err}"</span>);
             }
         });
 
@@ -1049,9 +1048,8 @@
     <span class="kw">async fn </span>spawn_request_receiver_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
-        <span class="kw">let </span>(<span class="kw-2">mut </span>_tx, rx) = mpsc::channel(<span class="number">1</span>);
-        <span class="prelude-val">Some</span>(rx)
-    }
+        <span class="prelude-val">None
+    </span>}
 
     <span class="doccomment">/// Pause sending and receiving on the PushCDN network.
     </span><span class="kw">fn </span>pause(<span class="kw-2">&amp;</span><span class="self">self</span>) {

@@ -1033,6 +1033,24 @@
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1069,7 +1087,7 @@
 };
 
 <span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::join;
@@ -1405,6 +1423,24 @@
                     <span class="self">self</span>.start_view
                 )
             });
+
+        <span class="comment">// Clone the event stream that we send the timeout event to
+        </span><span class="kw">let </span>event_stream = <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone();
+        <span class="kw">let </span>next_view_timeout = <span class="self">self</span>.config.next_view_timeout;
+        <span class="kw">let </span>start_view = <span class="self">self</span>.start_view;
+
+        <span class="comment">// Spawn a task that will sleep for the next view timeout and then send a timeout event
+        // if not cancelled
+        </span>async_spawn({
+            <span class="kw">async move </span>{
+                async_sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
+                broadcast_event(
+                    Arc::new(HotShotEvent::Timeout(start_view + <span class="number">1</span>)),
+                    <span class="kw-2">&amp;</span>event_stream,
+                )
+                .<span class="kw">await</span>;
+            }
+        });
         <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
         </span>{
             <span class="kw">if let </span><span class="prelude-val">Some</span>(validated_state) = consensus.validated_state_map().get(<span class="kw-2">&amp;</span><span class="self">self</span>.start_view) {

@@ -67,38 +67,24 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{sync::Arc, time::Duration};
+</span><span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_spawn, async_timeout};
-<span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
 <span class="kw">use </span>hotshot_task_impls::helpers::broadcast_event;
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeType, Versions};
 <span class="kw">use </span>snafu::Snafu;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 
-<span class="kw">use crate</span>::{test_runner::Node, test_task::TestEvent};
+<span class="kw">use </span><span class="kw">crate</span>::test_task::TestEvent;
 
 <span class="doccomment">/// the idea here is to run as long as we want
 
@@ -107,19 +93,15 @@
 </span><span class="kw">pub struct </span>CompletionTaskErr {}
 
 <span class="doccomment">/// Completion task state
-</span><span class="kw">pub struct </span>CompletionTask&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
+</span><span class="kw">pub struct </span>CompletionTask {
     <span class="kw">pub </span>tx: Sender&lt;TestEvent&gt;,
 
     <span class="kw">pub </span>rx: Receiver&lt;TestEvent&gt;,
-    <span class="doccomment">/// handles to the nodes in the test
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I, V&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Duration of the task.
     </span><span class="kw">pub </span>duration: Duration,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt;
-    CompletionTask&lt;TYPES, I, V&gt;
-{
+<span class="kw">impl </span>CompletionTask {
     <span class="kw">pub fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; JoinHandle&lt;()&gt; {
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>async_timeout(<span class="self">self</span>.duration, <span class="self">self</span>.wait_for_shutdown())
@@ -127,10 +109,6 @@
                 </span>.is_err()
             {
                 broadcast_event(TestEvent::Shutdown, <span class="kw-2">&amp;</span><span class="self">self</span>.tx).<span class="kw">await</span>;
-            }
-
-            <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.handles.write().<span class="kw">await</span>.iter_mut() {
-                node.handle.shut_down().<span class="kw">await</span>;
             }
         })
     }

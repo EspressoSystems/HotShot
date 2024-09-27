@@ -391,6 +391,17 @@
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -709,22 +720,33 @@
             }
             join_all(ready_futs).<span class="kw">await</span>;
 
+            <span class="kw">let </span><span class="kw-2">mut </span>start_futs = <span class="macro">vec!</span>[];
+
             <span class="kw">while let </span><span class="prelude-val">Some</span>((node, id)) = new_nodes.pop() {
-                <span class="macro">tracing::error!</span>(<span class="string">"Starting node {} back up"</span>, id);
-                <span class="kw">let </span>handle = node.run_tasks().<span class="kw">await</span>;
+                <span class="kw">let </span>handles = <span class="self">self</span>.handles.clone();
+                <span class="kw">let </span>fut = <span class="kw">async move </span>{
+                    <span class="macro">tracing::info!</span>(<span class="string">"Starting node {} back up"</span>, id);
+                    <span class="kw">let </span>handle = node.run_tasks().<span class="kw">await</span>;
 
-                <span class="comment">// Create the node and add it to the state, so we can shut them
-                // down properly later to avoid the overflow error in the overall
-                // safety task.
-                </span><span class="kw">let </span>node = Node {
-                    node_id: id.try_into().unwrap(),
-                    network: node.network.clone(),
-                    handle,
+                    <span class="comment">// Create the node and add it to the state, so we can shut them
+                    // down properly later to avoid the overflow error in the overall
+                    // safety task.
+                    </span><span class="kw">let </span>node = Node {
+                        node_id: id.try_into().unwrap(),
+                        network: node.network.clone(),
+                        handle,
+                    };
+                    node.handle.hotshot.start_consensus().<span class="kw">await</span>;
+
+                    handles.write().<span class="kw">await</span>[id] = node;
                 };
-                node.handle.hotshot.start_consensus().<span class="kw">await</span>;
-
-                <span class="self">self</span>.handles.write().<span class="kw">await</span>[id] = node;
+                start_futs.push(fut);
             }
+            <span class="kw">if </span>!start_futs.is_empty() {
+                join_all(start_futs).<span class="kw">await</span>;
+                <span class="macro">tracing::info!</span>(<span class="string">"Nodes all started"</span>);
+            }
+
             <span class="comment">// update our latest view
             </span><span class="self">self</span>.latest_view = <span class="prelude-val">Some</span>(view_number);
         }

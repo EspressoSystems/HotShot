@@ -749,6 +749,8 @@
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -916,7 +918,6 @@
         <span class="kw">let </span>completion_task = CompletionTask {
             tx: test_sender.clone(),
             rx: test_receiver.clone(),
-            handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
             duration: time_based.duration,
         };
 
@@ -1025,7 +1026,6 @@
         <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
         </span>{
             <span class="kw">let </span>results = join_all(task_futs).<span class="kw">await</span>;
-            <span class="macro">tracing::error!</span>(<span class="string">"test tasks joined"</span>);
             <span class="kw">for </span>result <span class="kw">in </span>results {
                 <span class="kw">match </span>result {
                     TestResult::Pass =&gt; {
@@ -1037,14 +1037,17 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = txn_handle {
                 handle.cancel().<span class="kw">await</span>;
             }
-            completion_handle.cancel().<span class="kw">await</span>;
+            <span class="comment">// Shutdown all of the servers at the end
+            // Aborting here doesn't cause any problems because we don't maintain any state
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(solver_server) = solver_server {
+                solver_server.<span class="number">1</span>.cancel().<span class="kw">await</span>;
+            }
         }
 
         <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
         </span>{
             <span class="kw">let </span>results = join_all(task_futs).<span class="kw">await</span>;
 
-            <span class="macro">tracing::error!</span>(<span class="string">"test tasks joined"</span>);
             <span class="kw">for </span>result <span class="kw">in </span>results {
                 <span class="kw">match </span>result {
                     <span class="prelude-val">Ok</span>(res) =&gt; <span class="kw">match </span>res {
@@ -1062,7 +1065,11 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = txn_handle {
                 handle.abort();
             }
-            completion_handle.abort();
+            <span class="comment">// Shutdown all of the servers at the end
+            // Aborting here doesn't cause any problems because we don't maintain any state
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(solver_server) = solver_server {
+                solver_server.<span class="number">1</span>.abort();
+            }
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>nodes = handles.write().<span class="kw">await</span>;
@@ -1070,15 +1077,12 @@
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;mut *</span>nodes {
             node.handle.shut_down().<span class="kw">await</span>;
         }
+        <span class="macro">tracing::info!</span>(<span class="string">"Nodes shtudown"</span>);
 
-        <span class="comment">// Shutdown all of the servers at the end
-        // Aborting here doesn't cause any problems because we don't maintain any state
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(solver_server) = solver_server {
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-            </span>solver_server.<span class="number">1</span>.cancel().<span class="kw">await</span>;
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-            </span>solver_server.<span class="number">1</span>.abort();
-        }
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+        </span>completion_handle.cancel().<span class="kw">await</span>;
+        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+        </span>completion_handle.abort();
 
         <span class="macro">assert!</span>(
             error_list.is_empty(),

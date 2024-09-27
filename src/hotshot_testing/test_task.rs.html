@@ -157,6 +157,11 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -167,7 +172,7 @@
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::{async_spawn, async_timeout};
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="kw">use </span>async_trait::async_trait;
@@ -256,13 +261,18 @@
                     messages.push(receiver.recv());
                 }
 
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>((<span class="prelude-val">Ok</span>(input), id, <span class="kw">_</span>)) =
-                    async_timeout(Duration::from_millis(<span class="number">50</span>), select_all(messages)).<span class="kw">await
-                </span>{
-                    <span class="kw">let _ </span>= S::handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, (input, id))
-                        .<span class="kw">await
-                        </span>.inspect_err(|e| <span class="macro">tracing::error!</span>(<span class="string">"{e}"</span>));
-                }
+                <span class="kw">match </span>async_timeout(Duration::from_millis(<span class="number">2500</span>), select_all(messages)).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>((<span class="prelude-val">Ok</span>(input), id, <span class="kw">_</span>)) =&gt; {
+                        <span class="kw">let _ </span>= S::handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, (input, id))
+                            .<span class="kw">await
+                            </span>.inspect_err(|e| <span class="macro">tracing::error!</span>(<span class="string">"{e}"</span>));
+                    }
+                    <span class="prelude-val">Ok</span>((<span class="prelude-val">Err</span>(e), _id, <span class="kw">_</span>)) =&gt; {
+                        <span class="macro">error!</span>(<span class="string">"Error from one channel in test task {:?}"</span>, e);
+                        async_sleep(Duration::from_millis(<span class="number">4000</span>)).<span class="kw">await</span>;
+                    }
+                    <span class="kw">_ </span>=&gt; {}
+                };
             }
         })
     }
