@@ -199,6 +199,9 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -208,7 +211,7 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_broadcast::{Receiver, RecvError, Sender};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="kw">use </span>async_trait::async_trait;
@@ -293,6 +296,9 @@
                             S::handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, input, <span class="kw-2">&amp;</span><span class="self">self</span>.sender, <span class="kw-2">&amp;</span><span class="self">self</span>.receiver)
                                 .<span class="kw">await
                                 </span>.inspect_err(|e| <span class="macro">tracing::info!</span>(<span class="string">"{e}"</span>));
+                    }
+                    <span class="prelude-val">Err</span>(RecvError::Closed) =&gt; {
+                        <span class="kw">break </span><span class="self">self</span>.boxed_state();
                     }
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::error!</span>(<span class="string">"Failed to receive from event stream Error: {}"</span>, e);

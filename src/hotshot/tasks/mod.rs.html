@@ -606,6 +606,9 @@
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -618,7 +621,7 @@
 </span><span class="kw">pub mod </span>task_state;
 <span class="kw">use </span>std::{fmt::Debug, sync::Arc};
 
-<span class="kw">use </span>async_broadcast::broadcast;
+<span class="kw">use </span>async_broadcast::{broadcast, RecvError};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -868,6 +871,9 @@
                     <span class="kw">if </span><span class="macro">matches!</span>(event.as_ref(), HotShotEvent::Shutdown) {
                         <span class="kw">return</span>;
                     }
+                }
+                <span class="prelude-val">Err</span>(RecvError::Closed) =&gt; {
+                    <span class="kw">return</span>;
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">tracing::error!</span>(<span class="string">"Shutdown event monitor channel recv error: {}"</span>, e);
