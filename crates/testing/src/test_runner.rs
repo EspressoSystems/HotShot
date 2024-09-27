@@ -243,7 +243,7 @@ where
             test_receiver.clone(),
         );
 
-        let nodes = handles.read().await;
+        let mut nodes = handles.write().await;
 
         // wait for networks to be ready
         for node in &*nodes {
@@ -251,9 +251,9 @@ where
         }
 
         // Start hotshot
-        for node in &*nodes {
+        for node in &mut *nodes {
             if !late_start_nodes.contains(&node.node_id) {
-                node.handle.hotshot.start_consensus().await;
+                node.handle.start_consensus().await;
             }
         }
 

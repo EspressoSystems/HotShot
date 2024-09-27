@@ -34,7 +34,7 @@ use std::{
 };
 
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::{async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::join;
@@ -344,116 +344,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         inner
     }
 
-    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
-    ///
-    /// # Panics
-    /// Panics if sending genesis fails
-    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
-    pub async fn start_consensus(&self) {
-        #[cfg(feature = "dependency-tasks")]
-        tracing::error!("HotShot is running with the dependency tasks feature enabled!!");
-
-        #[cfg(all(feature = "rewind", not(debug_assertions)))]
-        compile_error!("Cannot run rewind in production builds!");
-
-        debug!("Starting Consensus");
-        let consensus = self.consensus.read().await;
-
-        #[allow(clippy::panic)]
-        self.internal_event_stream
-            .0
-            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
-            .await
-            .unwrap_or_else(|_| {
-                panic!(
-                    "Genesis Broadcast failed; event = ViewChange({:?})",
-                    self.start_view
-                )
-            });
-
-        // Clone the event stream that we send the timeout event to
-        let event_stream = self.internal_event_stream.0.clone();
-        let next_view_timeout = self.config.next_view_timeout;
-        let start_view = self.start_view;
-
-        // Spawn a task that will sleep for the next view timeout and then send a timeout event
-        // if not cancelled
-        async_spawn({
-            async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
-                broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + 1)),
-                    &event_stream,
-                )
-                .await;
-            }
-        });
-        #[cfg(feature = "dependency-tasks")]
-        {
-            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
-                #[allow(clippy::panic)]
-                self.internal_event_stream
-                    .0
-                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                        TYPES::Time::new(*self.start_view),
-                        validated_state.clone(),
-                    )))
-                    .await
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
-                            self.start_view,
-                        )
-                    });
-            }
-        }
-        #[allow(clippy::panic)]
-        self.internal_event_stream
-            .0
-            .broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
-                consensus.high_qc().clone(),
-            ))))
-            .await
-            .unwrap_or_else(|_| {
-                panic!(
-                    "Genesis Broadcast failed; event = QcFormed(either::Left({:?}))",
-                    consensus.high_qc()
-                )
-            });
-
-        {
-            // Some applications seem to expect a leaf decide event for the genesis leaf,
-            // which contains only that leaf and nothing else.
-            if self.anchored_leaf.view_number() == TYPES::Time::genesis() {
-                let (validated_state, state_delta) =
-                    TYPES::ValidatedState::genesis(&self.instance_state);
-
-                let qc = Arc::new(
-                    QuorumCertificate::genesis::<V>(&validated_state, self.instance_state.as_ref())
-                        .await,
-                );
-
-                broadcast_event(
-                    Event {
-                        view_number: self.anchored_leaf.view_number(),
-                        event: EventType::Decide {
-                            leaf_chain: Arc::new(vec![LeafInfo::new(
-                                self.anchored_leaf.clone(),
-                                Arc::new(validated_state),
-                                Some(Arc::new(state_delta)),
-                                None,
-                            )]),
-                            qc,
-                            block_size: None,
-                        },
-                    },
-                    &self.external_event_stream.0,
-                )
-                .await;
-            }
-        }
-    }
-
     /// Emit an external event
     async fn send_external_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_external_event");
@@ -614,7 +504,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             marketplace_config,
         )
         .await;
-        let handle = Arc::clone(&hotshot).run_tasks().await;
+        let handle = Arc::clone(&hotshot).setup_handle();
         let (tx, rx) = hotshot.internal_event_stream.clone();
 
         Ok((handle, tx, rx.activate()))
@@ -630,14 +520,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// Spawn all tasks that operate on [`SystemContextHandle`].
     ///
     /// For a list of which tasks are being spawned, see this module's documentation.
-    pub async fn run_tasks(&self) -> SystemContextHandle<TYPES, I, V> {
+    pub fn setup_handle(&self) -> SystemContextHandle<TYPES, I, V> {
         let consensus_registry = ConsensusTaskRegistry::new();
         let network_registry = NetworkTaskRegistry::new();
 
         let output_event_stream = self.external_event_stream.clone();
         let internal_event_stream = self.internal_event_stream.clone();
 
-        let mut handle = SystemContextHandle {
+        SystemContextHandle {
             consensus_registry,
             network_registry,
             output_event_stream: output_event_stream.clone(),
@@ -646,12 +536,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             storage: Arc::clone(&self.storage),
             network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
-        };
-
-        add_network_tasks::<TYPES, I, V>(&mut handle).await;
-        add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
-
-        handle
+        }
     }
 }
 

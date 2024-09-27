@@ -434,7 +434,7 @@ pub trait RunDa<
     #[allow(clippy::too_many_lines)]
     async fn run_hotshot(
         &self,
-        context: SystemContextHandle<TYPES, NODE, V>,
+        mut context: SystemContextHandle<TYPES, NODE, V>,
         transactions: &mut Vec<TestTransaction>,
         transactions_to_send_per_round: u64,
         transaction_size_in_bytes: u64,
@@ -463,7 +463,7 @@ pub trait RunDa<
         let mut anchor_view: TYPES::Time = <TYPES::Time as ConsensusTime>::genesis();
         let mut num_successful_commits = 0;
 
-        context.hotshot.start_consensus().await;
+        context.start_consensus().await;
 
         loop {
             match event_stream.next().await {

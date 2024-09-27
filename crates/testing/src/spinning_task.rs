@@ -184,17 +184,17 @@ where
                                     }
                                 };
 
-                                let handle = context.run_tasks().await;
+                                let handle = context.setup_handle();
 
                                 // Create the node and add it to the state, so we can shut them
                                 // down properly later to avoid the overflow error in the overall
                                 // safety task.
-                                let node = Node {
+                                let mut node = Node {
                                     node_id,
                                     network: node.network,
                                     handle,
                                 };
-                                node.handle.hotshot.start_consensus().await;
+                                node.handle.start_consensus().await;
 
                                 self.handles.write().await.push(node);
                             }
@@ -322,17 +322,17 @@ where
                 let handles = self.handles.clone();
                 let fut = async move {
                     tracing::info!("Starting node {} back up", id);
-                    let handle = node.run_tasks().await;
+                    let handle = node.setup_handle();
 
                     // Create the node and add it to the state, so we can shut them
                     // down properly later to avoid the overflow error in the overall
                     // safety task.
-                    let node = Node {
+                    let mut node = Node {
                         node_id: id.try_into().unwrap(),
                         network: node.network.clone(),
                         handle,
                     };
-                    node.handle.hotshot.start_consensus().await;
+                    node.handle.start_consensus().await;
 
                     handles.write().await[id] = node;
                 };

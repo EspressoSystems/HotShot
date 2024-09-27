@@ -20,7 +20,16 @@ use hotshot_types::{
     traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
 };
 use tracing::instrument;
-
+use crate::{QuorumCertificate, Duration};
+use crate::LeafInfo;
+use crate::{add_network_tasks, add_consensus_tasks};
+use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::async_sleep;
+use tracing::debug;
+use crate::EventType;
+use crate::broadcast_event;
+use hotshot_types::traits::node_implementation::ConsensusTime;
+use hotshot_types::traits::ValidatedState;
 use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext, Versions};
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
@@ -71,6 +80,121 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
         self.consensus_registry.run_task(task);
     }
+
+    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
+    ///
+    /// # Panics
+    /// Panics if sending genesis fails
+    #[instrument(skip_all, target = "SystemContext", fields(id = self.hotshot.id))]
+    pub async fn start_consensus(&mut self) {
+        #[cfg(feature = "dependency-tasks")]
+        tracing::error!("HotShot is running with the dependency tasks feature enabled!!");
+
+        #[cfg(all(feature = "rewind", not(debug_assertions)))]
+        compile_error!("Cannot run rewind in production builds!");
+
+        debug!("Starting Consensus");
+
+        add_network_tasks::<TYPES, I, V>(self).await;
+        add_consensus_tasks::<TYPES, I, V>(self).await;
+
+        let consensus = self.hotshot.consensus.read().await;
+
+        #[allow(clippy::panic)]
+        self.hotshot.internal_event_stream
+            .0
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.hotshot.start_view)))
+            .await
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Genesis Broadcast failed; event = ViewChange({:?})",
+                    self.hotshot.start_view
+                )
+            });
+
+        // Clone the event stream that we send the timeout event to
+        let event_stream = self.hotshot.internal_event_stream.0.clone();
+        let next_view_timeout = self.hotshot.config.next_view_timeout;
+        let start_view = self.hotshot.start_view;
+
+        // Spawn a task that will sleep for the next view timeout and then send a timeout event
+        // if not cancelled
+        async_spawn({
+            async move {
+                async_sleep(Duration::from_millis(next_view_timeout)).await;
+                broadcast_event(
+                    Arc::new(HotShotEvent::Timeout(start_view + 1)),
+                    &event_stream,
+                )
+                .await;
+            }
+        });
+        #[cfg(feature = "dependency-tasks")]
+        {
+            if let Some(validated_state) = consensus.validated_state_map().get(&self.hotshot.start_view) {
+                #[allow(clippy::panic)]
+                self.hotshot.internal_event_stream
+                    .0
+                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
+                        TYPES::Time::new(*self.hotshot.start_view),
+                        validated_state.clone(),
+                    )))
+                    .await
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
+                            self.hotshot.start_view,
+                        )
+                    });
+            }
+        }
+        #[allow(clippy::panic)]
+        self.hotshot.internal_event_stream
+            .0
+            .broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
+                consensus.high_qc().clone(),
+            ))))
+            .await
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Genesis Broadcast failed; event = QcFormed(either::Left({:?}))",
+                    consensus.high_qc()
+                )
+            });
+
+        {
+            // Some applications seem to expect a leaf decide event for the genesis leaf,
+            // which contains only that leaf and nothing else.
+            if self.hotshot.anchored_leaf.view_number() == TYPES::Time::genesis() {
+                let (validated_state, state_delta) =
+                    TYPES::ValidatedState::genesis(&self.hotshot.instance_state);
+
+                let qc = Arc::new(
+                    QuorumCertificate::genesis::<V>(&validated_state, self.hotshot.instance_state.as_ref())
+                        .await,
+                );
+
+                broadcast_event(
+                    Event {
+                        view_number: self.hotshot.anchored_leaf.view_number(),
+                        event: EventType::Decide {
+                            leaf_chain: Arc::new(vec![LeafInfo::new(
+                                self.hotshot.anchored_leaf.clone(),
+                                Arc::new(validated_state),
+                                Some(Arc::new(state_delta)),
+                                None,
+                            )]),
+                            qc,
+                            block_size: None,
+                        },
+                    },
+                    &self.hotshot.external_event_stream.0,
+                )
+                .await;
+            }
+        }
+    }
+
 
     /// obtains a stream to expose to the user
     pub fn event_stream(&self) -> impl Stream<Item = Event<TYPES>> {

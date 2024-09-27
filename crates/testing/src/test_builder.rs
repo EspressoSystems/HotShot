@@ -252,7 +252,7 @@ pub async fn create_test_handle<
             )
             .await;
 
-            hotshot.run_tasks().await
+            hotshot.setup_handle()
         }
     }
 }
