@@ -260,7 +260,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 recipient.clone(),
             )
             .into(),
-            &sender,
+            sender,
         )
         .await;
 
@@ -279,7 +279,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                         sender_pub_key.clone(),
                         proposal.clone(),
                     )),
-                    &sender,
+                    sender,
                 )
                 .await;
                 return true;
