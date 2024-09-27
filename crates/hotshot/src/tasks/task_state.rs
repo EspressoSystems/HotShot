@@ -9,6 +9,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
+use async_compatibility_layer::art::async_spawn;
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
@@ -225,7 +226,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
-        let timeout_task = handle.spawn_initial_timeout_task();
 
         Self {
             consensus: OuterConsensus::new(consensus),
@@ -237,7 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             payload_commitment_and_metadata: None,
             vote_collectors: BTreeMap::default(),
             timeout_vote_collectors: BTreeMap::default(),
-            timeout_task,
+            timeout_task: async_spawn(async {}),
             spawned_tasks: BTreeMap::new(),
             formed_upgrade_certificate: None,
             proposal_cert: None,
@@ -287,7 +287,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
-        let timeout_task = handle.spawn_initial_timeout_task();
 
         Self {
             latest_proposed_view: handle.cur_view().await,
@@ -302,7 +301,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             storage: Arc::clone(&handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
-            timeout_task,
             round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
@@ -317,7 +315,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
-        let timeout_task = handle.spawn_initial_timeout_task();
 
         Self {
             public_key: handle.public_key().clone(),
@@ -328,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             network: Arc::clone(&handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            timeout_task,
+            timeout_task: async_spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
             round_start_delay: handle.hotshot.config.round_start_delay,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
@@ -348,7 +345,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 {
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
-        let timeout_task = handle.spawn_initial_timeout_task();
 
         Self {
             public_key: handle.public_key().clone(),
@@ -364,7 +360,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
-            timeout_task,
+            timeout_task: async_spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
             consensus: OuterConsensus::new(consensus),
             last_decided_view: handle.cur_view().await,

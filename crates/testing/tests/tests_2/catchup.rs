@@ -317,6 +317,7 @@ async fn test_all_restart() {
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
         next_view_timeout: 2000,
+        round_start_delay: 500,
         ..Default::default()
     };
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
@@ -379,6 +380,7 @@ async fn test_all_restart_cdn() {
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
         next_view_timeout: 2000,
+        round_start_delay: 500,
         ..Default::default()
     };
     let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> =
@@ -445,6 +447,7 @@ async fn test_all_restart_one_da() {
     async_compatibility_layer::logging::setup_backtrace();
     let timing_data = TimingData {
         next_view_timeout: 2000,
+        round_start_delay: 500,
         ..Default::default()
     };
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
