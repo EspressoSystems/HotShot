@@ -34,11 +34,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
-use crate::{
-    constants::SRS_DEGREE,
-    data::{VidDisperse as HotShotVidDisperse, VidDisperseShare},
-    message::Proposal,
-};
+use crate::constants::SRS_DEGREE;
 
 /// VID scheme constructor.
 ///
