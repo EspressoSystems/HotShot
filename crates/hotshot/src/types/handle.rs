@@ -9,6 +9,7 @@
 use std::sync::Arc;
 
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use futures::Stream;
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
@@ -17,20 +18,20 @@ use hotshot_types::{
     consensus::Consensus,
     data::Leaf,
     error::HotShotError,
-    traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
+    traits::{
+        election::Membership,
+        network::ConnectedNetwork,
+        node_implementation::{ConsensusTime, NodeType},
+        ValidatedState,
+    },
 };
-use tracing::instrument;
-use crate::{QuorumCertificate, Duration};
-use crate::LeafInfo;
-use crate::{add_network_tasks, add_consensus_tasks};
-use async_compatibility_layer::art::async_spawn;
-use async_compatibility_layer::art::async_sleep;
-use tracing::debug;
-use crate::EventType;
-use crate::broadcast_event;
-use hotshot_types::traits::node_implementation::ConsensusTime;
-use hotshot_types::traits::ValidatedState;
-use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext, Versions};
+use tracing::{debug, instrument};
+
+use crate::{
+    add_consensus_tasks, add_network_tasks, broadcast_event, traits::NodeImplementation,
+    types::Event, Duration, EventType, LeafInfo, Memberships, QuorumCertificate, SystemContext,
+    Versions,
+};
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -101,7 +102,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let consensus = self.hotshot.consensus.read().await;
 
         #[allow(clippy::panic)]
-        self.hotshot.internal_event_stream
+        self.hotshot
+            .internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.hotshot.start_view)))
             .await
@@ -131,9 +133,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         });
         #[cfg(feature = "dependency-tasks")]
         {
-            if let Some(validated_state) = consensus.validated_state_map().get(&self.hotshot.start_view) {
+            if let Some(validated_state) = consensus
+                .validated_state_map()
+                .get(&self.hotshot.start_view)
+            {
                 #[allow(clippy::panic)]
-                self.hotshot.internal_event_stream
+                self.hotshot
+                    .internal_event_stream
                     .0
                     .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
                         TYPES::Time::new(*self.hotshot.start_view),
@@ -149,7 +155,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             }
         }
         #[allow(clippy::panic)]
-        self.hotshot.internal_event_stream
+        self.hotshot
+            .internal_event_stream
             .0
             .broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
                 consensus.high_qc().clone(),
@@ -170,8 +177,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                     TYPES::ValidatedState::genesis(&self.hotshot.instance_state);
 
                 let qc = Arc::new(
-                    QuorumCertificate::genesis::<V>(&validated_state, self.hotshot.instance_state.as_ref())
-                        .await,
+                    QuorumCertificate::genesis::<V>(
+                        &validated_state,
+                        self.hotshot.instance_state.as_ref(),
+                    )
+                    .await,
                 );
 
                 broadcast_event(
@@ -194,7 +204,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             }
         }
     }
-
 
     /// obtains a stream to expose to the user
     pub fn event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
