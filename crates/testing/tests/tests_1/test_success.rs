@@ -25,7 +25,7 @@ use hotshot_testing::{
 cross_tests!(
     TestName: test_success,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
-    Types: [TestTypes],
+    Types: [TestTypes, TestTypesRandomizedCommittee],
     Versions: [TestVersions],
     Ignore: false,
     Metadata: {

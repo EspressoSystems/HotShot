@@ -121,6 +121,7 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
 
     /// Index the vector of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
+        #[allow(clippy::cast_possible_truncation)]
         let index = *view_number as usize % self.eligible_leaders.len();
         let res = self.eligible_leaders[index].clone();
         TYPES::SignatureKey::public_key(&res)
