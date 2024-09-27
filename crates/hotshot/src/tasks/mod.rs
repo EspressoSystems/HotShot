@@ -561,10 +561,8 @@ pub async fn add_network_message_and_request_receiver_tasks<
     add_network_message_task(handle, &network);
     add_network_message_task(handle, &network);
 
-    if let Some(_request_receiver) = network.spawn_request_receiver_task().await {
-        add_request_network_task(handle).await;
-        add_response_task(handle);
-    }
+    add_request_network_task(handle).await;
+    add_response_task(handle);
 }
 
 /// Adds the `NetworkEventTaskState` tasks.
