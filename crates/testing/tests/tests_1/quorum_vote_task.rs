@@ -52,11 +52,9 @@ async fn test_quorum_vote_task_success() {
     let mut leaves = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    let mut leaders = Vec::new();
     let consensus = handle.hotshot.consensus().clone();
     let mut consensus_writer = consensus.write().await;
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
-        leaders.push(view.leader_public_key);
         proposals.push(view.quorum_proposal.clone());
         leaves.push(view.leaf.clone());
         dacs.push(view.da_certificate.clone());
@@ -78,7 +76,7 @@ async fn test_quorum_vote_task_success() {
     let inputs = vec![random![
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         DaCertificateRecv(dacs[1].clone()),
-        VidShareRecv(leaders[1], vids[1].0[0].clone()),
+        VidShareRecv(vids[1].0[0].clone()),
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
@@ -152,7 +150,7 @@ async fn test_quorum_vote_task_miss_dependency() {
     let inputs = vec![
         random![
             QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
-            VidShareRecv(leaders[1], vid_share(&vids[1].0, handle.public_key())),
+            VidShareRecv(vid_share(&vids[1].0, handle.public_key())),
         ],
         random![
             QuorumProposalValidated(proposals[2].data.clone(), leaves[1].clone()),
@@ -160,7 +158,7 @@ async fn test_quorum_vote_task_miss_dependency() {
         ],
         random![
             DaCertificateRecv(dacs[3].clone()),
-            VidShareRecv(leaders[3], vid_share(&vids[3].0, handle.public_key())),
+            VidShareRecv(vid_share(&vids[3].0, handle.public_key())),
         ],
     ];
 
@@ -213,9 +211,7 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     let mut leaves = Vec::new();
     let mut dacs = Vec::new();
     let mut vids = Vec::new();
-    let mut leaders = Vec::new();
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
-        leaders.push(view.leader_public_key);
         proposals.push(view.quorum_proposal.clone());
         leaves.push(view.leaf.clone());
         dacs.push(view.da_certificate.clone());
@@ -226,7 +222,7 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     let inputs = vec![random![
         QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
         DaCertificateRecv(dacs[1].clone()),
-        VidShareRecv(leaders[0], vids[0].0[0].clone()),
+        VidShareRecv(vids[0].0[0].clone()),
     ]];
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
