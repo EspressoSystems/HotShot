@@ -205,11 +205,6 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="self">self</span>::handlers::{
-    handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
-};
-<span class="kw">use </span><span class="kw">crate</span>::helpers::broadcast_event;
-<span class="kw">use crate</span>::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
@@ -232,6 +227,11 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
+
+<span class="kw">use </span><span class="self">self</span>::handlers::{
+    handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
+};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event, vote_collection::VoteCollectorsMap};
 
 <span class="doccomment">/// Event handlers for use in the `handle` method.
 </span><span class="kw">mod </span>handlers;
