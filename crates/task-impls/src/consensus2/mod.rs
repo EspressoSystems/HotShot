@@ -113,31 +113,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Consensus2TaskS
                     tracing::debug!("Failed to handle QuorumVoteRecv event; error = {e}");
                 }
             }
-            HotShotEvent::QuorumProposalRequestRecv(req, signature) => {
-                // Make sure that this request came from who we think it did
-                if !req.key.validate(signature, req.commit().as_ref()) {
-                    tracing::warn!("Invalid signature key on proposal request.");
-                    return;
-                }
-
-                if let Some(quorum_proposal) = self
-                    .consensus
-                    .read()
-                    .await
-                    .last_proposals()
-                    .get(&req.view_number)
-                {
-                    broadcast_event(
-                        HotShotEvent::QuorumProposalResponseSend(
-                            req.key.clone(),
-                            quorum_proposal.clone(),
-                        )
-                        .into(),
-                        &sender,
-                    )
-                    .await;
-                }
-            }
             HotShotEvent::TimeoutVoteRecv(ref vote) => {
                 if let Err(e) =
                     handle_timeout_vote_recv(vote, Arc::clone(&event), &sender, self).await

@@ -310,31 +310,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     warn!("Failed to handle QuorumProposalValidated event {e:#}");
                 }
             }
-            HotShotEvent::QuorumProposalRequestRecv(req, signature) => {
-                // Make sure that this request came from who we think it did
-                if !req.key.validate(signature, req.commit().as_ref()) {
-                    warn!("Invalid signature key on proposal request.");
-                    return;
-                }
-
-                if let Some(quorum_proposal) = self
-                    .consensus
-                    .read()
-                    .await
-                    .last_proposals()
-                    .get(&req.view_number)
-                {
-                    broadcast_event(
-                        HotShotEvent::QuorumProposalResponseSend(
-                            req.key.clone(),
-                            quorum_proposal.clone(),
-                        )
-                        .into(),
-                        &event_sender,
-                    )
-                    .await;
-                }
-            }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
                 debug!("Received quorum vote: {:?}", vote.view_number());
                 if self.quorum_membership.leader(vote.view_number() + 1) != self.public_key {
