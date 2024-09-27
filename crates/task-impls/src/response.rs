@@ -10,6 +10,7 @@ use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
+use committable::Committable;
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
@@ -93,6 +94,28 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                                     &event_sender,
                                 )
                                 .await;
+                            }
+                        }
+                        HotShotEvent::QuorumProposalRequestRecv(req, signature) => {
+                            if let Some(quorum_proposal) = self
+                                .consensus
+                                .read()
+                                .await
+                                .last_proposals()
+                                .get(&req.view_number)
+                            {
+                                // Make sure that this request came from who we think it did
+                                if req.key.validate(signature, req.commit().as_ref()) {
+                                    broadcast_event(
+                                        HotShotEvent::QuorumProposalResponseSend(
+                                            req.key.clone(),
+                                            quorum_proposal.clone(),
+                                        )
+                                        .into(),
+                                        &event_sender,
+                                    )
+                                    .await;
+                                }
                             }
                         }
                         HotShotEvent::Shutdown => {

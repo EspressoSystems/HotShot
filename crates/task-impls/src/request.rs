@@ -5,7 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -19,7 +19,6 @@ use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use committable::Committable;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
     task::TaskState,
@@ -119,33 +118,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                 }
                 Ok(())
             }
-            HotShotEvent::QuorumProposalRequestRecv(req, signature) => {
-                // Make sure that this request came from who we think it did
-                ensure!(
-                    req.key.validate(signature, req.commit().as_ref()),
-                    "Invalid signature key on proposal request."
-                );
-
-                if let Some(quorum_proposal) = self
-                    .state
-                    .read()
-                    .await
-                    .last_proposals()
-                    .get(&req.view_number)
-                {
-                    broadcast_event(
-                        HotShotEvent::QuorumProposalResponseSend(
-                            req.key.clone(),
-                            quorum_proposal.clone(),
-                        )
-                        .into(),
-                        sender,
-                    )
-                    .await;
-                }
-
-                Ok(())
-            }
             _ => Ok(()),
         }
     }
@@ -190,7 +162,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         }
     }
 
-    /// Creates a task that will wait for the vid the response
+    /// Creates a task that will request a VID share from a DA member and wait for the `HotShotEvent::VidResponseRecv`event
+    /// If we get the VID disperse share, broadcast `HotShotEvent::VidShareRecv` and terminate task
     fn create_vid_request_task(
         &mut self,
         request: RequestKind<TYPES>,
@@ -200,17 +173,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         view: TYPES::Time,
     ) {
         let state = OuterConsensus::new(Arc::clone(&self.state.inner_consensus));
-        let da_membership = self.da_membership.clone();
         let network = Arc::clone(&self.network);
-        let delay = self.delay;
-        let pub_key = self.public_key.clone();
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
-        let data_request = DataRequest::<TYPES> {
-            request,
-            view,
-            signature,
-        };
-        let mut recipients: Vec<_> = self
+        let delay = self.delay;
+        let da_committee_for_view = self.da_membership.committee_members(view);
+        let public_key = self.public_key.clone();
+
+        // Get committee members for view
+        let mut recipients: Vec<TYPES::SignatureKey> = self
             .da_membership
             .committee_members(view)
             .into_iter()
@@ -218,6 +188,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         // Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         recipients.shuffle(&mut thread_rng());
+
+        // prepare request
+        let data_request = DataRequest::<TYPES> {
+            request,
+            view,
+            signature,
+        };
         let handle = async_spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
@@ -225,19 +202,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             }
 
             let mut recipients_it = recipients.iter().cycle();
-            while !Self::cancel_vid(&state, &sender, &pub_key, &view, &shutdown_flag).await {
-                broadcast_event(
-                    HotShotEvent::VidRequestSend(
-                        data_request.clone(),
-                        pub_key.clone(),
-                        recipients_it.next().unwrap().clone(),
+            // First check if we got the data before continuing
+            while !Self::cancel_vid_request_task(
+                &state,
+                &sender,
+                &public_key,
+                &view,
+                &shutdown_flag,
+            )
+            .await
+            {
+                // Cycle da members we send the request to each time
+                if let Some(recipient) = recipients_it.next() {
+                    // If we got the data after we make the request then we are done
+                    if Self::handle_vid_request_task(
+                        &sender,
+                        &receiver,
+                        &data_request,
+                        recipient,
+                        &da_committee_for_view,
+                        &public_key,
+                        view,
                     )
-                    .into(),
-                    &sender,
-                )
-                .await;
-
-                if Self::handle_response(&receiver, &sender, &da_membership, view).await {
+                    .await
+                    {
+                        return;
+                    }
+                } else {
+                    tracing::warn!(
+                        "Sent VID request to all available DA members and got no reponse for view: {:?}",
+                        view
+                    );
                     return;
                 }
             }
@@ -245,67 +240,83 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         self.spawned_tasks.entry(view).or_default().push(handle);
     }
 
-    /// Wait for the response after we send out the request
-    /// Returns true if we get a response, otherwise false
-    async fn handle_response(
-        receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
+    /// Handles main logic for the Request / Response of a vid share
+    /// Make the request to get VID share to a DA member and wait for the response.
+    /// Returns true if response received, otherwise false
+    async fn handle_vid_request_task(
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-        da_membership: &TYPES::Membership,
+        receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
+        data_request: &DataRequest<TYPES>,
+        recipient: &TYPES::SignatureKey,
+        da_committee_for_view: &BTreeSet<<TYPES as NodeType>::SignatureKey>,
+        public_key: &<TYPES as NodeType>::SignatureKey,
         view: TYPES::Time,
     ) -> bool {
-        let result = async_timeout(REQUEST_TIMEOUT, async {
-            let mut response = None;
-            while response.is_none() {
-                let event = EventDependency::new(
-                    receiver.clone(),
-                    Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
-                        let event = event.as_ref();
-                        if let HotShotEvent::VidResponseRecv(_sender_key, proposal) = event {
-                            proposal.data.view_number() == view
-                        } else {
-                            false
-                        }
-                    }),
-                )
-                .completed()
-                .await;
-
-                if let Some(hs_event) = event.as_ref() {
-                    if let HotShotEvent::VidResponseRecv(sender_pub_key, proposal) =
-                        hs_event.as_ref()
-                    {
-                        if da_membership
-                            .committee_members(view)
-                            .contains(sender_pub_key)
-                            && sender_pub_key.validate(
-                                &proposal.signature,
-                                proposal.data.payload_commitment.as_ref(),
-                            )
-                        {
-                            response = Some((sender_pub_key.clone(), proposal.clone()));
-                        }
-                    }
-                }
-            }
-
-            response
-        })
+        // First send request to a random DA member for the view
+        broadcast_event(
+            HotShotEvent::VidRequestSend(
+                data_request.clone(),
+                public_key.clone(),
+                recipient.clone(),
+            )
+            .into(),
+            &sender,
+        )
         .await;
 
-        // check if success otherwise retry until max attempts is reached
-        if let Ok(Some(response)) = result {
-            broadcast_event(
-                Arc::new(HotShotEvent::VidShareRecv(response.0, response.1)),
-                sender,
-            )
-            .await;
-            return true;
+        // Wait for a response
+        let result = async_timeout(
+            REQUEST_TIMEOUT,
+            Self::handle_event_dependency(receiver, da_committee_for_view.clone(), view),
+        )
+        .await;
+
+        // Check if we got a result, if not we timed out
+        if let Ok(Some(event)) = result {
+            if let HotShotEvent::VidResponseRecv(sender_pub_key, proposal) = event.as_ref() {
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(
+                        sender_pub_key.clone(),
+                        proposal.clone(),
+                    )),
+                    &sender,
+                )
+                .await;
+                return true;
+            }
         }
         false
     }
 
+    /// Create event dependency and wait for `VidResponseRecv` after we send out the request
+    /// Returns an optional with `VidResponseRecv` if received, otherwise None
+    async fn handle_event_dependency(
+        receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
+        da_members_for_view: BTreeSet<<TYPES as NodeType>::SignatureKey>,
+        view: TYPES::Time,
+    ) -> Option<Arc<HotShotEvent<TYPES>>> {
+        EventDependency::new(
+            receiver.clone(),
+            Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
+                let event = event.as_ref();
+                if let HotShotEvent::VidResponseRecv(sender_key, proposal) = event {
+                    proposal.data.view_number() == view
+                        && da_members_for_view.contains(sender_key)
+                        && sender_key.validate(
+                            &proposal.signature,
+                            proposal.data.payload_commitment.as_ref(),
+                        )
+                } else {
+                    false
+                }
+            }),
+        )
+        .completed()
+        .await
+    }
+
     /// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
-    async fn cancel_vid(
+    async fn cancel_vid_request_task(
         state: &OuterConsensus<TYPES>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         public_key: &<TYPES as NodeType>::SignatureKey,
