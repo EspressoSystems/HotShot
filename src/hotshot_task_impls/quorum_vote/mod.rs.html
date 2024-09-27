@@ -683,9 +683,6 @@
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1269,7 +1266,7 @@
                 .<span class="kw">await</span>;
                 <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
-            HotShotEvent::VidShareRecv(disperse) =&gt; {
+            HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
                 <span class="macro">trace!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
@@ -1278,29 +1275,26 @@
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
+                <span class="comment">// Check sender of VID disperse share is signed by DA committee member
+                </span><span class="kw">let </span>validate_sender = sender
+                    .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
+                    &amp;&amp; <span class="self">self</span>.da_membership.committee_members(view).contains(sender);
+
                 <span class="comment">// Check whether the data satisfies one of the following.
                 // * From the right leader for this view.
                 // * Calculated and signed by the current node.
-                // * Signed by one of the staked DA committee members.
-                </span><span class="kw">if </span>!<span class="self">self
-                    </span>.quorum_membership
-                    .leader(view)
+                </span><span class="kw">let </span>validated = <span class="self">self
+                    </span>.public_key
                     .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-                    &amp;&amp; !<span class="self">self
-                        </span>.public_key
-                        .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-                {
-                    <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
-                    <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.committee_members(view) {
-                        <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
-                            validated = <span class="bool-val">true</span>;
-                            <span class="kw">break</span>;
-                        }
-                    }
-                    <span class="kw">if </span>!validated {
-                        <span class="kw">return</span>;
-                    }
+                    || <span class="self">self
+                        </span>.quorum_membership
+                        .leader(view)
+                        .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref());
+                <span class="kw">if </span>!validate_sender &amp;&amp; !validated {
+                    <span class="macro">warn!</span>(<span class="string">"Failed to validated the VID dispersal/share sig."</span>);
+                    <span class="kw">return</span>;
                 }
+
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
                 </span><span class="attr">#[allow(clippy::no_effect)]

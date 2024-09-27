@@ -368,7 +368,6 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -376,7 +375,7 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="kw">use </span>std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -390,23 +389,25 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>hotshot_task::task::TaskState;
+<span class="kw">use </span>hotshot_task::{
+    dependency::{Dependency, EventDependency},
+    task::TaskState,
+};
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    message::{DaConsensusMessage, DataMessage, Message, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, DataRequest, RequestKind, ResponseMessage},
+        network::{ConnectedNetwork, DataRequest, RequestKind},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
 };
-<span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
+<span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
 
 <span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -430,8 +431,6 @@
     </span><span class="kw">pub </span>delay: Duration,
     <span class="doccomment">/// DA Membership
     </span><span class="kw">pub </span>da_membership: TYPES::Membership,
-    <span class="doccomment">/// Quorum Membership
-    </span><span class="kw">pub </span>quorum_membership: TYPES::Membership,
     <span class="doccomment">/// This nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This nodes private/signing key, used to sign requests.
@@ -463,13 +462,22 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;<span class="self">Self</span>::Event&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
-        _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
+        receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.view_number();
-                <span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view {
-                    <span class="self">self</span>.spawn_requests(prop_view, sender.clone()).<span class="kw">await</span>;
+
+                <span class="comment">// If we already have the VID shares for the next view, do nothing.
+                </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view
+                    &amp;&amp; !<span class="self">self
+                        </span>.state
+                        .read()
+                        .<span class="kw">await
+                        </span>.vid_shares()
+                        .contains_key(<span class="kw-2">&amp;</span>prop_view)
+                {
+                    <span class="self">self</span>.spawn_requests(prop_view, sender, receiver);
                 }
                 <span class="prelude-val">Ok</span>(())
             }
@@ -485,7 +493,7 @@
     }
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.set_shutdown_flag();
+        <span class="self">self</span>.shutdown_flag.store(<span class="bool-val">true</span>, Ordering::Relaxed);
 
         <span class="kw">while </span>!<span class="self">self</span>.spawned_tasks.is_empty() {
             <span class="kw">let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handles)) = <span class="self">self</span>.spawned_tasks.pop_first() <span class="kw">else </span>{
@@ -503,58 +511,46 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; NetworkRequestState&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Spawns tasks for a given view to retrieve any data needed.
-    </span><span class="kw">async fn </span>spawn_requests(
+    <span class="doccomment">/// Creates and signs the payload, then will create a request task
+    </span><span class="kw">fn </span>spawn_requests(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::Time,
-        sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="kw">let </span>requests = <span class="self">self</span>.build_requests(view).<span class="kw">await</span>;
-        <span class="kw">if </span>requests.is_empty() {
-            <span class="kw">return</span>;
+        <span class="kw">let </span>request = RequestKind::Vid(view, <span class="self">self</span>.public_key.clone());
+
+        <span class="comment">// First sign the request for the VID shares.
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(signature) = <span class="self">self</span>.serialize_and_sign(<span class="kw-2">&amp;</span>request) {
+            <span class="self">self</span>.create_vid_request_task(
+                request,
+                signature,
+                sender.clone(),
+                receiver.clone(),
+                view,
+            );
         }
-        requests
-            .into_iter()
-            .for_each(|r| <span class="self">self</span>.run_delay(r, sender.clone(), view));
     }
 
-    <span class="doccomment">/// Creates the request structures for all types that are needed.
-    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"NetworkRequestState"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>view))]
-    </span><span class="kw">async fn </span>build_requests(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; Vec&lt;RequestKind&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>reqs = Vec::new();
-        <span class="kw">if </span>!<span class="self">self</span>.state.read().<span class="kw">await</span>.vid_shares().contains_key(<span class="kw-2">&amp;</span>view) {
-            reqs.push(RequestKind::Vid(view, <span class="self">self</span>.public_key.clone()));
-        }
-        <span class="comment">// TODO request other things
-        </span>reqs
-    }
-
-    <span class="doccomment">/// Sign the serialized version of the request
-    </span><span class="kw">fn </span>serialize_and_sign(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        request: <span class="kw-2">&amp;</span>RequestKind&lt;TYPES&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType&gt; {
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = bincode::serialize(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
-            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize request!"</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>Sha256::digest(data))
-        <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"Failed to sign Data Request"</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="prelude-val">Some</span>(signature)
-    }
-    <span class="doccomment">/// run a delayed request task for a request. The first response
-    /// received will be sent over `sender`
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.view), name = <span class="string">"NetworkRequestState run_delay"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">fn </span>run_delay(
+    <span class="doccomment">/// Creates a task that will request a VID share from a DA member and wait for the `HotShotEvent::VidResponseRecv`event
+    /// If we get the VID disperse share, broadcast `HotShotEvent::VidShareRecv` and terminate task
+    </span><span class="kw">fn </span>create_vid_request_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         request: RequestKind&lt;TYPES&gt;,
+        signature: Signature&lt;TYPES&gt;,
         sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         view: TYPES::Time,
     ) {
-        <span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
+        <span class="kw">let </span>state = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state.inner_consensus));
+        <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
+        <span class="kw">let </span>shutdown_flag = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag);
+        <span class="kw">let </span>delay = <span class="self">self</span>.delay;
+        <span class="kw">let </span>da_committee_for_view = <span class="self">self</span>.da_membership.committee_members(view);
+        <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
+
+        <span class="comment">// Get committee members for view
+        </span><span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;TYPES::SignatureKey&gt; = <span class="self">self
             </span>.da_membership
             .committee_members(view)
             .into_iter()
@@ -562,141 +558,158 @@
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         </span>recipients.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
-        <span class="kw">let </span>requester = DelayedRequester::&lt;TYPES, I&gt; {
-            network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
-            state: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state.inner_consensus)),
-            public_key: <span class="self">self</span>.public_key.clone(),
-            sender,
-            delay: <span class="self">self</span>.delay,
-            recipients,
-            shutdown_flag: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag),
-            id: <span class="self">self</span>.id,
+
+        <span class="comment">// prepare request
+        </span><span class="kw">let </span>data_request = DataRequest::&lt;TYPES&gt; {
+            request,
+            view,
+            signature,
         };
-        <span class="kw">let </span><span class="prelude-val">Some</span>(signature) = <span class="self">self</span>.serialize_and_sign(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
-            <span class="kw">return</span>;
-        };
-        <span class="macro">debug!</span>(<span class="string">"Requesting data: {:?}"</span>, request);
-        <span class="kw">let </span>handle = async_spawn(requester.run(request, signature));
-
-        <span class="self">self</span>.spawned_tasks.entry(view).or_default().push(handle);
-    }
-
-    <span class="doccomment">/// Signals delayed requesters to finish
-    </span><span class="kw">pub fn </span>set_shutdown_flag(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.shutdown_flag.store(<span class="bool-val">true</span>, Ordering::Relaxed);
-    }
-}
-
-<span class="doccomment">/// A short lived task that waits a delay and starts trying peers until it completes
-/// a request.  If at any point the requested info is seen in the data stores or
-/// the view has moved beyond the view we are requesting, the task will completed.
-</span><span class="kw">struct </span>DelayedRequester&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="doccomment">/// The underlying network to send requests on
-    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
-    <span class="doccomment">/// Shared state to check if the data go populated
-    </span>state: OuterConsensus&lt;TYPES&gt;,
-    <span class="doccomment">/// our public key
-    </span>public_key: TYPES::SignatureKey,
-    <span class="doccomment">/// Channel to send the event when we receive a response
-    </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    <span class="doccomment">/// Duration to delay sending the first request
-    </span>delay: Duration,
-    <span class="doccomment">/// The peers we will request in a random order
-    </span>recipients: Vec&lt;TYPES::SignatureKey&gt;,
-    <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
-    </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
-    <span class="doccomment">/// The node's id
-    </span>id: u64,
-}
-
-<span class="doccomment">/// Wrapper for the info in a VID request
-</span><span class="kw">struct </span>VidRequest&lt;TYPES: NodeType&gt;(TYPES::Time, TYPES::SignatureKey);
-
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; DelayedRequester&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Wait the delay, then try to complete the request.  Iterates over peers
-    /// until the request is completed, or the data is no longer needed.
-    </span><span class="kw">async fn </span>run(<span class="self">self</span>, request: RequestKind&lt;TYPES&gt;, signature: Signature&lt;TYPES&gt;) {
-        <span class="kw">match </span>request {
-            RequestKind::Vid(view, key) =&gt; {
-                <span class="comment">// Do the delay only if primary is up and then start sending
-                </span><span class="kw">if </span>!<span class="self">self</span>.network.is_primary_down() {
-                    async_sleep(<span class="self">self</span>.delay).<span class="kw">await</span>;
-                }
-                <span class="self">self</span>.do_vid(VidRequest(view, key), signature).<span class="kw">await</span>;
+        <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
+            <span class="comment">// Do the delay only if primary is up and then start sending
+            </span><span class="kw">if </span>!network.is_primary_down() {
+                async_sleep(delay).<span class="kw">await</span>;
             }
-            RequestKind::Proposal(..) | RequestKind::DaProposal(..) =&gt; {}
-        }
-    }
-    <span class="doccomment">/// Handle sending a VID Share request, runs the loop until the data exists
-    </span><span class="kw">async fn </span>do_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, req: VidRequest&lt;TYPES&gt;, signature: Signature&lt;TYPES&gt;) {
-        <span class="kw">let </span>message = make_vid(<span class="kw-2">&amp;</span>req, signature);
-        <span class="kw">let </span><span class="kw-2">mut </span>recipients_it = <span class="self">self</span>.recipients.iter().cycle();
 
-        <span class="kw">let </span>serialized_msg = <span class="kw">match </span>bincode::serialize(<span class="kw-2">&amp;</span>message) {
-            <span class="prelude-val">Ok</span>(serialized_msg) =&gt; serialized_msg,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::error!</span>(
-                    <span class="string">"Failed to serialize outgoing message: this should never happen. Error: {e}"
-                </span>);
-
-                <span class="kw">return</span>;
-            }
-        };
-
-        <span class="kw">while </span>!<span class="self">self</span>.cancel_vid(<span class="kw-2">&amp;</span>req).<span class="kw">await </span>{
-            <span class="kw">match </span>async_timeout(
-                REQUEST_TIMEOUT,
-                <span class="self">self</span>.network
-                    .request_data::&lt;TYPES&gt;(serialized_msg.clone(), recipients_it.next().unwrap()),
+            <span class="kw">let </span><span class="kw-2">mut </span>recipients_it = recipients.iter().cycle();
+            <span class="comment">// First check if we got the data before continuing
+            </span><span class="kw">while </span>!<span class="self">Self</span>::cancel_vid_request_task(
+                <span class="kw-2">&amp;</span>state,
+                <span class="kw-2">&amp;</span>sender,
+                <span class="kw-2">&amp;</span>public_key,
+                <span class="kw-2">&amp;</span>view,
+                <span class="kw-2">&amp;</span>shutdown_flag,
             )
             .<span class="kw">await
             </span>{
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(response)) =&gt; {
-                    <span class="kw">match </span>bincode::deserialize(<span class="kw-2">&amp;</span>response) {
-                        <span class="prelude-val">Ok</span>(ResponseMessage::Found(data)) =&gt; {
-                            <span class="self">self</span>.handle_response_message(data).<span class="kw">await</span>;
-                            <span class="comment">// keep trying, but expect the map to be populated, or view to increase
-                            </span>async_sleep(REQUEST_TIMEOUT).<span class="kw">await</span>;
-                        }
-                        <span class="prelude-val">Ok</span>(ResponseMessage::NotFound) =&gt; {
-                            <span class="macro">info!</span>(<span class="string">"Peer Responded they did not have the data"</span>);
-                        }
-                        <span class="prelude-val">Ok</span>(ResponseMessage::Denied) =&gt; {
-                            <span class="macro">error!</span>(<span class="string">"Request for data was denied by the receiver"</span>);
-                        }
-                        <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">error!</span>(<span class="string">"Failed to deserialize response: {e}"</span>);
-                            async_sleep(REQUEST_TIMEOUT).<span class="kw">await</span>;
-                        }
+                <span class="comment">// Cycle da members we send the request to each time
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(recipient) = recipients_it.next() {
+                    <span class="comment">// If we got the data after we make the request then we are done
+                    </span><span class="kw">if </span><span class="self">Self</span>::handle_vid_request_task(
+                        <span class="kw-2">&amp;</span>sender,
+                        <span class="kw-2">&amp;</span>receiver,
+                        <span class="kw-2">&amp;</span>data_request,
+                        recipient,
+                        <span class="kw-2">&amp;</span>da_committee_for_view,
+                        <span class="kw-2">&amp;</span>public_key,
+                        view,
+                    )
+                    .<span class="kw">await
+                    </span>{
+                        <span class="kw">return</span>;
                     }
-                }
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">"Error Sending request.  Error: {:?}"</span>, e);
-                    async_sleep(REQUEST_TIMEOUT).<span class="kw">await</span>;
-                }
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">"Request to other node timed out"</span>);
+                } <span class="kw">else </span>{
+                    <span class="macro">tracing::warn!</span>(
+                        <span class="string">"Sent VID request to all available DA members and got no reponse for view: {:?}"</span>,
+                        view
+                    );
+                    <span class="kw">return</span>;
                 }
             }
-        }
+        });
+        <span class="self">self</span>.spawned_tasks.entry(view).or_default().push(handle);
     }
-    <span class="doccomment">/// Returns true if we got the data we wanted, or the view has moved on.
-    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"DelayedRequester"</span>, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>req.<span class="number">0</span>))]
-    </span><span class="kw">async fn </span>cancel_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>VidRequest&lt;TYPES&gt;) -&gt; bool {
-        <span class="kw">let </span>view = req.<span class="number">0</span>;
-        <span class="kw">let </span>state = <span class="self">self</span>.state.read().<span class="kw">await</span>;
-        <span class="kw">let </span>cancel = <span class="self">self</span>.shutdown_flag.load(Ordering::Relaxed)
-            || state.vid_shares().contains_key(<span class="kw-2">&amp;</span>view)
-            || state.cur_view() &gt; view;
+
+    <span class="doccomment">/// Handles main logic for the Request / Response of a vid share
+    /// Make the request to get VID share to a DA member and wait for the response.
+    /// Returns true if response received, otherwise false
+    </span><span class="kw">async fn </span>handle_vid_request_task(
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        data_request: <span class="kw-2">&amp;</span>DataRequest&lt;TYPES&gt;,
+        recipient: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        da_committee_for_view: <span class="kw-2">&amp;</span>BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+        public_key: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
+        view: TYPES::Time,
+    ) -&gt; bool {
+        <span class="comment">// First send request to a random DA member for the view
+        </span>broadcast_event(
+            HotShotEvent::VidRequestSend(
+                data_request.clone(),
+                public_key.clone(),
+                recipient.clone(),
+            )
+            .into(),
+            sender,
+        )
+        .<span class="kw">await</span>;
+
+        <span class="comment">// Wait for a response
+        </span><span class="kw">let </span>result = async_timeout(
+            REQUEST_TIMEOUT,
+            <span class="self">Self</span>::handle_event_dependency(receiver, da_committee_for_view.clone(), view),
+        )
+        .<span class="kw">await</span>;
+
+        <span class="comment">// Check if we got a result, if not we timed out
+        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(event)) = result {
+            <span class="kw">if let </span>HotShotEvent::VidResponseRecv(sender_pub_key, proposal) = event.as_ref() {
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidShareRecv(
+                        sender_pub_key.clone(),
+                        proposal.clone(),
+                    )),
+                    sender,
+                )
+                .<span class="kw">await</span>;
+                <span class="kw">return </span><span class="bool-val">true</span>;
+            }
+        }
+        <span class="bool-val">false
+    </span>}
+
+    <span class="doccomment">/// Create event dependency and wait for `VidResponseRecv` after we send out the request
+    /// Returns an optional with `VidResponseRecv` if received, otherwise None
+    </span><span class="kw">async fn </span>handle_event_dependency(
+        receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        da_members_for_view: BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+        view: TYPES::Time,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+        EventDependency::new(
+            receiver.clone(),
+            Box::new(<span class="kw">move </span>|event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| {
+                <span class="kw">let </span>event = event.as_ref();
+                <span class="kw">if let </span>HotShotEvent::VidResponseRecv(sender_key, proposal) = event {
+                    proposal.data.view_number() == view
+                        &amp;&amp; da_members_for_view.contains(sender_key)
+                        &amp;&amp; sender_key.validate(
+                            <span class="kw-2">&amp;</span>proposal.signature,
+                            proposal.data.payload_commitment.as_ref(),
+                        )
+                } <span class="kw">else </span>{
+                    <span class="bool-val">false
+                </span>}
+            }),
+        )
+        .completed()
+        .<span class="kw">await
+    </span>}
+
+    <span class="doccomment">/// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
+    </span><span class="kw">async fn </span>cancel_vid_request_task(
+        state: <span class="kw-2">&amp;</span>OuterConsensus&lt;TYPES&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        public_key: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
+        view: <span class="kw-2">&amp;</span>TYPES::Time,
+        shutdown_flag: <span class="kw-2">&amp;</span>Arc&lt;AtomicBool&gt;,
+    ) -&gt; bool {
+        <span class="kw">let </span>state = state.read().<span class="kw">await</span>;
+
+        <span class="kw">let </span>cancel = shutdown_flag.load(Ordering::Relaxed)
+            || state.vid_shares().contains_key(view)
+            || state.cur_view() &gt; <span class="kw-2">*</span>view;
         <span class="kw">if </span>cancel {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = state
                 .vid_shares()
-                .get(<span class="kw-2">&amp;</span>view)
-                .map(|shares| shares.get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).cloned())
+                .get(view)
+                .map(|shares| shares.get(public_key).cloned())
             {
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidShareRecv(vid_share.clone())),
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
+                    Arc::new(HotShotEvent::VidShareRecv(
+                        public_key.clone(),
+                        vid_share.clone(),
+                    )),
+                    sender,
                 )
                 .<span class="kw">await</span>;
             }
@@ -709,33 +722,18 @@
         cancel
     }
 
-    <span class="doccomment">/// Transform a response into a `HotShotEvent`
-    </span><span class="kw">async fn </span>handle_response_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: SequencingMessage&lt;TYPES&gt;) {
-        <span class="kw">let </span>event = <span class="kw">match </span>message {
-            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(prop)) =&gt; {
-                <span class="macro">tracing::info!</span>(<span class="string">"vid req complete, got vid {:?}"</span>, prop);
-                HotShotEvent::VidShareRecv(prop)
-            }
-            <span class="kw">_ </span>=&gt; <span class="kw">return</span>,
+    <span class="doccomment">/// Sign the serialized version of the request
+    </span><span class="kw">fn </span>serialize_and_sign(<span class="kw-2">&amp;</span><span class="self">self</span>, request: <span class="kw-2">&amp;</span>RequestKind&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Signature&lt;TYPES&gt;&gt; {
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(data) = bincode::serialize(<span class="kw-2">&amp;</span>request) <span class="kw">else </span>{
+            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize request!"</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         };
-        broadcast_event(Arc::new(event), <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
-    }
-}
-
-<span class="doccomment">/// Make a VID Request Message to send
-</span><span class="kw">fn </span>make_vid&lt;TYPES: NodeType&gt;(
-    req: <span class="kw-2">&amp;</span>VidRequest&lt;TYPES&gt;,
-    signature: Signature&lt;TYPES&gt;,
-) -&gt; Message&lt;TYPES&gt; {
-    <span class="kw">let </span>kind = RequestKind::Vid(req.<span class="number">0</span>, req.<span class="number">1</span>.clone());
-    <span class="kw">let </span>data_request = DataRequest {
-        view: req.<span class="number">0</span>,
-        request: kind,
-        signature,
-    };
-    Message {
-        sender: req.<span class="number">1</span>.clone(),
-        kind: MessageKind::Data(DataMessage::RequestData(data_request)),
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>Sha256::digest(data))
+        <span class="kw">else </span>{
+            <span class="macro">tracing::error!</span>(<span class="string">"Failed to sign Data Request"</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="prelude-val">Some</span>(signature)
     }
 }
 </code></pre></div></section></main></body></html>

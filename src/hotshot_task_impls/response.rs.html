@@ -214,51 +214,6 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -267,24 +222,17 @@
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-<span class="kw">use </span>async_broadcast::Receiver;
+<span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
-<span class="kw">use </span>futures::{FutureExt, StreamExt};
-<span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
-    message::{
-        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage,
-    },
-    request_response::{NetworkMsgResponseChannel, RequestReceiver},
+    message::Proposal,
     traits::{
-        election::Membership,
-        network::{DataRequest, RequestKind, ResponseMessage},
-        node_implementation::NodeType,
+        election::Membership, network::DataRequest, node_implementation::NodeType,
         signature_key::SignatureKey,
     },
 };
@@ -293,7 +241,7 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
 
-<span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 <span class="doccomment">/// Time to wait for txns before sending `ResponseMessage::NotFound`
 </span><span class="kw">const </span>TXNS_TIMEOUT: Duration = Duration::from_millis(<span class="number">100</span>);
 
@@ -303,8 +251,6 @@
 </span><span class="kw">pub struct </span>NetworkResponseState&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Locked consensus state
     </span>consensus: LockedConsensusState&lt;TYPES&gt;,
-    <span class="doccomment">/// Receiver for requests
-    </span>receiver: RequestReceiver,
     <span class="doccomment">/// Quorum membership for checking if requesters have state
     </span>quorum: Arc&lt;TYPES::Membership&gt;,
     <span class="doccomment">/// This replicas public key
@@ -319,7 +265,6 @@
     <span class="doccomment">/// Create the network request state with the info it needs
     </span><span class="kw">pub fn </span>new(
         consensus: LockedConsensusState&lt;TYPES&gt;,
-        receiver: RequestReceiver,
         quorum: Arc&lt;TYPES::Membership&gt;,
         pub_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -327,7 +272,6 @@
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             consensus,
-            receiver,
             quorum,
             pub_key,
             private_key,
@@ -335,67 +279,71 @@
         }
     }
 
-    <span class="doccomment">/// Run the request response loop until a `HotShotEvent::Shutdown` is received.
-    /// Or the stream is closed.
-    </span><span class="kw">async fn </span>run_loop(<span class="kw-2">mut </span><span class="self">self</span>, shutdown: EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;) {
-        <span class="kw">let </span><span class="kw-2">mut </span>shutdown = Box::pin(shutdown.completed().fuse());
+    <span class="doccomment">/// Process request events or loop until a `HotShotEvent::Shutdown` is received.
+    </span><span class="kw">async fn </span>run_response_loop(
+        <span class="self">self</span>,
+        <span class="kw-2">mut </span>receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    ) {
         <span class="kw">loop </span>{
-            <span class="macro">futures::select!</span> {
-                req = <span class="self">self</span>.receiver.next() =&gt; {
-                    <span class="kw">match </span>req {
-                        <span class="prelude-val">Some</span>((msg, chan)) =&gt; <span class="self">self</span>.handle_message(msg, chan).<span class="kw">await</span>,
-                        <span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
-                    }
-                },
-                <span class="kw">_ </span>= shutdown =&gt; {
-                    <span class="kw">return</span>;
-                }
-            }
-        }
-    }
-
-    <span class="doccomment">/// Handle an incoming message.  First validates the sender, then handles the contained request.
-    /// Sends the response via `chan`
-    </span><span class="kw">async fn </span>handle_message(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_req: Vec&lt;u8&gt;, chan: NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;) {
-        <span class="kw">let </span>req: Message&lt;TYPES&gt; = <span class="kw">match </span>bincode::deserialize(<span class="kw-2">&amp;</span>raw_req) {
-            <span class="prelude-val">Ok</span>(deserialized) =&gt; deserialized,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::error!</span>(<span class="string">"Failed to deserialize message! Error: {e}"</span>);
-                <span class="kw">return</span>;
-            }
-        };
-        <span class="kw">let </span>sender = req.sender.clone();
-
-        <span class="kw">match </span>req.kind {
-            MessageKind::Data(DataMessage::RequestData(request)) =&gt; {
-                <span class="kw">if </span>!<span class="self">self</span>.valid_sender(<span class="kw-2">&amp;</span>sender) || !valid_signature::&lt;TYPES&gt;(<span class="kw-2">&amp;</span>request, <span class="kw-2">&amp;</span>sender) {
-                    <span class="kw">let </span>serialized_msg = <span class="kw">match </span>bincode::serialize(
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.make_msg(ResponseMessage::Denied),
-                    ) {
-                        <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
-                        <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize outgoing message: this should never happen. Error: {e}"</span>);
+            <span class="kw">match </span>receiver.recv_direct().<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>(event) =&gt; {
+                    <span class="comment">// break loop when false, this means shutdown received
+                    </span><span class="kw">match </span>event.as_ref() {
+                        HotShotEvent::VidRequestRecv(request, sender) =&gt; {
+                            <span class="comment">// Verify request is valid
+                            </span><span class="kw">if </span>!<span class="self">self</span>.valid_sender(sender)
+                                || !valid_signature::&lt;TYPES&gt;(request, sender)
+                            {
+                                <span class="kw">continue</span>;
+                            }
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) =
+                                <span class="self">self</span>.get_or_calc_vid_share(request.view, sender).<span class="kw">await
+                            </span>{
+                                broadcast_event(
+                                    HotShotEvent::VidResponseSend(
+                                        <span class="self">self</span>.pub_key.clone(),
+                                        sender.clone(),
+                                        proposal,
+                                    )
+                                    .into(),
+                                    <span class="kw-2">&amp;</span>event_sender,
+                                )
+                                .<span class="kw">await</span>;
+                            }
+                        }
+                        HotShotEvent::QuorumProposalRequestRecv(req, signature) =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(quorum_proposal) = <span class="self">self
+                                </span>.consensus
+                                .read()
+                                .<span class="kw">await
+                                </span>.last_proposals()
+                                .get(<span class="kw-2">&amp;</span>req.view_number)
+                            {
+                                <span class="comment">// Make sure that this request came from who we think it did
+                                </span><span class="kw">if </span>req.key.validate(signature, req.commit().as_ref()) {
+                                    broadcast_event(
+                                        HotShotEvent::QuorumProposalResponseSend(
+                                            req.key.clone(),
+                                            quorum_proposal.clone(),
+                                        )
+                                        .into(),
+                                        <span class="kw-2">&amp;</span>event_sender,
+                                    )
+                                    .<span class="kw">await</span>;
+                                }
+                            }
+                        }
+                        HotShotEvent::Shutdown =&gt; {
                             <span class="kw">return</span>;
                         }
-                    };
-                    <span class="kw">let _ </span>= chan.sender.send(serialized_msg);
-                    <span class="kw">return</span>;
-                }
-
-                <span class="kw">let </span>response = <span class="self">self</span>.handle_request(request).<span class="kw">await</span>;
-                <span class="kw">let </span>serialized_response = <span class="kw">match </span>bincode::serialize(<span class="kw-2">&amp;</span>response) {
-                    <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize outgoing message: this should never happen. Error: {e}"</span>);
-                        <span class="kw">return</span>;
+                        <span class="kw">_ </span>=&gt; {}
                     }
-                };
-                <span class="kw">let _ </span>= chan.sender.send(serialized_response);
+                }
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::error!</span>(<span class="string">"Failed to receive event. {:?}"</span>, e);
+                }
             }
-            msg =&gt; <span class="macro">tracing::error!</span>(
-                <span class="string">"Received message that wasn't a DataRequest in the request task.  Message: {:?}"</span>,
-                msg
-            ),
         }
     }
 
@@ -453,44 +401,9 @@
             .cloned()
     }
 
-    <span class="doccomment">/// Handle the request contained in the message. Returns the response we should send
-    /// First parses the kind and passes to the appropriate handler for the specific type
-    /// of the request.
-    </span><span class="kw">async fn </span>handle_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: DataRequest&lt;TYPES&gt;) -&gt; Message&lt;TYPES&gt; {
-        <span class="kw">match </span>req.request {
-            RequestKind::Vid(view, pub_key) =&gt; {
-                <span class="kw">let </span><span class="prelude-val">Some</span>(share) = <span class="self">self</span>.get_or_calc_vid_share(view, <span class="kw-2">&amp;</span>pub_key).<span class="kw">await else </span>{
-                    <span class="kw">return </span><span class="self">self</span>.make_msg(ResponseMessage::NotFound);
-                };
-                <span class="kw">let </span>seq_msg = SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(share));
-                <span class="self">self</span>.make_msg(ResponseMessage::Found(seq_msg))
-            }
-            <span class="comment">// TODO impl for DA Proposal: https://github.com/EspressoSystems/HotShot/issues/2651
-            </span>RequestKind::DaProposal(_view) =&gt; <span class="self">self</span>.make_msg(ResponseMessage::NotFound),
-            RequestKind::Proposal(view) =&gt; <span class="self">self</span>.make_msg(<span class="self">self</span>.respond_with_proposal(view).<span class="kw">await</span>),
-        }
-    }
-
-    <span class="doccomment">/// Helper to turn a `ResponseMessage` into a `Message` by filling
-    /// in the surrounding fields and creating the `MessageKind`
-    </span><span class="kw">fn </span>make_msg(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: ResponseMessage&lt;TYPES&gt;) -&gt; Message&lt;TYPES&gt; {
-        Message {
-            sender: <span class="self">self</span>.pub_key.clone(),
-            kind: MessageKind::Data(DataMessage::DataResponse(msg)),
-        }
-    }
     <span class="doccomment">/// Makes sure the sender is allowed to send a request.
     </span><span class="kw">fn </span>valid_sender(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool {
         <span class="self">self</span>.quorum.has_stake(sender)
-    }
-    <span class="doccomment">/// Lookup the proposal for the view and respond if it's found/not found
-    </span><span class="kw">async fn </span>respond_with_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; ResponseMessage&lt;TYPES&gt; {
-        <span class="kw">match </span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.last_proposals().get(<span class="kw-2">&amp;</span>view) {
-            <span class="prelude-val">Some</span>(prop) =&gt; ResponseMessage::Found(SequencingMessage::General(
-                GeneralConsensusMessage::Proposal(prop.clone()),
-            )),
-            <span class="prelude-val">None </span>=&gt; ResponseMessage::NotFound,
-        }
     }
 }
 
@@ -511,11 +424,8 @@
 </span><span class="kw">pub fn </span>run_response_task&lt;TYPES: NodeType&gt;(
     task_state: NetworkResponseState&lt;TYPES&gt;,
     event_stream: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; JoinHandle&lt;()&gt; {
-    <span class="kw">let </span>dep = EventDependency::new(
-        event_stream,
-        Box::new(|e| <span class="macro">matches!</span>(e.as_ref(), HotShotEvent::Shutdown)),
-    );
-    async_spawn(task_state.run_loop(dep))
+    async_spawn(task_state.run_response_loop(event_stream, sender))
 }
 </code></pre></div></section></main></body></html>

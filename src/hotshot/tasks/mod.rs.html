@@ -606,10 +606,6 @@
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -648,7 +644,6 @@
     consensus::Consensus,
     constants::EVENT_CHANNEL_SIZE,
     message::{Message, UpgradeLock},
-    request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -692,11 +687,9 @@
 <span class="doccomment">/// Add a task which responds to requests on the network.
 </span><span class="kw">pub fn </span>add_response_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
-    request_receiver: RequestReceiver,
 ) {
     <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
         handle.hotshot.consensus(),
-        request_receiver,
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
         handle.private_key().clone(),
@@ -705,6 +698,7 @@
     handle.network_registry.register(run_response_task::&lt;TYPES&gt;(
         state,
         handle.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+        handle.internal_event_stream.<span class="number">0</span>.clone(),
     ));
 }
 
@@ -1175,10 +1169,8 @@
     add_network_message_task(handle, <span class="kw-2">&amp;</span>network);
     add_network_message_task(handle, <span class="kw-2">&amp;</span>network);
 
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(request_receiver) = network.spawn_request_receiver_task().<span class="kw">await </span>{
-        add_request_network_task(handle).<span class="kw">await</span>;
-        add_response_task(handle, request_receiver);
-    }
+    add_request_network_task(handle).<span class="kw">await</span>;
+    add_response_task(handle);
 }
 
 <span class="doccomment">/// Adds the `NetworkEventTaskState` tasks.

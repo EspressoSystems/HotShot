@@ -770,8 +770,6 @@
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
 <a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -918,32 +916,30 @@
     }
 
     <span class="doccomment">/// Validate the VID disperse is correctly signed and has the correct share.
-    </span><span class="kw">fn </span>validate_disperse(<span class="kw-2">&amp;</span><span class="self">self</span>, disperse: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; bool {
+    </span><span class="kw">fn </span>validate_disperse(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        disperse: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
+    ) -&gt; bool {
         <span class="kw">let </span>view = disperse.data.view_number();
         <span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
+
+        <span class="comment">// Check sender of VID disperse share is signed by DA committee member
+        </span><span class="kw">let </span>validate_sender = sender.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
+            &amp;&amp; <span class="self">self</span>.da_membership.committee_members(view).contains(sender);
 
         <span class="comment">// Check whether the data satisfies one of the following.
         // * From the right leader for this view.
         // * Calculated and signed by the current node.
-        // * Signed by one of the staked DA committee members.
-        </span><span class="kw">if </span>!<span class="self">self
-            </span>.quorum_membership
-            .leader(view)
+        </span><span class="kw">let </span>validated = <span class="self">self
+            </span>.public_key
             .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-            &amp;&amp; !<span class="self">self
-                </span>.public_key
-                .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-        {
-            <span class="kw">let </span><span class="kw-2">mut </span>validated = <span class="bool-val">false</span>;
-            <span class="kw">for </span>da_member <span class="kw">in </span><span class="self">self</span>.da_membership.committee_members(view) {
-                <span class="kw">if </span>da_member.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()) {
-                    validated = <span class="bool-val">true</span>;
-                    <span class="kw">break</span>;
-                }
-            }
-            <span class="kw">if </span>!validated {
-                <span class="kw">return </span><span class="bool-val">false</span>;
-            }
+            || <span class="self">self
+                </span>.quorum_membership
+                .leader(view)
+                .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref());
+        <span class="kw">if </span>!validate_sender &amp;&amp; !validated {
+            <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
         <span class="comment">// Validate the VID share.
@@ -1224,7 +1220,7 @@
                 <span class="self">self</span>.spawn_vote_task(view, event_sender, event_receiver)
                     .<span class="kw">await</span>;
             }
-            HotShotEvent::VidShareRecv(disperse) =&gt; {
+            HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
 
                 <span class="macro">debug!</span>(
@@ -1243,7 +1239,7 @@
 
                 <span class="macro">debug!</span>(<span class="string">"VID disperse data is not more than one view older."</span>);
 
-                <span class="kw">if </span>!<span class="self">self</span>.validate_disperse(disperse) {
+                <span class="kw">if </span>!<span class="self">self</span>.validate_disperse(sender, disperse) {
                     <span class="macro">warn!</span>(<span class="string">"Failed to validated the VID dispersal/share sig."</span>);
                     <span class="kw">return</span>;
                 }
