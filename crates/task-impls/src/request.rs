@@ -216,7 +216,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 if let Some(recipient) = recipients_it.next() {
                     if *recipient == public_key {
                         // no need to send a message to ourselves.
-                        // just check from start of loop in `cancel_vid_request_task`
+                        // just check for the data at start of loop in `cancel_vid_request_task`
                         continue;
                     }
                     // If we got the data after we make the request then we are done

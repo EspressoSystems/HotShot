@@ -13,7 +13,6 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
-use committable::Committable;
 use futures::future::join_all;
 use handlers::publish_proposal_from_commitment_and_metadata;
 use hotshot_task::task::TaskState;
