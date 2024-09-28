@@ -171,32 +171,6 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -211,7 +185,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
@@ -231,7 +204,7 @@
 <span class="kw">use </span><span class="self">self</span>::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
-<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event, vote_collection::VoteCollectorsMap};
+<span class="kw">use crate</span>::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
 
 <span class="doccomment">/// Event handlers for use in the `handle` method.
 </span><span class="kw">mod </span>handlers;
@@ -310,31 +283,6 @@
                     handle_quorum_vote_recv(vote, Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>sender, <span class="self">self</span>).<span class="kw">await
                 </span>{
                     <span class="macro">tracing::debug!</span>(<span class="string">"Failed to handle QuorumVoteRecv event; error = {e}"</span>);
-                }
-            }
-            HotShotEvent::QuorumProposalRequestRecv(req, signature) =&gt; {
-                <span class="comment">// Make sure that this request came from who we think it did
-                </span><span class="kw">if </span>!req.key.validate(signature, req.commit().as_ref()) {
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Invalid signature key on proposal request."</span>);
-                    <span class="kw">return</span>;
-                }
-
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(quorum_proposal) = <span class="self">self
-                    </span>.consensus
-                    .read()
-                    .<span class="kw">await
-                    </span>.last_proposals()
-                    .get(<span class="kw-2">&amp;</span>req.view_number)
-                {
-                    broadcast_event(
-                        HotShotEvent::QuorumProposalResponseSend(
-                            req.key.clone(),
-                            quorum_proposal.clone(),
-                        )
-                        .into(),
-                        <span class="kw-2">&amp;</span>sender,
-                    )
-                    .<span class="kw">await</span>;
                 }
             }
             HotShotEvent::TimeoutVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {

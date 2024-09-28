@@ -744,32 +744,6 @@
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -785,7 +759,6 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>handlers::publish_proposal_from_commitment_and_metadata;
 <span class="kw">use </span>hotshot_task::task::TaskState;
@@ -1080,31 +1053,6 @@
                 .<span class="kw">await
                 </span>{
                     <span class="macro">warn!</span>(<span class="string">"Failed to handle QuorumProposalValidated event {e:#}"</span>);
-                }
-            }
-            HotShotEvent::QuorumProposalRequestRecv(req, signature) =&gt; {
-                <span class="comment">// Make sure that this request came from who we think it did
-                </span><span class="kw">if </span>!req.key.validate(signature, req.commit().as_ref()) {
-                    <span class="macro">warn!</span>(<span class="string">"Invalid signature key on proposal request."</span>);
-                    <span class="kw">return</span>;
-                }
-
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(quorum_proposal) = <span class="self">self
-                    </span>.consensus
-                    .read()
-                    .<span class="kw">await
-                    </span>.last_proposals()
-                    .get(<span class="kw-2">&amp;</span>req.view_number)
-                {
-                    broadcast_event(
-                        HotShotEvent::QuorumProposalResponseSend(
-                            req.key.clone(),
-                            quorum_proposal.clone(),
-                        )
-                        .into(),
-                        <span class="kw-2">&amp;</span>event_sender,
-                    )
-                    .<span class="kw">await</span>;
                 }
             }
             HotShotEvent::QuorumVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
