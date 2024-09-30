@@ -1142,7 +1142,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use std::net::Ipv6Addr;
