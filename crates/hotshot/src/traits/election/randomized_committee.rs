@@ -99,6 +99,17 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
             .collect()
     }
 
+    /// Get all eligible leaders of the committee for the current view
+    fn committee_leaders(
+        &self,
+        _view_number: <TYPES as NodeType>::Time,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        self.eligible_leaders
+            .iter()
+            .map(TYPES::SignatureKey::public_key)
+            .collect()
+    }
+
     /// Get the stake table entry for a public key
     fn stake(
         &self,

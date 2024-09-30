@@ -29,6 +29,9 @@ pub trait Membership<TYPES: NodeType>:
     /// Get all participants in the committee for a specific view
     fn committee_members(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
+    /// Get all leaders in the committee for a specific view
+    fn committee_leaders(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+
     /// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table
     fn stake(

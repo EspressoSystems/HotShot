@@ -558,6 +558,12 @@ pub trait RunDa<
         }
         let consensus_lock = context.hotshot.consensus();
         let consensus = consensus_lock.read().await;
+        let num_eligible_leaders = context
+            .hotshot
+            .memberships
+            .quorum_membership
+            .committee_leaders(TYPES::Time::genesis())
+            .len();
         let total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         // `failed_num_views` could include uncommitted views
         let failed_num_views = total_num_views - num_successful_commits;
@@ -575,6 +581,7 @@ pub trait RunDa<
                 / total_time_elapsed_sec;
             let avg_latency_in_sec = total_latency / num_latency;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
+
             BenchResults {
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,
@@ -587,6 +594,10 @@ pub trait RunDa<
                 total_time_elapsed_in_sec: total_time_elapsed.as_secs(),
                 total_num_views,
                 failed_num_views,
+                committee_type: format!(
+                    "{} with {num_eligible_leaders} eligible leaders",
+                    std::any::type_name::<TYPES::Membership>()
+                ),
             }
         } else {
             // all values with zero

@@ -162,6 +162,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             total_time_elapsed_in_sec: self.bench_results.total_time_elapsed_in_sec,
             total_num_views: self.bench_results.total_num_views,
             failed_num_views: self.bench_results.failed_num_views,
+            committee_type: self.bench_results.committee_type.clone(),
         };
         // Open the CSV file in append mode
         let results_csv_file = OpenOptions::new()
