@@ -266,7 +266,7 @@ impl<K: SignatureKey> NetworkConfig<K> {
     pub async fn get_complete_config(
         client: &OrchestratorClient,
         my_own_validator_config: ValidatorConfig<K>,
-        libp2p_address: Option<SocketAddr>,
+        libp2p_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
         // get the configuration from the orchestrator

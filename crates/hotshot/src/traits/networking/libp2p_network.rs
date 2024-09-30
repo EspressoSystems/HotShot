@@ -13,7 +13,7 @@ use std::{
     cmp::min,
     collections::{BTreeSet, HashSet},
     fmt::Debug,
-    net::SocketAddr,
+    net::{IpAddr, ToSocketAddrs},
     num::NonZeroUsize,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -356,6 +356,55 @@ pub fn derive_libp2p_peer_id<K: SignatureKey>(
     Ok(PeerId::from_public_key(&keypair.public()))
 }
 
+/// Parse a Libp2p Multiaddr from a string. The input string should be in the format
+/// `hostname:port` or `ip:port`. This function derives a `Multiaddr` from the input string.
+///
+/// This borrows from Rust's implementation of `to_socket_addrs` but will only warn if the domain
+/// does not yet resolve.
+pub fn derive_libp2p_multiaddr(addr: String) -> anyhow::Result<Multiaddr> {
+    // Split the address into the host and port parts
+    let (host, port) = match addr.rfind(':') {
+        Some(idx) => (&addr[..idx], &addr[idx + 1..]),
+        None => return Err(anyhow!("Invalid address format, no port supplied")),
+    };
+
+    // Try parsing the host as an IP address
+    let ip = host.parse::<IpAddr>();
+
+    // Conditionally build the multiaddr string
+    let multiaddr_string = match ip {
+        Ok(IpAddr::V4(ip)) => format!("/ip4/{}/udp/{}/quic-v1", ip, port),
+        Ok(IpAddr::V6(ip)) => format!("/ip6/{}/udp/{}/quic-v1", ip, port),
+        Err(_) => {
+            // Try resolving the host. If it fails, continue but warn the user
+            let lookup_result = addr.to_socket_addrs();
+
+            // See if the lookup failed
+            let failed = lookup_result
+                .map(|result| result.collect::<Vec<_>>().is_empty())
+                .unwrap_or(true);
+
+            // If it did, warn the user
+            if failed {
+                warn!(
+                    "Failed to resolve domain name {}, assuming it has not yet been provisioned",
+                    host
+                );
+            }
+
+            format!("/dns/{}/udp/{}/quic-v1", host, port)
+        }
+    };
+
+    // Convert the multiaddr string to a `Multiaddr`
+    multiaddr_string.parse().with_context(|| {
+        format!(
+            "Failed to convert Multiaddr string to Multiaddr: {}",
+            multiaddr_string
+        )
+    })
+}
+
 impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     /// Create and return a Libp2p network from a network config file
     /// and various other configuration-specific values.
@@ -368,7 +417,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     pub async fn from_config<TYPES: NodeType>(
         mut config: NetworkConfig<K>,
         gossip_config: GossipConfig,
-        bind_address: SocketAddr,
+        bind_address: Multiaddr,
         pub_key: &K,
         priv_key: &K::PrivateKey,
         metrics: Libp2pMetricsValue,
@@ -381,15 +430,6 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
         // Derive our Libp2p keypair from our supplied private key
         let keypair = derive_libp2p_keypair::<K>(priv_key)?;
-
-        // Convert our bind address to a `Multiaddr`
-        let bind_address: Multiaddr = format!(
-            "/{}/{}/udp/{}/quic-v1",
-            if bind_address.is_ipv4() { "ip4" } else { "ip6" },
-            bind_address.ip(),
-            bind_address.port()
-        )
-        .parse()?;
 
         // Build our libp2p configuration
         let mut config_builder = NetworkNodeConfigBuilder::default();
