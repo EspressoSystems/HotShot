@@ -359,7 +359,7 @@ impl OrchestratorClient {
     pub async fn post_and_wait_all_public_keys<K: SignatureKey>(
         &self,
         mut validator_config: ValidatorConfig<K>,
-        libp2p_address: Option<Multiaddr>,
+        libp2p_advertise_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> NetworkConfig<K> {
         let pubkey: Vec<u8> = PeerConfig::<K>::to_bytes(&validator_config.public_config()).clone();
@@ -368,7 +368,7 @@ impl OrchestratorClient {
         // Serialize our (possible) libp2p-specific data
         let request_body = vbs::Serializer::<OrchestratorVersion>::serialize(&(
             pubkey,
-            libp2p_address,
+            libp2p_advertise_address,
             libp2p_public_key,
         ))
         .expect("failed to serialize request");
