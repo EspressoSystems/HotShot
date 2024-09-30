@@ -212,23 +212,12 @@ impl OrchestratorClient {
     #[allow(clippy::type_complexity)]
     pub async fn get_config_without_peer<K: SignatureKey>(
         &self,
-        libp2p_address: Option<SocketAddr>,
+        libp2p_advertise_address: Option<Multiaddr>,
         libp2p_public_key: Option<PeerId>,
     ) -> anyhow::Result<NetworkConfig<K>> {
-        // Get the (possible) Libp2p advertise address from our args
-        let libp2p_address = libp2p_address.map(|f| {
-            Multiaddr::try_from(format!(
-                "/{}/{}/udp/{}/quic-v1",
-                if f.is_ipv4() { "ip4" } else { "ip6" },
-                f.ip(),
-                f.port()
-            ))
-            .expect("failed to create multiaddress")
-        });
-
         // Serialize our (possible) libp2p-specific data
         let request_body = vbs::Serializer::<OrchestratorVersion>::serialize(&(
-            libp2p_address,
+            libp2p_advertise_address,
             libp2p_public_key,
         ))?;
 

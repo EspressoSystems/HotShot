@@ -361,6 +361,9 @@ pub fn derive_libp2p_peer_id<K: SignatureKey>(
 ///
 /// This borrows from Rust's implementation of `to_socket_addrs` but will only warn if the domain
 /// does not yet resolve.
+///
+/// # Errors
+/// - If the input string is not in the correct format
 pub fn derive_libp2p_multiaddr(addr: &String) -> anyhow::Result<Multiaddr> {
     // Split the address into the host and port parts
     let (host, port) = match addr.rfind(':') {
@@ -373,8 +376,8 @@ pub fn derive_libp2p_multiaddr(addr: &String) -> anyhow::Result<Multiaddr> {
 
     // Conditionally build the multiaddr string
     let multiaddr_string = match ip {
-        Ok(IpAddr::V4(ip)) => format!("/ip4/{}/udp/{}/quic-v1", ip, port),
-        Ok(IpAddr::V6(ip)) => format!("/ip6/{}/udp/{}/quic-v1", ip, port),
+        Ok(IpAddr::V4(ip)) => format!("/ip4/{ip}/udp/{port}/quic-v1"),
+        Ok(IpAddr::V6(ip)) => format!("/ip6/{ip}/udp/{port}/quic-v1"),
         Err(_) => {
             // Try resolving the host. If it fails, continue but warn the user
             let lookup_result = addr.to_socket_addrs();
@@ -392,16 +395,13 @@ pub fn derive_libp2p_multiaddr(addr: &String) -> anyhow::Result<Multiaddr> {
                 );
             }
 
-            format!("/dns/{}/udp/{}/quic-v1", host, port)
+            format!("/dns/{host}/udp/{port}/quic-v1")
         }
     };
 
     // Convert the multiaddr string to a `Multiaddr`
     multiaddr_string.parse().with_context(|| {
-        format!(
-            "Failed to convert Multiaddr string to Multiaddr: {}",
-            multiaddr_string
-        )
+        format!("Failed to convert Multiaddr string to Multiaddr: {multiaddr_string}",)
     })
 }
 

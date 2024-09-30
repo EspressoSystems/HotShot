@@ -907,13 +907,9 @@ pub async fn main_entry_point<
             .clone();
 
     // Derive the advertise multiaddress from the supplied string
-    let advertise_multiaddress = if let Some(advertise_address) = args.advertise_address.clone() {
-        Some(
-            derive_libp2p_multiaddr(&advertise_address).expect("failed to derive Libp2p multiaddr"),
-        )
-    } else {
-        None
-    };
+    let advertise_multiaddress = args.advertise_address.clone().map(|advertise_address| {
+        derive_libp2p_multiaddr(&advertise_address).expect("failed to derive Libp2p multiaddr")
+    });
 
     // conditionally save/load config from file or orchestrator
     // This is a function that will return correct complete config from orchestrator.
