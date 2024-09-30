@@ -908,7 +908,9 @@ pub async fn main_entry_point<
 
     // Derive the advertise multiaddress from the supplied string
     let advertise_multiaddress = if let Some(advertise_address) = args.advertise_address.clone() {
-        Some(derive_libp2p_multiaddr(&advertise_address).expect("failed to derive Libp2p multiaddr"))
+        Some(
+            derive_libp2p_multiaddr(&advertise_address).expect("failed to derive Libp2p multiaddr"),
+        )
     } else {
         None
     };
