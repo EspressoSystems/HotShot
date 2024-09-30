@@ -361,7 +361,7 @@ pub fn derive_libp2p_peer_id<K: SignatureKey>(
 ///
 /// This borrows from Rust's implementation of `to_socket_addrs` but will only warn if the domain
 /// does not yet resolve.
-pub fn derive_libp2p_multiaddr(addr: String) -> anyhow::Result<Multiaddr> {
+pub fn derive_libp2p_multiaddr(addr: &String) -> anyhow::Result<Multiaddr> {
     // Split the address into the host and port parts
     let (host, port) = match addr.rfind(':') {
         Some(idx) => (&addr[..idx], &addr[idx + 1..]),

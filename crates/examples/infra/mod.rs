@@ -744,7 +744,7 @@ where
 
         // Derive the bind address
         let bind_address =
-            derive_libp2p_multiaddr(bind_address).expect("failed to derive bind address");
+            derive_libp2p_multiaddr(&bind_address).expect("failed to derive bind address");
 
         // Create the Libp2p network
         let libp2p_network = Libp2pNetwork::from_config::<TYPES>(
@@ -908,7 +908,7 @@ pub async fn main_entry_point<
 
     // Derive the advertise multiaddress from the supplied string
     let advertise_multiaddress = if let Some(advertise_address) = args.advertise_address.clone() {
-        Some(derive_libp2p_multiaddr(advertise_address).expect("failed to derive Libp2p multiaddr"))
+        Some(derive_libp2p_multiaddr(&advertise_address).expect("failed to derive Libp2p multiaddr"))
     } else {
         None
     };
