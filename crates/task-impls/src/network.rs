@@ -22,7 +22,10 @@ use hotshot_types::{
     },
     traits::{
         election::Membership,
-        network::{BroadcastDelay, ConnectedNetwork, TransmitType, ViewMessage},
+        network::{
+            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, TransmitType,
+            ViewMessage,
+        },
         node_implementation::{ConsensusTime, NodeType, Versions},
         storage::Storage,
     },
@@ -64,6 +67,8 @@ pub fn da_filter<TYPES: NodeType>(event: &Arc<HotShotEvent<TYPES>>) -> bool {
         HotShotEvent::DaProposalSend(_, _)
             | HotShotEvent::QuorumProposalRequestSend(..)
             | HotShotEvent::QuorumProposalResponseSend(..)
+            | HotShotEvent::VidResponseSend(..)
+            | HotShotEvent::VidRequestSend(..)
             | HotShotEvent::DaVoteSend(_)
             | HotShotEvent::ViewChange(_)
     )
@@ -166,13 +171,10 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::DaCertificateRecv(cert)
                         }
                         DaConsensusMessage::VidDisperseMsg(proposal) => {
-                            HotShotEvent::VidShareRecv(proposal)
+                            HotShotEvent::VidShareRecv(sender, proposal)
                         }
                     },
                 };
-                // TODO (Keyao benchmarking) Update these event variants (similar to the
-                // `TransactionsRecv` event) so we can send one event for a vector of messages.
-                // <https://github.com/EspressoSystems/HotShot/issues/1428>
                 broadcast_event(Arc::new(event), &self.internal_event_stream).await;
             }
 
@@ -185,8 +187,31 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     )
                     .await;
                 }
-                DataMessage::DataResponse(_) | DataMessage::RequestData(_) => {
-                    warn!("Request and Response messages should not be received in the NetworkMessage task");
+                DataMessage::DataResponse(response) => {
+                    if let ResponseMessage::Found(message) = response {
+                        match message {
+                            SequencingMessage::Da(da_message) => {
+                                if let DaConsensusMessage::VidDisperseMsg(proposal) = da_message {
+                                    broadcast_event(
+                                        Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
+                                        &self.internal_event_stream,
+                                    )
+                                    .await;
+                                }
+                            }
+                            SequencingMessage::General(_) => {}
+                        }
+                    }
+                }
+                DataMessage::RequestData(data) => {
+                    let req_data = data.clone();
+                    if let RequestKind::Vid(_view_number, _key) = req_data.request {
+                        broadcast_event(
+                            Arc::new(HotShotEvent::VidRequestRecv(data, sender)),
+                            &self.internal_event_stream,
+                        )
+                        .await;
+                    }
                 }
             },
 
@@ -298,7 +323,7 @@ impl<
                 sender: sender.clone(),
                 kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
                     DaConsensusMessage::VidDisperseMsg(proposal),
-                )), // TODO not a DaConsensusMessage https://github.com/EspressoSystems/HotShot/issues/1696
+                )),
             };
             let serialized_message = match self.upgrade_lock.serialize(&message).await {
                 Ok(serialized) => serialized,
@@ -363,7 +388,7 @@ impl<
     /// which will be used to create a message and transmit on the wire.
     /// Returns `None` if the parsing result should not be sent on the wire.
     /// Handles the `VidDisperseSend` event separately using a helper method.
-    #[allow(clippy::too_many_lines)] // TODO https://github.com/EspressoSystems/HotShot/issues/1704
+    #[allow(clippy::too_many_lines)]
     async fn parse_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -521,6 +546,21 @@ impl<
                     .update_view::<TYPES>(self.view.u64(), membership)
                     .await;
                 None
+            }
+            HotShotEvent::VidRequestSend(req, sender, to) => Some((
+                sender,
+                MessageKind::Data(DataMessage::RequestData(req)),
+                TransmitType::Direct(to),
+            )),
+            HotShotEvent::VidResponseSend(sender, to, proposal) => {
+                let da_message = DaConsensusMessage::VidDisperseMsg(proposal);
+                let sequencing_msg = SequencingMessage::Da(da_message);
+                let response_message = ResponseMessage::Found(sequencing_msg);
+                Some((
+                    sender,
+                    MessageKind::Data(DataMessage::DataResponse(response_message)),
+                    TransmitType::Direct(to),
+                ))
             }
             _ => None,
         }

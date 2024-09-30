@@ -10,7 +10,7 @@
 pub mod task_state;
 use std::{fmt::Debug, sync::Arc};
 
-use async_broadcast::broadcast;
+use async_broadcast::{broadcast, RecvError};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -36,7 +36,6 @@ use hotshot_types::{
     consensus::Consensus,
     constants::EVENT_CHANNEL_SIZE,
     message::{Message, UpgradeLock},
-    request_response::RequestReceiver,
     traits::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -80,11 +79,9 @@ pub async fn add_request_network_task<
 /// Add a task which responds to requests on the network.
 pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
-    request_receiver: RequestReceiver,
 ) {
     let state = NetworkResponseState::<TYPES>::new(
         handle.hotshot.consensus(),
-        request_receiver,
         handle.hotshot.memberships.quorum_membership.clone().into(),
         handle.public_key().clone(),
         handle.private_key().clone(),
@@ -93,6 +90,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
         handle.internal_event_stream.1.activate_cloned(),
+        handle.internal_event_stream.0.clone(),
     ));
 }
 
@@ -195,6 +193,23 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
     handle.add_task(DaTaskState::<TYPES, I, V>::create_from(handle).await);
     handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
 
+    {
+        let mut upgrade_certificate_lock = handle
+            .hotshot
+            .upgrade_lock
+            .decided_upgrade_certificate
+            .write()
+            .await;
+
+        // clear the loaded certificate if it's now outdated
+        if upgrade_certificate_lock
+            .as_ref()
+            .is_some_and(|cert| V::Base::VERSION >= cert.data.new_version)
+        {
+            *upgrade_certificate_lock = None;
+        }
+    }
+
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
     if V::Base::VERSION < V::Upgrade::VERSION {
         handle.add_task(UpgradeTaskState::<TYPES, I, V>::create_from(handle).await);
@@ -245,6 +260,9 @@ pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPE
                     if matches!(event.as_ref(), HotShotEvent::Shutdown) {
                         return;
                     }
+                }
+                Err(RecvError::Closed) => {
+                    return;
                 }
                 Err(e) => {
                     tracing::error!("Shutdown event monitor channel recv error: {}", e);
@@ -546,10 +564,8 @@ pub async fn add_network_message_and_request_receiver_tasks<
     add_network_message_task(handle, &network);
     add_network_message_task(handle, &network);
 
-    if let Some(request_receiver) = network.spawn_request_receiver_task().await {
-        add_request_network_task(handle).await;
-        add_response_task(handle, request_receiver);
-    }
+    add_request_network_task(handle).await;
+    add_response_task(handle);
 }
 
 /// Adds the `NetworkEventTaskState` tasks.

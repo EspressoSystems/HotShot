@@ -12,7 +12,8 @@ pub mod client;
 pub mod config;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    fs,
     fs::OpenOptions,
     io::{self, ErrorKind},
     time::Duration,
@@ -46,7 +47,7 @@ use vbs::{
     BinarySerializer,
 };
 
-use crate::config::NetworkConfig;
+use crate::config::{NetworkConfig, PublicKeysFile};
 
 /// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)
@@ -90,7 +91,7 @@ struct OrchestratorState<KEY: SignatureKey> {
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
     /// The total nodes that have posted they are ready to start
-    nodes_connected: u64,
+    nodes_connected: HashSet<PeerConfig<KEY>>,
     /// The results of the benchmarks
     bench_results: BenchResults,
     /// The number of nodes that have posted their results
@@ -131,7 +132,7 @@ impl<KEY: SignatureKey + 'static> OrchestratorState<KEY> {
             config: network_config,
             peer_pub_ready,
             pub_posted: HashMap::new(),
-            nodes_connected: 0,
+            nodes_connected: HashSet::new(),
             start: false,
             bench_results: BenchResults::default(),
             nodes_post_results: 0,
@@ -481,7 +482,6 @@ where
             });
         }
 
-        self.manual_start_allowed = false;
         Ok(self.config.clone())
     }
 
@@ -512,12 +512,16 @@ where
             });
         }
 
-        self.nodes_connected += 1;
-
-        tracing::error!("Nodes connected: {}", self.nodes_connected);
+        // `HashSet::insert()` returns whether the node was newly inserted (true) or not
+        if self.nodes_connected.insert(peer_config.clone()) {
+            tracing::error!(
+                "Node {peer_config} connected. Total nodes connected: {}",
+                self.nodes_connected.len()
+            );
+        }
 
         // i.e. nodes_connected >= num_nodes_with_stake * (start_threshold.0 / start_threshold.1)
-        if self.nodes_connected * self.config.config.start_threshold.1
+        if self.nodes_connected.len() as u64 * self.config.config.start_threshold.1
             >= (self.config.config.num_nodes_with_stake.get() as u64)
                 * self.config.config.start_threshold.0
         {
@@ -568,6 +572,7 @@ where
         self.accepting_new_keys = false;
         self.manual_start_allowed = false;
         self.peer_pub_ready = true;
+        self.start = true;
 
         Ok(())
     }
@@ -829,6 +834,24 @@ where
     if env_password.is_ok() {
         tracing::warn!("Took orchestrator manual start password from the environment variable: ORCHESTRATOR_MANUAL_START_PASSWORD={:?}", env_password);
         network_config.manual_start_password = env_password.ok();
+    }
+
+    // Try to overwrite the network_config public keys
+    // from the file the env var points to, or panic.
+    {
+        let env_public_keys = std::env::var("ORCHESTRATOR_PUBLIC_KEYS");
+
+        if let Ok(filepath) = env_public_keys {
+            #[allow(clippy::panic)]
+            let config_file_as_string: String = fs::read_to_string(filepath.clone())
+                .unwrap_or_else(|_| panic!("Could not read config file located at {filepath}"));
+
+            let file: PublicKeysFile<KEY> =
+                toml::from_str::<PublicKeysFile<KEY>>(&config_file_as_string)
+                    .expect("Unable to convert config file to TOML");
+
+            network_config.public_keys = file.public_keys;
+        }
     }
 
     network_config.config.known_nodes_with_stake = network_config
