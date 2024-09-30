@@ -193,8 +193,8 @@ impl ValidatorArgs {
 impl OrchestratorClient {
     /// Creates the client that will connect to the orchestrator
     #[must_use]
-    pub fn new(args: ValidatorArgs) -> Self {
-        let client = surf_disco::Client::<ClientError, OrchestratorVersion>::new(args.url);
+    pub fn new(url: Url) -> Self {
+        let client = surf_disco::Client::<ClientError, OrchestratorVersion>::new(url);
         // TODO ED: Add healthcheck wait here
         OrchestratorClient { client }
     }
