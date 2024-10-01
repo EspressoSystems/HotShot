@@ -1228,6 +1228,7 @@
 <a href="#1226" id="1226">1226</a>
 <a href="#1227" id="1227">1227</a>
 <a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2375,8 +2376,9 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
     <span class="kw">mod </span>derive_multiaddr {
-        <span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::<span class="kw-2">*</span>;
         <span class="kw">use </span>std::net::Ipv6Addr;
+
+        <span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::<span class="kw-2">*</span>;
 
         <span class="doccomment">/// Test derivation of a valid IPv4 address -&gt; Multiaddr
         </span><span class="attr">#[test]

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["StaticCommitteeLeaderForTwoViews"],"type":["StaticCommittee"]};
+window.SIDEBAR_ITEMS = {"struct":["StaticCommitteeLeaderForTwoViews"]};

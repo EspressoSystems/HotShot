@@ -483,6 +483,9 @@
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -533,6 +536,8 @@
     </span><span class="kw">pub </span>total_num_views: usize,
     <span class="doccomment">/// The number of failed views during benchmarking
     </span><span class="kw">pub </span>failed_num_views: usize,
+    <span class="doccomment">/// The membership committee type used
+    </span><span class="kw">pub </span>committee_type: String,
 }
 
 <span class="kw">impl </span>BenchResults {
@@ -540,6 +545,7 @@
     </span><span class="kw">pub fn </span>printout(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="macro">println!</span>(<span class="string">"====================="</span>);
         <span class="macro">println!</span>(<span class="string">"{0} Benchmark results:"</span>, <span class="self">self</span>.partial_results);
+        <span class="macro">println!</span>(<span class="string">"Committee type: {}"</span>, <span class="self">self</span>.committee_type);
         <span class="macro">println!</span>(
             <span class="string">"Average latency: {} seconds, Minimum latency: {} seconds, Maximum latency: {} seconds"</span>,
             <span class="self">self</span>.avg_latency_in_sec, <span class="self">self</span>.minimum_latency_in_sec, <span class="self">self</span>.maximum_latency_in_sec
@@ -575,8 +581,6 @@
     </span><span class="kw">pub </span>transaction_size: u64,
     <span class="doccomment">/// The number of rounds
     </span><span class="kw">pub </span>rounds: usize,
-    <span class="doccomment">/// The type of leader election: static, fixed, random
-    </span><span class="kw">pub </span>leader_election_type: String,
 
     <span class="comment">// Results starting here
     </span><span class="doccomment">/// Whether the results are partially collected
@@ -600,6 +604,8 @@
     </span><span class="kw">pub </span>total_num_views: usize,
     <span class="doccomment">/// The number of failed views during benchmarking
     </span><span class="kw">pub </span>failed_num_views: usize,
+    <span class="doccomment">/// The membership committee type used
+    </span><span class="kw">pub </span>committee_type: String,
 }
 
 <span class="comment">// VALIDATOR

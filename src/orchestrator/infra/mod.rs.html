@@ -1097,6 +1097,19 @@
 <a href="#1095" id="1095">1095</a>
 <a href="#1096" id="1096">1096</a>
 <a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1480,7 +1493,16 @@
 
         <span class="kw">let </span>network = <span class="self">self</span>.network();
 
-        <span class="kw">let </span>all_nodes = config.config.known_nodes_with_stake.clone();
+        <span class="kw">let </span>all_nodes = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"fixed-leader-election"</span>) {
+            <span class="kw">let </span><span class="kw-2">mut </span>vec = config.config.known_nodes_with_stake.clone();
+
+            vec.truncate(config.config.fixed_leader_for_gpuvid);
+
+            vec
+        } <span class="kw">else </span>{
+            config.config.known_nodes_with_stake.clone()
+        };
+
         <span class="kw">let </span>da_nodes = config.config.known_da_nodes.clone();
 
         <span class="comment">// Create the quorum membership from all nodes
@@ -1488,19 +1510,12 @@
             all_nodes.clone(),
             all_nodes.clone(),
             Topic::Global,
-            <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
-            </span>config.config.fixed_leader_for_gpuvid,
         );
 
         <span class="comment">// Create the quorum membership from all nodes, specifying the committee
         // as the known da nodes
-        </span><span class="kw">let </span>da_membership = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(
-            all_nodes.clone(),
-            da_nodes,
-            Topic::Da,
-            <span class="attr">#[cfg(feature = <span class="string">"fixed-leader-election"</span>)]
-            </span>config.config.fixed_leader_for_gpuvid,
-        );
+        </span><span class="kw">let </span>da_membership =
+            &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(all_nodes.clone(), da_nodes, Topic::Da);
 
         <span class="kw">let </span>memberships = Memberships {
             quorum_membership: quorum_membership.clone(),
@@ -1656,6 +1671,12 @@
         }
         <span class="kw">let </span>consensus_lock = context.hotshot.consensus();
         <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
+        <span class="kw">let </span>num_eligible_leaders = context
+            .hotshot
+            .memberships
+            .quorum_membership
+            .committee_leaders(TYPES::Time::genesis())
+            .len();
         <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         <span class="comment">// `failed_num_views` could include uncommitted views
         </span><span class="kw">let </span>failed_num_views = total_num_views - num_successful_commits;
@@ -1673,6 +1694,7 @@
                 / total_time_elapsed_sec;
             <span class="kw">let </span>avg_latency_in_sec = total_latency / num_latency;
             <span class="macro">println!</span>(<span class="string">"[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec."</span>);
+
             BenchResults {
                 partial_results: <span class="string">"Unset"</span>.to_string(),
                 avg_latency_in_sec,
@@ -1685,6 +1707,10 @@
                 </span>total_time_elapsed_in_sec: total_time_elapsed.as_secs(),
                 total_num_views,
                 failed_num_views,
+                committee_type: <span class="macro">format!</span>(
+                    <span class="string">"{} with {num_eligible_leaders} eligible leaders"</span>,
+                    std::any::type_name::&lt;TYPES::Membership&gt;()
+                ),
             }
         } <span class="kw">else </span>{
             <span class="comment">// all values with zero

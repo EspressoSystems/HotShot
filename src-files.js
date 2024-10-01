@@ -4,7 +4,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["all_push_cdn",["",[["infra",[],["mod.rs"]]],["all.rs","types.rs"]]],\
 ["cdn_broker",["",[],["broker.rs"]]],\
 ["cdn_marshal",["",[],["marshal.rs"]]],\
-["hotshot",["",[["tasks",[],["mod.rs","task_state.rs"]],["traits",[["election",[],["static_committee.rs","static_committee_leader_two_views.rs"]],["networking",[],["combined_network.rs","libp2p_network.rs","memory_network.rs","push_cdn_network.rs"]]],["election.rs","networking.rs","node_implementation.rs"]],["types",[],["event.rs","handle.rs"]]],["documentation.rs","lib.rs","traits.rs","types.rs"]]],\
+["hotshot",["",[["tasks",[],["mod.rs","task_state.rs"]],["traits",[["election",[],["randomized_committee.rs","static_committee.rs","static_committee_leader_two_views.rs"]],["networking",[],["combined_network.rs","libp2p_network.rs","memory_network.rs","push_cdn_network.rs"]]],["election.rs","networking.rs","node_implementation.rs"]],["types",[],["event.rs","handle.rs"]]],["documentation.rs","lib.rs","traits.rs","types.rs"]]],\
 ["hotshot_builder_api",["",[["v0_1",[],["block_info.rs","builder.rs","data_source.rs","mod.rs","query_data.rs"]],["v0_3",[],["builder.rs","data_source.rs","mod.rs"]]],["api.rs","lib.rs"]]],\
 ["hotshot_example_types",["",[],["auction_results_provider_types.rs","block_types.rs","lib.rs","node_types.rs","state_types.rs","storage_types.rs","testable_delay.rs"]]],\
 ["hotshot_fakeapi",["",[],["fake_solver.rs","lib.rs"]]],\
