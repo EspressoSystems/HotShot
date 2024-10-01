@@ -57,7 +57,7 @@ test-ci *ARGS:
 
 test-ci-rest *ARGS:
   echo Testing {{ARGS}}
-  RUST_LOG=info cargo nextest run --profile ci --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --skip tests_1 --skip tests_2 --skip tests_3 --skip tests_4 --skip tests_5
+  RUST_LOG=info cargo nextest run -E 'not (test(tests_1) | test(tests_2) | test(tests_3) | test(tests_4) | test(tests_5))' --profile ci --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}}
 
 test-ci-1 *ARGS:
   echo Testing {{ARGS}}

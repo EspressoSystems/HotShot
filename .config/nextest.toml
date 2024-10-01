@@ -1,3 +1,4 @@
 [profile.ci]
-retries=2
+retries = 2
 final-status-level = "flaky"
+num-test-threads = 1
