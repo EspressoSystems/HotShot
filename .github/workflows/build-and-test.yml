@@ -40,10 +40,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: "build-and-test"
+          shared-key: "test"
           prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          save-if: ${{ matrix.test_suites == 'test-ci-rest' }}
 
       - name: Install Just
         run: |
@@ -84,10 +84,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: "build-and-test"
+          shared-key: "test"
           prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          save-if: ${{ matrix.test_suites == 'test-ci-rest' }}
 
       - name: Install Just
         run: |
@@ -122,7 +122,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: "build-and-test"
+          shared-key: "examples"
           prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -156,7 +156,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: "build-and-test"
+          shared-key: "build-release"
           prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -201,7 +201,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
         with:
-          shared-key: "build-and-test"
+          shared-key: "build-arm-release"
           prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
