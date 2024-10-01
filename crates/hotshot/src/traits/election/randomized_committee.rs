@@ -134,9 +134,12 @@ impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
     /// Index the vector of public keys with the current view number
     fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
-        let randomized_view_number: usize = rng.gen();
-        let index = randomized_view_number % self.eligible_leaders.len();
+
+        let randomized_view_number: u64 = rng.gen_range(0..=u64::MAX);
+        let index = randomized_view_number as usize % self.eligible_leaders.len();
+
         let res = self.eligible_leaders[index].clone();
+
         TYPES::SignatureKey::public_key(&res)
     }
 
