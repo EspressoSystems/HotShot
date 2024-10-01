@@ -20,7 +20,7 @@ use hotshot_types::{
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
 /// The static committee election
-pub struct GeneralStaticCommittee<T: NodeType> {
+pub struct StaticCommittee<T: NodeType> {
     /// The nodes eligible for leadership.
     /// NOTE: This is currently a hack because the DA leader needs to be the quorum
     /// leader but without voting rights.
@@ -37,10 +37,7 @@ pub struct GeneralStaticCommittee<T: NodeType> {
     committee_topic: Topic,
 }
 
-/// static committee using a vrf kp
-pub type StaticCommittee<T> = GeneralStaticCommittee<T>;
-
-impl<TYPES: NodeType> Membership<TYPES> for GeneralStaticCommittee<TYPES> {
+impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     /// Create a new election
     fn new(
         eligible_leaders: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,

@@ -6,8 +6,7 @@
 
 use hotshot::traits::{
     election::{
-        randomized_committee::RandomizedCommittee,
-        static_committee::{GeneralStaticCommittee, StaticCommittee},
+        randomized_committee::RandomizedCommittee, static_committee::StaticCommittee,
         static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
     },
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
@@ -53,7 +52,7 @@ impl NodeType for TestTypes {
     type Transaction = TestTransaction;
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
-    type Membership = GeneralStaticCommittee<TestTypes>;
+    type Membership = StaticCommittee<TestTypes>;
     type BuilderSignatureKey = BuilderKey;
 }
 

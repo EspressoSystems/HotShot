@@ -37,9 +37,6 @@ pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
     committee_topic: Topic,
 }
 
-/// static committee using a vrf kp
-pub type StaticCommittee<T> = StaticCommitteeLeaderForTwoViews<T>;
-
 impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYPES> {
     /// Create a new election
     fn new(
