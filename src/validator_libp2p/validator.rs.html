@@ -39,12 +39,6 @@
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
 <a href="#39" id="39">39</a>
-<a href="#40" id="40">40</a>
-<a href="#41" id="41">41</a>
-<a href="#42" id="42">42</a>
-<a href="#43" id="43">43</a>
-<a href="#44" id="44">44</a>
-<a href="#45" id="45">45</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -52,9 +46,8 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="doccomment">//! A validator using libp2p
-</span><span class="kw">use </span>std::{net::SocketAddr, str::FromStr};
 
-<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+</span><span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 <span class="kw">use </span>hotshot_orchestrator::client::ValidatorArgs;
@@ -80,12 +73,7 @@
 
     <span class="comment">// If we did not set the advertise address, use our local IP and port 8000
     </span><span class="kw">let </span>local_ip = local_ip().expect(<span class="string">"failed to get local IP"</span>);
-    args.advertise_address = <span class="prelude-val">Some</span>(
-        args.advertise_address.unwrap_or(
-            SocketAddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{local_ip}:8000"</span>))
-                .expect(<span class="string">"failed to convert local IP to socket address"</span>),
-        ),
-    );
+    args.advertise_address = <span class="prelude-val">Some</span>(args.advertise_address.unwrap_or(<span class="macro">format!</span>(<span class="string">"{local_ip}:8000"</span>)));
 
     <span class="macro">debug!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
     infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, TestVersions, ThisRun&gt;(args).<span class="kw">await</span>;

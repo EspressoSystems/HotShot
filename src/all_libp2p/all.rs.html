@@ -123,7 +123,7 @@
             infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, TestVersions, ThisRun&gt;(
                 ValidatorArgs {
                     url: orchestrator_url,
-                    advertise_address: <span class="prelude-val">Some</span>(advertise_address),
+                    advertise_address: <span class="prelude-val">Some</span>(advertise_address.to_string()),
                     builder_address: <span class="prelude-val">Some</span>(builder_address),
                     network_config_file: <span class="prelude-val">None</span>,
                 },
