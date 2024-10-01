@@ -1,0 +1,3 @@
+[profile.ci]
+retries=2
+final-status-level = "flaky"
