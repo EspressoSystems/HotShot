@@ -1,4 +1,5 @@
 [profile.ci]
 retries = 2
+slow-timeout = "3m"
 final-status-level = "flaky"
 threads-required = "num-test-threads"
