@@ -1144,84 +1144,85 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
 #[cfg(test)]
 mod test {
-    use std::net::Ipv6Addr;
+    mod derive_multiaddr {
+        use super::super::*;
+        use std::net::Ipv6Addr;
 
-    use super::*;
+        /// Test derivation of a valid IPv4 address -> Multiaddr
+        #[test]
+        fn test_v4_valid() {
+            // Derive a multiaddr from a valid IPv4 address
+            let addr = "1.1.1.1:8080".to_string();
+            let multiaddr =
+                derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
 
-    /// Test derivation of a valid IPv4 address -> Multiaddr
-    #[test]
-    fn test_derive_multiaddr_v4_valid() {
-        // Derive a multiaddr from a valid IPv4 address
-        let addr = "1.1.1.1:8080".to_string();
-        let multiaddr =
-            derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
+            // Make sure it's the correct (quic) multiaddr
+            assert_eq!(multiaddr.to_string(), "/ip4/1.1.1.1/udp/8080/quic-v1");
+        }
 
-        // Make sure it's the correct (quic) multiaddr
-        assert_eq!(multiaddr.to_string(), "/ip4/1.1.1.1/udp/8080/quic-v1");
-    }
+        /// Test derivation of a valid IPv6 address -> Multiaddr
+        #[test]
+        fn test_v6_valid() {
+            // Derive a multiaddr from a valid IPv6 address
+            let ipv6_addr = Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8);
+            let addr = format!("{ipv6_addr}:8080");
+            let multiaddr =
+                derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
 
-    /// Test derivation of a valid IPv6 address -> Multiaddr
-    #[test]
-    fn test_derive_multiaddr_v6_valid() {
-        // Derive a multiaddr from a valid IPv6 address
-        let ipv6_addr = Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let addr = format!("{ipv6_addr}:8080");
-        let multiaddr =
-            derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
+            // Make sure it's the correct (quic) multiaddr
+            assert_eq!(
+                multiaddr.to_string(),
+                format!("/ip6/{ipv6_addr}/udp/8080/quic-v1")
+            );
+        }
 
-        // Make sure it's the correct (quic) multiaddr
-        assert_eq!(
-            multiaddr.to_string(),
-            format!("/ip6/{ipv6_addr}/udp/8080/quic-v1")
-        );
-    }
+        /// Test that an invalid address fails to derive to a Multiaddr
+        #[test]
+        fn test_no_port() {
+            // Derive a multiaddr from an invalid port
+            let addr = "1.1.1.1".to_string();
+            let multiaddr = derive_libp2p_multiaddr(&addr);
 
-    /// Test that an invalid address fails to derive to a Multiaddr
-    #[test]
-    fn test_no_port() {
-        // Derive a multiaddr from an invalid port
-        let addr = "1.1.1.1".to_string();
-        let multiaddr = derive_libp2p_multiaddr(&addr);
+            // Make sure it fails
+            assert!(multiaddr.is_err());
+        }
 
-        // Make sure it fails
-        assert!(multiaddr.is_err());
-    }
+        /// Test that an existing domain name resolves to a Multiaddr
+        #[test]
+        fn test_fqdn_exists() {
+            // Derive a multiaddr from a valid FQDN
+            let addr = "example.com:8080".to_string();
+            let multiaddr =
+                derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
 
-    /// Test that an existing domain name resolves to a Multiaddr
-    #[test]
-    fn test_fqdn_exists() {
-        // Derive a multiaddr from a valid FQDN
-        let addr = "example.com:8080".to_string();
-        let multiaddr =
-            derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
+            // Make sure it's the correct (quic) multiaddr
+            assert_eq!(multiaddr.to_string(), "/dns/example.com/udp/8080/quic-v1");
+        }
 
-        // Make sure it's the correct (quic) multiaddr
-        assert_eq!(multiaddr.to_string(), "/dns/example.com/udp/8080/quic-v1");
-    }
+        /// Test that a non-existent domain name still resolves to a Multiaddr
+        #[test]
+        fn test_fqdn_does_not_exist() {
+            // Derive a multiaddr from an invalid FQDN
+            let addr = "libp2p.example.com:8080".to_string();
+            let multiaddr =
+                derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
 
-    /// Test that a non-existent domain name still resolves to a Multiaddr
-    #[test]
-    fn test_fqdn_does_not_exist() {
-        // Derive a multiaddr from an invalid FQDN
-        let addr = "libp2p.example.com:8080".to_string();
-        let multiaddr =
-            derive_libp2p_multiaddr(&addr).expect("Failed to derive valid multiaddr, {}");
+            // Make sure it still worked
+            assert_eq!(
+                multiaddr.to_string(),
+                "/dns/libp2p.example.com/udp/8080/quic-v1"
+            );
+        }
 
-        // Make sure it still worked
-        assert_eq!(
-            multiaddr.to_string(),
-            "/dns/libp2p.example.com/udp/8080/quic-v1"
-        );
-    }
+        /// Test that a domain name without a port fails to derive to a Multiaddr
+        #[test]
+        fn test_fqdn_no_port() {
+            // Derive a multiaddr from an invalid port
+            let addr = "example.com".to_string();
+            let multiaddr = derive_libp2p_multiaddr(&addr);
 
-    /// Test that a domain name without a port fails to derive to a Multiaddr
-    #[test]
-    fn test_fqdn_no_port() {
-        // Derive a multiaddr from an invalid port
-        let addr = "example.com".to_string();
-        let multiaddr = derive_libp2p_multiaddr(&addr);
-
-        // Make sure it fails
-        assert!(multiaddr.is_err());
+            // Make sure it fails
+            assert!(multiaddr.is_err());
+        }
     }
 }
