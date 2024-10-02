@@ -776,15 +776,15 @@
     <span class="kw">fn </span>add_network_event_task(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
-        channel: Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Network&gt;,
-        membership: TYPES::Membership,
-        filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool,
+        network: Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Network&gt;,
+        quorum_membership: TYPES::Membership,
+        da_membership: TYPES::Membership,
     ) {
         <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
-            channel,
+            network,
             view: TYPES::Time::genesis(),
-            membership,
-            filter,
+            quorum_membership,
+            da_membership,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
             consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),

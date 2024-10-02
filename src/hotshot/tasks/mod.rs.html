@@ -559,56 +559,6 @@
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -635,7 +585,7 @@
 <span class="kw">use </span>hotshot_task_impls::{
     da::DaTaskState,
     events::HotShotEvent,
-    network::{<span class="self">self</span>, NetworkEventTaskState, NetworkMessageTaskState},
+    network::{NetworkEventTaskState, NetworkMessageTaskState},
     request::NetworkRequestState,
     response::{run_response_task, NetworkResponseState},
     transactions::TransactionTaskState,
@@ -774,15 +724,15 @@
     NET: ConnectedNetwork&lt;TYPES::SignatureKey&gt;,
 &gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
-    channel: Arc&lt;NET&gt;,
-    membership: TYPES::Membership,
-    filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool,
+    network: Arc&lt;NET&gt;,
+    quorum_membership: TYPES::Membership,
+    da_membership: TYPES::Membership,
 ) {
     <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
-        channel,
+        network,
         view: TYPES::Time::genesis(),
-        membership,
-        filter,
+        quorum_membership,
+        da_membership,
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
@@ -1113,31 +1063,7 @@
             handle,
             Arc::clone(<span class="kw-2">&amp;</span>network),
             quorum_membership.clone(),
-            network::quorum_filter,
-        );
-        <span class="self">self</span>.add_network_event_task(
-            handle,
-            Arc::clone(<span class="kw-2">&amp;</span>network),
-            quorum_membership.clone(),
-            network::upgrade_filter,
-        );
-        <span class="self">self</span>.add_network_event_task(
-            handle,
-            Arc::clone(<span class="kw-2">&amp;</span>network),
             da_membership,
-            network::da_filter,
-        );
-        <span class="self">self</span>.add_network_event_task(
-            handle,
-            Arc::clone(<span class="kw-2">&amp;</span>network),
-            quorum_membership.clone(),
-            network::view_sync_filter,
-        );
-        <span class="self">self</span>.add_network_event_task(
-            handle,
-            Arc::clone(<span class="kw-2">&amp;</span>network),
-            quorum_membership,
-            network::vid_filter,
         );
     }
 
@@ -1146,10 +1072,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
         channel: Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Network&gt;,
-        membership: TYPES::Membership,
-        filter: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool,
+        quorum_membership: TYPES::Membership,
+        da_membership: TYPES::Membership,
     ) {
-        add_network_event_task(handle, channel, membership, filter);
+        add_network_event_task(handle, channel, quorum_membership, da_membership);
     }
 }
 
@@ -1173,7 +1099,6 @@
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>handle.network);
 
     add_network_message_task(handle, <span class="kw-2">&amp;</span>network);
-    add_network_message_task(handle, <span class="kw-2">&amp;</span>network);
 
     add_request_network_task(handle).<span class="kw">await</span>;
     add_response_task(handle);
@@ -1183,39 +1108,14 @@
 </span><span class="kw">pub fn </span>add_network_event_tasks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
 ) {
-    <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>handle.network);
     <span class="kw">let </span>quorum_membership = handle.memberships.quorum_membership.clone();
     <span class="kw">let </span>da_membership = handle.memberships.da_membership.clone();
 
     add_network_event_task(
         handle,
-        Arc::clone(<span class="kw-2">&amp;</span>network),
-        quorum_membership.clone(),
-        network::quorum_filter,
-    );
-    add_network_event_task(
-        handle,
-        Arc::clone(<span class="kw-2">&amp;</span>network),
-        quorum_membership.clone(),
-        network::upgrade_filter,
-    );
-    add_network_event_task(
-        handle,
-        Arc::clone(<span class="kw-2">&amp;</span>network),
-        da_membership,
-        network::da_filter,
-    );
-    add_network_event_task(
-        handle,
-        Arc::clone(<span class="kw-2">&amp;</span>network),
-        quorum_membership.clone(),
-        network::view_sync_filter,
-    );
-    add_network_event_task(
-        handle,
-        Arc::clone(<span class="kw-2">&amp;</span>network),
+        Arc::clone(<span class="kw-2">&amp;</span>handle.network),
         quorum_membership,
-        network::vid_filter,
+        da_membership,
     );
 }
 </code></pre></div></section></main></body></html>
