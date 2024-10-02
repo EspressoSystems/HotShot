@@ -87,7 +87,7 @@ jobs:
           shared-key: "test"
           prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
-          save-if: ${{ github.ref == 'refs/heads/main' && matrix.test_suites == 'test-ci-rest' }}
+          save-if: "false"
 
       - name: Install Just
         run: |
