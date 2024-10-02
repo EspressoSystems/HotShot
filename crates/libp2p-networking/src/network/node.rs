@@ -341,10 +341,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         })
     }
 
-    /// Publish a key/value to the kv store.
-    /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`super::error::DHTError`] is
-    /// sent instead.
+    /// Publish a key/value to the record store.
     ///
     /// # Panics
     /// If the default replication factor is `None`

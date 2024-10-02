@@ -105,7 +105,7 @@ impl<TYPES: NodeType, Ver: StaticVersionType> BuilderClient<TYPES, Ver> {
     /// Query builder for available blocks
     ///
     /// # Errors
-    /// - [`BuilderClientError::NotFound`] if blocks aren't available for this parent
+    /// - [`BuilderClientError::BlockNotFound`] if blocks aren't available for this parent
     /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
     pub async fn available_blocks(
         &self,
@@ -145,7 +145,7 @@ pub mod v0_1 {
         /// Claim block header input
         ///
         /// # Errors
-        /// - [`BuilderClientError::NotFound`] if block isn't available
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
         pub async fn claim_block_header_input(
             &self,
@@ -167,7 +167,7 @@ pub mod v0_1 {
         /// Claim block
         ///
         /// # Errors
-        /// - [`BuilderClientError::NotFound`] if block isn't available
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
         pub async fn claim_block(
             &self,
@@ -216,7 +216,7 @@ pub mod v0_3 {
         /// Claim block
         ///
         /// # Errors
-        /// - [`BuilderClientError::NotFound`] if block isn't available
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
         pub async fn bundle(
             &self,

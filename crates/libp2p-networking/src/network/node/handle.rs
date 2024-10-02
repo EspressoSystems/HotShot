@@ -257,8 +257,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Insert a record into the kademlia DHT
     /// # Errors
-    /// - Will return [`NetworkError::DHTError`] when encountering an error putting to DHT
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize the key or value
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize the key or value
     pub async fn put_record(
         &self,
         key: RecordKey,
@@ -286,9 +285,8 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     /// Receive a record from the kademlia DHT if it exists.
     /// Must be replicated on at least 2 nodes
     /// # Errors
-    /// - Will return [`NetworkError::DHTError`] when encountering an error putting to DHT
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize the key
-    /// - Will return [`NetworkError::DeserializationError`] when unable to deserialize the returned value
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize the key
+    /// - Will return [`NetworkError::FailedToDeserialize`] when unable to deserialize the returned value
     pub async fn get_record(
         &self,
         key: RecordKey,
@@ -317,10 +315,9 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Get a record from the kademlia DHT with a timeout
     /// # Errors
-    /// - Will return [`NetworkError::DHTError`] when encountering an error putting to DHT
-    /// - Will return [`NetworkError::TimeoutError`] when times out
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize the key
-    /// - Will return [`NetworkError::DeserializationError`] when unable to deserialize the returned value
+    /// - Will return [`NetworkError::Timeout`] when times out
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize the key or value
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     pub async fn get_record_timeout(
         &self,
         key: RecordKey,
@@ -333,10 +330,9 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Insert a record into the kademlia DHT with a timeout
     /// # Errors
-    /// - Will return [`NetworkError::DHTError`] when encountering an error putting to DHT
-    /// - Will return [`NetworkError::TimeoutError`] when times out
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize the key or value
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::Timeout`] when times out
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize the key or value
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     pub async fn put_record_timeout(
         &self,
         key: RecordKey,
@@ -350,7 +346,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Subscribe to a topic
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Subscribe(topic, Some(s));
@@ -361,7 +357,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Unsubscribe from a topic
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Unsubscribe(topic, Some(s));
@@ -373,7 +369,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     /// Ignore `peers` when pruning
     /// e.g. maintain their connection
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     pub async fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkError> {
         let req = ClientRequest::IgnorePeers(peers);
         self.send_request(req).await
@@ -381,16 +377,16 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Make a direct request to `peer_id` containing `msg`
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize `msg`
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
     pub async fn direct_request(&self, pid: PeerId, msg: &[u8]) -> Result<(), NetworkError> {
         self.direct_request_no_serialize(pid, msg.to_vec()).await
     }
 
     /// Make a direct request to `peer_id` containing `msg` without serializing
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize `msg`
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
     pub async fn direct_request_no_serialize(
         &self,
         pid: PeerId,
@@ -406,8 +402,8 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Reply with `msg` to a request over `chan`
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize `msg`
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
     pub async fn direct_response(
         &self,
         chan: ResponseChannel<Vec<u8>>,
@@ -431,16 +427,16 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Gossip a message to peers
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize `msg`
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
     pub async fn gossip(&self, topic: String, msg: &[u8]) -> Result<(), NetworkError> {
         self.gossip_no_serialize(topic, msg.to_vec()).await
     }
 
     /// Gossip a message to peers without serializing
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
-    /// - Will return [`NetworkError::SerializationError`] when unable to serialize `msg`
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
     pub async fn gossip_no_serialize(
         &self,
         topic: String,
@@ -452,7 +448,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Tell libp2p about known network nodes
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     pub async fn add_known_peers(
         &self,
         known_peers: Vec<(PeerId, Multiaddr)>,
