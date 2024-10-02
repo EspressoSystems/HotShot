@@ -50,7 +50,6 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use rand::{prelude::SliceRandom, thread_rng};
-use snafu::ResultExt;
 use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 pub use self::{
@@ -58,18 +57,15 @@ pub use self::{
         GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
         DEFAULT_REPLICATION_FACTOR,
     },
-    handle::{
-        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver,
-    },
+    handle::{spawn_network_node, NetworkNodeHandle, NetworkNodeReceiver},
 };
 use super::{
     behaviours::dht::{
         bootstrap::{self, DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
+    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
+    NetworkEventInternal,
 };
 use crate::network::behaviours::{
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
@@ -135,7 +131,11 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         &mut self,
         listen_addr: Multiaddr,
     ) -> Result<Multiaddr, NetworkError> {
-        self.listener_id = Some(self.swarm.listen_on(listen_addr).context(TransportSnafu)?);
+        self.listener_id = Some(
+            self.swarm
+                .listen_on(listen_addr)
+                .map_err(|err| NetworkError::ListenError(err.to_string()))?,
+        );
         let addr = loop {
             if let Some(SwarmEvent::NewListenAddr { address, .. }) = self.swarm.next().await {
                 break address;
@@ -213,11 +213,8 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .mesh_outbound_min(config.gossip_config.mesh_outbound_min) // Minimum number of outbound peers in mesh
                 .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
                 .build()
-                .map_err(|s| {
-                    GossipsubConfigSnafu {
-                        message: s.to_string(),
-                    }
-                    .build()
+                .map_err(|err| {
+                    NetworkError::ConfigError(format!("Error building gossipsub config: {:?}", err))
                 })?;
 
             // - Build a gossipsub network behavior
@@ -225,7 +222,9 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 MessageAuthenticity::Signed(keypair.clone()),
                 gossipsub_config,
             )
-            .map_err(|s| GossipsubBuildSnafu { message: s }.build())?;
+            .map_err(|err| {
+                NetworkError::ConfigError(format!("Error building gossipsub behaviour: {:?}", err))
+            })?;
 
             //   Build a identify network behavior needed for own
             //   node connection information
@@ -557,7 +556,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(self.num_connected()))
                     .await
-                    .map_err(|_e| NetworkError::StreamClosed)?;
+                    .map_err(|err| NetworkError::ChannelSendError(err.to_string()))?;
             }
             SwarmEvent::ConnectionClosed {
                 connection_id: _,
@@ -582,7 +581,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(self.num_connected()))
                     .await
-                    .map_err(|_e| NetworkError::StreamClosed)?;
+                    .map_err(|err| NetworkError::ChannelSendError(err.to_string()))?;
             }
             SwarmEvent::Dialing {
                 peer_id,
@@ -694,7 +693,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                     send_to_client
                         .send(event)
                         .await
-                        .map_err(|_e| NetworkError::StreamClosed)?;
+                        .map_err(|err| NetworkError::ChannelSendError(err.to_string()))?;
                 }
             }
             SwarmEvent::OutgoingConnectionError {
