@@ -50,7 +50,7 @@ async fn test_network_task() {
         .0;
     let launcher = builder.gen_launcher(node_id);
 
-    let network = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generator.channel_generator)(node_id, false).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
     let consensus = handle.hotshot.consensus();
@@ -130,7 +130,7 @@ async fn test_network_storage_fail() {
         .0;
     let launcher = builder.gen_launcher(node_id);
 
-    let network = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generator.channel_generator)(node_id, false).await;
 
     let consensus = handle.hotshot.consensus();
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));

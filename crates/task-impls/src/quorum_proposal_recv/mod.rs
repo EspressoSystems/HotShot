@@ -127,6 +127,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) {
         #[cfg(feature = "dependency-tasks")]
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
+            if *event.view_number().unwrap() > 10 && *event.view_number().unwrap() < 18 {
+                // tracing::error!("received: {}, view: {:?}", self.id, event.view_number());
+            }
             match handle_quorum_proposal_recv(
                 proposal,
                 sender,

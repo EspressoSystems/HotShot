@@ -68,7 +68,7 @@ pub async fn build_system_handle<
 
     let launcher = builder.gen_launcher(node_id);
 
-    let network = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generator.channel_generator)(node_id, false).await;
     let storage = (launcher.resource_generator.storage)(node_id);
     let marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
     let config = launcher.resource_generator.config.clone();

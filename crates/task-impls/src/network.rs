@@ -339,6 +339,7 @@ impl<
         let net = Arc::clone(&self.channel);
         let storage = Arc::clone(&self.storage);
         let state = Arc::clone(&self.consensus);
+        // tracing::error!("view: {:?}", view);
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, COMMCHANNEL, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
@@ -349,6 +350,7 @@ impl<
             .await
             .is_err()
             {
+                tracing::error!("woah");
                 return;
             }
             match net.vid_broadcast_message(messages).await {
@@ -369,13 +371,13 @@ impl<
     ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
             if !state.write().await.update_action(action, view) {
-                warn!("Already actioned {:?} in view {:?}", action, view);
+                tracing::warn!("Already actioned {:?} in view {:?}", action, view);
                 return Err(());
             }
             match storage.write().await.record_action(view, action).await {
                 Ok(()) => Ok(()),
                 Err(e) => {
-                    warn!("Not Sending {:?} because of storage error: {:?}", action, e);
+                    tracing::error!("Not Sending {:?} because of storage error: {:?}", action, e);
                     Err(())
                 }
             }
@@ -402,6 +404,7 @@ impl<
         match event.as_ref().clone() {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 *maybe_action = Some(HotShotAction::Propose);
+                // tracing::error!("send: {:?}", event.view_number());
                 Some((
                     sender,
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -413,6 +416,9 @@ impl<
 
             // ED Each network task is subscribed to all these message types.  Need filters per network task
             HotShotEvent::QuorumVoteSend(vote) => {
+                //if *vote.view_number() < 15 {
+                // tracing::error!("vote: {:?}", vote.view_number());
+                //}
                 *maybe_action = Some(HotShotAction::Vote);
                 Some((
                     vote.signing_key(),

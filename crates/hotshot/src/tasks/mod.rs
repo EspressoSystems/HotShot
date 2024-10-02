@@ -114,25 +114,32 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let node_id = handle.hotshot.id;
+    tracing::error!("starting network task: {}", node_id);
     let task_handle = async_spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
+        let mut last_log = std::time::Instant::now();
         loop {
             // Wait for one of the following to resolve:
             futures::select! {
                 // Wait for a shutdown signal
                 () = shutdown_signal => {
-                    tracing::error!("Shutting down network message task");
+                    tracing::debug!("Shutting down network message task {}", node_id);
                     return;
                 }
 
                 // Wait for a message from the network
                 message = network.recv_message().fuse() => {
+                    let log = last_log.elapsed() > std::time::Duration::from_secs(5);
                     // Make sure the message did not fail
                     let message = match message {
                         Ok(message) => message,
                         Err(e) => {
-                            tracing::error!("Failed to receive message: {:?}", e);
+                            if log {
+                                tracing::error!("Failed to receive message: {:?} {}", e, node_id);
+                                last_log = std::time::Instant::now();
+                            }
                             continue;
                         }
                     };
@@ -141,11 +148,18 @@ pub fn add_network_message_task<
                     let deserialized_message: Message<TYPES> = match upgrade_lock.deserialize(&message).await {
                         Ok(message) => message,
                         Err(e) => {
-                            tracing::error!("Failed to deserialize message: {:?}", e);
+                            if log {
+                                tracing::error!("Failed to deserialize message: {:?}", e);
+                                last_log = std::time::Instant::now();
+                            }
                             continue;
                         }
                     };
 
+                    if log {
+                        // tracing::error!("here: {}, {:?}", node_id, deserialized_message.kind);
+                        last_log = std::time::Instant::now();
+                    }
                     // Handle the message
                     state.handle_message(deserialized_message).await;
                 }
@@ -227,7 +241,7 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
             consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
             quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
         };
-
+        tracing::error!("adding dependency tasks: {}", handle.hotshot.id);
         handle.add_task(QuorumProposalTaskState::<TYPES, I, V>::create_from(handle).await);
         handle.add_task(QuorumVoteTaskState::<TYPES, I, V>::create_from(handle).await);
         handle.add_task(QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await);
@@ -561,7 +575,7 @@ pub async fn add_network_message_and_request_receiver_tasks<
 ) {
     let network = Arc::clone(&handle.network);
 
-    add_network_message_task(handle, &network);
+    // add_network_message_task(handle, &network);
     add_network_message_task(handle, &network);
 
     add_request_network_task(handle).await;

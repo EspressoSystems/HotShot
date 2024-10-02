@@ -7,6 +7,7 @@
 //! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 use std::{
+    cell::RefCell,
     collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, HashMap},
     future::Future,
     hash::{Hash, Hasher},
@@ -15,7 +16,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use async_broadcast::{broadcast, InactiveReceiver, Sender};
@@ -85,6 +86,9 @@ pub struct CombinedNetworks<TYPES: NodeType> {
 
     /// How many times messages were sent on secondary without delay because primary is down
     no_delay_counter: Arc<AtomicU64>,
+    node_id: usize,
+    log: bool,
+    last_log: Instant,
 }
 
 impl<TYPES: NodeType> CombinedNetworks<TYPES> {
@@ -117,6 +121,9 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
             )),
             delayed_tasks_channels: Arc::default(),
             no_delay_counter: Arc::new(AtomicU64::new(0)),
+            node_id: 100,
+            log: false,
+            last_log: Instant::now(),
         }
     }
 
@@ -150,7 +157,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         {
             // If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
             // we don't want to delay this message, and from now on we consider the primary as down
-            warn!(
+            tracing::error!(
                 "View progression is slower than normally, stop delaying messages on the secondary"
             );
             self.primary_down.store(true, Ordering::Relaxed);
@@ -160,14 +167,16 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         // Always send on the primary network
         if let Err(e) = primary_future.await {
             // If the primary failed right away, we don't want to delay this message
-            warn!("Error on primary network: {}", e);
+            // tracing::error!("Error on primary network: {}", self.log);
             self.primary_fail_counter.fetch_add(1, Ordering::Relaxed);
             primary_failed = true;
         };
 
         if let (BroadcastDelay::View(view), false) = (broadcast_delay, primary_failed) {
+            // tracing::error!("here: view: {}, {} {} {}", view, self.log, primary_failed, self.node_id);
             // We are delaying this message
             let duration = *self.delay_duration.read().await;
+            let log = self.log;
             let primary_down = Arc::clone(&self.primary_down);
             let primary_fail_counter = Arc::clone(&self.primary_fail_counter);
             // Each delayed task gets its own receiver clone to get a signal cancelling all tasks
@@ -188,8 +197,10 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
                 async_sleep(duration).await;
                 if receiver.try_recv().is_ok() {
                     // The task has been cancelled because the view progressed, it means the primary is working fine
-                    debug!(
-                        "Not sending on secondary after delay, task was canceled in view update"
+                    tracing::error!(
+                        "Not sending on secondary after delay, task was canceled in view update {} {:?}",
+                        log,
+                        duration
                     );
                     match primary_fail_counter.load(Ordering::Relaxed) {
                         0u64 => {
@@ -215,6 +226,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         } else {
             // We will send without delay
             if self.primary_down.load(Ordering::Relaxed) {
+                // tracing::error!("here2: {} {}", self.log, self.node_id);
                 // If the primary is considered down, we want to periodically delay sending
                 // on the secondary to check whether the primary is able to deliver.
                 // This message will be sent without delay but the next might be delayed.
@@ -286,19 +298,22 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 Duration::default(),
             )
         );
-        Box::pin(move |node_id| {
-            let gen0 = generators.0(node_id);
-            let gen1 = generators.1(node_id);
+        Box::pin(move |node_id, log| {
+            let gen1 = generators.1(node_id, log);
+            let gen0 = generators.0(node_id, log);
 
             Box::pin(async move {
                 // Generate the CDN network
-                let cdn = gen0.await;
-                let cdn = Arc::<PushCdnNetwork<TYPES::SignatureKey>>::into_inner(cdn).unwrap();
 
                 // Generate the p2p network
                 let p2p = gen1.await;
+                // async_sleep(Duration::from_millis(200)).await;
 
                 // Combine the two
+
+                let cdn = gen0.await;
+                let cdn = Arc::<PushCdnNetwork<TYPES::SignatureKey>>::into_inner(cdn).unwrap();
+
                 let underlying_combined = UnderlyingCombinedNetworks(
                     cdn.clone(),
                     Arc::<Libp2pNetwork<TYPES::SignatureKey>>::unwrap_or_clone(p2p),
@@ -309,6 +324,10 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     NonZeroUsize::new(COMBINED_NETWORK_CACHE_SIZE).unwrap(),
                 )));
 
+                if node_id == 9 {
+                    tracing::error!("starting");
+                }
+
                 // Combine the two networks with the same cache
                 let combined_network = Self {
                     networks: Arc::new(underlying_combined),
@@ -318,6 +337,9 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                     delay_duration: Arc::new(RwLock::new(secondary_network_delay)),
                     delayed_tasks_channels: Arc::default(),
                     no_delay_counter: Arc::new(AtomicU64::new(0)),
+                    node_id: node_id as usize,
+                    log,
+                    last_log: Instant::now(),
                 };
 
                 Arc::new(combined_network)
@@ -396,6 +418,9 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
                     .await
             },
             async move {
+                // Self::my_async_function().await
+                // let future = futures::future::ready(42);
+                // future.await
                 secondary
                     .broadcast_message(secondary_message, topic, BroadcastDelay::None)
                     .await
@@ -443,12 +468,16 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         let primary_message = message.clone();
         let secondary_message = message.clone();
         let primary_recipient = recipient.clone();
+        // tracing::error!("send dm: {}", self.node_id);
+        let id = self.node_id;
         self.send_both_networks(
             message,
             async move {
-                primary
+                let r = primary
                     .direct_message(primary_message, primary_recipient)
-                    .await
+                    .await;
+                // tracing::error!("dm: {} {}", r.is_err(), id);
+                r
             },
             async move { secondary.direct_message(secondary_message, recipient).await },
             BroadcastDelay::None,
@@ -467,7 +496,10 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
     ///
     /// # Errors
     /// Does not error
+    #[allow(invalid_reference_casting)]
     async fn recv_message(&self) -> Result<Vec<u8>, NetworkError> {
+        let mut log1 = Instant::now();
+        let mut log2 = Instant::now();
         loop {
             // Receive from both networks
             let mut primary_fut = self.primary().recv_message().fuse();
@@ -475,8 +507,20 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
 
             // Wait for one to return a message
             let message = select! {
-                p = primary_fut => p?,
-                s = secondary_fut => s?,
+                p = primary_fut => {
+                    if p.is_err() && log1.elapsed() > Duration::from_secs(5) && !self.log {
+                        tracing::error!("primary err received {} {}", p.is_err(),self.node_id);
+                        log1 = Instant::now();
+                    }
+                    p?
+                },
+                s = secondary_fut => {
+                    if s.is_err() && log2.elapsed() > Duration::from_secs(5) && !self.log {
+                        tracing::error!("secondary err received {} {}", s.is_err(), self.node_id);
+                        log2 = Instant::now();
+                    }
+                    s?
+                },
             };
 
             // Calculate hash of the message
@@ -484,6 +528,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
 
             // Check if the hash is in the cache
             if !self.message_cache.read().contains(&message_hash) {
+                // tracing::error!("here");
                 // Add the hash to the cache
                 self.message_cache.write().put(message_hash, ());
 

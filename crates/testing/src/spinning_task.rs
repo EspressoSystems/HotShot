@@ -13,7 +13,7 @@ use anyhow::Result;
 use async_broadcast::broadcast;
 use async_lock::RwLock;
 use async_trait::async_trait;
-use futures::future::join_all;
+use futures::{future::join_all, StreamExt};
 use hotshot::{
     traits::TestableNodeImplementation, types::EventType, HotShotInitializer, SystemContext,
 };
@@ -30,7 +30,7 @@ use hotshot_types::{
     event::Event,
     simple_certificate::QuorumCertificate,
     traits::{
-        network::ConnectedNetwork,
+        network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
     vote::HasViewNumber,
@@ -39,6 +39,7 @@ use hotshot_types::{
 use snafu::Snafu;
 
 use crate::{
+    test_launcher::Network,
     test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
     test_task::{TestResult, TestTaskState},
 };
@@ -52,10 +53,10 @@ pub struct SpinningTaskErr {}
 
 /// Spinning task state
 pub struct SpinningTask<
-    TYPES: NodeType,
-    N: ConnectedNetwork<TYPES::SignatureKey>,
-    I: TestableNodeImplementation<TYPES>,
-    V: Versions,
+    TYPES: NodeType + Sync,
+    N: ConnectedNetwork<TYPES::SignatureKey> + Sync,
+    I: TestableNodeImplementation<TYPES> + Sync,
+    V: Versions + Sync,
 > {
     /// handle to the nodes
     pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
@@ -73,27 +74,30 @@ pub struct SpinningTask<
     pub(crate) async_delay_config: DelayConfig,
     /// Context stored for nodes to be restarted with
     pub(crate) restart_contexts: HashMap<usize, RestartContext<TYPES, N, I, V>>,
+    pub(crate) generator: AsyncGenerator<Network<TYPES, I>>,
 }
 
 #[async_trait]
 impl<
         TYPES: NodeType<
-            InstanceState = TestInstanceState,
-            ValidatedState = TestValidatedState,
-            BlockHeader = TestBlockHeader,
-        >,
-        I: TestableNodeImplementation<TYPES>,
-        N: ConnectedNetwork<TYPES::SignatureKey>,
-        V: Versions,
+                InstanceState = TestInstanceState,
+                ValidatedState = TestValidatedState,
+                BlockHeader = TestBlockHeader,
+            > + Send
+            + Sync,
+        I: TestableNodeImplementation<TYPES> + Send + Sync,
+        N: ConnectedNetwork<TYPES::SignatureKey> + Send + Sync,
+        V: Versions + Send + Sync,
     > TestTaskState for SpinningTask<TYPES, N, I, V>
 where
-    I: TestableNodeImplementation<TYPES>,
+    I: TestableNodeImplementation<TYPES> + Send + Sync,
     I: NodeImplementation<
-        TYPES,
-        Network = N,
-        Storage = TestStorage<TYPES>,
-        AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
-    >,
+            TYPES,
+            Network = N,
+            Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
+        > + Send
+        + Sync,
 {
     type Event = Event<TYPES>;
 
@@ -131,6 +135,7 @@ where
                         NodeAction::Up => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.late_start.remove(&node_id) {
+                                let network = (self.generator)(node_id, false).await;
                                 tracing::error!("Node {} spinning up late", idx);
                                 let node_id = idx.try_into().unwrap();
                                 let context = match node.context {
@@ -169,7 +174,7 @@ where
                                             );
                                         TestRunner::add_node_with_config(
                                             node_id,
-                                            node.network.clone(),
+                                            network.clone(),
                                             memberships,
                                             initializer,
                                             config,
@@ -191,7 +196,7 @@ where
                                 // safety task.
                                 let node = Node {
                                     node_id,
-                                    network: node.network,
+                                    network,
                                     handle,
                                 };
                                 node.handle.hotshot.start_consensus().await;
@@ -208,11 +213,14 @@ where
                         NodeAction::RestartDown(delay_views) => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
-                                tracing::error!("Node {} shutting down", idx);
+                                tracing::debug!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
 
+                                let time = std::time::Instant::now();
+                                let network = (self.generator)(node_id, true).await;
+                                tracing::debug!("time: {:?}", time.elapsed());
+
                                 let Some(LateStartNode {
-                                    network,
                                     context: LateNodeContext::Restart,
                                 }) = self.late_start.get(&node_id)
                                 else {
@@ -225,6 +233,11 @@ where
                                 let marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();
                                 let read_storage = storage.read().await;
+                                tracing::debug!(
+                                    "id: {} {:?}",
+                                    idx,
+                                    read_storage.last_actioned_view().await
+                                );
                                 let initializer = HotShotInitializer::<TYPES>::from_reload(
                                     self.last_decided_leaf.clone(),
                                     TestInstanceState::new(self.async_delay_config.clone()),
@@ -251,6 +264,7 @@ where
                                     // For tests, make the node DA based on its index
                                     node_id < config.da_staked_committee_size as u64,
                                 );
+
                                 let internal_chan = broadcast(EVENT_CHANNEL_SIZE);
                                 let context =
                                     TestRunner::<TYPES, I, V, N>::add_node_with_config_and_channels(
@@ -308,20 +322,32 @@ where
                     }
                 }
             }
-            let mut ready_futs = vec![];
-            while let Some(net) = new_networks.pop() {
-                ready_futs.push(async move {
-                    net.wait_for_ready().await;
-                });
+            // let mut ready_futs = vec![];
+            if new_networks.len() > 0 {
+                tracing::error!("start net");
+                // while let Some(net) = new_networks.pop() {
+                //     ready_futs.push(async move {
+                //         net.wait_for_ready().await;
+                //     });
+                // }
+                // join_all(ready_futs).await;
+                futures::stream::iter(new_networks)
+                    .for_each_concurrent(20, |net| async move {
+                        net.wait_for_ready().await;
+                    })
+                    .await;
+                tracing::error!("done net");
+                // new_networks.clear();
             }
-            join_all(ready_futs).await;
 
             let mut start_futs = vec![];
+            // tracing::error!("sleep: {:?}", view_number);
+            // async_compatibility_layer::art::async_sleep(std::time::Duration::from_secs(3)).await;
 
             while let Some((node, id)) = new_nodes.pop() {
                 let handles = self.handles.clone();
                 let fut = async move {
-                    tracing::info!("Starting node {} back up", id);
+                    tracing::debug!("Starting node {} back up", id);
                     let handle = node.run_tasks().await;
 
                     // Create the node and add it to the state, so we can shut them
@@ -348,10 +374,6 @@ where
         }
 
         Ok(())
-    }
-
-    async fn check(&self) -> TestResult {
-        TestResult::Pass
     }
 }
 

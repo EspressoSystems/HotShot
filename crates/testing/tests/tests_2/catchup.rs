@@ -302,12 +302,17 @@ async fn test_catchup_reload() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(
+    async_executor_impl = "tokio",
+    tokio::test(flavor = "multi_thread", worker_threads = 1)
+)]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_all_restart() {
     use std::time::Duration;
 
-    use hotshot_example_types::node_types::{CombinedImpl, TestTypes, TestVersions};
+    use hotshot_example_types::node_types::{
+        CombinedImpl, Libp2pImpl, PushCdnImpl, TestTypes, TestVersions,
+    };
     use hotshot_testing::{
         block_builder::SimpleBuilderImplementation,
         completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
@@ -318,6 +323,7 @@ async fn test_all_restart() {
 
     async_compatibility_layer::logging::setup_logging();
     async_compatibility_layer::logging::setup_backtrace();
+    let num_nodes = 20;
     let timing_data = TimingData {
         next_view_timeout: 2000,
         round_start_delay: 500,
@@ -326,7 +332,7 @@ async fn test_all_restart() {
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> =
         TestDescription::default();
     let mut catchup_nodes = vec![];
-    for i in 0..20 {
+    for i in 0..num_nodes {
         catchup_nodes.push(ChangeNode {
             idx: i,
             updown: NodeAction::RestartDown(0),
@@ -334,8 +340,8 @@ async fn test_all_restart() {
     }
 
     metadata.timing_data = timing_data;
-    metadata.start_nodes = 20;
-    metadata.num_nodes_with_stake = 20;
+    metadata.start_nodes = num_nodes;
+    metadata.num_nodes_with_stake = num_nodes;
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Restart all the nodes in view 13

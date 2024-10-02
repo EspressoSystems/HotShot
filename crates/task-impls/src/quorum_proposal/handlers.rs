@@ -225,9 +225,10 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             signature,
             _pd: PhantomData,
         };
-        debug!(
-            "Sending proposal for view {:?}",
+        tracing::error!(
+            "Sending proposal for view {:?}, id: {}",
             proposed_leaf.view_number(),
+            self.id
         );
 
         async_sleep(Duration::from_millis(self.round_start_delay)).await;

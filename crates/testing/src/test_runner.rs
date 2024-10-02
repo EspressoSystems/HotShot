@@ -195,6 +195,7 @@ where
             .await,
             async_delay_config: self.launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
+            generator: self.launcher.resource_generator.channel_generator,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, N, I, V>>::new(
             spinning_task_state,
@@ -462,7 +463,8 @@ where
                 .try_into()
                 .expect("Non-empty by construction");
 
-            let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
+            let network =
+                (self.launcher.resource_generator.channel_generator)(node_id, false).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let mut marketplace_config =
                 (self.launcher.resource_generator.marketplace_config)(node_id);
@@ -489,7 +491,6 @@ where
                     self.late_start.insert(
                         node_id,
                         LateStartNode {
-                            network,
                             context: LateNodeContext::UninitializedContext(
                                 LateNodeContextParameters {
                                     storage,
@@ -528,7 +529,6 @@ where
                     self.late_start.insert(
                         node_id,
                         LateStartNode {
-                            network,
                             context: LateNodeContext::InitializedContext(hotshot),
                         },
                     );
@@ -554,8 +554,6 @@ where
                 self.late_start.insert(
                     *node_id,
                     LateStartNode {
-                        network: (self.launcher.resource_generator.channel_generator)(*node_id)
-                            .await,
                         context: LateNodeContext::Restart,
                     },
                 );
@@ -721,8 +719,6 @@ pub enum LateNodeContext<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, 
 
 /// A yet-to-be-started node that participates in tests
 pub struct LateStartNode<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
-    /// The underlying network belonging to the node
-    pub network: Network<TYPES, I>,
     /// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
     pub context: LateNodeContext<TYPES, I, V>,

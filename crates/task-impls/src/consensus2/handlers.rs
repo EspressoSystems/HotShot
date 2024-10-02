@@ -229,6 +229,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     .await
     .context("Failed to sign TimeoutData")?;
 
+    // tracing::error!("sending timeout vote: {:?} id: {}", view_number, task_state.id);
     broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).await;
     broadcast_event(
         Event {

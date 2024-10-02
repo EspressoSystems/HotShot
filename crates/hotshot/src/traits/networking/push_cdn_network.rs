@@ -387,7 +387,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
         // This function is called for each client we spawn
         Box::pin({
-            move |node_id| {
+            move |node_id, _log| {
                 // Clone this so we can pin the future
                 let marshal_endpoint = marshal_endpoint.clone();
 
@@ -522,6 +522,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         // If we're paused, don't send the message
         #[cfg(feature = "hotshot-testing")]
         if self.is_paused.load(Ordering::Relaxed) {
+            tracing::error!("paused");
             return Ok(());
         }
 
@@ -534,6 +535,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             .is_err()
         {
             self.metrics.num_failed_messages.add(1);
+            // tracing::error!("failed");
             return Err(NetworkError::CouldNotDeliver);
         };
 
@@ -559,7 +561,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         let message = match message {
             Ok(message) => message,
             Err(error) => {
-                error!("failed to receive message: {error}");
+                tracing::debug!("failed to receive message: {error}");
                 return Err(NetworkError::PushCdnNetwork {
                     source: PushCdnNetworkError::FailedToReceive,
                 });

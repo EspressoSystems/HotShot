@@ -62,7 +62,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     };
 
     if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
-        tracing::trace!("{e:?}");
+        tracing::error!("err1 {e:?} view: {:?} id: {}", view_number, task_state.id);
     }
     consensus_write
         .update_saved_leaves(leaf.clone(), &task_state.upgrade_lock)
@@ -78,7 +78,12 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         )
         .await
     {
-        warn!("Couldn't store undecided state.  Error: {:?}", e);
+        tracing::error!(
+            "Couldn't store undecided state.  Error: {:?} view: {:?} id: {}",
+            e,
+            view_number,
+            task_state.id
+        );
     }
 
     let liveness_check =
@@ -87,6 +92,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     drop(consensus_write);
 
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
+    // tracing::error!("validated: {:?}, id: {}", view_number, task_state.id);
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
         event_sender,
@@ -108,13 +114,19 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     )
     .await
     {
-        debug!("Liveness Branch - Failed to update view; error = {e:#}");
+        tracing::error!(
+            "Liveness Branch - Failed to update view; {:?}, id: {}",
+            view_number,
+            task_state.id
+        );
     }
 
     if !liveness_check {
+        tracing::error!("bail view {:?}, id: {}", view_number, task_state.id);
         bail!("Quorum Proposal failed the liveness check");
     }
 
+    tracing::error!("ok: view: {:?}, id: {}", view_number, task_state.id);
     Ok(())
 }
 
@@ -240,14 +252,22 @@ pub(crate) async fn handle_quorum_proposal_recv<
     .await;
 
     let Some((parent_leaf, _parent_state)) = parent else {
-        warn!(
-            "Proposal's parent missing from storage with commitment: {:?}",
-            justify_qc.data.leaf_commit
+        tracing::debug!(
+            "Proposal's parent missing from storage with commitment: {:?} {}",
+            proposal.data.view_number,
+            task_state.id,
         );
         return validate_proposal_liveness(proposal, event_sender, task_state).await;
     };
 
     // Validate the proposal
+    if *proposal.data.view_number < 20 && *proposal.data.view_number > 13 {
+        tracing::error!(
+            "moving on view: {:?} id: {}",
+            proposal.data.view_number,
+            task_state.id
+        );
+    }
     validate_proposal_safety_and_liveness::<TYPES, I, V>(
         proposal.clone(),
         parent_leaf,

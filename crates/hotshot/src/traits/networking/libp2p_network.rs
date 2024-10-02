@@ -238,7 +238,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         // NOTE uncomment this for easier debugging
         // let start_port = 5000;
         Box::pin({
-            move |node_id| {
+            move |node_id, _log| {
                 info!(
                     "GENERATOR: Node id {:?}, is bootstrap: {:?}",
                     node_id,
@@ -247,6 +247,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
                 // pick a free, unused UDP port for testing
                 let port = portpicker::pick_unused_port().expect("Could not find an open port");
+                // tracing::error!("node id: {}, port: {}", node_id, port);
 
                 let addr =
                     Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{port}/quic-v1")).unwrap();
@@ -295,6 +296,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                         bootstrap_addrs_ref.write().await.clear();
                     }
                     write_ids.insert(node_id);
+                    // tracing::error!("node id: {}, len {}, len {}", node_id, write_ids.len(), bootstrap_addrs_ref.read().await.len());
                     drop(write_ids);
                     Arc::new(
                         match Libp2pNetwork::new(
@@ -1098,6 +1100,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
         let _ = self
             .queue_node_lookup(ViewNumber::new(*future_view), future_leader)
-            .map_err(|err| tracing::warn!("failed to process node lookup request: {err}"));
+            .map_err(|err| tracing::error!("failed to process node lookup request: {err}"));
     }
 }

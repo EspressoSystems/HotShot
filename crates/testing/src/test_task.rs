@@ -44,7 +44,9 @@ pub trait TestTaskState: Send {
     async fn handle_event(&mut self, (event, id): (Self::Event, usize)) -> Result<()>;
 
     /// Check the result of the test.
-    async fn check(&self) -> TestResult;
+    async fn check(&self) -> TestResult {
+        TestResult::Pass
+    }
 }
 
 /// A basic task which loops waiting for events to come from `event_receiver`
@@ -68,7 +70,7 @@ pub enum TestEvent {
     Shutdown,
 }
 
-impl<S: TestTaskState + Send + 'static> TestTask<S> {
+impl<S: TestTaskState + Send + Sync + 'static> TestTask<S> {
     /// Create a new task
     pub fn new(
         state: S,
@@ -105,7 +107,8 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     }
                     Ok((Err(e), _id, _)) => {
                         error!("Error from one channel in test task {:?}", e);
-                        async_sleep(Duration::from_millis(4000)).await;
+                        break self.state.check().await;
+                        // async_sleep(Duration::from_millis(4000)).await;
                     }
                     _ => {}
                 };

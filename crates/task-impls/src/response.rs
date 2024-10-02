@@ -6,7 +6,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use async_broadcast::{Receiver, Sender};
+use async_broadcast::{Receiver, RecvError, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -126,6 +126,10 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                         }
                         _ => {}
                     }
+                }
+                Err(RecvError::Closed) => {
+                    tracing::error!("Received on closed channel.");
+                    return;
                 }
                 Err(e) => {
                     tracing::error!("Failed to receive event. {:?}", e);
