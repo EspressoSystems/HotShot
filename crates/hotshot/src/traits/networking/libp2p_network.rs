@@ -655,7 +655,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
                 // Wait for the network to connect to the required number of peers
                 if let Err(e) = handle.wait_to_connect(4, id).await {
                     error!("Failed to connect to peers: {:?}", e);
-                    return Err::<(), NetworkError>(e.into());
+                    return Err::<(), NetworkError>(e);
                 }
                 info!("Connected to required number of peers");
 
@@ -830,7 +830,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             },
             Err(e) => {
                 self.inner.metrics.num_failed_messages.add(1);
-                return Err(e.into());
+                return Err(e);
             }
         };
 
@@ -948,7 +948,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
         if let Err(e) = self.inner.handle.gossip(topic, &message).await {
             self.inner.metrics.num_failed_messages.add(1);
-            return Err(e.into());
+            return Err(e);
         }
 
         Ok(())
@@ -1048,7 +1048,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
             Ok(()) => Ok(()),
             Err(e) => {
                 self.inner.metrics.num_failed_messages.add(1);
-                Err(e.into())
+                Err(e)
             }
         }
     }
