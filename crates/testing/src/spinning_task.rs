@@ -30,7 +30,7 @@ use hotshot_types::{
     event::Event,
     simple_certificate::QuorumCertificate,
     traits::{
-        network::ConnectedNetwork,
+        network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
     vote::HasViewNumber,
@@ -39,6 +39,7 @@ use hotshot_types::{
 use snafu::Snafu;
 
 use crate::{
+    test_launcher::Network,
     test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
     test_task::{TestResult, TestTaskState},
 };
@@ -73,6 +74,8 @@ pub struct SpinningTask<
     pub(crate) async_delay_config: DelayConfig,
     /// Context stored for nodes to be restarted with
     pub(crate) restart_contexts: HashMap<usize, RestartContext<TYPES, N, I, V>>,
+    /// Generate network channel for late start
+    pub(crate) channel_generator: AsyncGenerator<Network<TYPES, I>>,
 }
 
 #[async_trait]
@@ -132,6 +135,7 @@ where
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.late_start.remove(&node_id) {
                                 tracing::error!("Node {} spinning up late", idx);
+                                let network = (self.channel_generator)(node_id).await;
                                 let node_id = idx.try_into().unwrap();
                                 let context = match node.context {
                                     LateNodeContext::InitializedContext(context) => context,
@@ -169,7 +173,7 @@ where
                                             );
                                         TestRunner::add_node_with_config(
                                             node_id,
-                                            node.network.clone(),
+                                            network.clone(),
                                             memberships,
                                             initializer,
                                             config,
@@ -191,7 +195,7 @@ where
                                 // safety task.
                                 let node = Node {
                                     node_id,
-                                    network: node.network,
+                                    network,
                                     handle,
                                 };
                                 node.handle.hotshot.start_consensus().await;
@@ -210,9 +214,9 @@ where
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
                                 tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
+                                let network = (self.channel_generator)(node_id).await;
 
                                 let Some(LateStartNode {
-                                    network,
                                     context: LateNodeContext::Restart,
                                 }) = self.late_start.get(&node_id)
                                 else {

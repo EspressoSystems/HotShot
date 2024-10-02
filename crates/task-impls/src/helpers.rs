@@ -69,59 +69,59 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
         signed_proposal_request.commit().as_ref(),
     )?;
 
-    // First, broadcast that we need a proposal to the current leader
-    broadcast_event(
-        HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
-        &event_sender,
-    )
-    .await;
-
     let mem = Arc::clone(&quorum_membership);
-    // Make a background task to await the arrival of the event data.
-    let Ok(Some(proposal)) =
+    let mut proposal = None;
+
+    for _ in 0..5 {
+        let receiver = event_receiver.clone();
+        broadcast_event(
+            HotShotEvent::QuorumProposalRequestSend(
+                signed_proposal_request.clone(),
+                signature.clone(),
+            )
+            .into(),
+            &event_sender,
+        )
+        .await;
         // We want to explicitly timeout here so we aren't waiting around for the data.
-        async_timeout(REQUEST_TIMEOUT, async move {
-            // We want to iterate until the proposal is not None, or until we reach the timeout.
-            let mut proposal = None;
-            while proposal.is_none() {
-                // First, capture the output from the event dependency
-                let event = EventDependency::new(
-                    event_receiver.clone(),
-                    Box::new(move |event| {
-                        let event = event.as_ref();
-                        if let HotShotEvent::QuorumProposalResponseRecv(
-                            quorum_proposal,
-                        ) = event
-                        {
-                            quorum_proposal.data.view_number() == view_number
-                        } else {
-                            false
-                        }
-                    }),
-                )
-                    .completed()
-                    .await;
-
-                // Then, if it's `Some`, make sure that the data is correct
-                if let Some(hs_event) = event.as_ref() {
-                    if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
-                        hs_event.as_ref()
-                    {
-                        // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, upgrade_lock).await.is_ok() {
-                            proposal = Some(quorum_proposal.clone());
-                        }
-
+        let result = async_timeout(REQUEST_TIMEOUT, async move {
+            // First, capture the output from the event dependency
+            EventDependency::new(
+                receiver,
+                Box::new(move |event: &Arc<HotShotEvent<TYPES>>| {
+                    let event = event.as_ref();
+                    if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = event {
+                        quorum_proposal.data.view_number() == view_number
+                    } else {
+                        false
                     }
+                }),
+            )
+            .completed()
+            .await
+        })
+        .await;
+
+        // Then, if it's `Some`, make sure that the data is correct
+        if let Ok(Some(hs_event)) = result.as_ref() {
+            if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref() {
+                // Make sure that the quorum_proposal is valid
+                if quorum_proposal
+                    .validate_signature(&mem, upgrade_lock)
+                    .await
+                    .is_ok()
+                {
+                    proposal = Some(quorum_proposal.clone());
+                    break;
                 }
             }
-
-            proposal
-        })
-        .await
-    else {
+        }
+    }
+    if proposal.is_none() {
         bail!("Request for proposal failed");
     };
+
+    let proposal = proposal.unwrap();
 
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
