@@ -214,7 +214,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
                 .build()
                 .map_err(|err| {
-                    NetworkError::ConfigError(format!("Error building gossipsub config: {:?}", err))
+                    NetworkError::ConfigError(format!("Error building gossipsub config: {err:?}"))
                 })?;
 
             // - Build a gossipsub network behavior
@@ -223,7 +223,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 gossipsub_config,
             )
             .map_err(|err| {
-                NetworkError::ConfigError(format!("Error building gossipsub behaviour: {:?}", err))
+                NetworkError::ConfigError(format!("Error building gossipsub behaviour: {err:?}"))
             })?;
 
             //   Build a identify network behavior needed for own

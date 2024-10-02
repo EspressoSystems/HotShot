@@ -355,8 +355,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
                         Ok(())
                     }
                     Err(e) => Err(NetworkError::MessageSendError(format!(
-                        "Error sending direct message to node: {}",
-                        e
+                        "Error sending direct message to node: {e}",
                     ))),
                 }
             }
