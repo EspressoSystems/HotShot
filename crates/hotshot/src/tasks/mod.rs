@@ -562,7 +562,6 @@ pub async fn add_network_message_and_request_receiver_tasks<
     let network = Arc::clone(&handle.network);
 
     add_network_message_task(handle, &network);
-    add_network_message_task(handle, &network);
 
     add_request_network_task(handle).await;
     add_response_task(handle);

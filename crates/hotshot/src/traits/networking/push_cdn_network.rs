@@ -573,6 +573,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             recipient: _,
         })) = message
         else {
+            error!("returning nothing from CDN!");
             return Ok(vec![]);
         };
 

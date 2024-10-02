@@ -643,7 +643,6 @@ impl<
                         .await
                     {
                         error!("Failed to send message from network task: {e:?}");
-                        return;
                     }
 
                     // Otherwise, send the next message.

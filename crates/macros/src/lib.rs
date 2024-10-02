@@ -123,7 +123,7 @@ impl TestData {
             #slow_attribute
             #[cfg_attr(
                 async_executor_impl = "tokio",
-                tokio::test(flavor = "multi_thread")
+                tokio::test(flavor = "multi_thread", worker_threads = 1)
             )]
             #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
             #[tracing::instrument]

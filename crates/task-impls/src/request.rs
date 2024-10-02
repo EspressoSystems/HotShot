@@ -291,6 +291,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 return true;
             }
         }
+        tracing::error!("failed vid request");
         false
     }
 

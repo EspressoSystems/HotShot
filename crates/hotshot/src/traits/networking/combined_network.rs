@@ -489,6 +489,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
 
                 break Ok(message);
             }
+            // tracing::error!("message in cache");
         }
     }
 
