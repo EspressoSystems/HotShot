@@ -461,7 +461,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     /// Send a client request to the network
     ///
     /// # Errors
-    /// - Will return [`NetworkError::SendError`] when underlying `NetworkNode` has been killed
+    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkError> {
         self.send_network
             .send(req)
