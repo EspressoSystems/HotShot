@@ -88,9 +88,9 @@ typenum = "1"
 memoize = { version = "0.4", features = ["full"] }
 vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
-url = { version = "2.5.2", features = ["serde"] }
-vec1 = { version = "1.12", features = ["serde"] }
-reqwest = { version = "0.12.8", features = ["json"] }
+url = { version = "2", features = ["serde"] }
+vec1 = { version = "1", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 libp2p = { package = "libp2p", version = "0.53", default-features = false, features = [
   "macros",
