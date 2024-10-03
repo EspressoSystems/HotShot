@@ -166,6 +166,14 @@
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
 <a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This file contains the `ValidatedStore` struct, which is a wrapper around a `RecordStore` that
 //! validates records before storing them.
 //!
@@ -205,8 +213,16 @@
 <span class="kw">where
     </span>K: <span class="lifetime">'static</span>,
 {
-    <span class="kw">type </span>ProvidedIter&lt;<span class="lifetime">'a</span>&gt; = R::ProvidedIter&lt;<span class="lifetime">'a</span>&gt; <span class="kw">where </span>R: <span class="lifetime">'a</span>, K: <span class="lifetime">'a</span>;
-    <span class="kw">type </span>RecordsIter&lt;<span class="lifetime">'a</span>&gt; = R::RecordsIter&lt;<span class="lifetime">'a</span>&gt; <span class="kw">where </span>R: <span class="lifetime">'a</span>, K: <span class="lifetime">'a</span>;
+    <span class="kw">type </span>ProvidedIter&lt;<span class="lifetime">'a</span>&gt;
+        = R::ProvidedIter&lt;<span class="lifetime">'a</span>&gt;
+    <span class="kw">where
+        </span>R: <span class="lifetime">'a</span>,
+        K: <span class="lifetime">'a</span>;
+    <span class="kw">type </span>RecordsIter&lt;<span class="lifetime">'a</span>&gt;
+        = R::RecordsIter&lt;<span class="lifetime">'a</span>&gt;
+    <span class="kw">where
+        </span>R: <span class="lifetime">'a</span>,
+        K: <span class="lifetime">'a</span>;
 
     <span class="comment">// Delegate all `RecordStore` methods except `put` to the inner store
     </span><span class="macro">delegate!</span> {
