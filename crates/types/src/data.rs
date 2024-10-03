@@ -401,6 +401,10 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum BlockError {
+    /// The block header is invalid
+    #[error("Invalid block header: {0}")]
+    InvalidBlockHeader(String),
+
     /// The payload commitment does not match the block header's payload commitment
     #[error("Inconsistent payload commitment")]
     InconsistentPayloadCommitment,
