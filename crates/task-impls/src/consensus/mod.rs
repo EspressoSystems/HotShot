@@ -155,16 +155,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         let validate_sender = sender.validate(&disperse.signature, payload_commitment.as_ref())
             && self.da_membership.committee_members(view).contains(sender);
 
+        let Ok(view_leader) = self.quorum_membership.leader(view) else {
+            tracing::error!("Unable to get leader for view number {:?}", view);
+            return false;
+        };
+
         // Check whether the data satisfies one of the following.
         // * From the right leader for this view.
         // * Calculated and signed by the current node.
         let validated = self
             .public_key
             .validate(&disperse.signature, payload_commitment.as_ref())
-            || self
-                .quorum_membership
-                .leader(view)
-                .validate(&disperse.signature, payload_commitment.as_ref());
+            || view_leader.validate(&disperse.signature, payload_commitment.as_ref());
         if !validate_sender && !validated {
             return false;
         }
@@ -273,7 +275,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         event: Arc<HotShotEvent<TYPES>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    ) {
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
                 debug!("proposal recv view: {:?}", proposal.data.view_number());
@@ -311,13 +313,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
                 debug!("Received quorum vote: {:?}", vote.view_number());
-                if self.quorum_membership.leader(vote.view_number() + 1) != self.public_key {
+                if self.quorum_membership.leader(vote.view_number() + 1)? != self.public_key {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
                         *vote.view_number() + 1,
-                        self.quorum_membership.leader(vote.view_number() + 2) == self.public_key
+                        self.quorum_membership.leader(vote.view_number() + 2)? == self.public_key
                     );
-                    return;
+                    return Ok(());
                 }
 
                 handle_vote(
@@ -330,16 +332,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     &event_sender,
                     &self.upgrade_lock,
                 )
-                .await;
+                .await?;
             }
             HotShotEvent::TimeoutVoteRecv(ref vote) => {
-                if self.timeout_membership.leader(vote.view_number() + 1) != self.public_key {
+                if self.timeout_membership.leader(vote.view_number() + 1)? != self.public_key {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
                         *vote.view_number() + 1,
-                        self.timeout_membership.leader(vote.view_number() + 2) == self.public_key
+                        self.timeout_membership.leader(vote.view_number() + 2)? == self.public_key
                     );
-                    return;
+                    return Ok(());
                 }
 
                 handle_vote(
@@ -352,7 +354,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     &event_sender,
                     &self.upgrade_lock,
                 )
-                .await;
+                .await?;
             }
             HotShotEvent::QcFormed(cert) => match cert {
                 either::Right(qc) => {
@@ -414,10 +416,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     .await
                     .update_saved_da_certs(view, cert.clone());
                 let Some(proposal) = self.current_proposal.clone() else {
-                    return;
+                    return Ok(());
                 };
                 if proposal.view_number() != view {
-                    return;
+                    return Ok(());
                 }
                 self.spawn_vote_task(view, event_sender, event_receiver)
                     .await;
@@ -436,14 +438,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 // error due to subtracting the genesis view number.
                 if view + 1 < self.cur_view {
                     info!("Throwing away VID disperse data that is more than one view older");
-                    return;
+                    return Ok(());
                 }
 
                 debug!("VID disperse data is not more than one view older.");
 
                 if !self.validate_disperse(sender, disperse) {
                     warn!("Failed to validated the VID dispersal/share sig.");
-                    return;
+                    return Ok(());
                 }
 
                 self.consensus
@@ -451,13 +453,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     .await
                     .update_vid_shares(view, disperse.clone());
                 if disperse.data.recipient_key != self.public_key {
-                    return;
+                    return Ok(());
                 }
                 let Some(proposal) = self.current_proposal.clone() else {
-                    return;
+                    return Ok(());
                 };
                 if proposal.view_number() != view {
-                    return;
+                    return Ok(());
                 }
                 self.spawn_vote_task(view, event_sender.clone(), event_receiver.clone())
                     .await;
@@ -504,26 +506,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     &mut self.timeout_task,
                     &self.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
-                    self.quorum_membership.leader(old_view_number) == self.public_key,
+                    self.quorum_membership.leader(old_view_number)? == self.public_key,
                 )
                 .await
                 {
                     tracing::trace!("Failed to update view; error = {e}");
-                    return;
+                    return Ok(());
                 }
             }
             HotShotEvent::Timeout(view) => {
                 let view = *view;
                 // NOTE: We may optionally have the timeout task listen for view change events
                 if self.cur_view >= view {
-                    return;
+                    return Ok(());
                 }
                 if !self.timeout_membership.has_stake(&self.public_key) {
                     debug!(
                         "We were not chosen for consensus committee on {:?}",
                         self.cur_view
                     );
-                    return;
+                    return Ok(());
                 }
 
                 let Ok(vote) = TimeoutVote::create_signed_vote(
@@ -536,7 +538,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 .await
                 else {
                     error!("Failed to sign TimeoutData!");
-                    return;
+                    return Ok(());
                 };
 
                 broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), &event_sender).await;
@@ -563,7 +565,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 .await;
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
-                if self.quorum_membership.leader(view) == self.public_key {
+                if self.quorum_membership.leader(view)? == self.public_key {
                     consensus.metrics.number_of_timeouts_as_leader.add(1);
                 }
             }
@@ -588,7 +590,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     block_view: view,
                     auction_result: auction_result.clone(),
                 });
-                if self.quorum_membership.leader(view) == self.public_key
+                if self.quorum_membership.leader(view)? == self.public_key
                     && self.consensus.read().await.high_qc().view_number() + 1 == view
                 {
                     if let Err(e) = self
@@ -603,11 +605,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     if !cert.is_valid_for_view(&view) {
                         self.proposal_cert = None;
                         info!("Failed to propose off SendPayloadCommitmentAndMetadata because we had view change evidence, but it was not current.");
-                        return;
+                        return Ok(());
                     }
                     match cert {
                         ViewChangeEvidence::Timeout(tc) => {
-                            if self.quorum_membership.leader(tc.view_number() + 1)
+                            if self.quorum_membership.leader(tc.view_number() + 1)?
                                 == self.public_key
                             {
                                 if let Err(e) = self
@@ -619,7 +621,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                             }
                         }
                         ViewChangeEvidence::ViewSync(vsc) => {
-                            if self.quorum_membership.leader(vsc.view_number()) == self.public_key {
+                            if self.quorum_membership.leader(vsc.view_number())? == self.public_key
+                            {
                                 if let Err(e) = self
                                     .publish_proposal(view, event_sender, event_receiver)
                                     .await
@@ -640,12 +643,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                         "View Sync Finalize certificate {:?} was invalid",
                         certificate.date()
                     );
-                    return;
+                    return Ok(());
                 }
 
                 let view = certificate.view_number;
 
-                if self.quorum_membership.leader(view) == self.public_key {
+                if self.quorum_membership.leader(view)? == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                     debug!(
@@ -663,12 +666,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             }
             HotShotEvent::QuorumVoteSend(vote) => {
                 let Some(proposal) = self.current_proposal.clone() else {
-                    return;
+                    return Ok(());
                 };
                 let new_view = proposal.view_number() + 1;
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                let should_propose = self.quorum_membership.leader(new_view) == self.public_key
+                let should_propose = self.quorum_membership.leader(new_view)? == self.public_key
                     && self.consensus.read().await.high_qc().view_number == proposal.view_number();
 
                 if should_propose {
@@ -707,6 +710,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             }
             _ => {}
         }
+
+        Ok(())
     }
 }
 
@@ -722,9 +727,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, sender.clone(), receiver.clone()).await;
-
-        Ok(())
+        self.handle(event, sender.clone(), receiver.clone()).await
     }
 
     async fn cancel_subtasks(&mut self) {

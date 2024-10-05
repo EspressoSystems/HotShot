@@ -414,21 +414,49 @@ impl<
             // ED Each network task is subscribed to all these message types.  Need filters per network task
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
+                let view_number = vote.view_number() + 1;
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
+
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number() + 1)),
+                    TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
-                req.key.clone(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
-                )),
-                TransmitType::DaCommitteeAndLeaderBroadcast(membership.leader(req.view_number)),
-            )),
+            HotShotEvent::QuorumProposalRequestSend(req, signature) => {
+                let view_number = req.view_number;
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
+
+                Some((
+                    req.key.clone(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
+                    )),
+                    TransmitType::DaCommitteeAndLeaderBroadcast(leader),
+                ))
+            }
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -452,12 +480,25 @@ impl<
             }
             HotShotEvent::DaVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::DaVote);
+                let view_number = vote.view_number();
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
+
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
                         DaConsensusMessage::DaVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number())),
+                    TransmitType::Direct(leader),
                 ))
             }
             // ED NOTE: This needs to be broadcasted to all nodes, not just ones on the DA committee
@@ -471,27 +512,72 @@ impl<
                     TransmitType::Broadcast,
                 ))
             }
-            HotShotEvent::ViewSyncPreCommitVoteSend(vote) => Some((
-                vote.signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
-                )),
-                TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
-            )),
-            HotShotEvent::ViewSyncCommitVoteSend(vote) => Some((
-                vote.signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
-                )),
-                TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
-            )),
-            HotShotEvent::ViewSyncFinalizeVoteSend(vote) => Some((
-                vote.signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
-                )),
-                TransmitType::Direct(membership.leader(vote.view_number() + vote.date().relay)),
-            )),
+            HotShotEvent::ViewSyncPreCommitVoteSend(vote) => {
+                let view_number = vote.view_number() + vote.date().relay;
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
+
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ViewSyncCommitVoteSend(vote) => {
+                let view_number = vote.view_number() + vote.date().relay;
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
+
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
+                let view_number = vote.view_number() + vote.date().relay;
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
+
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(leader),
+                ))
+            }
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => Some((
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -515,12 +601,24 @@ impl<
             )),
             HotShotEvent::TimeoutVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
+                let view_number = vote.view_number() + 1;
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number() + 1)),
+                    TransmitType::Direct(leader),
                 ))
             }
             HotShotEvent::UpgradeProposalSend(proposal, sender) => Some((
@@ -532,12 +630,24 @@ impl<
             )),
             HotShotEvent::UpgradeVoteSend(vote) => {
                 error!("Sending upgrade vote!");
+                let view_number = vote.view_number();
+                let leader = match membership.leader(view_number) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
+                };
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::UpgradeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(membership.leader(vote.view_number())),
+                    TransmitType::Direct(leader),
                 ))
             }
             HotShotEvent::ViewChange(view) => {

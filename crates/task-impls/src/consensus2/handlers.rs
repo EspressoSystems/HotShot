@@ -42,7 +42,10 @@ pub(crate) async fn handle_quorum_vote_recv<
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
-        task_state.quorum_membership.leader(vote.view_number() + 1) == task_state.public_key,
+        task_state
+            .quorum_membership
+            .leader(vote.view_number() + 1)?
+            == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1
@@ -59,7 +62,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         sender,
         &task_state.upgrade_lock,
     )
-    .await;
+    .await?;
 
     Ok(())
 }
@@ -77,7 +80,10 @@ pub(crate) async fn handle_timeout_vote_recv<
 ) -> Result<()> {
     // Are we the leader for this view?
     ensure!(
-        task_state.timeout_membership.leader(vote.view_number() + 1) == task_state.public_key,
+        task_state
+            .timeout_membership
+            .leader(vote.view_number() + 1)?
+            == task_state.public_key,
         format!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1
@@ -94,7 +100,7 @@ pub(crate) async fn handle_timeout_vote_recv<
         sender,
         &task_state.upgrade_lock,
     )
-    .await;
+    .await?;
 
     Ok(())
 }
@@ -167,7 +173,7 @@ pub(crate) async fn handle_view_change<
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     let cur_view_time = Utc::now().timestamp();
-    if task_state.quorum_membership.leader(old_view_number) == task_state.public_key {
+    if task_state.quorum_membership.leader(old_view_number)? == task_state.public_key {
         #[allow(clippy::cast_precision_loss)]
         consensus
             .metrics
@@ -260,7 +266,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         .metrics
         .number_of_timeouts
         .add(1);
-    if task_state.quorum_membership.leader(view_number) == task_state.public_key {
+    if task_state.quorum_membership.leader(view_number)? == task_state.public_key {
         task_state
             .consensus
             .read()

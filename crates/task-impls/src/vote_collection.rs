@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_trait::async_trait;
 use either::Either::{self, Left, Right};
@@ -30,12 +31,9 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
-use tracing::{debug, error};
+use tracing::debug;
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+use crate::{events::HotShotEvent, helpers::broadcast_event};
 
 /// Alias for a map of Vote Collectors
 pub type VoteCollectorsMap<TYPES, VOTE, CERT, V> =
@@ -72,7 +70,10 @@ pub trait AggregatableVote<
 >
 {
     /// return the leader for this votes
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey;
+    ///
+    /// # Errors
+    /// if the leader cannot be calculated
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey>;
 
     /// return the Hotshot event for the completion of this CERT
     fn make_cert_event(certificate: CERT, key: &TYPES::SignatureKey) -> HotShotEvent<TYPES>;
@@ -81,45 +82,52 @@ pub trait AggregatableVote<
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES> + AggregatableVote<TYPES, VOTE, CERT>,
-        CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
+        CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Clone + Debug,
         V: Versions,
     > VoteCollectionTaskState<TYPES, VOTE, CERT, V>
 {
     /// Take one vote and accumulate it. Returns either the cert or the updated state
     /// after the vote is accumulated
+    ///
+    /// # Errors
+    /// If are unable to accumulate the vote
     #[allow(clippy::question_mark)]
     pub async fn accumulate_vote(
         &mut self,
         vote: &VOTE,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
-        if vote.leader(&self.membership) != self.public_key {
-            error!("Received vote for a view in which we were not the leader.");
-            return None;
-        }
-
-        if vote.view_number() != self.view {
-            error!(
+    ) -> Result<Option<CERT>> {
+        ensure!(
+            vote.leader(&self.membership)? == self.public_key,
+            "Received vote for a view in which we were not the leader."
+        );
+        ensure!(
+            vote.view_number() == self.view,
+            format!(
                 "Vote view does not match! vote view is {} current view is {}",
                 *vote.view_number(),
                 *self.view
-            );
-            return None;
-        }
+            )
+        );
 
-        let accumulator = self.accumulator.as_mut()?;
+        let accumulator = self
+            .accumulator
+            .as_mut()
+            .context("No accumulator to handle vote with.")?;
+
         match accumulator.accumulate(vote, &self.membership).await {
-            Either::Left(()) => None,
+            Either::Left(()) => Ok(None),
             Either::Right(cert) => {
                 debug!("Certificate Formed! {:?}", cert);
 
                 broadcast_event(
-                    Arc::new(VOTE::make_cert_event(cert, &self.public_key)),
+                    Arc::new(VOTE::make_cert_event(cert.clone(), &self.public_key)),
                     event_stream,
                 )
                 .await;
                 self.accumulator = None;
-                Some(HotShotTaskCompleted)
+
+                Ok(Some(cert))
             }
         }
     }
@@ -134,11 +142,14 @@ where
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
 {
     /// Handle a vote event
+    ///
+    /// # Errors
+    /// Returns an error if we fail to handle the vote
     async fn handle_vote_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted>;
+    ) -> Result<Option<CERT>>;
 
     /// Event filter to use for this event
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool;
@@ -157,6 +168,10 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
 }
 
 /// Generic function for spawning a vote task.  Returns the event stream id of the spawned task if created
+///
+/// # Errors
+/// If we faile to create the accumulator
+///
 /// # Panics
 /// Calls unwrap but should never panic.
 pub async fn create_vote_accumulator<TYPES, VOTE, CERT, V>(
@@ -164,7 +179,7 @@ pub async fn create_vote_accumulator<TYPES, VOTE, CERT, V>(
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     upgrade_lock: UpgradeLock<TYPES, V>,
-) -> Option<VoteCollectionTaskState<TYPES, VOTE, CERT, V>>
+) -> Result<VoteCollectionTaskState<TYPES, VOTE, CERT, V>>
 where
     TYPES: NodeType,
     VOTE: Vote<TYPES>
@@ -195,17 +210,15 @@ where
         id: info.id,
     };
 
-    let result = state.handle_vote_event(Arc::clone(&event), sender).await;
+    state.handle_vote_event(Arc::clone(&event), sender).await?;
 
-    if result == Some(HotShotTaskCompleted) {
-        // The protocol has finished
-        return None;
-    }
-
-    Some(state)
+    Ok(state)
 }
 
 /// A helper function that handles a vote regardless whether it's the first vote in the view or not.
+///
+/// # Errors
+/// If we fail to handle the vote
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_vote<
     TYPES: NodeType,
@@ -221,7 +234,8 @@ pub async fn handle_vote<
     event: &Arc<HotShotEvent<TYPES>>,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
-) where
+) -> Result<()>
+where
     VoteCollectionTaskState<TYPES, VOTE, CERT, V>: HandleVoteEvent<TYPES, VOTE, CERT>,
 {
     match collectors.entry(vote.view_number()) {
@@ -233,29 +247,31 @@ pub async fn handle_vote<
                 view: vote.view_number(),
                 id,
             };
-            if let Some(collector) = create_vote_accumulator(
+            let collector = create_vote_accumulator(
                 &info,
                 Arc::clone(event),
                 event_stream,
                 upgrade_lock.clone(),
             )
-            .await
-            {
-                entry.insert(collector);
-            };
+            .await?;
+
+            entry.insert(collector);
+
+            Ok(())
         }
         Entry::Occupied(mut entry) => {
-            let result = entry
+            // handle the vote, and garbage collect if the vote collector is finished
+            if entry
                 .get_mut()
                 .handle_vote_event(Arc::clone(event), event_stream)
-                .await;
-
-            if result == Some(HotShotTaskCompleted) {
-                // garbage collect vote collectors for old views (including the one just finished)
+                .await?
+                .is_some()
+            {
                 entry.remove();
                 *collectors = collectors.split_off(&vote.view_number());
-                // The protocol has finished
             }
+
+            Ok(())
         }
     }
 }
@@ -292,7 +308,7 @@ type ViewSyncFinalizeVoteState<TYPES, V> = VoteCollectionTaskState<
 impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>
     for QuorumVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.view_number() + 1)
     }
     fn make_cert_event(
@@ -306,7 +322,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertifica
 impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertificate<TYPES>>
     for UpgradeVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.view_number())
     }
     fn make_cert_event(
@@ -320,7 +336,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
 impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>
     for DaVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.view_number())
     }
     fn make_cert_event(
@@ -334,7 +350,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES
 impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>
     for TimeoutVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.view_number() + 1)
     }
     fn make_cert_event(
@@ -349,7 +365,7 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>
     for ViewSyncCommitVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
@@ -364,7 +380,7 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>
     for ViewSyncPreCommitVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
@@ -379,7 +395,7 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
     for ViewSyncFinalizeVote<TYPES>
 {
-    fn leader(&self, membership: &TYPES::Membership) -> TYPES::SignatureKey {
+    fn leader(&self, membership: &TYPES::Membership) -> Result<TYPES::SignatureKey> {
         membership.leader(self.date().round + self.date().relay)
     }
     fn make_cert_event(
@@ -400,10 +416,10 @@ impl<TYPES: NodeType, V: Versions>
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<QuorumCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::QuorumVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
@@ -421,10 +437,10 @@ impl<TYPES: NodeType, V: Versions>
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<UpgradeCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::UpgradeVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
@@ -440,10 +456,10 @@ impl<TYPES: NodeType, V: Versions> HandleVoteEvent<TYPES, DaVote<TYPES>, DaCerti
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<DaCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::DaVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
@@ -460,10 +476,10 @@ impl<TYPES: NodeType, V: Versions>
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<TimeoutCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::TimeoutVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
@@ -480,12 +496,12 @@ impl<TYPES: NodeType, V: Versions>
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<ViewSyncPreCommitCertificate2<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote) => {
                 self.accumulate_vote(vote, sender).await
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
@@ -502,10 +518,10 @@ impl<TYPES: NodeType, V: Versions>
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<ViewSyncCommitCertificate2<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncCommitVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {
@@ -522,12 +538,12 @@ impl<TYPES: NodeType, V: Versions>
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<Option<ViewSyncFinalizeCertificate2<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
                 self.accumulate_vote(vote, sender).await
             }
-            _ => None,
+            _ => Ok(None),
         }
     }
     fn filter(event: Arc<HotShotEvent<TYPES>>) -> bool {

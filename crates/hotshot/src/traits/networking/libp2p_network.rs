@@ -1134,7 +1134,15 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         TYPES: NodeType<SignatureKey = K> + 'a,
     {
         let future_view = <TYPES as NodeType>::Time::new(view) + LOOK_AHEAD;
-        let future_leader = membership.leader(future_view);
+        let future_leader = match membership.leader(future_view) {
+            Ok(l) => l,
+            Err(e) => {
+                return tracing::info!(
+                    "Failed to calculate leader for view {:?}: {e}",
+                    future_view
+                );
+            }
+        };
 
         let _ = self
             .queue_node_lookup(ViewNumber::new(*future_view), future_leader)

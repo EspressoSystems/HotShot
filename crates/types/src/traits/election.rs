@@ -7,6 +7,8 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 use std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
+use anyhow::Result;
+
 use super::{network::Topic, node_implementation::NodeType};
 use crate::{traits::signature_key::SignatureKey, PeerConfig};
 
@@ -43,7 +45,10 @@ pub trait Membership<TYPES: NodeType>:
     fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool;
 
     /// The leader of the committee for view `view_number`.
-    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
+    fn leader(&self, view_number: TYPES::Time) -> Result<TYPES::SignatureKey>;
 
     /// Get the network topic for the committee
     fn committee_topic(&self) -> Topic;

@@ -320,7 +320,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
+        task_state.quorum_membership.leader(cur_view)? == task_state.public_key,
     )
     .await
     {
@@ -443,7 +443,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             let new_view = proposal.data.view_number + 1;
 
             // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-            let should_propose = task_state.quorum_membership.leader(new_view)
+            let should_propose = task_state.quorum_membership.leader(new_view)?
                 == task_state.public_key
                 && high_qc.view_number == current_proposal.clone().unwrap().view_number;
 
@@ -561,7 +561,7 @@ pub async fn handle_quorum_proposal_validated<
     let new_view = task_state.current_proposal.clone().unwrap().view_number + 1;
     // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
     // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-    let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
+    let should_propose = task_state.quorum_membership.leader(new_view)? == task_state.public_key
         && task_state.consensus.read().await.high_qc().view_number
             == task_state.current_proposal.clone().unwrap().view_number;
 

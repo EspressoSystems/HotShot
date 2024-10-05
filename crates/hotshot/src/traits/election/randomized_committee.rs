@@ -6,6 +6,7 @@
 
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
+use anyhow::Result;
 use ethereum_types::U256;
 use hotshot_types::{
     traits::{
@@ -130,7 +131,7 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
     }
 
     /// Index the vector of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
+    fn leader(&self, view_number: TYPES::Time) -> Result<TYPES::SignatureKey> {
         let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
 
         let randomized_view_number: u64 = rng.gen_range(0..=u64::MAX);
@@ -139,7 +140,7 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
 
         let res = self.eligible_leaders[index].clone();
 
-        TYPES::SignatureKey::public_key(&res)
+        Ok(TYPES::SignatureKey::public_key(&res))
     }
 
     /// Get the total number of nodes in the committee
