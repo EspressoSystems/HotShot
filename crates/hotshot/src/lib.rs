@@ -484,7 +484,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         };
 
         let serialized_message = self.upgrade_lock.serialize(&message).await.map_err(|err| {
-            HotShotError::FailedToSerialize(format!("failed to serialize message: {err}"))
+            HotShotError::FailedToSerialize(format!("failed to serialize transaction: {err}"))
         })?;
 
         async_spawn(async move {

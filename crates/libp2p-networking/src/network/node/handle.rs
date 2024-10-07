@@ -88,22 +88,21 @@ pub async fn spawn_network_node<K: SignatureKey + 'static>(
 ) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<K>), NetworkError> {
     let mut network = NetworkNode::new(config.clone())
         .await
-        .map_err(|e| NetworkError::ConfigError(e.to_string()))?;
+        .map_err(|e| NetworkError::ConfigError(format!("failed to create network node: {e}")))?;
     // randomly assigned port
     let listen_addr = config
         .bind_address
         .clone()
         .unwrap_or_else(|| gen_multiaddr(0));
     let peer_id = network.peer_id();
-    let listen_addr = network
-        .start_listen(listen_addr)
-        .await
-        .map_err(|e| NetworkError::ListenError(e.to_string()))?;
+    let listen_addr = network.start_listen(listen_addr).await.map_err(|e| {
+        NetworkError::ListenError(format!("failed to start listening on Libp2p: {e}"))
+    })?;
     // pin here to force the future onto the heap since it can be large
     // in the case of flume
-    let (send_chan, recv_chan) = Box::pin(network.spawn_listeners())
-        .await
-        .map_err(|e| NetworkError::ListenError(e.to_string()))?;
+    let (send_chan, recv_chan) = Box::pin(network.spawn_listeners()).await.map_err(|err| {
+        NetworkError::ListenError(format!("failed to spawn listeners for Libp2p: {err}"))
+    })?;
     let receiver = NetworkNodeReceiver {
         receiver: recv_chan,
         recv_kill: None,

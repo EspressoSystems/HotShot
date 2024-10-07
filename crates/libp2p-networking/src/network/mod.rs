@@ -212,7 +212,7 @@ pub async fn gen_transport<K: SignatureKey + 'static>(
             DnsTransport::system(transport)
         }
     }
-    .map_err(|e| NetworkError::ConfigError(e.to_string()))?;
+    .map_err(|e| NetworkError::ConfigError(format!("failed to build DNS transport: {e}")))?;
 
     Ok(transport
         .map(|(peer_id, connection), _| (peer_id, StreamMuxerBox::new(connection)))

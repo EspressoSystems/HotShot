@@ -317,7 +317,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
             .find(|v| v.value().iter().all(|(k, _)| recipients.contains(k)))
             .map(|v| v.key().clone())
             .ok_or(NetworkError::MessageSendError(
-                "No topic found for recipients".to_string(),
+                "no topic found for recipients".to_string(),
             ))?;
 
         self.broadcast_message(message, topic, broadcast_delay)
@@ -355,13 +355,13 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
                         Ok(())
                     }
                     Err(e) => Err(NetworkError::MessageSendError(format!(
-                        "Error sending direct message to node: {e}",
+                        "error sending direct message to node: {e}",
                     ))),
                 }
             }
         } else {
             Err(NetworkError::MessageSendError(
-                "Node does not exist".to_string(),
+                "node does not exist".to_string(),
             ))
         }
     }
