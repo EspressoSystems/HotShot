@@ -131,11 +131,9 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         &mut self,
         listen_addr: Multiaddr,
     ) -> Result<Multiaddr, NetworkError> {
-        self.listener_id = Some(
-            self.swarm
-                .listen_on(listen_addr)
-                .map_err(|err| NetworkError::ListenError(err.to_string()))?,
-        );
+        self.listener_id = Some(self.swarm.listen_on(listen_addr).map_err(|err| {
+            NetworkError::ListenError(format!("failed to listen for Libp2p: {err}"))
+        })?);
         let addr = loop {
             if let Some(SwarmEvent::NewListenAddr { address, .. }) = self.swarm.next().await {
                 break address;
@@ -214,7 +212,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
                 .build()
                 .map_err(|err| {
-                    NetworkError::ConfigError(format!("Error building gossipsub config: {err:?}"))
+                    NetworkError::ConfigError(format!("error building gossipsub config: {err:?}"))
                 })?;
 
             // - Build a gossipsub network behavior
@@ -227,7 +225,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 gossipsub_config,
             )
             .map_err(|err| {
-                NetworkError::ConfigError(format!("Error building gossipsub behaviour: {err:?}"))
+                NetworkError::ConfigError(format!("error building gossipsub behaviour: {err:?}"))
             })?;
 
             //   Build a identify network behavior needed for own
