@@ -12,19 +12,12 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_task_impls::helpers::broadcast_event;
 use hotshot_types::traits::node_implementation::{NodeType, Versions};
-use snafu::Snafu;
+use hotshot_task_impls::helpers::broadcast_event;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 
 use crate::{test_runner::Node, test_task::TestEvent};
-
-/// the idea here is to run as long as we want
-
-/// Completion Task error
-#[derive(Snafu, Debug)]
-pub struct CompletionTaskErr {}
 
 /// Completion task state
 pub struct CompletionTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
