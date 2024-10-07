@@ -46,7 +46,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use parking_lot::RwLock as PlRwLock;
-use tracing::{debug, warn, info};
+use tracing::{debug, info, warn};
 
 use super::{push_cdn_network::PushCdnNetwork, NetworkError};
 use crate::traits::implementations::Libp2pNetwork;
