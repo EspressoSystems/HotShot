@@ -46,7 +46,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use parking_lot::RwLock as PlRwLock;
-use tracing::{debug, warn};
+use tracing::{debug, warn, info};
 
 use super::{push_cdn_network::PushCdnNetwork, NetworkError};
 use crate::traits::implementations::Libp2pNetwork;
@@ -150,7 +150,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
         {
             // If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
             // we don't want to delay this message, and from now on we consider the primary as down
-            warn!(
+            info!(
                 "View progression is slower than normally, stop delaying messages on the secondary"
             );
             self.primary_down.store(true, Ordering::Relaxed);
