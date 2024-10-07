@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Install Nix
-        uses: cachix/install-nix-action@v29
+        uses: cachix/install-nix-action@v30
 
       - name: Nix Caching
         uses: cachix/cachix-action@v15
