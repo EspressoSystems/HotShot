@@ -549,10 +549,6 @@
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -721,16 +717,12 @@
     }
     <span class="doccomment">/// Publish a key/value to the kv store.
     /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`crate::network::error::DHTError`] is
-    /// sent instead.
+    /// `chan`
     </span><span class="kw">pub fn </span>put_record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: QueryId, query: KadPutQuery) {
         <span class="self">self</span>.in_progress_put_record_queries.insert(id, query);
     }
 
     <span class="doccomment">/// Retrieve a value for a key from the DHT.
-    /// Value (serialized) is sent over `chan`, and if a value is not found,
-    /// a [`crate::network::error::DHTError`] is sent instead.
-    /// NOTE: noop if `retry_count` is 0
     </span><span class="kw">pub fn </span>get_record(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         key: Vec&lt;u8&gt;,

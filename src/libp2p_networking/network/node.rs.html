@@ -788,12 +788,6 @@
 <a href="#786" id="786">786</a>
 <a href="#787" id="787">787</a>
 <a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -846,7 +840,6 @@
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
-<span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 <span class="kw">pub use </span><span class="self">self</span>::{
@@ -854,18 +847,15 @@
         GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
         DEFAULT_REPLICATION_FACTOR,
     },
-    handle::{
-        network_node_handle_error, spawn_network_node, NetworkNodeHandle, NetworkNodeHandleError,
-        NetworkNodeReceiver,
-    },
+    handle::{spawn_network_node, NetworkNodeHandle, NetworkNodeReceiver},
 };
 <span class="kw">use super</span>::{
     behaviours::dht::{
         bootstrap::{<span class="self">self</span>, DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
-    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
+    gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
+    NetworkEventInternal,
 };
 <span class="kw">use </span><span class="kw">crate</span>::network::behaviours::{
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
@@ -931,7 +921,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         listen_addr: Multiaddr,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, NetworkError&gt; {
-        <span class="self">self</span>.listener_id = <span class="prelude-val">Some</span>(<span class="self">self</span>.swarm.listen_on(listen_addr).context(TransportSnafu)<span class="question-mark">?</span>);
+        <span class="self">self</span>.listener_id = <span class="prelude-val">Some</span>(<span class="self">self</span>.swarm.listen_on(listen_addr).map_err(|err| {
+            NetworkError::ListenError(<span class="macro">format!</span>(<span class="string">"failed to listen for Libp2p: {err}"</span>))
+        })<span class="question-mark">?</span>);
         <span class="kw">let </span>addr = <span class="kw">loop </span>{
             <span class="kw">if let </span><span class="prelude-val">Some</span>(SwarmEvent::NewListenAddr { address, .. }) = <span class="self">self</span>.swarm.next().<span class="kw">await </span>{
                 <span class="kw">break </span>address;
@@ -1009,11 +1001,8 @@
                 </span>.mesh_outbound_min(config.gossip_config.mesh_outbound_min) <span class="comment">// Minimum number of outbound peers in mesh
                 </span>.max_transmit_size(config.gossip_config.max_transmit_size) <span class="comment">// Maximum size of a message
                 </span>.build()
-                .map_err(|s| {
-                    GossipsubConfigSnafu {
-                        message: s.to_string(),
-                    }
-                    .build()
+                .map_err(|err| {
+                    NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"error building gossipsub config: {err:?}"</span>))
                 })<span class="question-mark">?</span>;
 
             <span class="comment">// - Build a gossipsub network behavior
@@ -1021,7 +1010,9 @@
                 MessageAuthenticity::Signed(keypair.clone()),
                 gossipsub_config,
             )
-            .map_err(|s| GossipsubBuildSnafu { message: s }.build())<span class="question-mark">?</span>;
+            .map_err(|err| {
+                NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"error building gossipsub behaviour: {err:?}"</span>))
+            })<span class="question-mark">?</span>;
 
             <span class="comment">//   Build a identify network behavior needed for own
             //   node connection information
@@ -1134,10 +1125,7 @@
         })
     }
 
-    <span class="doccomment">/// Publish a key/value to the kv store.
-    /// Once replicated upon all nodes, the caller is notified over
-    /// `chan`. If there is an error, a [`super::error::DHTError`] is
-    /// sent instead.
+    <span class="doccomment">/// Publish a key/value to the record store.
     ///
     /// # Panics
     /// If the default replication factor is `None`
@@ -1353,7 +1341,7 @@
                 </span>send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(<span class="self">self</span>.num_connected()))
                     .<span class="kw">await
-                    </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
+                    </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
             }
             SwarmEvent::ConnectionClosed {
                 connection_id: <span class="kw">_</span>,
@@ -1378,7 +1366,7 @@
                 </span>send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(<span class="self">self</span>.num_connected()))
                     .<span class="kw">await
-                    </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
+                    </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
             }
             SwarmEvent::Dialing {
                 peer_id,
@@ -1490,7 +1478,7 @@
                     </span>send_to_client
                         .send(event)
                         .<span class="kw">await
-                        </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
+                        </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
                 }
             }
             SwarmEvent::OutgoingConnectionError {

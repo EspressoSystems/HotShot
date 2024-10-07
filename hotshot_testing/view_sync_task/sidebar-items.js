@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ShouldHitViewSync","ViewSyncTaskDescription"],"struct":["ViewSyncTask","ViewSyncTaskErr","ViewSyncTaskErrSnafu"]};
+window.SIDEBAR_ITEMS = {"enum":["ShouldHitViewSync","ViewSyncTaskDescription","ViewSyncTaskError"],"struct":["ViewSyncTask"]};
