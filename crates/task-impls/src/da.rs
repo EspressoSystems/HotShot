@@ -116,7 +116,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     "Throwing away DA proposal that is more than one view older"
                 );
 
-                ensure!(self
+                ensure!(!self
                     .consensus
                     .read()
                     .await
