@@ -566,7 +566,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         // check if this node had a previous timeout
         match self.failed_nodes.get(id) {
             Some(error) => match error.as_ref() {
-                HotShotError::ViewTimeoutError {
+                HotShotError::ViewTimedOut {
                     view_number,
                     state: _,
                 } => {
