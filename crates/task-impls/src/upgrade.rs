@@ -246,7 +246,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 .await?;
             }
             HotShotEvent::ViewChange(new_view) => {
-                ensure!(self.cur_view < *new_view);
+                ensure!(self.cur_view < *new_view || *self.cur_view == 0);
 
                 self.cur_view = *new_view;
 
