@@ -482,7 +482,7 @@ where
                     self.late_start.insert(
                         node_id,
                         LateStartNode {
-                            network: Some(network),
+                            network: None,
                             context: LateNodeContext::UninitializedContext(
                                 LateNodeContextParameters {
                                     storage,

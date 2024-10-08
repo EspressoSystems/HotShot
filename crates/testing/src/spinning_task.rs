@@ -138,8 +138,9 @@ where
                                 let network = if let Some(network) = node.network {
                                     network
                                 } else {
-                                    // for catchup we should not generate
-                                    (self.channel_generator)(node_id).await
+                                    let generated_network = (self.channel_generator)(node_id).await;
+                                    generated_network.wait_for_ready().await;
+                                    generated_network
                                 };
                                 let node_id = idx.try_into().unwrap();
                                 let context = match node.context {
