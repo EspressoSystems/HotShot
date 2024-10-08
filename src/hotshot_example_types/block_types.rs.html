@@ -416,9 +416,6 @@
 <a href="#414" id="414">414</a>
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -446,7 +443,7 @@
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sha3::{Digest, Keccak256};
-<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>time::OffsetDateTime;
 <span class="kw">use </span>vbs::version::Version;
 
@@ -462,17 +459,14 @@
 #[serde(try_from = <span class="string">"Vec&lt;u8&gt;"</span>)]
 </span><span class="kw">pub struct </span>TestTransaction(Vec&lt;u8&gt;);
 
-<span class="attr">#[derive(Debug, Error)]
-</span><span class="kw">pub enum </span>TransactionError {
-    <span class="attr">#[error(<span class="string">"Transaction too long"</span>)]
-    </span>TransactionTooLong,
-}
+<span class="attr">#[derive(Debug, Snafu)]
+</span><span class="kw">pub struct </span>TransactionTooLong;
 
 <span class="kw">impl </span>TryFrom&lt;Vec&lt;u8&gt;&gt; <span class="kw">for </span>TestTransaction {
-    <span class="kw">type </span>Error = TransactionError;
+    <span class="kw">type </span>Error = TransactionTooLong;
 
     <span class="kw">fn </span>try_from(value: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="self">Self</span>::try_new(value).ok_or(TransactionError::TransactionTooLong)
+        <span class="self">Self</span>::try_new(value).ok_or(TransactionTooLong)
     }
 }
 

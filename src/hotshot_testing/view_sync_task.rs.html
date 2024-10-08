@@ -110,15 +110,15 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
-<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>snafu::Snafu;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_task::{TestResult, TestTaskState};
 
 <span class="doccomment">/// `ViewSync` Task error
-</span><span class="attr">#[derive(Error, Debug, Clone)]
-</span><span class="kw">pub enum </span>ViewSyncTaskError {
-    <span class="attr">#[error(<span class="string">"{} nodes hit view sync"</span>, hit_view_sync.len())]
-    </span>HitViewSync { hit_view_sync: HashSet&lt;usize&gt; },
+</span><span class="attr">#[derive(Snafu, Debug, Clone)]
+</span><span class="kw">pub struct </span>ViewSyncTaskErr {
+    <span class="doccomment">/// set of node ids that hit view sync
+    </span>hit_view_sync: HashSet&lt;usize&gt;,
 }
 
 <span class="doccomment">/// `ViewSync` task state
@@ -170,7 +170,7 @@
                 <span class="kw">if </span>min &lt;= num_hits &amp;&amp; num_hits &lt;= max {
                     TestResult::Pass
                 } <span class="kw">else </span>{
-                    TestResult::Fail(Box::new(ViewSyncTaskError::HitViewSync {
+                    TestResult::Fail(Box::new(ViewSyncTaskErr {
                         hit_view_sync: <span class="self">self</span>.hit_view_sync.clone(),
                     }))
                 }

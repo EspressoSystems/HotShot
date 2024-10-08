@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CompletionTaskDescription"],"struct":["CompletionTask","TimeBasedCompletionTaskDescription"]};
+window.SIDEBAR_ITEMS = {"enum":["CompletionTaskDescription"],"struct":["CompletionTask","CompletionTaskErr","CompletionTaskErrSnafu","TimeBasedCompletionTaskDescription"]};

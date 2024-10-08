@@ -397,6 +397,11 @@
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -435,6 +440,7 @@
     vote::HasViewNumber,
     ValidatorConfig,
 };
+<span class="kw">use </span>snafu::Snafu;
 
 <span class="kw">use crate</span>::{
     test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
@@ -443,6 +449,10 @@
 
 <span class="doccomment">/// convience type for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
+
+<span class="doccomment">/// error for the spinning task
+</span><span class="attr">#[derive(Snafu, Debug)]
+</span><span class="kw">pub struct </span>SpinningTaskErr {}
 
 <span class="doccomment">/// Spinning task state
 </span><span class="kw">pub struct </span>SpinningTask&lt;

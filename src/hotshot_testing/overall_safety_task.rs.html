@@ -601,6 +601,16 @@
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -625,7 +635,7 @@
     traits::node_implementation::{ConsensusTime, NodeType, Versions},
     vid::VidCommitment,
 };
-<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>tracing::error;
 
 <span class="kw">use crate</span>::{
@@ -649,38 +659,48 @@
 }
 
 <span class="doccomment">/// possible errors
-</span><span class="attr">#[derive(Error, Debug, Clone)]
+</span><span class="attr">#[derive(Snafu, Debug, Clone)]
 </span><span class="kw">pub enum </span>OverallSafetyTaskErr&lt;TYPES: NodeType&gt; {
-    <span class="attr">#[error(<span class="string">"Mismatched leaf"</span>)]
+    <span class="doccomment">/// inconsistent txn nums
+    </span>InconsistentTxnsNum {
+        <span class="doccomment">/// number of transactions -&gt; number of nodes reporting that number
+        </span>map: HashMap&lt;u64, usize&gt;,
+    },
+    <span class="doccomment">/// too many failed  views
+    </span>TooManyFailures {
+        <span class="doccomment">/// vec of failed views
+        </span>failed_views: HashSet&lt;TYPES::Time&gt;,
+    },
+    <span class="doccomment">/// not enough decides
+    </span>NotEnoughDecides {
+        <span class="doccomment">/// expected number of decides
+        </span>expected: usize,
+        <span class="doccomment">/// actual number of decides
+        </span>got: usize,
+    },
+    <span class="doccomment">/// mismatched leaves for a view
     </span>MismatchedLeaf,
-
-    <span class="attr">#[error(<span class="string">"Inconsistent blocks"</span>)]
+    <span class="doccomment">/// mismatched states for a view
+    </span>InconsistentStates,
+    <span class="doccomment">/// mismatched blocks for a view
     </span>InconsistentBlocks,
+    <span class="doccomment">/// not enough failures. this likely means there is an issue in the test
+    </span>NotEnoughFailures {
+        expected: usize,
 
-    <span class="attr">#[error(<span class="string">"Inconsistent number of transactions: {map:?}"</span>)]
-    </span>InconsistentTxnsNum { map: HashMap&lt;u64, usize&gt; },
-
-    <span class="attr">#[error(<span class="string">"Not enough decides: got: {got}, expected: {expected}"</span>)]
-    </span>NotEnoughDecides { got: usize, expected: usize },
-
-    <span class="attr">#[error(<span class="string">"Too many view failures: {0:?}"</span>)]
-    </span>TooManyFailures(HashSet&lt;TYPES::Time&gt;),
-
-    <span class="attr">#[error(<span class="string">"Inconsistent failed views: expected: {expected_failed_views:?}, actual: {actual_failed_views:?}"</span>)]
+        failed_views: HashSet&lt;TYPES::Time&gt;,
+    },
+    <span class="doccomment">/// mismatched expected failed view vs actual failed view
     </span>InconsistentFailedViews {
-        expected_failed_views: Vec&lt;TYPES::Time&gt;,
+        expected_failed_views: HashSet&lt;TYPES::Time&gt;,
         actual_failed_views: HashSet&lt;TYPES::Time&gt;,
     },
-    <span class="attr">#[error(
-        <span class="string">"Not enough round results: results_count: {results_count}, views_count: {views_count}"
-    </span>)]
+    <span class="doccomment">/// This is a case where we have too many failed + succesful views over round results
+    /// This should never be the case and requires debugging if we see this get thrown
     </span>NotEnoughRoundResults {
         results_count: usize,
         views_count: usize,
     },
-
-    <span class="attr">#[error(<span class="string">"View timed out"</span>)]
-    </span>ViewTimeout,
 }
 
 <span class="doccomment">/// Data availability task state
@@ -706,9 +726,9 @@
         <span class="self">self</span>.ctx.failed_views.insert(view_number);
         <span class="kw">if </span><span class="self">self</span>.ctx.failed_views.len() &gt; num_failed_views {
             <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
-            <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures(
-                <span class="self">self</span>.ctx.failed_views.clone(),
-            )));
+            <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
+            }));
         } <span class="kw">else if </span>!expected_views_to_fail.is_empty() {
             <span class="kw">match </span>expected_views_to_fail.entry(view_number) {
                 Entry::Occupied(<span class="kw-2">mut </span>view_seen) =&gt; {
@@ -776,7 +796,7 @@
                 }
             }
             EventType::ReplicaViewTimeout { view_number } =&gt; {
-                <span class="kw">let </span>error = Arc::new(HotShotError::&lt;TYPES&gt;::ViewTimedOut {
+                <span class="kw">let </span>error = Arc::new(HotShotError::&lt;TYPES&gt;::ViewTimeoutError {
                     view_number,
                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                 });
@@ -874,9 +894,9 @@
         }
 
         <span class="kw">if </span><span class="self">self</span>.ctx.failed_views.len() + num_incomplete_views &gt; num_failed_rounds_total {
-            <span class="kw">return </span>TestResult::Fail(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures(
-                <span class="self">self</span>.ctx.failed_views.clone(),
-            )));
+            <span class="kw">return </span>TestResult::Fail(Box::new(OverallSafetyTaskErr::&lt;TYPES&gt;::TooManyFailures {
+                failed_views: <span class="self">self</span>.ctx.failed_views.clone(),
+            }));
         }
 
         <span class="kw">if </span>!expected_views_to_fail

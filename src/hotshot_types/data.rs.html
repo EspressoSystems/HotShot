@@ -893,13 +893,6 @@
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -930,7 +923,7 @@
 <span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>snafu::Snafu;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
 <span class="kw">use </span>tracing::error;
@@ -988,12 +981,6 @@
     </span><span class="kw">fn </span>u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.<span class="number">0
     </span>}
-}
-
-<span class="kw">impl </span>Display <span class="kw">for </span>ViewNumber {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
-    }
 }
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>ViewNumber {
@@ -1301,14 +1288,13 @@
 }
 
 <span class="doccomment">/// The error type for block and its transactions.
-</span><span class="attr">#[derive(Error, Debug, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Snafu, Debug, Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>BlockError {
-    <span class="doccomment">/// The block header is invalid
-    </span><span class="attr">#[error(<span class="string">"Invalid block header: {0}"</span>)]
-    </span>InvalidBlockHeader(String),
-
-    <span class="doccomment">/// The payload commitment does not match the block header's payload commitment
-    </span><span class="attr">#[error(<span class="string">"Inconsistent payload commitment"</span>)]
+    <span class="doccomment">/// Invalid block header.
+    </span>InvalidBlockHeader,
+    <span class="doccomment">/// Invalid transaction length.
+    </span>InvalidTransactionLength,
+    <span class="doccomment">/// Inconsistent payload commitment.
     </span>InconsistentPayloadCommitment,
 }
 

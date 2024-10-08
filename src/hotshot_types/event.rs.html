@@ -286,7 +286,7 @@
         deserializer: D,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;HotShotError&lt;TYPES&gt;&gt;, D::Error&gt; {
         <span class="kw">let </span>str = String::deserialize(deserializer)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(Arc::new(HotShotError::FailedToDeserialize(str)))
+        <span class="prelude-val">Ok</span>(Arc::new(HotShotError::Misc { context: str }))
     }
 }
 <span class="doccomment">/// The type and contents of a status event emitted by a `HotShot` instance
