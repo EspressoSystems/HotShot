@@ -443,7 +443,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let view = *view;
 
                 debug!("view change in transactions to view {:?}", view);
-                ensure!(*view > *self.cur_view, format!("Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view ));
+                ensure!(*view > *self.cur_view || *self.cur_view == 0, format!("Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view ));
 
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
@@ -790,9 +790,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, sender.clone()).await?;
-
-        Ok(())
+        self.handle(event, sender.clone()).await
     }
 
     async fn cancel_subtasks(&mut self) {}
