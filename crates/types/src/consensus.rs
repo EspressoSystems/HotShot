@@ -616,7 +616,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Can return an error when the provided high_qc is not newer than the existing entry.
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
         ensure!(
-            high_qc.view_number > self.high_qc.view_number,
+            high_qc.view_number > self.high_qc.view_number || high_qc == self.high_qc,
             "High QC with an equal or higher view exists."
         );
         debug!("Updating high QC");
