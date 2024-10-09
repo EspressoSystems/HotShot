@@ -604,7 +604,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
                     self.da_membership.committee_members(view).contains(sender)
-                        || *sender == self.quorum_membership.leader(view)?,
+                        || *sender == self.quorum_membership.leader(view).await?,
                     "VID share was not sent by a DA member or the view leader."
                 );
 

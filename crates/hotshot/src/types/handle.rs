@@ -199,6 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .memberships
             .quorum_membership
             .leader(view_number)
+            .await
     }
 
     // Below is for testing only:

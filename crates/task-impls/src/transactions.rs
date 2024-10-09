@@ -443,12 +443,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
                     error!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.leader(view)? == self.public_key;
+                    make_block = self.membership.leader(view).await? == self.public_key;
                 }
                 self.cur_view = view;
 
                 let next_view = self.cur_view + 1;
-                let next_leader = self.membership.leader(next_view)? == self.public_key;
+                let next_leader = self.membership.leader(next_view).await? == self.public_key;
 
                 ensure!(
                     make_block || next_leader,

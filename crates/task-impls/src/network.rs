@@ -348,7 +348,7 @@ impl<
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -370,7 +370,7 @@ impl<
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => {
                 let view_number = req.view_number;
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -414,7 +414,7 @@ impl<
             HotShotEvent::DaVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::DaVote);
                 let view_number = vote.view_number();
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -446,7 +446,7 @@ impl<
             }
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) => {
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -468,7 +468,7 @@ impl<
             }
             HotShotEvent::ViewSyncCommitVoteSend(vote) => {
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -490,7 +490,7 @@ impl<
             }
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -534,7 +534,7 @@ impl<
             HotShotEvent::TimeoutVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -564,7 +564,7 @@ impl<
             HotShotEvent::UpgradeVoteSend(vote) => {
                 error!("Sending upgrade vote!");
                 let view_number = vote.view_number();
-                let leader = match self.quorum_membership.leader(view_number) {
+                let leader = match self.quorum_membership.leader(view_number).await {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(

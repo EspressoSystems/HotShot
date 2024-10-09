@@ -7,7 +7,6 @@
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
 use anyhow::Result;
-use async_lock::RwLock;
 use ethereum_types::U256;
 use hotshot_types::{
     traits::{
@@ -37,9 +36,6 @@ pub struct RandomizedCommittee<T: NodeType> {
 
     /// The network topic of the committee
     committee_topic: Topic,
-
-    /// Seeds indexed by block height, used to randomize the stake table.
-    seeds: RwLock<BTreeMap<u64, [u8; 32]>>,
 }
 
 impl<T: NodeType> Clone for RandomizedCommittee<T> {
@@ -85,7 +81,6 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
             eligible_leaders,
             stake_table: members,
             indexed_stake_table,
-            seeds: RwLock::new(BTreeMap::new()),
             committee_topic,
         }
     }
@@ -119,9 +114,7 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
             .collect()
     }
 
-    async fn add_seed(&self, block_height: u64, seed: [u8; 32]) {
-        self.seeds.write().await.insert(block_height, seed);
-    }
+    async fn add_seed(&self, _block_height: u64, _seed: [u8; 32]) {}
 
     /// Get the stake table entry for a public key
     fn stake(

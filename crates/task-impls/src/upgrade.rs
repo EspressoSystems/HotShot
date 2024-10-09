@@ -174,7 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 );
 
                 // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.quorum_membership.leader(view)?;
+                let view_leader_key = self.quorum_membership.leader(view).await?;
                 ensure!(
                     view_leader_key == *sender,
                     format!(
@@ -218,11 +218,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 {
                     let view = vote.view_number();
                     ensure!(
-                        self.quorum_membership.leader(view)? == self.public_key,
+                        self.quorum_membership.leader(view).await? == self.public_key,
                         format!(
                             "We are not the leader for view {} are we leader for next view? {}",
                             *view,
-                            self.quorum_membership.leader(view + 1)? == self.public_key
+                            self.quorum_membership.leader(view + 1).await? == self.public_key
                         )
                     );
                 }
@@ -258,7 +258,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     && !self.upgraded().await
                     && self
                         .quorum_membership
-                        .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))?
+                        .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
+                        .await?
                         == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {

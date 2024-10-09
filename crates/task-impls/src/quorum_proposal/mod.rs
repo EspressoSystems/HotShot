@@ -281,7 +281,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create dependency task", level = "error")]
-    fn create_dependency_task_if_new(
+    async fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::Time,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
@@ -290,7 +290,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) -> Result<()> {
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
-            self.quorum_membership.leader(view_number)? == self.public_key,
+            self.quorum_membership.leader(view_number).await? == self.public_key,
             "We are not the leader of the next view"
         );
 
@@ -389,7 +389,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
-                    )?;
+                    )
+                    .await?;
                 }
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
@@ -420,7 +421,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 ensure!(
@@ -440,7 +442,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     event,
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
@@ -455,7 +458,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let view = proposal.data.view_number();
@@ -473,7 +477,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::UpdateHighQc(qc) => {
                 // First update the high QC internally
@@ -499,7 +504,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             _ => {}
         }

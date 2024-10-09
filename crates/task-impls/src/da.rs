@@ -124,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
-                let view_leader_key = self.da_membership.leader(view)?;
+                let view_leader_key = self.da_membership.leader(view).await?;
                 ensure!(view_leader_key == sender,
                     format!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone())
                 );
@@ -249,8 +249,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let view = vote.view_number();
 
                 ensure!(
-                    self.da_membership.leader(view)? == self.public_key,
-                    format!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1)? == self.public_key)
+                    self.da_membership.leader(view).await? == self.public_key,
+                    format!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1).await? == self.public_key)
                 );
 
                 handle_vote(
