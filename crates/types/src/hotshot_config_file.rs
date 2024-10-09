@@ -4,29 +4,16 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    env, fs,
-    num::NonZeroUsize,
-    ops::Range,
-    path::{Path, PathBuf},
-    time::Duration,
-    vec,
-};
+use std::{num::NonZeroUsize, time::Duration, vec};
 
 use crate::{
-    constants::REQUEST_DATA_DELAY, light_client::StateVerKey, traits::signature_key::SignatureKey,
-    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    constants::REQUEST_DATA_DELAY, traits::signature_key::SignatureKey, ExecutionType,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
-use libp2p::{Multiaddr, PeerId};
-use serde_inline_default::serde_inline_default;
 use surf_disco::Url;
-use thiserror::Error;
-use toml;
-use tracing::{error, info};
 use vec1::Vec1;
 
-use crate::client::OrchestratorClient;
-use crate::upgrade_config::UpgradeConfig;
+use crate::{upgrade_config::UpgradeConfig, validator_config::ValidatorConfigFile};
 
 /// Default builder URL, used as placeholder
 fn default_builder_urls() -> Vec1<Url> {

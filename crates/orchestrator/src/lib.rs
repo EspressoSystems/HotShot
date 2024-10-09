@@ -22,6 +22,7 @@ use client::{BenchResults, BenchResultsDownloadConfig};
 use csv::Writer;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use hotshot_types::{
+    network::BuilderType,
     traits::signature_key::{SignatureKey, StakeTableEntryType},
     PeerConfig,
 };

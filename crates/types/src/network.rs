@@ -4,28 +4,18 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    env, fs,
-    num::NonZeroUsize,
-    ops::Range,
-    path::{Path, PathBuf},
-    time::Duration,
-    vec,
-};
+use std::{fs, ops::Range, path::Path, time::Duration, vec};
 
 use crate::hotshot_config_file::HotShotConfigFile;
-use clap::ValueEnum;
-use hotshot_types::{
+use crate::{
     constants::REQUEST_DATA_DELAY, light_client::StateVerKey, traits::signature_key::SignatureKey,
-    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    HotShotConfig, ValidatorConfig,
 };
+use clap::ValueEnum;
 use libp2p::{Multiaddr, PeerId};
 use serde_inline_default::serde_inline_default;
-use surf_disco::Url;
 use thiserror::Error;
-use toml;
-use tracing::{error, info};
-use vec1::Vec1;
+use tracing::error;
 
 /// default number of rounds to run
 pub const ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = 100;
@@ -181,37 +171,11 @@ pub enum NetworkConfigSource {
 
 impl<K: SignatureKey> NetworkConfig<K> {
     /// Get a temporary node index for generating a validator config
+    #[must_use]
     pub fn generate_init_validator_config(cur_node_index: u16, is_da: bool) -> ValidatorConfig<K> {
         // This cur_node_index is only used for key pair generation, it's not bound with the node,
         // later the node with the generated key pair will get a new node_index from orchestrator.
         ValidatorConfig::generated_from_seed_indexed([0u8; 32], cur_node_index.into(), 1, is_da)
-    }
-
-    /// Asynchronously retrieves a `NetworkConfig` from an orchestrator.
-    /// The retrieved one includes correct `node_index` and peer's public config.
-    ///
-    /// # Errors
-    /// If we are unable to get the configuration from the orchestrator
-    pub async fn get_complete_config(
-        client: &OrchestratorClient,
-        my_own_validator_config: ValidatorConfig<K>,
-        libp2p_advertise_address: Option<Multiaddr>,
-        libp2p_public_key: Option<PeerId>,
-    ) -> anyhow::Result<(NetworkConfig<K>, NetworkConfigSource)> {
-        // get the configuration from the orchestrator
-        let run_config: NetworkConfig<K> = client
-            .post_and_wait_all_public_keys::<K>(
-                my_own_validator_config,
-                libp2p_advertise_address,
-                libp2p_public_key,
-            )
-            .await;
-
-        info!(
-            "Retrieved config; our node index is {}. DA committee member: {}",
-            run_config.node_index, run_config.config.my_own_validator_config.is_da
-        );
-        Ok((run_config, NetworkConfigSource::Orchestrator))
     }
 
     /// Loads a `NetworkConfig` from a file.

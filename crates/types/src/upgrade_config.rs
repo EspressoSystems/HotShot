@@ -4,28 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    env, fs,
-    num::NonZeroUsize,
-    ops::Range,
-    path::{Path, PathBuf},
-    time::Duration,
-    vec,
-};
-
-use clap::ValueEnum;
-use hotshot_types::{
-    constants::REQUEST_DATA_DELAY, light_client::StateVerKey, traits::signature_key::SignatureKey,
-    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
-};
-use libp2p::{Multiaddr, PeerId};
-use serde_inline_default::serde_inline_default;
-use surf_disco::Url;
-use thiserror::Error;
-use toml;
-use tracing::{error, info};
-use vec1::Vec1;
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 /// Holds configuration for the upgrade task.

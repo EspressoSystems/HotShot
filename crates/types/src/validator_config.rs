@@ -4,29 +4,12 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    env, fs,
-    num::NonZeroUsize,
-    ops::Range,
-    path::{Path, PathBuf},
-    time::Duration,
-    vec,
-};
+use std::{env, fs, path::PathBuf};
 
-use clap::ValueEnum;
-use hotshot_types::{
-    constants::REQUEST_DATA_DELAY, light_client::StateVerKey, traits::signature_key::SignatureKey,
-    ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
-};
-use libp2p::{Multiaddr, PeerId};
-use serde_inline_default::serde_inline_default;
-use surf_disco::Url;
-use thiserror::Error;
+use crate::{traits::signature_key::SignatureKey, ValidatorConfig};
 use toml;
-use tracing::{error, info};
-use vec1::Vec1;
+use tracing::error;
 
-use crate::client::OrchestratorClient;
 /// Holds configuration for a validator node
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 #[serde(bound(deserialize = ""))]

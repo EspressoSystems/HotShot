@@ -45,8 +45,7 @@ use hotshot_example_types::{
 };
 use hotshot_orchestrator::{
     self,
-    client::{BenchResults, OrchestratorClient, ValidatorArgs},
-    config::{BuilderType, NetworkConfig, NetworkConfigFile, NetworkConfigSource},
+    client::{get_complete_config, BenchResults, OrchestratorClient, ValidatorArgs},
 };
 use hotshot_testing::block_builder::{
     BuilderTask, RandomBuilderImplementation, SimpleBuilderImplementation,
@@ -56,6 +55,7 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, TestableLeaf},
     event::{Event, EventType},
+    network::{BuilderType, NetworkConfig, NetworkConfigFile, NetworkConfigSource},
     traits::{
         block_contents::{BlockHeader, TestableBlock},
         election::Membership,
@@ -908,8 +908,7 @@ pub async fn main_entry_point<
                 .await,
             // we assign nodes to the DA committee by default
             true,
-        )
-        .await;
+        );
 
     // Derives our Libp2p private key from our private key, and then returns the public key of that key
     let libp2p_public_key =
@@ -932,7 +931,8 @@ pub async fn main_entry_point<
     // It returns the complete config which also includes peer's public key and public config.
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
-    let (mut run_config, source) = NetworkConfig::<TYPES::SignatureKey>::get_complete_config(
+
+    let (mut run_config, source) = get_complete_config(
         &orchestrator_client,
         my_own_validator_config,
         advertise_multiaddress,

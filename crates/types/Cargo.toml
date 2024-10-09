@@ -54,6 +54,8 @@ vec1 = { workspace = true }
 libp2p = { workspace = true }
 serde_json = { workspace = true }
 surf-disco = { workspace = true }
+toml = { workspace = true }
+clap = { workspace = true }
 
 [features]
 gpu-vid = ["jf-vid/gpu-vid"]
