@@ -622,32 +622,6 @@
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -661,10 +635,7 @@
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>dyn_clone::DynClone;
-<span class="kw">use </span>futures::{
-    channel::mpsc::{<span class="self">self</span>},
-    Future,
-};
+<span class="kw">use </span>futures::Future;
 <span class="kw">use </span>thiserror::Error;
 
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
@@ -691,7 +662,6 @@
 <span class="kw">use crate</span>::{
     data::ViewNumber,
     message::{MessagePurpose, SequencingMessage},
-    request_response::NetworkMsgResponseChannel,
     BoxSyncFuture,
 };
 
@@ -923,28 +893,6 @@
     /// # Errors
     /// If there is a network-related failure.
     </span><span class="kw">async fn </span>recv_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt;;
-
-    <span class="doccomment">/// Ask request the network for some data.  Returns the request ID for that data,
-    /// The ID returned can be used for cancelling the request
-    </span><span class="kw">async fn </span>request_data&lt;TYPES: NodeType&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _request: Vec&lt;u8&gt;,
-        _recipient: <span class="kw-2">&amp;</span>K,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
-        <span class="prelude-val">Err</span>(NetworkError::Unimplemented)
-    }
-
-    <span class="doccomment">/// Spawn a request task in the given network layer.  If it supports
-    /// Request and responses it will return the receiving end of a channel.
-    /// Requests the network receives will be sent over this channel along
-    /// with a return channel to send the response back to.
-    ///
-    /// Returns `None`` if network does not support handling requests
-    </span><span class="kw">async fn </span>spawn_request_receiver_task(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;mpsc::Receiver&lt;(Vec&lt;u8&gt;, NetworkMsgResponseChannel&lt;Vec&lt;u8&gt;&gt;)&gt;&gt; {
-        <span class="prelude-val">None
-    </span>}
 
     <span class="doccomment">/// queues lookup of a node
     ///

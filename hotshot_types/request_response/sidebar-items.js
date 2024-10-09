@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["NetworkMsgResponseChannel","ProposalRequestPayload","Request","Response"],"type":["RequestReceiver","TakeReceiver"]};
+window.SIDEBAR_ITEMS = {"struct":["ProposalRequestPayload","Request","Response"]};
