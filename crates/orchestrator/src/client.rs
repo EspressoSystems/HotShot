@@ -9,14 +9,13 @@ use std::{net::SocketAddr, time::Duration};
 use async_compatibility_layer::art::async_sleep;
 use clap::Parser;
 use futures::{Future, FutureExt};
-use hotshot_types::{traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig};
+use hotshot_types::{traits::signature_key::SignatureKey, PeerConfig, ValidatorConfig, network::NetworkConfig};
 use libp2p::{Multiaddr, PeerId};
 use surf_disco::{error::ClientError, Client};
 use tide_disco::Url;
 use tracing::instrument;
 use vbs::BinarySerializer;
 
-use crate::{config::NetworkConfig, OrchestratorVersion};
 /// Holds the client connection to the orchestrator
 pub struct OrchestratorClient {
     /// the client

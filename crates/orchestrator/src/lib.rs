@@ -8,8 +8,6 @@
 
 /// The orchestrator's clients
 pub mod client;
-/// Configuration for the orchestrator
-pub mod config;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -21,7 +19,6 @@ use std::{
 
 use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
-use config::BuilderType;
 use csv::Writer;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use hotshot_types::{
@@ -47,7 +44,7 @@ use vbs::{
     BinarySerializer,
 };
 
-use crate::config::{NetworkConfig, PublicKeysFile};
+use hotshot_types::network::{NetworkConfig, PublicKeysFile};
 
 /// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)

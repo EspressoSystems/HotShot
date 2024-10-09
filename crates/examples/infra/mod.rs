@@ -903,7 +903,9 @@ pub async fn main_entry_point<
     // We assume one node will not call this twice to generate two validator_config-s with same identity.
     let my_own_validator_config =
         NetworkConfig::<TYPES::SignatureKey>::generate_init_validator_config(
-            &orchestrator_client,
+            orchestrator_client
+                .get_node_index_for_init_validator_config()
+                .await,
             // we assign nodes to the DA committee by default
             true,
         )
