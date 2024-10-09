@@ -362,7 +362,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     ensure!(
-        quorum_membership.leader(next_proposal_view_number)? == public_key,
+        quorum_membership.leader(next_proposal_view_number).await? == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
     let parent_view_number = consensus.read().await.high_qc().view_number();

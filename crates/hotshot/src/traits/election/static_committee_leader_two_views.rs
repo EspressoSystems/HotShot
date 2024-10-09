@@ -38,6 +38,7 @@ pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
     committee_topic: Topic,
 }
 
+#[async_trait::async_trait]
 impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYPES> {
     /// Create a new election
     fn new(
@@ -107,6 +108,8 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
             .collect()
     }
 
+    async fn add_seed(&self, _block_height: u64, _seed: [u8; 32]) {}
+
     /// Get the stake table entry for a public key
     fn stake(
         &self,
@@ -129,7 +132,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
     }
 
     /// Index the vector of public keys with the current view number
-    fn leader(&self, view_number: TYPES::Time) -> Result<TYPES::SignatureKey> {
+    async fn leader(&self, view_number: TYPES::Time) -> Result<TYPES::SignatureKey> {
         let index =
             usize::try_from((*view_number / 2) % self.eligible_leaders.len() as u64).unwrap();
         let res = self.eligible_leaders[index].clone();

@@ -300,7 +300,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay)? == self.public_key,
+                    self.membership.leader(vote_view + relay).await? == self.public_key,
                     "View sync vote sent to wrong leader"
                 );
 
@@ -339,7 +339,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay)? == self.public_key,
+                    self.membership.leader(vote_view + relay).await? == self.public_key,
                     "View sync vote sent to wrong leader"
                 );
 
@@ -378,7 +378,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay)? == self.public_key,
+                    self.membership.leader(vote_view + relay).await? == self.public_key,
                     "View sync vote sent to wrong leader"
                 );
 
@@ -442,7 +442,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 );
 
                 self.num_timeouts_tracked += 1;
-                let leader = self.membership.leader(view_number)?;
+                let leader = self.membership.leader(view_number).await?;
                 error!(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(&leader),

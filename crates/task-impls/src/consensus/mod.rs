@@ -143,7 +143,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
     }
 
     /// Validate the VID disperse is correctly signed and has the correct share.
-    fn validate_disperse(
+    async fn validate_disperse(
         &self,
         sender: &TYPES::SignatureKey,
         disperse: &Proposal<TYPES, VidDisperseShare<TYPES>>,
@@ -155,7 +155,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
         let validate_sender = sender.validate(&disperse.signature, payload_commitment.as_ref())
             && self.da_membership.committee_members(view).contains(sender);
 
-        let Ok(view_leader) = self.quorum_membership.leader(view) else {
+        let Ok(view_leader) = self.quorum_membership.leader(view).await else {
             tracing::error!("Unable to get leader for view number {:?}", view);
             return false;
         };
@@ -313,11 +313,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
             }
             HotShotEvent::QuorumVoteRecv(ref vote) => {
                 debug!("Received quorum vote: {:?}", vote.view_number());
-                if self.quorum_membership.leader(vote.view_number() + 1)? != self.public_key {
+                if self
+                    .quorum_membership
+                    .leader(vote.view_number() + 1)
+                    .await?
+                    != self.public_key
+                {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
                         *vote.view_number() + 1,
-                        self.quorum_membership.leader(vote.view_number() + 2)? == self.public_key
+                        self.quorum_membership
+                            .leader(vote.view_number() + 2)
+                            .await?
+                            == self.public_key
                     );
                     return Ok(());
                 }
@@ -335,11 +343,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 .await?;
             }
             HotShotEvent::TimeoutVoteRecv(ref vote) => {
-                if self.timeout_membership.leader(vote.view_number() + 1)? != self.public_key {
+                if self
+                    .timeout_membership
+                    .leader(vote.view_number() + 1)
+                    .await?
+                    != self.public_key
+                {
                     error!(
                         "We are not the leader for view {} are we the leader for view + 1? {}",
                         *vote.view_number() + 1,
-                        self.timeout_membership.leader(vote.view_number() + 2)? == self.public_key
+                        self.timeout_membership
+                            .leader(vote.view_number() + 2)
+                            .await?
+                            == self.public_key
                     );
                     return Ok(());
                 }
@@ -443,7 +459,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
 
                 debug!("VID disperse data is not more than one view older.");
 
-                if !self.validate_disperse(sender, disperse) {
+                if !self.validate_disperse(sender, disperse).await {
                     warn!("Failed to validated the VID dispersal/share sig.");
                     return Ok(());
                 }
@@ -506,7 +522,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     &mut self.timeout_task,
                     &self.output_event_stream,
                     DONT_SEND_VIEW_CHANGE_EVENT,
-                    self.quorum_membership.leader(old_view_number)? == self.public_key,
+                    self.quorum_membership.leader(old_view_number).await? == self.public_key,
                 )
                 .await
                 {
@@ -565,7 +581,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 .await;
                 let consensus = self.consensus.read().await;
                 consensus.metrics.number_of_timeouts.add(1);
-                if self.quorum_membership.leader(view)? == self.public_key {
+                if self.quorum_membership.leader(view).await? == self.public_key {
                     consensus.metrics.number_of_timeouts_as_leader.add(1);
                 }
             }
@@ -590,7 +606,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     block_view: view,
                     auction_result: auction_result.clone(),
                 });
-                if self.quorum_membership.leader(view)? == self.public_key
+                if self.quorum_membership.leader(view).await? == self.public_key
                     && self.consensus.read().await.high_qc().view_number() + 1 == view
                 {
                     if let Err(e) = self
@@ -609,7 +625,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     }
                     match cert {
                         ViewChangeEvidence::Timeout(tc) => {
-                            if self.quorum_membership.leader(tc.view_number() + 1)?
+                            if self.quorum_membership.leader(tc.view_number() + 1).await?
                                 == self.public_key
                             {
                                 if let Err(e) = self
@@ -621,7 +637,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                             }
                         }
                         ViewChangeEvidence::ViewSync(vsc) => {
-                            if self.quorum_membership.leader(vsc.view_number())? == self.public_key
+                            if self.quorum_membership.leader(vsc.view_number()).await?
+                                == self.public_key
                             {
                                 if let Err(e) = self
                                     .publish_proposal(view, event_sender, event_receiver)
@@ -648,7 +665,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
 
                 let view = certificate.view_number;
 
-                if self.quorum_membership.leader(view)? == self.public_key {
+                if self.quorum_membership.leader(view).await? == self.public_key {
                     self.proposal_cert = Some(ViewChangeEvidence::ViewSync(certificate.clone()));
 
                     debug!(
@@ -671,7 +688,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 let new_view = proposal.view_number() + 1;
                 // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
                 // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-                let should_propose = self.quorum_membership.leader(new_view)? == self.public_key
+                let should_propose = self.quorum_membership.leader(new_view).await?
+                    == self.public_key
                     && self.consensus.read().await.high_qc().view_number == proposal.view_number();
 
                 if should_propose {

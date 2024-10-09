@@ -362,7 +362,7 @@ where
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.leader(view_number)?;
+        let view_leader_key = quorum_membership.leader(view_number).await?;
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(
