@@ -940,6 +940,7 @@
             .<span class="kw">await</span>,
             async_delay_config: <span class="self">self</span>.launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
+            channel_generator: <span class="self">self</span>.launcher.resource_generator.channel_generator,
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, N, I, V&gt;&gt;::new(
             spinning_task_state,
@@ -1226,7 +1227,7 @@
                     <span class="self">self</span>.late_start.insert(
                         node_id,
                         LateStartNode {
-                            network,
+                            network: <span class="prelude-val">None</span>,
                             context: LateNodeContext::UninitializedContext(
                                 LateNodeContextParameters {
                                     storage,
@@ -1265,7 +1266,7 @@
                     <span class="self">self</span>.late_start.insert(
                         node_id,
                         LateStartNode {
-                            network,
+                            network: <span class="prelude-val">Some</span>(network),
                             context: LateNodeContext::InitializedContext(hotshot),
                         },
                     );
@@ -1291,8 +1292,7 @@
                 <span class="self">self</span>.late_start.insert(
                     <span class="kw-2">*</span>node_id,
                     LateStartNode {
-                        network: (<span class="self">self</span>.launcher.resource_generator.channel_generator)(<span class="kw-2">*</span>node_id)
-                            .<span class="kw">await</span>,
+                        network: <span class="prelude-val">None</span>,
                         context: LateNodeContext::Restart,
                     },
                 );
@@ -1459,7 +1459,7 @@
 <span class="doccomment">/// A yet-to-be-started node that participates in tests
 </span><span class="kw">pub struct </span>LateStartNode&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// The underlying network belonging to the node
-    </span><span class="kw">pub </span>network: Network&lt;TYPES, I&gt;,
+    </span><span class="kw">pub </span>network: <span class="prelude-ty">Option</span>&lt;Network&lt;TYPES, I&gt;&gt;,
     <span class="doccomment">/// Either the context to which we will use to launch HotShot for initialized node when it's
     /// time, or the parameters that will be used to initialize the node and launch HotShot.
     </span><span class="kw">pub </span>context: LateNodeContext&lt;TYPES, I, V&gt;,

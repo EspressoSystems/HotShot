@@ -647,6 +647,7 @@
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -972,7 +973,8 @@
 }
 
 <span class="doccomment">/// A channel generator for types that need asynchronous execution
-</span><span class="kw">pub type </span>AsyncGenerator&lt;T&gt; = Pin&lt;Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = T&gt;&gt;&gt;&gt;&gt;;
+</span><span class="kw">pub type </span>AsyncGenerator&lt;T&gt; =
+    Pin&lt;Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = T&gt; + Send&gt;&gt; + Send + Sync&gt;&gt;;
 
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation
 </span><span class="kw">pub trait </span>TestableNetworkingImplementation&lt;TYPES: NodeType&gt;
