@@ -647,38 +647,6 @@
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
-<a href="#654" id="654">654</a>
-<a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -690,16 +658,13 @@
 //! Contains types and traits used by `HotShot` to abstract over network access
 
 </span><span class="kw">use </span>async_compatibility_layer::art::async_sleep;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::future::TimeoutError;
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>dyn_clone::DynClone;
 <span class="kw">use </span>futures::{
     channel::mpsc::{<span class="self">self</span>},
     Future,
 };
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::time::error::Elapsed <span class="kw">as </span>TimeoutError;
+<span class="kw">use </span>thiserror::Error;
 
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
 </span><span class="macro">compile_error!</span> {<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
@@ -720,7 +685,6 @@
     prelude::Distribution,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::Snafu;
 
 <span class="kw">use super</span>::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{
@@ -730,31 +694,9 @@
     BoxSyncFuture,
 };
 
-<span class="doccomment">/// for any errors we decide to add to memory network
-</span><span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
-#[snafu(visibility(<span class="kw">pub</span>))]
-</span><span class="kw">pub enum </span>MemoryNetworkError {
-    <span class="doccomment">/// stub
-    </span>Stub,
-}
-
 <span class="doccomment">/// Centralized server specific errors
-</span><span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
-#[snafu(visibility(<span class="kw">pub</span>))]
-</span><span class="kw">pub enum </span>CentralizedServerNetworkError {
-    <span class="doccomment">/// The centralized server could not find a specific message.
-    </span>NoMessagesInQueue,
-}
-
-<span class="doccomment">/// Centralized server specific errors
-</span><span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
-#[snafu(visibility(<span class="kw">pub</span>))]
-</span><span class="kw">pub enum </span>PushCdnNetworkError {
-    <span class="doccomment">/// Failed to receive a message from the server
-    </span>FailedToReceive,
-    <span class="doccomment">/// Failed to send a message to the server
-    </span>FailedToSend,
-}
+</span><span class="attr">#[derive(Debug, Error, Serialize, Deserialize)]
+</span><span class="kw">pub enum </span>PushCdnNetworkError {}
 
 <span class="doccomment">/// the type of transmission
 </span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
@@ -769,74 +711,68 @@
     </span>DaCommitteeAndLeaderBroadcast(TYPES::SignatureKey),
 }
 
-<span class="doccomment">/// Error type for networking
-</span><span class="attr">#[derive(Debug, Snafu)]
-#[snafu(visibility(<span class="kw">pub</span>))]
+<span class="doccomment">/// Errors that can occur in the network
+</span><span class="attr">#[derive(Debug, Error)]
 </span><span class="kw">pub enum </span>NetworkError {
-    <span class="doccomment">/// Libp2p specific errors
-    </span>Libp2p {
-        <span class="doccomment">/// source of error
-        </span>source: Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;,
-    },
-    <span class="doccomment">/// collection of libp2p specific errors
-    </span>Libp2pMulti {
-        <span class="doccomment">/// sources of errors
-        </span>sources: Vec&lt;Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;,
-    },
-    <span class="doccomment">/// memory network specific errors
-    </span>MemoryNetwork {
-        <span class="doccomment">/// source of error
-        </span>source: MemoryNetworkError,
-    },
-    <span class="doccomment">/// Push CDN network-specific errors
-    </span>PushCdnNetwork {
-        <span class="doccomment">/// source of error
-        </span>source: PushCdnNetworkError,
-    },
-    <span class="doccomment">/// Centralized server specific errors
-    </span>CentralizedServer {
-        <span class="doccomment">/// source of error
-        </span>source: CentralizedServerNetworkError,
-    },
-    <span class="doccomment">/// unimplemented functionality
-    </span>UnimplementedFeature,
-    <span class="doccomment">/// Could not deliver a message to a specified recipient
-    </span>CouldNotDeliver,
-    <span class="doccomment">/// Attempted to deliver a message to an unknown node
-    </span>NoSuchNode,
-    <span class="doccomment">/// No bootstrap nodes were specified on network creation
-    </span>NoBootstrapNodesSpecified,
-    <span class="doccomment">/// Failed to serialize a network message
-    </span>FailedToSerialize {
-        <span class="doccomment">/// Originating bincode error
-        </span>source: anyhow::Error,
-    },
-    <span class="doccomment">/// Failed to deserealize a network message
-    </span>FailedToDeserialize {
-        <span class="doccomment">/// originating bincode error
-        </span>source: anyhow::Error,
-    },
-    <span class="doccomment">/// A timeout occurred
-    </span>Timeout {
-        <span class="doccomment">/// Source of error
-        </span>source: TimeoutError,
-    },
-    <span class="doccomment">/// Error sending output to consumer of NetworkingImplementation
-    /// TODO this should have more information
-    </span>ChannelSend,
-    <span class="doccomment">/// The underlying connection has been shut down
+    <span class="doccomment">/// Multiple errors. Allows us to roll up multiple errors into one.
+    </span><span class="attr">#[error(<span class="string">"Multiple errors: {0:?}"</span>)]
+    </span>Multiple(Vec&lt;NetworkError&gt;),
+
+    <span class="doccomment">/// A configuration error
+    </span><span class="attr">#[error(<span class="string">"Configuration error: {0}"</span>)]
+    </span>ConfigError(String),
+
+    <span class="doccomment">/// An error occurred while sending a message
+    </span><span class="attr">#[error(<span class="string">"Failed to send message: {0}"</span>)]
+    </span>MessageSendError(String),
+
+    <span class="doccomment">/// An error occurred while receiving a message
+    </span><span class="attr">#[error(<span class="string">"Failed to receive message: {0}"</span>)]
+    </span>MessageReceiveError(String),
+
+    <span class="doccomment">/// The feature is unimplemented
+    </span><span class="attr">#[error(<span class="string">"Unimplemented"</span>)]
+    </span>Unimplemented,
+
+    <span class="doccomment">/// An error occurred while attempting to listen
+    </span><span class="attr">#[error(<span class="string">"Listen error: {0}"</span>)]
+    </span>ListenError(String),
+
+    <span class="doccomment">/// Failed to send over a channel
+    </span><span class="attr">#[error(<span class="string">"Channel send error: {0}"</span>)]
+    </span>ChannelSendError(String),
+
+    <span class="doccomment">/// Failed to receive over a channel
+    </span><span class="attr">#[error(<span class="string">"Channel receive error: {0}"</span>)]
+    </span>ChannelReceiveError(String),
+
+    <span class="doccomment">/// The network has been shut down and can no longer be used
+    </span><span class="attr">#[error(<span class="string">"Network has been shut down"</span>)]
     </span>ShutDown,
-    <span class="doccomment">/// unable to cancel a request, the request has already been cancelled
-    </span>UnableToCancel,
-    <span class="doccomment">/// The requested data was not found
-    </span>NotFound,
-    <span class="doccomment">/// Multiple errors
-    </span>MultipleErrors {
-        <span class="doccomment">/// vec of errors
-        </span>errors: Vec&lt;Box&lt;NetworkError&gt;&gt;,
-    },
-    <span class="doccomment">/// The network is not ready yet
-    </span>NotReady,
+
+    <span class="doccomment">/// Failed to serialize
+    </span><span class="attr">#[error(<span class="string">"Failed to serialize: {0}"</span>)]
+    </span>FailedToSerialize(String),
+
+    <span class="doccomment">/// Failed to deserialize
+    </span><span class="attr">#[error(<span class="string">"Failed to deserialize: {0}"</span>)]
+    </span>FailedToDeserialize(String),
+
+    <span class="doccomment">/// Timed out performing an operation
+    </span><span class="attr">#[error(<span class="string">"Timeout: {0}"</span>)]
+    </span>Timeout(String),
+
+    <span class="doccomment">/// The network request had been cancelled before it could be fulfilled
+    </span><span class="attr">#[error(<span class="string">"The request was cancelled before it could be fulfilled"</span>)]
+    </span>RequestCancelled,
+
+    <span class="doccomment">/// The network was not ready yet
+    </span><span class="attr">#[error(<span class="string">"The network was not ready yet"</span>)]
+    </span>NotReadyYet,
+
+    <span class="doccomment">/// Failed to look up a node on the network
+    </span><span class="attr">#[error(<span class="string">"Node lookup failed: {0}"</span>)]
+    </span>LookupError(String),
 }
 
 <span class="doccomment">/// common traits we would like our network messages to implement
@@ -965,7 +901,7 @@
         <span class="kw">let </span>errors: Vec&lt;<span class="kw">_</span>&gt; = results
             .into_iter()
             .filter_map(|r| <span class="kw">match </span>r {
-                <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Some</span>(Box::new(error)),
+                <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Some</span>(error),
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
             })
             .collect();
@@ -973,7 +909,7 @@
         <span class="kw">if </span>errors.is_empty() {
             <span class="prelude-val">Ok</span>(())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(NetworkError::MultipleErrors { errors })
+            <span class="prelude-val">Err</span>(NetworkError::Multiple(errors))
         }
     }
 
@@ -994,7 +930,7 @@
         _request: Vec&lt;u8&gt;,
         _recipient: <span class="kw-2">&amp;</span>K,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
-        <span class="prelude-val">Err</span>(NetworkError::UnimplementedFeature)
+        <span class="prelude-val">Err</span>(NetworkError::Unimplemented)
     }
 
     <span class="doccomment">/// Spawn a request task in the given network layer.  If it supports

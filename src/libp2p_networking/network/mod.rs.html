@@ -220,9 +220,6 @@
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -233,8 +230,6 @@
 </span><span class="kw">pub mod </span>behaviours;
 <span class="doccomment">/// defines the swarm and network definition (internal)
 </span><span class="kw">mod </span>def;
-<span class="doccomment">/// libp2p network errors
-</span><span class="kw">pub mod </span>error;
 <span class="doccomment">/// functionality of a libp2p network node
 </span><span class="kw">mod </span>node;
 <span class="doccomment">/// Alternative Libp2p transport implementations
@@ -245,7 +240,7 @@
 <span class="kw">use </span>futures::channel::oneshot::{<span class="self">self</span>, Sender};
 <span class="kw">use </span>hotshot_types::{
     request_response::{Request, Response},
-    traits::signature_key::SignatureKey,
+    traits::{network::NetworkError, signature_key::SignatureKey},
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
@@ -271,11 +266,10 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     def::NetworkDef,
-    error::NetworkError,
     node::{
-        network_node_handle_error, spawn_network_node, GossipConfig, NetworkNode,
-        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-        NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver, DEFAULT_REPLICATION_FACTOR,
+        spawn_network_node, GossipConfig, NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilder,
+        NetworkNodeConfigBuilderError, NetworkNodeHandle, NetworkNodeReceiver,
+        DEFAULT_REPLICATION_FACTOR,
     },
 };
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
@@ -440,7 +434,7 @@
             DnsTransport::system(transport)
         }
     }
-    .map_err(|e| NetworkError::TransportLaunch { source: e })<span class="question-mark">?</span>;
+    .map_err(|e| NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"failed to build DNS transport: {e}"</span>)))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(transport
         .map(|(peer_id, connection), <span class="kw">_</span>| (peer_id, StreamMuxerBox::new(connection)))

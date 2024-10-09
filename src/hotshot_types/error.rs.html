@@ -76,50 +76,6 @@
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -131,88 +87,44 @@
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 
-</span><span class="comment">//use crate::traits::network::TimeoutErr;
-</span><span class="kw">use </span>std::num::NonZeroU64;
-
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::future::TimeoutError;
+</span><span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::Snafu;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::time::error::Elapsed <span class="kw">as </span>TimeoutError;
+<span class="kw">use </span>thiserror::Error;
 
-<span class="kw">use </span><span class="kw">crate</span>::traits::{block_contents::BlockPayload, node_implementation::NodeType};
+<span class="kw">use crate</span>::{data::Leaf, traits::node_implementation::NodeType};
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
 </span><span class="macro">compile_error!</span> {<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 
 <span class="doccomment">/// Error type for `HotShot`
-</span><span class="attr">#[derive(Debug, Snafu)]
-#[snafu(visibility(<span class="kw">pub</span>))]
+</span><span class="attr">#[derive(Debug, Error)]
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>HotShotError&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// Failed to Message the leader in the given stage
-    </span><span class="attr">#[snafu(display(<span class="string">"Failed to message leader with error: {source}"</span>))]
-    </span>FailedToMessageLeader {
-        <span class="doccomment">/// The underlying network fault
-        </span>source: <span class="kw">crate</span>::traits::network::NetworkError,
-    },
-    <span class="doccomment">/// Failed to broadcast a message on the network
-    </span><span class="attr">#[snafu(display(<span class="string">"Failed to broadcast a message"</span>))]
-    </span>FailedToBroadcast {
-        <span class="doccomment">/// The underlying network fault
-        </span>source: <span class="kw">crate</span>::traits::network::NetworkError,
-    },
-    <span class="doccomment">/// Failure in the block.
-    </span><span class="attr">#[snafu(display(<span class="string">"Failed to build or verify a block: {source}"</span>))]
-    </span>BlockError {
-        <span class="doccomment">/// The underlying block error.
-        </span>source: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Error,
-    },
-    <span class="doccomment">/// Failure in networking layer
-    </span><span class="attr">#[snafu(display(<span class="string">"Failure in networking layer: {source}"</span>))]
-    </span>NetworkFault {
-        <span class="doccomment">/// Underlying network fault
-        </span>source: <span class="kw">crate</span>::traits::network::NetworkError,
-    },
-    <span class="doccomment">/// Item was not present in storage
-    </span>LeafNotFound {<span class="comment">/* TODO we should create a way to to_string */</span>},
-    <span class="doccomment">/// Error accessing storage
-    /// Invalid state machine state
-    </span><span class="attr">#[snafu(display(<span class="string">"Invalid state machine state: {}"</span>, context))]
-    </span>InvalidState {
-        <span class="doccomment">/// Context
-        </span>context: String,
-    },
-    <span class="doccomment">/// HotShot timed out waiting for msgs
-    </span>TimeoutError {
-        <span class="doccomment">/// source of error
-        </span>source: TimeoutError,
-    },
-    <span class="doccomment">/// HotShot timed out during round
-    </span>ViewTimeoutError {
-        <span class="doccomment">/// view number
+    <span class="doccomment">/// The consensus state machine is in an invalid state
+    </span><span class="attr">#[error(<span class="string">"Invalid state: {0}"</span>)]
+    </span>InvalidState(String),
+
+    <span class="doccomment">/// Leaf was not present in storage
+    </span><span class="attr">#[error(<span class="string">"Missing leaf with commitment: {0}"</span>)]
+    </span>MissingLeaf(Commitment&lt;Leaf&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Failed to serialize data
+    </span><span class="attr">#[error(<span class="string">"Failed to serialize: {0}"</span>)]
+    </span>FailedToSerialize(String),
+
+    <span class="doccomment">/// Failed to deserialize data
+    </span><span class="attr">#[error(<span class="string">"Failed to deserialize: {0}"</span>)]
+    </span>FailedToDeserialize(String),
+
+    <span class="doccomment">/// The view timed out
+    </span><span class="attr">#[error(<span class="string">"View {view_number} timed out: {state:?}"</span>)]
+    </span>ViewTimedOut {
+        <span class="doccomment">/// The view number that timed out
         </span>view_number: TYPES::Time,
         <span class="doccomment">/// The state that the round was in when it timed out
         </span>state: RoundTimedoutState,
     },
-    <span class="doccomment">/// Not enough valid signatures for a quorum
-    </span><span class="attr">#[snafu(display(<span class="string">"Insufficient number of valid signatures: the threshold is {}, but only {} signatures were valid"</span>, threshold, num_valid_signatures))]
-    </span>InsufficientValidSignatures {
-        <span class="doccomment">/// Number of valid signatures
-        </span>num_valid_signatures: usize,
-        <span class="doccomment">/// Threshold of signatures needed for a quorum
-        </span>threshold: NonZeroU64,
-    },
-    <span class="doccomment">/// Miscellaneous error
-    </span>Misc {
-        <span class="doccomment">/// source of error
-        </span>context: String,
-    },
-    <span class="doccomment">/// Failed to serialize message
-    </span>FailedToSerialize,
-    <span class="doccomment">/// Internal value used to drive the state machine
-    </span>Continue,
 }
+
 <span class="doccomment">/// Contains information about what the state of the hotshot-consensus was when a round timed out
 </span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]

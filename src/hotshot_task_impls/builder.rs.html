@@ -236,11 +236,6 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -260,47 +255,42 @@
     vid::VidCommitment,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>surf_disco::{client::HealthStatus, Client, Url};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
+<span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
-<span class="attr">#[derive(Debug, Snafu, Serialize, Deserialize)]
-</span><span class="doccomment">/// Represents errors than builder client may return
+<span class="attr">#[derive(Debug, Error, Serialize, Deserialize)]
+</span><span class="doccomment">/// Represents errors that can occur while interacting with the builder
 </span><span class="kw">pub enum </span>BuilderClientError {
-    <span class="comment">// NOTE: folds BuilderError::NotFound &amp; builderError::Missing
-    // into one. Maybe we'll want to handle that separately in
-    // the future
-    </span><span class="doccomment">/// Block not found
-    </span><span class="attr">#[snafu(display(<span class="string">"Requested block not found"</span>))]
-    </span>NotFound,
-    <span class="doccomment">/// Generic error while accessing the API,
-    /// i.e. when API isn't available or compatible
-    </span><span class="attr">#[snafu(display(<span class="string">"Builder API error: {message}"</span>))]
-    </span>Api {
-        <span class="doccomment">/// Underlying error
-        </span>message: String,
-    },
+    <span class="doccomment">/// The requested block was not found
+    </span><span class="attr">#[error(<span class="string">"Requested block not found"</span>)]
+    </span>BlockNotFound,
+
+    <span class="doccomment">/// The requested block was missing
+    </span><span class="attr">#[error(<span class="string">"Requested block was missing"</span>)]
+    </span>BlockMissing,
+
+    <span class="doccomment">/// Generic error while accessing the API
+    </span><span class="attr">#[error(<span class="string">"Builder API error: {0}"</span>)]
+    </span>Api(String),
 }
 
 <span class="kw">impl </span>From&lt;BuilderApiError&gt; <span class="kw">for </span>BuilderClientError {
     <span class="kw">fn </span>from(value: BuilderApiError) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
-            BuilderApiError::Request { source } | BuilderApiError::TxnUnpack { source } =&gt; {
-                <span class="self">Self</span>::Api {
-                    message: source.to_string(),
-                }
+            BuilderApiError::Request(source) | BuilderApiError::TxnUnpack(source) =&gt; {
+                <span class="self">Self</span>::Api(source.to_string())
             }
-            BuilderApiError::TxnSubmit { source } | BuilderApiError::BuilderAddress { source } =&gt; {
-                <span class="self">Self</span>::Api {
-                    message: source.to_string(),
-                }
+            BuilderApiError::TxnSubmit(source) | BuilderApiError::BuilderAddress(source) =&gt; {
+                <span class="self">Self</span>::Api(source.to_string())
             }
-            BuilderApiError::Custom { message, .. } =&gt; <span class="self">Self</span>::Api { message },
+            BuilderApiError::Custom { message, .. } =&gt; <span class="self">Self</span>::Api(message),
             BuilderApiError::BlockAvailable { source, .. }
             | BuilderApiError::BlockClaim { source, .. } =&gt; <span class="kw">match </span>source {
-                BuildError::NotFound | BuildError::Missing =&gt; <span class="self">Self</span>::NotFound,
-                BuildError::Error { message } =&gt; <span class="self">Self</span>::Api { message },
+                BuildError::NotFound =&gt; <span class="self">Self</span>::BlockNotFound,
+                BuildError::Missing =&gt; <span class="self">Self</span>::BlockMissing,
+                BuildError::Error(message) =&gt; <span class="self">Self</span>::Api(message),
             },
         }
     }
@@ -353,7 +343,7 @@
     <span class="doccomment">/// Query builder for available blocks
     ///
     /// # Errors
-    /// - [`BuilderClientError::NotFound`] if blocks aren't available for this parent
+    /// - [`BuilderClientError::BlockNotFound`] if blocks aren't available for this parent
     /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
     </span><span class="kw">pub async fn </span>available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -393,7 +383,7 @@
         <span class="doccomment">/// Claim block header input
         ///
         /// # Errors
-        /// - [`BuilderClientError::NotFound`] if block isn't available
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
         </span><span class="kw">pub async fn </span>claim_block_header_input(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -415,7 +405,7 @@
         <span class="doccomment">/// Claim block
         ///
         /// # Errors
-        /// - [`BuilderClientError::NotFound`] if block isn't available
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
         </span><span class="kw">pub async fn </span>claim_block(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -464,7 +454,7 @@
         <span class="doccomment">/// Claim block
         ///
         /// # Errors
-        /// - [`BuilderClientError::NotFound`] if block isn't available
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
         /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
         </span><span class="kw">pub async fn </span>bundle(
             <span class="kw-2">&amp;</span><span class="self">self</span>,

@@ -1229,6 +1229,8 @@
 <a href="#1227" id="1227">1227</a>
 <a href="#1228" id="1228">1228</a>
 <a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1307,7 +1309,7 @@
 };
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
+<span class="kw">use </span>tracing::{error, info, instrument, trace, warn};
 
 <span class="kw">use </span><span class="kw">crate</span>::BroadcastDelay;
 
@@ -1789,7 +1791,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
         <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;K&gt;(config.clone(), id)
             .<span class="kw">await
-            </span>.map_err(Into::&lt;NetworkError&gt;::into)<span class="question-mark">?</span>;
+            </span>.map_err(|e| NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"failed to spawn network node: {e}"</span>)))<span class="question-mark">?</span>;
 
         <span class="comment">// Add our own address to the bootstrap addresses
         </span><span class="kw">let </span>addr = network_handle.listen_addr();
@@ -1925,7 +1927,7 @@
                 <span class="comment">// Wait for the network to connect to the required number of peers
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle.wait_to_connect(<span class="number">4</span>, id).<span class="kw">await </span>{
                     <span class="macro">error!</span>(<span class="string">"Failed to connect to peers: {:?}"</span>, e);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>::&lt;(), NetworkError&gt;(e.into());
+                    <span class="kw">return </span><span class="prelude-val">Err</span>::&lt;(), NetworkError&gt;(e);
                 }
                 <span class="macro">info!</span>(<span class="string">"Connected to required number of peers"</span>);
 
@@ -1947,23 +1949,26 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">match </span>msg {
             GossipMsg(msg) =&gt; {
-                sender
-                    .send(msg)
-                    .<span class="kw">await
-                    </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
+                sender.send(msg).<span class="kw">await</span>.map_err(|err| {
+                    NetworkError::ChannelSendError(<span class="macro">format!</span>(<span class="string">"failed to send gossip message: {err}"</span>))
+                })<span class="question-mark">?</span>;
             }
             DirectRequest(msg, _pid, chan) =&gt; {
-                sender
-                    .send(msg)
-                    .<span class="kw">await
-                    </span>.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
+                sender.send(msg).<span class="kw">await</span>.map_err(|err| {
+                    NetworkError::ChannelSendError(<span class="macro">format!</span>(
+                        <span class="string">"failed to send direct request message: {err}"
+                    </span>))
+                })<span class="question-mark">?</span>;
                 <span class="kw">if </span><span class="self">self
                     </span>.inner
                     .handle
                     .direct_response(
                         chan,
-                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>Empty { byte: <span class="number">0u8 </span>})
-                            .map_err(|e| NetworkError::Libp2p { source: e.into() })<span class="question-mark">?</span>,
+                        <span class="kw-2">&amp;</span>bincode::serialize(<span class="kw-2">&amp;</span>Empty { byte: <span class="number">0u8 </span>}).map_err(|e| {
+                            NetworkError::FailedToSerialize(<span class="macro">format!</span>(
+                                <span class="string">"failed to serialize acknowledgement: {e}"
+                            </span>))
+                        })<span class="question-mark">?</span>,
                     )
                     .<span class="kw">await
                     </span>.is_err()
@@ -1977,7 +1982,11 @@
             }
             NetworkEvent::ResponseRequested(Request(msg), chan) =&gt; {
                 <span class="kw">let </span>res = request_tx.try_send((msg, chan));
-                res.map_err(|<span class="kw">_</span>| NetworkError::ChannelSend)<span class="question-mark">?</span>;
+                res.map_err(|err| {
+                    NetworkError::ChannelSendError(<span class="macro">format!</span>(
+                        <span class="string">"failed to respond to a peer's data request: {err}"
+                    </span>))
+                })<span class="question-mark">?</span>;
             }
             NetworkEvent::ConnectedPeersUpdate(<span class="kw">_</span>) =&gt; {}
         }
@@ -2053,7 +2062,7 @@
         <span class="comment">// If we're not ready, return an error
         </span><span class="kw">if </span>!<span class="self">self</span>.is_ready() {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReady);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReadyYet);
         };
 
         <span class="kw">let </span>pid = <span class="kw">match </span><span class="self">self
@@ -2065,25 +2074,24 @@
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-                <span class="macro">debug!</span>(
-                    <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
-                    request, recipient
-                );
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p {
-                    source: Box::new(err),
-                });
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::LookupError(<span class="macro">format!</span>(
+                    <span class="string">"failed to look up node: {err}"
+                </span>)));
             }
         };
         <span class="kw">let </span>result = <span class="kw">match </span><span class="self">self</span>.inner.handle.request_data(<span class="kw-2">&amp;</span>request, pid).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(response) =&gt; <span class="kw">match </span>response {
                 <span class="prelude-val">Some</span>(msg) =&gt; {
                     <span class="kw">if </span>msg.<span class="number">0</span>.len() &lt; <span class="number">8 </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::FailedToDeserialize {
-                            source: <span class="macro">anyhow!</span>(<span class="string">"insufficient bytes"</span>),
-                        });
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::FailedToDeserialize(
+                            <span class="string">"message was too small"</span>.to_string(),
+                        ));
                     }
-                    <span class="kw">let </span>res: Message&lt;TYPES&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>)
-                        .map_err(|e| NetworkError::FailedToDeserialize { source: e.into() })<span class="question-mark">?</span>;
+                    <span class="kw">let </span>res: Message&lt;TYPES&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>msg.<span class="number">0</span>).map_err(|err| {
+                        NetworkError::FailedToDeserialize(<span class="macro">format!</span>(
+                            <span class="string">"failed to serialize request data: {err}"
+                        </span>))
+                    })<span class="question-mark">?</span>;
 
                     <span class="kw">match </span>res.kind {
                         MessageKind::Data(DataResponse(data)) =&gt; data,
@@ -2094,13 +2102,13 @@
             },
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
+                <span class="kw">return </span><span class="prelude-val">Err</span>(e);
             }
         };
 
-        <span class="prelude-val">Ok</span>(bincode::serialize(<span class="kw-2">&amp;</span>result).map_err(|e| {
+        <span class="prelude-val">Ok</span>(bincode::serialize(<span class="kw-2">&amp;</span>result).map_err(|err| {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-            NetworkError::Libp2p { source: e.into() }
+            NetworkError::FailedToSerialize(<span class="macro">format!</span>(<span class="string">"failed to serialize request response: {err}"</span>))
         })<span class="question-mark">?</span>)
     }
 
@@ -2171,7 +2179,7 @@
         <span class="comment">// If we're not ready, return an error
         </span><span class="kw">if </span>!<span class="self">self</span>.is_ready() {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReady);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReadyYet);
         };
 
         <span class="comment">// If we are subscribed to the topic,
@@ -2212,7 +2220,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
+            <span class="kw">return </span><span class="prelude-val">Err</span>(e);
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -2228,7 +2236,7 @@
         <span class="comment">// If we're not ready, return an error
         </span><span class="kw">if </span>!<span class="self">self</span>.is_ready() {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReady);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReadyYet);
         };
 
         <span class="kw">let </span>future_results = recipients
@@ -2239,7 +2247,7 @@
         <span class="kw">let </span>errors: Vec&lt;<span class="kw">_</span>&gt; = results
             .into_iter()
             .filter_map(|r| <span class="kw">match </span>r {
-                <span class="prelude-val">Err</span>(NetworkError::Libp2p { source }) =&gt; <span class="prelude-val">Some</span>(source),
+                <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Some</span>(err),
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
             })
             .collect();
@@ -2247,7 +2255,7 @@
         <span class="kw">if </span>errors.is_empty() {
             <span class="prelude-val">Ok</span>(())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(NetworkError::Libp2pMulti { sources: errors })
+            <span class="prelude-val">Err</span>(NetworkError::Multiple(errors))
         }
     }
 
@@ -2256,7 +2264,7 @@
         <span class="comment">// If we're not ready, return an error
         </span><span class="kw">if </span>!<span class="self">self</span>.is_ready() {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReady);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::NotReadyYet);
         };
 
         <span class="comment">// short circuit if we're dming ourselves
@@ -2278,13 +2286,9 @@
             <span class="prelude-val">Ok</span>(pid) =&gt; pid,
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-                <span class="macro">debug!</span>(
-                    <span class="string">"Failed to message {:?} because could not find recipient peer id for pk {:?}"</span>,
-                    message, recipient
-                );
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Libp2p {
-                    source: Box::new(err),
-                });
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::LookupError(<span class="macro">format!</span>(
+                    <span class="string">"failed to look up node for direct message: {err}"
+                </span>)));
             }
         };
 
@@ -2316,7 +2320,7 @@
             <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
-                <span class="prelude-val">Err</span>(e.into())
+                <span class="prelude-val">Err</span>(e)
             }
         }
     }

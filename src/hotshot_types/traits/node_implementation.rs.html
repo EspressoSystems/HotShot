@@ -281,7 +281,7 @@
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
 </span><span class="kw">use </span>std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     hash::Hash,
     ops::{<span class="self">self</span>, Deref, Sub},
     sync::Arc,
@@ -481,7 +481,7 @@
     <span class="doccomment">/// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `ValidatedState::Time` is using.
-    </span><span class="kw">type </span>Time: ConsensusTime;
+    </span><span class="kw">type </span>Time: ConsensusTime + Display;
     <span class="doccomment">/// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
     </span><span class="kw">type </span>AuctionResult: Debug

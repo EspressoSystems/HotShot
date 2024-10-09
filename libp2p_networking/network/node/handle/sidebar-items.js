@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["NetworkNodeHandleError"],"fn":["spawn_network_node"],"mod":["network_node_handle_error"],"struct":["CantKillTwiceSnafu","ConnectTimeoutSnafu","DHTSnafu","DeserializationSnafu","FailedToDeserializeSnafu","FailedToVerifySnafu","KilledSnafu","NetworkNodeHandle","NetworkNodeReceiver","NetworkSnafu","NoSuchTopicSnafu","NodeConfigSnafu","ReceiverEndedSnafu","RecvSnafu","SendSnafu","SerializationSnafu","TimeoutSnafu"]};
+window.SIDEBAR_ITEMS = {"fn":["spawn_network_node"],"struct":["NetworkNodeHandle","NetworkNodeReceiver"]};

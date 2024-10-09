@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["NodeAction"],"struct":["ChangeNode","RestartContext","SpinningTask","SpinningTaskDescription","SpinningTaskErr","SpinningTaskErrSnafu"],"type":["StateAndBlock"]};
+window.SIDEBAR_ITEMS = {"enum":["NodeAction"],"struct":["ChangeNode","RestartContext","SpinningTask","SpinningTaskDescription"],"type":["StateAndBlock"]};

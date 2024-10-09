@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TestBlockHeader","TestBlockPayload","TestMetadata","TestTransaction","TransactionTooLong","TransactionTooLongSnafu"]};
+window.SIDEBAR_ITEMS = {"enum":["TransactionError"],"struct":["TestBlockHeader","TestBlockPayload","TestMetadata","TestTransaction"]};
