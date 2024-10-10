@@ -311,6 +311,14 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -335,6 +343,7 @@
     consensus::Consensus,
     data::{Leaf, QuorumProposal},
     error::HotShotError,
+    message::Proposal,
     request_response::ProposalRequestPayload,
     traits::{
         consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
@@ -406,11 +415,11 @@
     ///
     /// # Errors
     /// Errors if signing the request for proposal fails
-    </span><span class="kw">pub async fn </span>request_proposal(
+    </span><span class="kw">pub fn </span>request_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::Time,
         leaf_commitment: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;QuorumProposal&lt;TYPES&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;&gt; {
         <span class="comment">// We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
         </span><span class="kw">let </span>signed_proposal_request = ProposalRequestPayload {
@@ -424,47 +433,54 @@
             signed_proposal_request.commit().as_ref(),
         )<span class="question-mark">?</span>;
 
-        <span class="comment">// First, broadcast that we need a proposal
-        </span>broadcast_event(
-            HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
-            <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream.<span class="number">0</span>,
-        )
-        .<span class="kw">await</span>;
-
-        <span class="kw">let </span>mem = <span class="kw-2">&amp;</span><span class="self">self</span>.memberships.quorum_membership;
-        <span class="kw">let </span>upgrade_lock = <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.upgrade_lock;
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>hs_event = EventDependency::new(
-                <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned(),
-                Box::new(<span class="kw">move </span>|event| {
-                    <span class="kw">let </span>event = event.as_ref();
-                    <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = event {
-                        quorum_proposal.data.view_number() == view
-                    } <span class="kw">else </span>{
-                        <span class="bool-val">false
-                    </span>}
-                }),
+        <span class="kw">let </span>mem = <span class="self">self</span>.memberships.quorum_membership.clone();
+        <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.hotshot.upgrade_lock.clone();
+        <span class="kw">let </span>receiver = <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned();
+        <span class="kw">let </span>sender = <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone();
+        <span class="prelude-val">Ok</span>(<span class="kw">async move </span>{
+            <span class="comment">// First, broadcast that we need a proposal
+            </span>broadcast_event(
+                HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
+                <span class="kw-2">&amp;</span>sender,
             )
-            .completed()
-            .<span class="kw">await
-            </span>.ok_or(<span class="macro">anyhow!</span>(<span class="string">"Event dependency failed to get event"</span>))<span class="question-mark">?</span>;
+            .<span class="kw">await</span>;
+            <span class="kw">loop </span>{
+                <span class="kw">let </span>hs_event = EventDependency::new(
+                    receiver.clone(),
+                    Box::new(<span class="kw">move </span>|event| {
+                        <span class="kw">let </span>event = event.as_ref();
+                        <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = event {
+                            quorum_proposal.data.view_number() == view
+                        } <span class="kw">else </span>{
+                            <span class="bool-val">false
+                        </span>}
+                    }),
+                )
+                .completed()
+                .<span class="kw">await
+                </span>.ok_or(<span class="macro">anyhow!</span>(<span class="string">"Event dependency failed to get event"</span>))<span class="question-mark">?</span>;
 
-            <span class="comment">// Then, if it's `Some`, make sure that the data is correct
+                <span class="comment">// Then, if it's `Some`, make sure that the data is correct
 
-            </span><span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref() {
-                <span class="comment">// Make sure that the quorum_proposal is valid
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal.validate_signature(mem, upgrade_lock).<span class="kw">await </span>{
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Invalid Proposal Received after Request.  Err {:?}"</span>, err);
-                    <span class="kw">continue</span>;
+                </span><span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
+                {
+                    <span class="comment">// Make sure that the quorum_proposal is valid
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal
+                        .validate_signature(<span class="kw-2">&amp;</span>mem, <span class="kw-2">&amp;</span>upgrade_lock)
+                        .<span class="kw">await
+                    </span>{
+                        <span class="macro">tracing::warn!</span>(<span class="string">"Invalid Proposal Received after Request.  Err {:?}"</span>, err);
+                        <span class="kw">continue</span>;
+                    }
+                    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
+                    <span class="kw">let </span>commit = proposed_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>;
+                    <span class="kw">if </span>commit == leaf_commitment {
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(quorum_proposal.clone());
+                    }
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}"</span>, leaf_commitment, commit);
                 }
-                <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
-                <span class="kw">let </span>commit = proposed_leaf.commit(upgrade_lock).<span class="kw">await</span>;
-                <span class="kw">if </span>commit == leaf_commitment {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(quorum_proposal.data.clone());
-                }
-                <span class="macro">tracing::warn!</span>(<span class="string">"Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}"</span>, leaf_commitment, commit);
             }
-        }
+        })
     }
 
     <span class="doccomment">/// HACK so we can know the types when running tests...
