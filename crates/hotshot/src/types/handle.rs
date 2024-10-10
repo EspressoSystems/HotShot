@@ -111,7 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             signed_proposal_request.commit().as_ref(),
         )?;
 
-        // First, broadcast that we need a proposal to the current leader
+        // First, broadcast that we need a proposal
         broadcast_event(
             HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
             &self.internal_event_stream.0,
