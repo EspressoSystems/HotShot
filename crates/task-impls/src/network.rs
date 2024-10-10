@@ -163,7 +163,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 // Send the external message to the external event stream so it can be processed
                 broadcast_event(
                     Event {
-                        view_number: TYPES::Time::new(1),
+                        view_number: TYPES::ViewTime::new(1),
                         event: EventType::ExternalMessageReceived(data),
                     },
                     &self.external_event_stream,
@@ -184,7 +184,9 @@ pub struct NetworkEventTaskState<
     /// comm network
     pub network: Arc<NET>,
     /// view number
-    pub view: TYPES::Time,
+    pub view: TYPES::ViewTime,
+    /// epoch number
+    pub epoch: TYPES::EpochTime,
     /// quorum for the network
     pub quorum_membership: TYPES::Membership,
     /// da for the network
@@ -299,7 +301,7 @@ impl<
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
         state: Arc<RwLock<Consensus<TYPES>>>,
-        view: <TYPES as NodeType>::Time,
+        view: <TYPES as NodeType>::ViewTime,
     ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
             if !state.write().await.update_action(action, view) {
@@ -352,7 +354,10 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
-                    TransmitType::Direct(self.quorum_membership.leader(vote.view_number() + 1)),
+                    TransmitType::Direct(
+                        self.quorum_membership
+                            .leader(vote.view_number() + 1, self.epoch),
+                    ),
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
@@ -361,7 +366,7 @@ impl<
                     GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
                 )),
                 TransmitType::DaCommitteeAndLeaderBroadcast(
-                    self.quorum_membership.leader(req.view_number),
+                    self.quorum_membership.leader(req.view_number, self.epoch),
                 ),
             )),
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
@@ -392,7 +397,10 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
                         DaConsensusMessage::DaVote(vote.clone()),
                     )),
-                    TransmitType::Direct(self.quorum_membership.leader(vote.view_number())),
+                    TransmitType::Direct(
+                        self.quorum_membership
+                            .leader(vote.view_number(), self.epoch),
+                    ),
                 ))
             }
             HotShotEvent::DacSend(certificate, sender) => {
@@ -412,7 +420,7 @@ impl<
                 )),
                 TransmitType::Direct(
                     self.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay),
+                        .leader(vote.view_number() + vote.date().relay, self.epoch),
                 ),
             )),
             HotShotEvent::ViewSyncCommitVoteSend(vote) => Some((
@@ -422,7 +430,7 @@ impl<
                 )),
                 TransmitType::Direct(
                     self.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay),
+                        .leader(vote.view_number() + vote.date().relay, self.epoch),
                 ),
             )),
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => Some((
@@ -432,7 +440,7 @@ impl<
                 )),
                 TransmitType::Direct(
                     self.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay),
+                        .leader(vote.view_number() + vote.date().relay, self.epoch),
                 ),
             )),
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => Some((
@@ -463,7 +471,10 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
-                    TransmitType::Direct(self.quorum_membership.leader(vote.view_number() + 1)),
+                    TransmitType::Direct(
+                        self.quorum_membership
+                            .leader(vote.view_number() + 1, self.epoch),
+                    ),
                 ))
             }
             HotShotEvent::UpgradeProposalSend(proposal, sender) => Some((
@@ -480,13 +491,20 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::UpgradeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(self.quorum_membership.leader(vote.view_number())),
+                    TransmitType::Direct(
+                        self.quorum_membership
+                            .leader(vote.view_number(), self.epoch),
+                    ),
                 ))
             }
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
                 self.network
-                    .update_view::<TYPES>(self.view.u64(), &self.quorum_membership)
+                    .update_view::<TYPES>(
+                        self.view.u64(),
+                        self.epoch.u64(),
+                        &self.quorum_membership,
+                    )
                     .await;
                 None
             }
@@ -530,7 +548,7 @@ impl<
         };
         let view = message.kind.view_number();
         let committee_topic = self.quorum_membership.committee_topic();
-        let da_committee = self.da_membership.committee_members(view);
+        let da_committee = self.da_membership.committee_members(view, self.epoch);
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
         let state = Arc::clone(&self.consensus);

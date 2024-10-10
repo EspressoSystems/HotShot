@@ -58,7 +58,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: OuterConsensus<TYPES>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    view: TYPES::Time,
+    view: TYPES::ViewTime,
     commitment_and_metadata: CommitmentAndMetadata<TYPES>,
     parent_leaf: Leaf<TYPES>,
     state: Arc<TYPES::ValidatedState>,
@@ -164,7 +164,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
 #[allow(clippy::too_many_arguments)]
 #[instrument(skip_all)]
 pub async fn publish_proposal_from_commitment_and_metadata<TYPES: NodeType, V: Versions>(
-    view: TYPES::Time,
+    view: TYPES::ViewTime,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -287,6 +287,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     validate_proposal_view_and_certs(
         proposal,
         task_state.cur_view,
+        task_state.cur_epoch,
         &task_state.quorum_membership,
         &task_state.timeout_membership,
         &task_state.upgrade_lock,
@@ -300,6 +301,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     if !justify_qc
         .is_valid_cert(
             task_state.quorum_membership.as_ref(),
+            task_state.cur_epoch,
             &task_state.upgrade_lock,
         )
         .await
@@ -320,7 +322,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
+        task_state
+            .quorum_membership
+            .leader(cur_view, task_state.cur_epoch)
+            == task_state.public_key,
     )
     .await
     {
@@ -443,7 +448,9 @@ pub(crate) async fn handle_quorum_proposal_recv<
             let new_view = proposal.data.view_number + 1;
 
             // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-            let should_propose = task_state.quorum_membership.leader(new_view)
+            let should_propose = task_state
+                .quorum_membership
+                .leader(new_view, task_state.cur_epoch)
                 == task_state.public_key
                 && high_qc.view_number == current_proposal.clone().unwrap().view_number;
 
@@ -556,12 +563,15 @@ pub async fn handle_quorum_proposal_validated<
         }
     }
 
+    let current_epoch = consensus.cur_epoch();
+
     drop(consensus);
 
     let new_view = task_state.current_proposal.clone().unwrap().view_number + 1;
     // In future we can use the mempool model where we fetch the proposal if we don't have it, instead of having to wait for it here
     // This is for the case where we form a QC but have not yet seen the previous proposal ourselves
-    let should_propose = task_state.quorum_membership.leader(new_view) == task_state.public_key
+    let should_propose = task_state.quorum_membership.leader(new_view, current_epoch)
+        == task_state.public_key
         && task_state.consensus.read().await.high_qc().view_number
             == task_state.current_proposal.clone().unwrap().view_number;
 
@@ -670,7 +680,7 @@ pub async fn update_state_and_vote_if_able<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    cur_view: TYPES::Time,
+    cur_view: TYPES::ViewTime,
     proposal: QuorumProposal<TYPES>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -684,7 +694,8 @@ pub async fn update_state_and_vote_if_able<
 ) -> bool {
     use hotshot_types::simple_vote::QuorumVote;
 
-    if !quorum_membership.has_stake(&public_key) {
+    let current_epoch = consensus.read().await.cur_epoch();
+    if !quorum_membership.has_stake(&public_key, current_epoch) {
         debug!("We were not chosen for quorum committee on {:?}", cur_view);
         return false;
     }
@@ -712,9 +723,9 @@ pub async fn update_state_and_vote_if_able<
     {
         if upgrade_cert.upgrading_in(cur_view)
             && Some(proposal.block_header.payload_commitment())
-                != null_block::commitment(quorum_membership.total_nodes())
+                != null_block::commitment(quorum_membership.total_nodes(current_epoch))
         {
-            info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes()), Some(proposal.block_header.payload_commitment()));
+            info!("Refusing to vote on proposal because it does not have a null commitment, and we are between versions. Expected:\n\n{:?}\n\nActual:{:?}", null_block::commitment(quorum_membership.total_nodes(current_epoch)), Some(proposal.block_header.payload_commitment()));
             return false;
         }
     }
@@ -800,7 +811,11 @@ pub async fn update_state_and_vote_if_able<
 
     // Validate the DAC.
     let message = if cert
-        .is_valid_cert(vote_info.da_membership.as_ref(), upgrade_lock)
+        .is_valid_cert(
+            vote_info.da_membership.as_ref(),
+            current_epoch,
+            upgrade_lock,
+        )
         .await
     {
         // Validate the block payload commitment for non-genesis DAC.

@@ -7,6 +7,7 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
+use crate::test_builder::TestDescription;
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -43,8 +44,6 @@ use hotshot_types::{
 };
 use jf_vid::VidScheme;
 use serde::Serialize;
-
-use crate::test_builder::TestDescription;
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -122,7 +121,8 @@ pub async fn build_cert<
 >(
     data: DATAType,
     membership: &TYPES::Membership,
-    view: TYPES::Time,
+    view: TYPES::ViewTime,
+    epoch: TYPES::EpochTime,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -131,6 +131,7 @@ pub async fn build_cert<
         &data,
         membership,
         view,
+        epoch,
         upgrade_lock,
     )
     .await;
@@ -186,10 +187,11 @@ pub async fn build_assembled_sig<
 >(
     data: &DATAType,
     membership: &TYPES::Membership,
-    view: TYPES::Time,
+    view: TYPES::ViewTime,
+    epoch: TYPES::EpochTime,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let stake_table = membership.stake_table();
+    let stake_table = membership.stake_table(epoch);
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
@@ -244,18 +246,23 @@ pub fn key_pair_for_id<TYPES: NodeType>(
 #[must_use]
 pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::ViewTime,
+    epoch_number: TYPES::EpochTime,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.committee_members(view_number).len();
+    let num_storage_nodes = membership
+        .committee_members(view_number, epoch_number)
+        .len();
     vid_scheme(num_storage_nodes)
 }
 
 pub fn vid_payload_commitment<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::ViewTime,
+    epoch_number: TYPES::EpochTime,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let mut vid = vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number);
+    let mut vid =
+        vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number, epoch_number);
     let encoded_transactions = TestTransaction::encode(&transactions);
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
@@ -265,19 +272,24 @@ pub fn vid_payload_commitment<TYPES: NodeType>(
 pub fn da_payload_commitment<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
+    epoch_number: TYPES::EpochTime,
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+    vid_commitment(
+        &encoded_transactions,
+        quorum_membership.total_nodes(epoch_number),
+    )
 }
 
 pub fn build_payload_commitment<TYPES: NodeType>(
     membership: &<TYPES as NodeType>::Membership,
-    view: TYPES::Time,
+    view: TYPES::ViewTime,
+    epoch: TYPES::EpochTime,
 ) -> <VidSchemeType as VidScheme>::Commit {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view);
+    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view, epoch);
     let encoded_transactions = Vec::new();
     vid.commit_only(&encoded_transactions).unwrap()
 }
@@ -285,17 +297,20 @@ pub fn build_payload_commitment<TYPES: NodeType>(
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
 pub fn build_vid_proposal<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::ViewTime,
+    epoch_number: TYPES::EpochTime,
     transactions: Vec<TestTransaction>,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
 ) -> VidProposal<TYPES> {
-    let mut vid = vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number);
+    let mut vid =
+        vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number, epoch_number);
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(&encoded_transactions).unwrap(),
         quorum_membership,
+        epoch_number,
     );
 
     let signature =
@@ -320,10 +335,12 @@ pub fn build_vid_proposal<TYPES: NodeType>(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     da_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::ViewTime,
+    epoch_number: TYPES::EpochTime,
     transactions: Vec<TestTransaction>,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -331,8 +348,10 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 ) -> DaCertificate<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    let da_payload_commitment =
-        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
+    let da_payload_commitment = vid_commitment(
+        &encoded_transactions,
+        quorum_membership.total_nodes(epoch_number),
+    );
 
     let da_data = DaData {
         payload_commit: da_payload_commitment,
@@ -342,6 +361,7 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
         da_data,
         da_membership,
         view_number,
+        epoch_number,
         public_key,
         private_key,
         upgrade_lock,

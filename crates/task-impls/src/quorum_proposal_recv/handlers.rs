@@ -104,7 +104,10 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
+        task_state
+            .quorum_membership
+            .leader(cur_view, task_state.cur_epoch)
+            == task_state.public_key,
     )
     .await
     {
@@ -144,6 +147,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     validate_proposal_view_and_certs(
         proposal,
         task_state.cur_view,
+        task_state.cur_epoch,
         &task_state.quorum_membership,
         &task_state.timeout_membership,
         &task_state.upgrade_lock,
@@ -157,6 +161,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     if !justify_qc
         .is_valid_cert(
             task_state.quorum_membership.as_ref(),
+            task_state.cur_epoch,
             &task_state.upgrade_lock,
         )
         .await
@@ -274,7 +279,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
         &mut task_state.timeout_task,
         &task_state.output_event_stream,
         SEND_VIEW_CHANGE_EVENT,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
+        task_state
+            .quorum_membership
+            .leader(cur_view, task_state.cur_epoch)
+            == task_state.public_key,
     )
     .await
     {

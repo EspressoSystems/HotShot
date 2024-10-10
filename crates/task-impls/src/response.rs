@@ -76,7 +76,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     match event.as_ref() {
                         HotShotEvent::VidRequestRecv(request, sender) => {
                             // Verify request is valid
-                            if !self.valid_sender(sender)
+                            if !self.valid_sender(sender, self.consensus.read().await.cur_epoch())
                                 || !valid_signature::<TYPES>(request, sender)
                             {
                                 continue;
@@ -140,7 +140,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     #[instrument(skip_all, target = "NetworkResponseState", fields(id = self.id))]
     async fn get_or_calc_vid_share(
         &self,
-        view: TYPES::Time,
+        view: TYPES::ViewTime,
         key: &TYPES::SignatureKey,
     ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
         let contained = self
@@ -156,6 +156,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 view,
                 Arc::clone(&self.quorum),
                 &self.private_key,
+                self.consensus.read().await.cur_epoch(),
             )
             .await
             .is_none()
@@ -167,6 +168,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     view,
                     Arc::clone(&self.quorum),
                     &self.private_key,
+                    self.consensus.read().await.cur_epoch(),
                 )
                 .await?;
             }
@@ -188,9 +190,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .cloned()
     }
 
-    /// Makes sure the sender is allowed to send a request.
-    fn valid_sender(&self, sender: &TYPES::SignatureKey) -> bool {
-        self.quorum.has_stake(sender)
+    /// Makes sure the sender is allowed to send a request in the given epoch.
+    fn valid_sender(&self, sender: &TYPES::SignatureKey, epoch: TYPES::EpochTime) -> bool {
+        self.quorum.has_stake(sender, epoch)
     }
 }
 

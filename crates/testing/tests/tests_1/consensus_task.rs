@@ -34,6 +34,7 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
+use hotshot_types::data::EpochNumber;
 use hotshot_types::{
     data::{null_block, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, TimeoutVote, ViewSyncFinalizeData},
@@ -67,7 +68,11 @@ async fn test_consensus_task() {
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(2));
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(
+        &quorum_membership,
+        ViewNumber::new(2),
+        EpochNumber::new(0),
+    );
     let encoded_transactions = Vec::new();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
@@ -111,7 +116,7 @@ async fn test_consensus_task() {
                 },
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(),
+                    quorum_membership.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
                 )
                 .unwrap()],
@@ -223,7 +228,11 @@ async fn test_view_sync_finalize_propose() {
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(&quorum_membership, ViewNumber::new(4));
+    let mut vid = vid_scheme_from_view_number::<TestTypes>(
+        &quorum_membership,
+        ViewNumber::new(4),
+        EpochNumber::new(0),
+    );
     let encoded_transactions = Vec::new();
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;

@@ -123,7 +123,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     instance_state: Arc<TYPES::InstanceState>,
 
     /// The view to enter when first starting consensus
-    start_view: TYPES::Time,
+    start_view: TYPES::ViewTime,
 
     /// Access to the output event stream.
     output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
@@ -302,9 +302,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(&encoded_txns));
         }
 
+        let anchored_epoch = if config.epoch_height == 0 {
+            TYPES::EpochTime::new(0)
+        } else if anchored_leaf.height() % config.epoch_height == 0 {
+            TYPES::EpochTime::new(anchored_leaf.height() / config.epoch_height)
+        } else {
+            TYPES::EpochTime::new(anchored_leaf.height() / config.epoch_height + 1)
+        };
         let consensus = Consensus::new(
             validated_state_map,
             anchored_leaf.view_number(),
+            anchored_epoch,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
             initializer.actioned_view,
@@ -395,7 +403,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 self.internal_event_stream
                     .0
                     .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                        TYPES::Time::new(*self.start_view),
+                        TYPES::ViewTime::new(*self.start_view),
                         validated_state.clone(),
                     )))
                     .await
@@ -424,7 +432,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         {
             // Some applications seem to expect a leaf decide event for the genesis leaf,
             // which contains only that leaf and nothing else.
-            if self.anchored_leaf.view_number() == TYPES::Time::genesis() {
+            if self.anchored_leaf.view_number() == TYPES::ViewTime::genesis() {
                 let (validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(&self.instance_state);
 
@@ -562,7 +570,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
     #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
-    pub async fn state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+    pub async fn state(&self, view: TYPES::ViewTime) -> Option<Arc<TYPES::ValidatedState>> {
         self.consensus.read().await.state(view).cloned()
     }
 
@@ -968,10 +976,10 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     state_delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
 
     /// Starting view number that should be equivelant to the view the node shut down with last.
-    start_view: TYPES::Time,
+    start_view: TYPES::ViewTime,
     /// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
-    actioned_view: TYPES::Time,
+    actioned_view: TYPES::ViewTime,
     /// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
@@ -982,9 +990,9 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// to vote and propose right away if they didn't miss anything while down.
     undecided_leafs: Vec<Leaf<TYPES>>,
     /// Not yet decided state
-    undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
+    undecided_state: BTreeMap<TYPES::ViewTime, View<TYPES>>,
     /// Proposals we have sent out to provide to others for catchup
-    saved_proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
+    saved_proposals: BTreeMap<TYPES::ViewTime, Proposal<TYPES, QuorumProposal<TYPES>>>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -1001,8 +1009,8 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             inner: Leaf::genesis(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
-            start_view: TYPES::Time::new(0),
-            actioned_view: TYPES::Time::new(0),
+            start_view: TYPES::ViewTime::new(0),
+            actioned_view: TYPES::ViewTime::new(0),
             saved_proposals: BTreeMap::new(),
             high_qc,
             decided_upgrade_certificate: None,
@@ -1024,13 +1032,13 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         anchor_leaf: Leaf<TYPES>,
         instance_state: TYPES::InstanceState,
         validated_state: Option<Arc<TYPES::ValidatedState>>,
-        start_view: TYPES::Time,
-        actioned_view: TYPES::Time,
-        saved_proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
+        start_view: TYPES::ViewTime,
+        actioned_view: TYPES::ViewTime,
+        saved_proposals: BTreeMap<TYPES::ViewTime, Proposal<TYPES, QuorumProposal<TYPES>>>,
         high_qc: QuorumCertificate<TYPES>,
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         undecided_leafs: Vec<Leaf<TYPES>>,
-        undecided_state: BTreeMap<TYPES::Time, View<TYPES>>,
+        undecided_state: BTreeMap<TYPES::ViewTime, View<TYPES>>,
     ) -> Self {
         Self {
             inner: anchor_leaf,

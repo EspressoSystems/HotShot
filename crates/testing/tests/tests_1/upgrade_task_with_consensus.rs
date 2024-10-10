@@ -29,7 +29,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{null_block, ViewNumber},
+    data::{null_block, EpochNumber, ViewNumber},
     simple_vote::UpgradeProposalData,
     traits::{
         election::Membership,
@@ -294,7 +294,7 @@ async fn test_upgrade_task_propose() {
                 proposals[2].data.block_header.metadata,
                 ViewNumber::new(3),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(),
+                    quorum_membership.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
@@ -390,7 +390,7 @@ async fn test_upgrade_task_blank_blocks() {
     let new_version = Version { major: 0, minor: 2 };
 
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        quorum_membership.total_nodes(),
+        quorum_membership.total_nodes(EpochNumber::new(0)),
         <TestVersions as Versions>::Base::VERSION,
     )
     .unwrap();
@@ -620,7 +620,9 @@ async fn test_upgrade_task_blank_blocks() {
                     exact(ViewChange(ViewNumber::new(6))),
                     validated_state_updated(),
                     quorum_proposal_validated(),
-                    quorum_proposal_send_with_null_block(quorum_membership.total_nodes()),
+                    quorum_proposal_send_with_null_block(
+                        quorum_membership.total_nodes(EpochNumber::new(0)),
+                    ),
                     leaf_decided(),
                     quorum_vote_send(),
                 ],

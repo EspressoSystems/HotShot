@@ -48,7 +48,7 @@ pub type TakeReceiver = Mutex<Option<Receiver<(Vec<u8>, ResponseChannel<Response
 /// A signed request for a proposal.
 pub struct ProposalRequestPayload<TYPES: NodeType> {
     /// The view number that we're requesting a proposal for.
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::ViewTime,
 
     /// Our public key. The ensures that the receipient can reply to
     /// us directly.

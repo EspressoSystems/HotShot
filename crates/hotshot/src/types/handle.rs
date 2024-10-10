@@ -117,7 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    pub async fn state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+    pub async fn state(&self, view: TYPES::ViewTime) -> Option<Arc<TYPES::ValidatedState>> {
         self.hotshot.state(view).await
     }
 
@@ -190,11 +190,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
     /// Wrapper for `HotShotConsensusApi`'s `leader` function
     #[allow(clippy::unused_async)] // async for API compatibility reasons
-    pub async fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
+    pub async fn leader(
+        &self,
+        view_number: TYPES::ViewTime,
+        epoch_number: TYPES::EpochTime,
+    ) -> TYPES::SignatureKey {
         self.hotshot
             .memberships
             .quorum_membership
-            .leader(view_number)
+            .leader(view_number, epoch_number)
     }
 
     // Below is for testing only:
@@ -221,8 +225,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
     /// Wrapper to get the view number this node is on.
     #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
-    pub async fn cur_view(&self) -> TYPES::Time {
+    pub async fn cur_view(&self) -> TYPES::ViewTime {
         self.hotshot.consensus.read().await.cur_view()
+    }
+
+    /// Wrapper to get the epoch number this node is on.
+    #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
+    pub async fn cur_epoch(&self) -> TYPES::EpochTime {
+        self.hotshot.consensus.read().await.cur_epoch()
     }
 
     /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to
