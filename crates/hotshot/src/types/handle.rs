@@ -121,7 +121,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let mem = &self.memberships.quorum_membership;
         let upgrade_lock = &self.hotshot.upgrade_lock;
         loop {
-            let event = EventDependency::new(
+            let hs_event = EventDependency::new(
                 self.internal_event_stream.1.activate_cloned(),
                 Box::new(move |event| {
                     let event = event.as_ref();
@@ -133,26 +133,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 }),
             )
             .completed()
-            .await;
+            .await?;
 
             // Then, if it's `Some`, make sure that the data is correct
-            if let Some(hs_event) = event.as_ref() {
-                if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
-                {
-                    // Make sure that the quorum_proposal is valid
-                    if quorum_proposal
-                        .validate_signature(mem, upgrade_lock)
-                        .await
-                        .is_err()
-                    {
-                        continue;
-                    }
-                    let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
-                    let commit = proposed_leaf.commit(upgrade_lock).await;
-                    if commit == leaf_commitment {
-                        return Ok(quorum_proposal.data.clone());
-                    }
+
+            if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref() {
+                // Make sure that the quorum_proposal is valid
+                if let Err(err) = quorum_proposal.validate_signature(mem, upgrade_lock).await {
+                    tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
+                    continue;
                 }
+                let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
+                let commit = proposed_leaf.commit(upgrade_lock).await;
+                if commit == leaf_commitment {
+                    return Ok(quorum_proposal.data.clone());
+                }
+                tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
             }
         }
     }
