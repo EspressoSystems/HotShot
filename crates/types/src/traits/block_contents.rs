@@ -25,10 +25,7 @@ use vbs::version::Version;
 
 use super::signature_key::BuilderSignatureKey;
 use crate::{
-    data::Leaf,
-    traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
-    utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
+    consensus::OuterConsensus, data::Leaf, traits::{node_implementation::NodeType, states::InstanceState, ValidatedState}, utils::BuilderCommitment, vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType}
 };
 
 /// Trait for structures that need to be unambiguously encoded as bytes.
@@ -192,6 +189,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     /// and builder commitments, and metadata. This is only used in pre-marketplace versions
     #[allow(clippy::too_many_arguments)]
     fn new_legacy(
+        consensus: OuterConsensus<TYPES>,
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
@@ -208,6 +206,7 @@ pub trait BlockHeader<TYPES: NodeType>:
     /// versions
     #[allow(clippy::too_many_arguments)]
     fn new_marketplace(
+        consensus: OuterConsensus<TYPES>,
         parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,

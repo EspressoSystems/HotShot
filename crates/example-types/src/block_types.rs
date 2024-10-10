@@ -13,6 +13,7 @@ use std::{
 use async_trait::async_trait;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::{BlockError, Leaf},
     traits::{
         block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
@@ -282,6 +283,7 @@ impl<
     type Error = std::convert::Infallible;
 
     async fn new_legacy(
+        _consensus: OuterConsensus<TYPES>,
         _parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
@@ -301,6 +303,7 @@ impl<
     }
 
     async fn new_marketplace(
+        _consensus: OuterConsensus<TYPES>,
         _parent_state: &TYPES::ValidatedState,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,

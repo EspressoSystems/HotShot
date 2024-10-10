@@ -83,6 +83,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
 
     let block_header = if version < V::Marketplace::VERSION {
         TYPES::BlockHeader::new_legacy(
+            consensus.clone(),
             state.as_ref(),
             instance_state.as_ref(),
             &parent_leaf,
@@ -97,6 +98,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
         .context("Failed to construct legacy block header")?
     } else {
         TYPES::BlockHeader::new_marketplace(
+            consensus.clone(),
             state.as_ref(),
             instance_state.as_ref(),
             &parent_leaf,

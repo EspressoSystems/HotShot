@@ -172,6 +172,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let block_header = if version < V::Marketplace::VERSION {
             TYPES::BlockHeader::new_legacy(
+                OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 state.as_ref(),
                 self.instance_state.as_ref(),
                 &parent_leaf,
@@ -186,6 +187,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .context("Failed to construct legacy block header")?
         } else {
             TYPES::BlockHeader::new_marketplace(
+                OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 state.as_ref(),
                 self.instance_state.as_ref(),
                 &parent_leaf,
