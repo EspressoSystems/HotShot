@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BenchResults","BenchResultsDownloadConfig","MultiValidatorArgs","OrchestratorClient","ValidatorArgs"]};
+window.SIDEBAR_ITEMS = {"fn":["get_complete_config"],"struct":["BenchResults","BenchResultsDownloadConfig","MultiValidatorArgs","OrchestratorClient","ValidatorArgs"]};

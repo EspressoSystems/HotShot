@@ -84,6 +84,9 @@
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -100,8 +103,11 @@
 <span class="kw">use </span>cdn_broker::reexports::discovery::{DiscoveryClient, Embedded, Redis};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
-<span class="kw">use </span>hotshot_orchestrator::{client::OrchestratorClient, config::NetworkConfig};
-<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
+<span class="kw">use </span>hotshot_orchestrator::client::OrchestratorClient;
+<span class="kw">use </span>hotshot_types::{
+    network::NetworkConfig,
+    traits::{node_implementation::NodeType, signature_key::SignatureKey},
+};
 <span class="kw">use </span>surf_disco::Url;
 
 <span class="attr">#[derive(Parser, Debug)]

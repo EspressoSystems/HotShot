@@ -71,6 +71,15 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -142,4 +151,13 @@
 
 <span class="doccomment">/// The `tide` module name for the marketplace builder
 </span><span class="kw">pub const </span>MARKETPLACE_BUILDER_MODULE: <span class="kw-2">&amp;</span>str = <span class="string">"bundle_info"</span>;
+
+<span class="doccomment">/// default number of rounds to run
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = <span class="number">100</span>;
+<span class="doccomment">/// default number of transactions per round
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND: usize = <span class="number">10</span>;
+<span class="doccomment">/// default size of transactions
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE: usize = <span class="number">100</span>;
+<span class="doccomment">/// default delay before beginning consensus
+</span><span class="kw">pub const </span>ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS: u64 = <span class="number">60</span>;
 </code></pre></div></section></main></body></html>

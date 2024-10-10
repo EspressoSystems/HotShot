@@ -1165,7 +1165,6 @@
     future::{join_all, Either},
     FutureExt,
 };
-<span class="kw">use </span>hotshot_orchestrator::config::NetworkConfig;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -1174,6 +1173,7 @@
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
+    network::NetworkConfig,
     request_response::Request,
     traits::{
         election::Membership,

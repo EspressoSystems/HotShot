@@ -360,8 +360,8 @@
     data_source::BuilderDataSource,
 };
 <span class="kw">use </span>hotshot_example_types::block_types::TestTransaction;
-<span class="kw">use </span>hotshot_orchestrator::config::RandomBuilderConfig;
 <span class="kw">use </span>hotshot_types::{
+    network::RandomBuilderConfig,
     traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey},
     utils::BuilderCommitment,
     vid::VidCommitment,

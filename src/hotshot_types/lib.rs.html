@@ -239,6 +239,16 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -264,8 +274,13 @@
 <span class="kw">pub mod </span>data;
 <span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>event;
+<span class="doccomment">/// Holds the configuration file specification for a HotShot node.
+</span><span class="kw">pub mod </span>hotshot_config_file;
 <span class="kw">pub mod </span>light_client;
 <span class="kw">pub mod </span>message;
+
+<span class="doccomment">/// Holds the network configuration specification for HotShot nodes.
+</span><span class="kw">pub mod </span>network;
 <span class="kw">pub mod </span>qc;
 <span class="kw">pub mod </span>request_response;
 <span class="kw">pub mod </span>signature_key;
@@ -273,7 +288,12 @@
 <span class="kw">pub mod </span>simple_vote;
 <span class="kw">pub mod </span>stake_table;
 <span class="kw">pub mod </span>traits;
+
+<span class="doccomment">/// Holds the upgrade configuration specification for HotShot nodes.
+</span><span class="kw">pub mod </span>upgrade_config;
 <span class="kw">pub mod </span>utils;
+<span class="doccomment">/// Holds the validator configuration specification for HotShot nodes.
+</span><span class="kw">pub mod </span>validator_config;
 <span class="kw">pub mod </span>vid;
 <span class="kw">pub mod </span>vote;
 
