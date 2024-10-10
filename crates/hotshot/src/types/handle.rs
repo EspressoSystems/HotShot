@@ -19,15 +19,10 @@ use hotshot_task::{
 };
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
-    consensus::Consensus,
-    data::{Leaf, QuorumProposal},
-    error::HotShotError,
-    request_response::ProposalRequestPayload,
-    traits::{
+    consensus::Consensus, data::{Leaf, QuorumProposal}, error::HotShotError, message::Proposal, request_response::ProposalRequestPayload, traits::{
         consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
         node_implementation::NodeType, signature_key::SignatureKey,
-    },
-    vote::HasViewNumber,
+    }, vote::HasViewNumber
 };
 use tracing::instrument;
 
@@ -97,7 +92,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         view: TYPES::Time,
         leaf_commitment: Commitment<Leaf<TYPES>>,
-    ) -> Result<impl futures::Future<Output = Result<QuorumProposal<TYPES>>>> {
+    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal<TYPES>>>>> {
         // We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
         let signed_proposal_request = ProposalRequestPayload {
@@ -153,7 +148,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                     let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
                     let commit = proposed_leaf.commit(&upgrade_lock).await;
                     if commit == leaf_commitment {
-                        return Ok(quorum_proposal.data.clone());
+                        return Ok(quorum_proposal.clone());
                     }
                     tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
                 }
