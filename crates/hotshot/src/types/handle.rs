@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{Ok, Result};
+use anyhow::{anyhow, Ok, Result};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
@@ -133,7 +133,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 }),
             )
             .completed()
-            .await?;
+            .await
+            .ok_or(anyhow!("Event dependency failed to get event"))?;
 
             // Then, if it's `Some`, make sure that the data is correct
 
