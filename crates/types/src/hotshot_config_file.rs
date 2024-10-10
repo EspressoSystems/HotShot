@@ -13,7 +13,7 @@ use crate::{
 use surf_disco::Url;
 use vec1::Vec1;
 
-use crate::{upgrade_config::UpgradeConfig, validator_config::ValidatorConfigFile};
+use crate::upgrade_config::UpgradeConfig;
 
 /// Default builder URL, used as placeholder
 fn default_builder_urls() -> Vec1<Url> {
@@ -103,20 +103,11 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
     }
 }
 
-impl<KEY: SignatureKey> From<ValidatorConfigFile> for HotShotConfig<KEY> {
-    fn from(value: ValidatorConfigFile) -> Self {
-        let mut config: HotShotConfig<KEY> = HotShotConfigFile::default().into();
-        config.my_own_validator_config = value.into();
-        config
-    }
-}
-
-impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
-    fn default() -> Self {
-        // The default number of nodes is 5
+impl<KEY: SignatureKey> HotShotConfigFile<KEY> {
+    /// Creates a new `HotShotConfigFile` with 5 nodes and 10 DA nodes.
+    pub fn hotshot_config_5_nodes_10_da() -> Self {
         let staked_da_nodes: usize = 5;
 
-        // Aggregate the DA nodes
         let mut known_da_nodes = Vec::new();
 
         let gen_known_nodes_with_stake = (0..10)
@@ -124,7 +115,6 @@ impl<KEY: SignatureKey> Default for HotShotConfigFile<KEY> {
                 let mut cur_validator_config: ValidatorConfig<KEY> =
                     ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, false);
 
-                // Add to DA nodes based on index
                 if node_id < staked_da_nodes as u64 {
                     known_da_nodes.push(cur_validator_config.public_config());
                     cur_validator_config.is_da = true;

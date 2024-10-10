@@ -8,7 +8,13 @@ use std::{fs, ops::Range, path::Path, time::Duration, vec};
 
 use crate::hotshot_config_file::HotShotConfigFile;
 use crate::{
-    constants::REQUEST_DATA_DELAY, light_client::StateVerKey, traits::signature_key::SignatureKey,
+    constants::{
+        ORCHESTRATOR_DEFAULT_NUM_ROUNDS, ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS,
+        ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND, ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE,
+        REQUEST_DATA_DELAY,
+    },
+    light_client::StateVerKey,
+    traits::signature_key::SignatureKey,
     HotShotConfig, ValidatorConfig,
 };
 use clap::ValueEnum;
@@ -16,15 +22,6 @@ use libp2p::{Multiaddr, PeerId};
 use serde_inline_default::serde_inline_default;
 use thiserror::Error;
 use tracing::error;
-
-/// default number of rounds to run
-pub const ORCHESTRATOR_DEFAULT_NUM_ROUNDS: usize = 100;
-/// default number of transactions per round
-pub const ORCHESTRATOR_DEFAULT_TRANSACTIONS_PER_ROUND: usize = 10;
-/// default size of transactions
-pub const ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE: usize = 100;
-/// default delay before beginning consensus
-pub const ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS: u64 = 60;
 
 /// Configuration describing a libp2p node
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -282,7 +279,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             transaction_size: ORCHESTRATOR_DEFAULT_TRANSACTION_SIZE,
             manual_start_password: None,
             libp2p_config: None,
-            config: HotShotConfigFile::default().into(),
+            config: HotShotConfigFile::hotshot_config_5_nodes_10_da().into(),
             start_delay_seconds: 60,
             key_type_name: std::any::type_name::<K>().to_string(),
             cdn_marshal_address: None,
@@ -343,7 +340,7 @@ pub struct NetworkConfigFile<KEY: SignatureKey> {
     #[serde_inline_default(ORCHESTRATOR_DEFAULT_START_DELAY_SECONDS)]
     pub start_delay_seconds: u64,
     /// the hotshot config file
-    #[serde(default)]
+    #[serde(default = "HotShotConfigFile::hotshot_config_5_nodes_10_da")]
     pub config: HotShotConfigFile<KEY>,
     /// The address of the Push CDN's "marshal", A.K.A. load balancer
     #[serde(default)]
