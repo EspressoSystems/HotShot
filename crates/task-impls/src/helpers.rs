@@ -492,10 +492,6 @@ pub async fn validate_proposal_safety_and_liveness<
             tracing::debug!("Internal proposal update failed; error = {e:#}");
         };
 
-        // Update our persistent storage of the proposal. If we cannot store the proposal reutrn
-        // and error so we don't vote
-        storage.write().await.append_proposal(&proposal).await?;
-
         // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
         broadcast_event(
             Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
@@ -555,8 +551,11 @@ pub async fn validate_proposal_safety_and_liveness<
         });
     }
 
-    // We accept the proposal, notify the application layer
+    // Update our persistent storage of the proposal. If we cannot store the proposal reutrn
+    // and error so we don't vote
+    storage.write().await.append_proposal(&proposal).await?;
 
+    // We accept the proposal, notify the application layer
     broadcast_event(
         Event {
             view_number,
