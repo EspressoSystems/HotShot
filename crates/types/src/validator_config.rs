@@ -38,29 +38,10 @@ impl ValidatorConfigFile {
         };
         let filename =
             current_working_dir.into_os_string().into_string().unwrap() + "/../../" + dir_str;
-        match fs::read_to_string(filename.clone()) {
-            // If successful return the files text as `contents`.
-            Ok(contents) => {
-                let data: ValidatorConfigFile = match toml::from_str(&contents) {
-                    // If successful, return data as `Data` struct.
-                    // `d` is a local variable.
-                    Ok(d) => d,
-                    // Handle the `error` case.
-                    Err(e) => {
-                        // Write `msg` to `stderr`.
-                        error!("Unable to load data from `{}`: {}", filename, e);
-                        ValidatorConfigFile::default()
-                    }
-                };
-                data
-            }
-            // Handle the `error` case.
-            Err(e) => {
-                // Write `msg` to `stderr`.
-                error!("Could not read file `{}`: {}", filename, e);
-                ValidatorConfigFile::default()
-            }
-        }
+        let contents = fs::read_to_string(filename.clone()).expect("Could not read file");
+        let data: ValidatorConfigFile =
+            toml::from_str(&contents).expect("Unable to load data from file");
+        data
     }
 }
 
