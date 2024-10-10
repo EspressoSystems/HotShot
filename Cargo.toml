@@ -76,7 +76,7 @@ serde = { version = "1", features = ["derive"] }
 serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0" }
 sha2 = "0.10"
-snafu = "0.8"
+thiserror = "1"
 surf-disco = "0.9"
 tagged-base64 = "0.4"
 tide-disco = "0.9"
@@ -87,9 +87,9 @@ typenum = "1"
 memoize = { version = "0.4", features = ["full"] }
 vbs = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
-url = { version = "2.5.2", features = ["serde"] }
-vec1 = { version = "1.12", features = ["serde"] }
-reqwest = { version = "0.12.8", features = ["json"] }
+url = { version = "2", features = ["serde"] }
+vec1 = { version = "1", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 libp2p = { package = "libp2p", version = "0.53", default-features = false, features = [
   "macros",

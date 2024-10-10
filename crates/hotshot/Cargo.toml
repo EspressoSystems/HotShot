@@ -48,13 +48,12 @@ lru.workspace = true
 portpicker = "0.1"
 rand = { workspace = true }
 serde = { workspace = true, features = ["rc"] }
-snafu = { workspace = true }
+thiserror = { workspace = true }
 surf-disco = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
 vbs = { workspace = true }
 jf-signature.workspace = true
-hotshot-orchestrator = { path = "../orchestrator" }
 blake3.workspace = true
 sha2 = { workspace = true }
 url = { workspace = true }
