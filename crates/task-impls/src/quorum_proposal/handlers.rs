@@ -118,7 +118,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     ) -> Result<()> {
-        let (parent_leaf, state) = parent_leaf_and_state(
+        let (parent_leaf, mut state) = parent_leaf_and_state(
             self.view_number,
             &self.sender,
             &self.receiver,
@@ -172,7 +172,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let block_header = if version < V::Marketplace::VERSION {
             TYPES::BlockHeader::new_legacy(
-                state.as_ref(),
+                &mut state,
                 self.instance_state.as_ref(),
                 &parent_leaf,
                 commitment_and_metadata.commitment,

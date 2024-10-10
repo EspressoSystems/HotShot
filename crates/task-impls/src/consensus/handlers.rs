@@ -62,7 +62,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
     view: TYPES::Time,
     commitment_and_metadata: CommitmentAndMetadata<TYPES>,
     parent_leaf: Leaf<TYPES>,
-    state: Arc<TYPES::ValidatedState>,
+    mut state: Arc<TYPES::ValidatedState>,
     upgrade_cert: Option<UpgradeCertificate<TYPES>>,
     proposal_cert: Option<ViewChangeEvidence<TYPES>>,
     round_start_delay: u64,
@@ -83,7 +83,7 @@ pub async fn create_and_send_proposal<TYPES: NodeType, V: Versions>(
 
     let block_header = if version < V::Marketplace::VERSION {
         TYPES::BlockHeader::new_legacy(
-            state.as_ref(),
+            &mut state,
             instance_state.as_ref(),
             &parent_leaf,
             commitment_and_metadata.commitment,
