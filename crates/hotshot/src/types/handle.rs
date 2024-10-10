@@ -19,10 +19,16 @@ use hotshot_task::{
 };
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
-    consensus::Consensus, data::{Leaf, QuorumProposal}, error::HotShotError, message::Proposal, request_response::ProposalRequestPayload, traits::{
+    consensus::Consensus,
+    data::{Leaf, QuorumProposal},
+    error::HotShotError,
+    message::Proposal,
+    request_response::ProposalRequestPayload,
+    traits::{
         consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
         node_implementation::NodeType, signature_key::SignatureKey,
-    }, vote::HasViewNumber
+    },
+    vote::HasViewNumber,
 };
 use tracing::instrument;
 
