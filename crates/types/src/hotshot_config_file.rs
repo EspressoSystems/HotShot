@@ -105,6 +105,11 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
 
 impl<KEY: SignatureKey> HotShotConfigFile<KEY> {
     /// Creates a new `HotShotConfigFile` with 5 nodes and 10 DA nodes.
+    ///
+    /// # Panics
+    ///
+    /// Cannot panic, but will if `NonZeroUsize` is somehow an error.
+    #[must_use]
     pub fn hotshot_config_5_nodes_10_da() -> Self {
         let staked_da_nodes: usize = 5;
 
