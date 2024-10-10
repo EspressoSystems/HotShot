@@ -22,7 +22,6 @@ use hotshot_types::{
     consensus::Consensus,
     data::{Leaf, QuorumProposal},
     error::HotShotError,
-    message::Proposal,
     request_response::ProposalRequestPayload,
     traits::{
         consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
@@ -88,7 +87,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.output_event_stream.1.activate_cloned()
     }
 
-    /// Request a proposal from the other nodes
+    /// Request a proposal from the all other nodes.  Will block until some node
+    /// returns a valid proposal with the requested commitment.  If nobody has the
+    /// proposal this will block forever
     ///
     /// # Errors
     /// Errors if signing the request for proposal fails
@@ -139,10 +140,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
-                    if !quorum_proposal
+                    if quorum_proposal
                         .validate_signature(mem, upgrade_lock)
                         .await
-                        .is_ok()
+                        .is_err()
                     {
                         continue;
                     }
