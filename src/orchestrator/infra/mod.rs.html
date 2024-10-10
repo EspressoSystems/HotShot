@@ -1874,7 +1874,7 @@
             derive_libp2p_multiaddr(<span class="kw-2">&amp;</span>bind_address).expect(<span class="string">"failed to derive bind address"</span>);
 
         <span class="comment">// Create the Libp2p network
-        </span><span class="kw">let </span>libp2p_network = Libp2pNetwork::from_config::&lt;TYPES&gt;(
+        </span><span class="kw">let </span>libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
             GossipConfig::default(),
             bind_address,
