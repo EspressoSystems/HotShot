@@ -3117,7 +3117,6 @@ dependencies = [
  "either",
  "ethereum-types",
  "futures",
- "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -3286,7 +3285,6 @@ dependencies = [
  "libp2p",
  "multiaddr",
  "serde",
- "serde-inline-default",
  "serde_json",
  "surf-disco",
  "thiserror",
@@ -3433,6 +3431,7 @@ dependencies = [
  "bitvec",
  "blake3",
  "cdn-proto",
+ "clap",
  "committable",
  "custom_debug",
  "derivative",
@@ -3454,13 +3453,16 @@ dependencies = [
  "rand_chacha 0.3.1",
  "reqwest",
  "serde",
+ "serde-inline-default",
  "serde_bytes",
  "serde_json",
  "sha2 0.10.8",
+ "surf-disco",
  "tagged-base64",
  "thiserror",
  "time 0.3.36",
  "tokio",
+ "toml",
  "tracing",
  "typenum",
  "url",
@@ -6685,13 +6687,13 @@ dependencies = [
 
 [[package]]
 name = "serde-inline-default"
-version = "0.1.1"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa824cde50b5f01ff28a955114d8152a07cd62d81f53459dad0f2610136be844"
+checksum = "484b43bb1114a28d1a574f5682d6079fa4c20e76faaff0cfd048216650e57101"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.79",
 ]
 
 [[package]]
