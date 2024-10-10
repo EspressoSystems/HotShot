@@ -282,7 +282,7 @@ impl<
     type Error = std::convert::Infallible;
 
     async fn new_legacy(
-        _parent_state: &TYPES::ValidatedState,
+        _parent_state: &mut Arc<TYPES::ValidatedState>,
         instance_state: &<TYPES::ValidatedState as ValidatedState<TYPES>>::Instance,
         parent_leaf: &Leaf<TYPES>,
         payload_commitment: VidCommitment,
