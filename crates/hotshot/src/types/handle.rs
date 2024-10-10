@@ -8,16 +8,27 @@
 
 use std::sync::Arc;
 
+use anyhow::{Ok, Result};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
+use committable::{Commitment, Committable};
 use futures::Stream;
-use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
-use hotshot_task_impls::events::HotShotEvent;
+use hotshot_task::{
+    dependency::{Dependency, EventDependency},
+    task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState},
+};
+use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
+    data::{Leaf, QuorumProposal},
     error::HotShotError,
-    traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
+    message::Proposal,
+    request_response::ProposalRequestPayload,
+    traits::{
+        consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
+        node_implementation::NodeType, signature_key::SignatureKey,
+    },
+    vote::HasViewNumber,
 };
 use tracing::instrument;
 
@@ -75,6 +86,74 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// obtains a stream to expose to the user
     pub fn event_stream(&self) -> impl Stream<Item = Event<TYPES>> {
         self.output_event_stream.1.activate_cloned()
+    }
+
+    /// Request a proposal from the other nodes
+    ///
+    /// # Errors
+    /// Errors if signing the request for proposal fails
+    pub async fn request_proposal(
+        &self,
+        view: TYPES::Time,
+        leaf_commitment: Commitment<Leaf<TYPES>>,
+    ) -> Result<QuorumProposal<TYPES>> {
+        // We need to be able to sign this request before submitting it to the network. Compute the
+        // payload first.
+        let signed_proposal_request = ProposalRequestPayload {
+            view_number: view,
+            key: self.public_key(),
+        };
+
+        // Finally, compute the signature for the payload.
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            signed_proposal_request.commit().as_ref(),
+        )?;
+
+        // First, broadcast that we need a proposal to the current leader
+        broadcast_event(
+            HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
+            &self.internal_event_stream.0,
+        )
+        .await;
+
+        let mem = &self.memberships.quorum_membership;
+        let upgrade_lock = &self.hotshot.upgrade_lock;
+        loop {
+            let event = EventDependency::new(
+                self.internal_event_stream.1.activate_cloned(),
+                Box::new(move |event| {
+                    let event = event.as_ref();
+                    if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = event {
+                        quorum_proposal.data.view_number() == view
+                    } else {
+                        false
+                    }
+                }),
+            )
+            .completed()
+            .await;
+
+            // Then, if it's `Some`, make sure that the data is correct
+            if let Some(hs_event) = event.as_ref() {
+                if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
+                {
+                    // Make sure that the quorum_proposal is valid
+                    if !quorum_proposal
+                        .validate_signature(mem, upgrade_lock)
+                        .await
+                        .is_ok()
+                    {
+                        continue;
+                    }
+                    let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
+                    let commit = proposed_leaf.commit(upgrade_lock).await;
+                    if commit == leaf_commitment {
+                        return Ok(quorum_proposal.data.clone());
+                    }
+                }
+            }
+        }
     }
 
     /// HACK so we can know the types when running tests...
