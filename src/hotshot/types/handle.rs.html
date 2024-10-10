@@ -234,6 +234,83 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -244,16 +321,26 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>anyhow::{anyhow, <span class="prelude-val">Ok</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>futures::Stream;
-<span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
-<span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
+<span class="kw">use </span>hotshot_task::{
+    dependency::{Dependency, EventDependency},
+    task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState},
+};
+<span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    data::Leaf,
+    data::{Leaf, QuorumProposal},
     error::HotShotError,
-    traits::{election::Membership, network::ConnectedNetwork, node_implementation::NodeType},
+    request_response::ProposalRequestPayload,
+    traits::{
+        consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
+        node_implementation::NodeType, signature_key::SignatureKey,
+    },
+    vote::HasViewNumber,
 };
 <span class="kw">use </span>tracing::instrument;
 
@@ -311,6 +398,73 @@
     <span class="doccomment">/// obtains a stream to expose to the user
     </span><span class="kw">pub fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
+    }
+
+    <span class="doccomment">/// Request a proposal from the all other nodes.  Will block until some node
+    /// returns a valid proposal with the requested commitment.  If nobody has the
+    /// proposal this will block forever
+    ///
+    /// # Errors
+    /// Errors if signing the request for proposal fails
+    </span><span class="kw">pub async fn </span>request_proposal(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view: TYPES::Time,
+        leaf_commitment: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;QuorumProposal&lt;TYPES&gt;&gt; {
+        <span class="comment">// We need to be able to sign this request before submitting it to the network. Compute the
+        // payload first.
+        </span><span class="kw">let </span>signed_proposal_request = ProposalRequestPayload {
+            view_number: view,
+            key: <span class="self">self</span>.public_key(),
+        };
+
+        <span class="comment">// Finally, compute the signature for the payload.
+        </span><span class="kw">let </span>signature = TYPES::SignatureKey::sign(
+            <span class="self">self</span>.private_key(),
+            signed_proposal_request.commit().as_ref(),
+        )<span class="question-mark">?</span>;
+
+        <span class="comment">// First, broadcast that we need a proposal
+        </span>broadcast_event(
+            HotShotEvent::QuorumProposalRequestSend(signed_proposal_request, signature).into(),
+            <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream.<span class="number">0</span>,
+        )
+        .<span class="kw">await</span>;
+
+        <span class="kw">let </span>mem = <span class="kw-2">&amp;</span><span class="self">self</span>.memberships.quorum_membership;
+        <span class="kw">let </span>upgrade_lock = <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.upgrade_lock;
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>hs_event = EventDependency::new(
+                <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned(),
+                Box::new(<span class="kw">move </span>|event| {
+                    <span class="kw">let </span>event = event.as_ref();
+                    <span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = event {
+                        quorum_proposal.data.view_number() == view
+                    } <span class="kw">else </span>{
+                        <span class="bool-val">false
+                    </span>}
+                }),
+            )
+            .completed()
+            .<span class="kw">await
+            </span>.ok_or(<span class="macro">anyhow!</span>(<span class="string">"Event dependency failed to get event"</span>))<span class="question-mark">?</span>;
+
+            <span class="comment">// Then, if it's `Some`, make sure that the data is correct
+
+            </span><span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref() {
+                <span class="comment">// Make sure that the quorum_proposal is valid
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal.validate_signature(mem, upgrade_lock).<span class="kw">await </span>{
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Invalid Proposal Received after Request.  Err {:?}"</span>, err);
+                    <span class="kw">continue</span>;
+                }
+                <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
+                <span class="kw">let </span>commit = proposed_leaf.commit(upgrade_lock).<span class="kw">await</span>;
+                <span class="kw">if </span>commit == leaf_commitment {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(quorum_proposal.data.clone());
+                }
+                <span class="macro">tracing::warn!</span>(<span class="string">"Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}"</span>, leaf_commitment, commit);
+            }
+        }
     }
 
     <span class="doccomment">/// HACK so we can know the types when running tests...
