@@ -92,10 +92,6 @@ test_success:
   echo Testing success test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_success -- --test-threads=1 --nocapture
 
-test_success_dependency_tasks:
-  echo Testing success test
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_success -- --test-threads=1 --nocapture
-
 test_timeout:
   echo Testing timeout test
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_timeout -- --test-threads=1 --nocapture
@@ -112,10 +108,6 @@ test_with_failures:
   echo Testing nodes leaving the network
   cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_with_failures -- --test-threads=1 --nocapture
 
-test_with_failures_dependency_tasks:
-  echo Testing nodes leaving the network with dependency tasks
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_with_failures -- --test-threads=1 --nocapture
-
 test_network_task:
   echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_network_task -- --test-threads=1 --nocapture
@@ -130,11 +122,11 @@ test_consensus_task:
 
 test_quorum_vote_task:
   echo Testing the quorum vote task
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_vote_task -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_vote_task -- --test-threads=1 --nocapture
 
 test_quorum_proposal_task:
   echo Testing the quorum proposal task
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_proposal_task -- --test-threads=1 --nocapture
+  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_proposal_task -- --test-threads=1 --nocapture
 
 test_da_task:
   echo Testing the DA task
@@ -150,15 +142,11 @@ test_view_sync_task:
 
 test_quorum_proposal_recv_task:
   echo Testing the quorum proposal recv task
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
+  cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
 
 test_upgrade_task:
   echo Testing the upgrade task without dependency tasks
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_upgrade_task -- --test-threads=1 --nocapture
-
-test_upgrade_task_dependency_tasks:
-  echo Testing the upgrade task without dependency tasks
-  cargo test --lib --bins --tests --benches --workspace --no-fail-fast --features "dependency-tasks" test_upgrade_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"
 
@@ -186,10 +174,6 @@ clippy:
   echo clippy
   cargo clippy --workspace --examples --bins --tests -- -D warnings
 
-clippy_dependency_tasks:
-  echo clippy release
-  cargo clippy --workspace --examples --bins --tests --features "dependency-tasks" -- -D warnings
-
 clippy_release:
   echo clippy release
   cargo clippy --package hotshot --no-default-features --features="docs, doc-images" -- -D warnings
@@ -209,8 +193,6 @@ lint: clippy fmt_check
 lint_release: clippy_release fmt_check
 
 fmt_clippy: fmt clippy
-
-fmt_clippy_dependency_tasks: fmt clippy_dependency_tasks
 
 careful:
   echo Careful-ing with tokio executor
