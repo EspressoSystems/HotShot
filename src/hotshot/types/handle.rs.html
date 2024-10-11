@@ -424,7 +424,7 @@
         // payload first.
         </span><span class="kw">let </span>signed_proposal_request = ProposalRequestPayload {
             view_number: view,
-            key: <span class="self">self</span>.public_key(),
+            key: <span class="self">self</span>.public_key().clone(),
         };
 
         <span class="comment">// Finally, compute the signature for the payload.
