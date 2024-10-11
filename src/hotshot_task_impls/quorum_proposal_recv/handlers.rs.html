@@ -283,8 +283,6 @@
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -320,7 +318,7 @@
     events::HotShotEvent,
     helpers::{
         broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
-        validate_proposal_view_and_certs, SEND_VIEW_CHANGE_EVENT,
+        validate_proposal_view_and_certs,
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
@@ -390,7 +388,6 @@
         <span class="kw-2">&amp;mut </span>task_state.cur_view_time,
         <span class="kw-2">&amp;mut </span>task_state.timeout_task,
         <span class="kw-2">&amp;</span>task_state.output_event_stream,
-        SEND_VIEW_CHANGE_EVENT,
         task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .<span class="kw">await
@@ -560,7 +557,6 @@
         <span class="kw-2">&amp;mut </span>task_state.cur_view_time,
         <span class="kw-2">&amp;mut </span>task_state.timeout_task,
         <span class="kw-2">&amp;</span>task_state.output_event_stream,
-        SEND_VIEW_CHANGE_EVENT,
         task_state.quorum_membership.leader(cur_view) == task_state.public_key,
     )
     .<span class="kw">await

@@ -341,42 +341,6 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -392,11 +356,11 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_task_impls::{
-    builder::BuilderClient, consensus::ConsensusTaskState, consensus2::Consensus2TaskState,
-    da::DaTaskState, quorum_proposal::QuorumProposalTaskState,
-    quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
-    request::NetworkRequestState, rewind::RewindTaskState, transactions::TransactionTaskState,
-    upgrade::UpgradeTaskState, vid::VidTaskState, view_sync::ViewSyncTaskState,
+    builder::BuilderClient, consensus2::Consensus2TaskState, da::DaTaskState,
+    quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
+    quorum_vote::QuorumVoteTaskState, request::NetworkRequestState, rewind::RewindTaskState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
+    view_sync::ViewSyncTaskState,
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
@@ -589,42 +553,6 @@
                 .marketplace_config
                 .fallback_builder_url
                 .clone(),
-        }
-    }
-}
-
-<span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; CreateTaskState&lt;TYPES, I, V&gt;
-    <span class="kw">for </span>ConsensusTaskState&lt;TYPES, I, V&gt;
-{
-    <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I, V&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>consensus = handle.hotshot.consensus();
-
-        <span class="self">Self </span>{
-            consensus: OuterConsensus::new(consensus),
-            instance_state: handle.hotshot.instance_state(),
-            timeout: handle.hotshot.config.next_view_timeout,
-            round_start_delay: handle.hotshot.config.round_start_delay,
-            cur_view: handle.cur_view().<span class="kw">await</span>,
-            cur_view_time: Utc::now().timestamp(),
-            payload_commitment_and_metadata: <span class="prelude-val">None</span>,
-            vote_collectors: BTreeMap::default(),
-            timeout_vote_collectors: BTreeMap::default(),
-            timeout_task: async_spawn(<span class="kw">async </span>{}),
-            spawned_tasks: BTreeMap::new(),
-            formed_upgrade_certificate: <span class="prelude-val">None</span>,
-            proposal_cert: <span class="prelude-val">None</span>,
-            output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
-            current_proposal: <span class="prelude-val">None</span>,
-            id: handle.hotshot.id,
-            public_key: handle.public_key().clone(),
-            private_key: handle.private_key().clone(),
-            network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
-            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            da_membership: handle.hotshot.memberships.da_membership.clone().into(),
-            storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
-            upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }
     }
 }

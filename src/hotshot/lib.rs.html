@@ -1047,8 +1047,6 @@
 <a href="#1045" id="1045">1045</a>
 <a href="#1046" id="1046">1046</a>
 <a href="#1047" id="1047">1047</a>
-<a href="#1048" id="1048">1048</a>
-<a href="#1049" id="1049">1049</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1401,8 +1399,7 @@
     /// Panics if sending genesis fails
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">pub async fn </span>start_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-        </span><span class="macro">tracing::error!</span>(<span class="string">"HotShot is running with the dependency tasks feature enabled!!"</span>);
+        <span class="macro">tracing::error!</span>(<span class="string">"HotShot is running with the dependency tasks feature enabled!!"</span>);
 
         <span class="attr">#[cfg(all(feature = <span class="string">"rewind"</span>, not(debug_assertions)))]
         </span><span class="macro">compile_error!</span>(<span class="string">"Cannot run rewind in production builds!"</span>);
@@ -1439,8 +1436,7 @@
                 .<span class="kw">await</span>;
             }
         });
-        <span class="attr">#[cfg(feature = <span class="string">"dependency-tasks"</span>)]
-        </span>{
+        {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(validated_state) = consensus.validated_state_map().get(<span class="kw-2">&amp;</span><span class="self">self</span>.start_view) {
                 <span class="attr">#[allow(clippy::panic)]
                 </span><span class="self">self</span>.internal_event_stream

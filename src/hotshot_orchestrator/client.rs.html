@@ -526,7 +526,6 @@
 
 </span><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
-<span class="kw">use </span><span class="kw">crate</span>::OrchestratorVersion;
 <span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
@@ -538,9 +537,10 @@
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
-<span class="kw">use </span>tracing::info;
-<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>tracing::{info, instrument};
 <span class="kw">use </span>vbs::BinarySerializer;
+
+<span class="kw">use </span><span class="kw">crate</span>::OrchestratorVersion;
 
 <span class="doccomment">/// Holds the client connection to the orchestrator
 </span><span class="kw">pub struct </span>OrchestratorClient {

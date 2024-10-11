@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PredicateResult"],"mod":["event","upgrade_with_consensus"],"trait":["Predicate"]};
+window.SIDEBAR_ITEMS = {"enum":["PredicateResult"],"mod":["event","upgrade_with_proposal","upgrade_with_vote"],"trait":["Predicate"]};

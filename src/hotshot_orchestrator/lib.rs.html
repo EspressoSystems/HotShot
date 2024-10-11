@@ -883,8 +883,6 @@
 <a href="#881" id="881">881</a>
 <a href="#882" id="882">882</a>
 <a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -909,7 +907,7 @@
 <span class="kw">use </span>csv::Writer;
 <span class="kw">use </span>futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 <span class="kw">use </span>hotshot_types::{
-    network::BuilderType,
+    network::{BuilderType, NetworkConfig, PublicKeysFile},
     traits::signature_key::{SignatureKey, StakeTableEntryType},
     PeerConfig,
 };
@@ -931,8 +929,6 @@
     version::{StaticVersion, StaticVersionType},
     BinarySerializer,
 };
-
-<span class="kw">use </span>hotshot_types::network::{NetworkConfig, PublicKeysFile};
 
 <span class="doccomment">/// Orchestrator is not, strictly speaking, bound to the network; it can have its own versioning.
 /// Orchestrator Version (major)

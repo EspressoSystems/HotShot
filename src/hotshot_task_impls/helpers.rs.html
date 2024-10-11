@@ -803,15 +803,6 @@
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1474,12 +1465,6 @@
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Constant which tells [`update_view`] to send a view change event when called.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SEND_VIEW_CHANGE_EVENT: bool = <span class="bool-val">true</span>;
-
-<span class="doccomment">/// Constant which tells `update_view` to not send a view change event when called.
-</span><span class="kw">pub const </span>DONT_SEND_VIEW_CHANGE_EVENT: bool = <span class="bool-val">false</span>;
-
 <span class="doccomment">/// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
 /// `timeout_task` which are updated during the operation of the function.
 ///
@@ -1496,7 +1481,6 @@
     cur_view_time: <span class="kw-2">&amp;mut </span>i64,
     timeout_task: <span class="kw-2">&amp;mut </span>JoinHandle&lt;()&gt;,
     output_event_stream: <span class="kw-2">&amp;</span>Sender&lt;Event&lt;TYPES&gt;&gt;,
-    send_view_change_event: bool,
     is_old_view_leader: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">ensure!</span>(
@@ -1517,20 +1501,18 @@
     <span class="comment">// The next view is just the current view + 1
     </span><span class="kw">let </span>next_view = <span class="kw-2">*</span>cur_view + <span class="number">1</span>;
 
-    <span class="kw">if </span>send_view_change_event {
-        <span class="macro">futures::join!</span> {
-            broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
-            broadcast_event(
-                Event {
+    <span class="macro">futures::join!</span> {
+        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
+        broadcast_event(
+            Event {
+                view_number: old_view,
+                event: EventType::ViewFinished {
                     view_number: old_view,
-                    event: EventType::ViewFinished {
-                        view_number: old_view,
-                    },
                 },
-                output_event_stream,
-            )
-        };
-    }
+            },
+            output_event_stream,
+        )
+    };
 
     <span class="comment">// Spawn a timeout task if we did actually update view
     </span><span class="kw">let </span>new_timeout_task = async_spawn({
