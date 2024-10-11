@@ -445,7 +445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
-                    warn!("View changed by more than 1 going to view {:?}", view);
+                    info!("View changed by more than 1 going to view {:?}", view);
                     make_block = self.membership.leader(view) == self.public_key;
                 }
                 self.cur_view = view;

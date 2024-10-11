@@ -190,7 +190,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
         if let Some(entry) = kad.store_mut().get(&key.clone().into()) {
             // The key already exists in the cache
             if chan.send(entry.value.clone()).is_err() {
-                warn!("Get DHT: channel closed before get record request result could be sent");
+                error!("Get DHT: channel closed before get record request result could be sent");
             }
         } else {
             // Check if the key is already being queried
@@ -330,7 +330,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                     // Only return the record if we can store it (validation passed)
                     if store.put(record).is_ok() {
                         if notify.send(r).is_err() {
-                            warn!("Get DHT: channel closed before get record request result could be sent");
+                            error!("Get DHT: channel closed before get record request result could be sent");
                         }
                     } else {
                         error!("Failed to store record in local store");
