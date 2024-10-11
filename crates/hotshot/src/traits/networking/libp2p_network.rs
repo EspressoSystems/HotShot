@@ -37,7 +37,6 @@ use futures::{
     future::{join_all, Either},
     FutureExt,
 };
-use hotshot_orchestrator::config::NetworkConfig;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -46,6 +45,7 @@ use hotshot_types::{
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
+    network::NetworkConfig,
     request_response::Request,
     traits::{
         election::Membership,
@@ -408,7 +408,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     ///
     /// # Panics
     /// If we are unable to calculate the replication factor
-    pub async fn from_config<TYPES: NodeType>(
+    pub async fn from_config(
         mut config: NetworkConfig<K>,
         gossip_config: GossipConfig,
         bind_address: Multiaddr,
