@@ -289,7 +289,7 @@ impl<
             }
             match net.vid_broadcast_message(messages).await {
                 Ok(()) => {}
-                Err(e) => error!("Failed to send message from network task: {:?}", e),
+                Err(e) => warn!("Failed to send message from network task: {:?}", e),
             }
         });
 
@@ -597,7 +597,7 @@ impl<
                         .direct_message(serialized_message.clone(), recipient)
                         .await
                     {
-                        error!("Failed to send message from network task: {e:?}");
+                        warn!("Failed to send message: {e:?}");
                     }
 
                     // Otherwise, send the next message.
@@ -608,7 +608,7 @@ impl<
 
             match transmit_result {
                 Ok(()) => {}
-                Err(e) => error!("Failed to send message from network task: {:?}", e),
+                Err(e) => warn!("Failed to send message task: {:?}", e),
             }
         });
     }

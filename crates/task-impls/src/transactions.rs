@@ -32,7 +32,7 @@ use hotshot_types::{
     utils::ViewInner,
     vid::{VidCommitment, VidPrecomputeData},
 };
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use url::Url;
 use vbs::version::{StaticVersionType, Version};
 use vec1::Vec1;
@@ -191,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .await;
         } else {
             // If we couldn't get a block, send an empty block
-            warn!(
+            info!(
                 "Failed to get a block for view {:?}, proposing empty block",
                 block_view
             );
@@ -450,7 +450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
-                    error!("View changed by more than 1 going to view {:?}", view);
+                    info!("View changed by more than 1 going to view {:?}", view);
                     make_block = self.membership.leader(view, self.cur_epoch) == self.public_key;
                 }
                 self.cur_view = view;
@@ -581,7 +581,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 // We failed to get a block
                 Ok(Err(err)) => {
-                    tracing::warn!("Couldn't get a block: {err:#}");
+                    tracing::info!("Couldn't get a block: {err:#}");
                     // pause a bit
                     async_sleep(RETRY_DELAY).await;
                     continue;
@@ -589,7 +589,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 // We timed out while getting available blocks
                 Err(err) => {
-                    error!(%err, "Timeout while getting available blocks");
+                    info!(%err, "Timeout while getting available blocks");
                     return None;
                 }
             }
