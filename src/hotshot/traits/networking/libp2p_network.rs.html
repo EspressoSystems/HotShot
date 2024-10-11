@@ -1119,13 +1119,6 @@
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1174,7 +1167,6 @@
     constants::LOOK_AHEAD,
     data::ViewNumber,
     network::NetworkConfig,
-    request_response::Request,
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
@@ -1866,9 +1858,6 @@
             NetworkEvent::IsBootstrapped =&gt; {
                 <span class="macro">error!</span>(<span class="string">"handle_recvd_events received `NetworkEvent::IsBootstrapped`, which should be impossible."</span>);
             }
-            NetworkEvent::ResponseRequested(..) =&gt; {
-                <span class="macro">error!</span>(<span class="string">"received unexpected `NetworkEvent::ResponseRequested`"</span>);
-            }
             NetworkEvent::ConnectedPeersUpdate(<span class="kw">_</span>) =&gt; {}
         }
         <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
@@ -1901,10 +1890,7 @@
                             NetworkEvent::IsBootstrapped =&gt; {
                                 is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                             }
-                            GossipMsg(<span class="kw">_</span>)
-                            | DirectRequest(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>)
-                            | DirectResponse(<span class="kw">_</span>, <span class="kw">_</span>)
-                            | NetworkEvent::ResponseRequested(Request(<span class="kw">_</span>), <span class="kw">_</span>) =&gt; {
+                            GossipMsg(<span class="kw">_</span>) | DirectRequest(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) | DirectResponse(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                                 <span class="kw">let _ </span>= handle.handle_recvd_events(message, <span class="kw-2">&amp;</span>sender).<span class="kw">await</span>;
                             }
                             NetworkEvent::ConnectedPeersUpdate(num_peers) =&gt; {

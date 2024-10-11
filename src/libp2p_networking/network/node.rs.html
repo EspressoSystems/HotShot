@@ -752,42 +752,6 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -815,9 +779,7 @@
 };
 <span class="kw">use </span>futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 <span class="kw">use </span>hotshot_types::{
-    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC,
-    request_response::{Request, Response},
-    traits::signature_key::SignatureKey,
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::signature_key::SignatureKey,
 };
 <span class="kw">use </span>libp2p::{
     autonat,
@@ -861,7 +823,6 @@
     dht::{DHTBehaviour, DHTProgress, KadPutQuery, NUM_REPLICATED_TO_TRUST},
     direct_message::{DMBehaviour, DMRequest},
     exponential_backoff::ExponentialBackoff,
-    request_response::RequestResponseState,
 };
 
 <span class="doccomment">/// Maximum size of a message
@@ -887,8 +848,6 @@
     </span>config: NetworkNodeConfig&lt;K&gt;,
     <span class="doccomment">/// the listener id we are listening on, if it exists
     </span>listener_id: <span class="prelude-ty">Option</span>&lt;ListenerId&gt;,
-    <span class="doccomment">/// Handler for requests and response behavior events.
-    </span>request_response_state: RequestResponseState,
     <span class="doccomment">/// Handler for direct messages
     </span>direct_message_state: DMBehaviour,
     <span class="doccomment">/// Handler for DHT Events
@@ -1061,15 +1020,6 @@
                     .into_iter(),
                     rrconfig.clone(),
                 );
-            <span class="kw">let </span>request_response: libp2p::request_response::cbor::Behaviour&lt;Request, Response&gt; =
-                RequestResponse::new(
-                    [(
-                        StreamProtocol::new(<span class="string">"/HotShot/request_response/1.0"</span>),
-                        ProtocolSupport::Full,
-                    )]
-                    .into_iter(),
-                    rrconfig.clone(),
-                );
 
             <span class="kw">let </span>autonat_config = autonat::Config {
                 only_global_ips: <span class="bool-val">false</span>,
@@ -1081,7 +1031,6 @@
                 kadem,
                 identify,
                 direct_message,
-                request_response,
                 autonat::Behaviour::new(peer_id, autonat_config),
             );
 
@@ -1111,7 +1060,6 @@
             swarm,
             config: config.clone(),
             listener_id: <span class="prelude-val">None</span>,
-            request_response_state: RequestResponseState::default(),
             direct_message_state: DMBehaviour::default(),
             dht_handler: DHTBehaviour::new(
                 peer_id,
@@ -1269,23 +1217,6 @@
                     }
                     ClientRequest::DirectResponse(chan, msg) =&gt; {
                         behaviour.add_direct_response(chan, msg);
-                    }
-                    ClientRequest::DataRequest {
-                        request,
-                        peer,
-                        chan,
-                    } =&gt; {
-                        <span class="kw">let </span>id = behaviour.request_response.send_request(<span class="kw-2">&amp;</span>peer, request);
-                        <span class="self">self</span>.request_response_state.add_request(id, chan);
-                    }
-                    ClientRequest::DataResponse { response, chan } =&gt; {
-                        <span class="kw">if </span>behaviour
-                            .request_response
-                            .send_response(chan, response)
-                            .is_err()
-                        {
-                            <span class="macro">debug!</span>(<span class="string">"Data response dropped because client is no longer connected"</span>);
-                        }
                     }
                     ClientRequest::AddKnownPeers(peers) =&gt; {
                         <span class="self">self</span>.add_known_peers(<span class="kw-2">&amp;</span>peers);
@@ -1445,9 +1376,6 @@
                     NetworkEventInternal::DMEvent(e) =&gt; <span class="self">self
                         </span>.direct_message_state
                         .handle_dm_event(e, <span class="self">self</span>.resend_tx.clone()),
-                    NetworkEventInternal::RequestResponseEvent(e) =&gt; {
-                        <span class="self">self</span>.request_response_state.handle_request_response(e)
-                    }
                     NetworkEventInternal::AutonatEvent(e) =&gt; {
                         <span class="kw">match </span>e {
                             autonat::Event::InboundProbe(<span class="kw">_</span>) =&gt; {}

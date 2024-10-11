@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dht","direct_message","exponential_backoff","request_response"]};
+window.SIDEBAR_ITEMS = {"mod":["dht","direct_message","exponential_backoff"]};

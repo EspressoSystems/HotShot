@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ProposalRequestPayload","Request","Response"]};
+window.SIDEBAR_ITEMS = {"struct":["ProposalRequestPayload"]};

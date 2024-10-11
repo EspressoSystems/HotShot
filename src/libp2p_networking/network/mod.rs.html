@@ -197,29 +197,6 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -237,11 +214,8 @@
 
 <span class="kw">use </span>std::{collections::HashSet, fmt::Debug};
 
-<span class="kw">use </span>futures::channel::oneshot::{<span class="self">self</span>, Sender};
-<span class="kw">use </span>hotshot_types::{
-    request_response::{Request, Response},
-    traits::{network::NetworkError, signature_key::SignatureKey},
-};
+<span class="kw">use </span>futures::channel::oneshot::Sender;
+<span class="kw">use </span>hotshot_types::traits::{network::NetworkError, signature_key::SignatureKey};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -299,22 +273,6 @@
     },
     <span class="doccomment">/// client request to send a direct reply to a message
     </span>DirectResponse(ResponseChannel&lt;Vec&lt;u8&gt;&gt;, Vec&lt;u8&gt;),
-    <span class="doccomment">/// request for data from another peer
-    </span>DataRequest {
-        <span class="doccomment">/// request sent on wire
-        </span>request: Request,
-        <span class="doccomment">/// Peer to try sending the request to
-        </span>peer: PeerId,
-        <span class="doccomment">/// Send back request ID to client
-        </span>chan: oneshot::Sender&lt;<span class="prelude-ty">Option</span>&lt;Response&gt;&gt;,
-    },
-    <span class="doccomment">/// Respond with some data to another peer
-    </span>DataResponse {
-        <span class="doccomment">/// Data
-        </span>response: Response,
-        <span class="doccomment">/// Send back channel
-        </span>chan: ResponseChannel&lt;Response&gt;,
-    },
     <span class="doccomment">/// prune a peer
     </span>Prune(PeerId),
     <span class="doccomment">/// add vec of known peers or addresses
@@ -361,8 +319,6 @@
     </span>DirectRequest(Vec&lt;u8&gt;, PeerId, ResponseChannel&lt;Vec&lt;u8&gt;&gt;),
     <span class="doccomment">/// Recv-ed a direct response from a node (that hopefully was initiated by this node)
     </span>DirectResponse(Vec&lt;u8&gt;, PeerId),
-    <span class="doccomment">/// A peer is asking us for data
-    </span>ResponseRequested(Request, ResponseChannel&lt;Response&gt;),
     <span class="doccomment">/// Report that kademlia has successfully bootstrapped into the network
     </span>IsBootstrapped,
     <span class="doccomment">/// The number of connected peers has possibly changed
@@ -382,8 +338,6 @@
     </span>GossipEvent(Box&lt;GossipEvent&gt;),
     <span class="doccomment">/// a direct message event
     </span>DMEvent(libp2p::request_response::Event&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;),
-    <span class="doccomment">/// a request response event
-    </span>RequestResponseEvent(libp2p::request_response::Event&lt;Request, Response&gt;),
     <span class="doccomment">/// a autonat event
     </span>AutonatEvent(libp2p::autonat::Event),
 }
