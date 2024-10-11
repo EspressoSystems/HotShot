@@ -427,10 +427,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 );
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+                let epoch_number = self.consensus.read().await.cur_epoch();
                 if !certificate
                     .is_valid_cert(
                         self.quorum_membership.as_ref(),
-                        self.consensus.read().await.cur_epoch(),
+                        epoch_number,
                         &self.upgrade_lock,
                     )
                     .await
@@ -443,7 +444,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 let view_number = certificate.view_number;
-                let epoch_number = self.consensus.read().await.cur_epoch();
 
                 self.create_dependency_task_if_new(
                     view_number,

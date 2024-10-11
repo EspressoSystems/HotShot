@@ -636,7 +636,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                         info!("Failed to propose off SendPayloadCommitmentAndMetadata because we had view change evidence, but it was not current.");
                         return;
                     }
-                    let current_epoch = self.consensus.read().await.cur_epoch();
                     match cert {
                         ViewChangeEvidence::Timeout(tc) => {
                             if self

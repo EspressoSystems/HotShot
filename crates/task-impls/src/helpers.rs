@@ -493,14 +493,14 @@ pub async fn validate_proposal_safety_and_liveness<
         if let Err(e) = consensus_write.update_proposed_view(proposal.clone()) {
             tracing::debug!("Internal proposal update failed; error = {e:#}");
         };
-
-        // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
-        broadcast_event(
-            Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
-            &event_stream,
-        )
-        .await;
     }
+
+    // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
+    broadcast_event(
+        Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
+        &event_stream,
+    )
+    .await;
 
     let current_epoch = consensus.read().await.cur_epoch();
     UpgradeCertificate::validate(

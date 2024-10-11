@@ -97,6 +97,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.view_number();
+                let current_epoch = self.state.read().await.cur_epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view
@@ -107,7 +108,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    let current_epoch = self.state.read().await.cur_epoch();
                     self.spawn_requests(prop_view, current_epoch, sender, receiver);
                 }
                 Ok(())
