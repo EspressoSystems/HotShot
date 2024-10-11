@@ -196,7 +196,7 @@
         BlockPayload,
     },
 };
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument};
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -315,7 +315,7 @@
                 }
 
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
+                    <span class="macro">info!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
 

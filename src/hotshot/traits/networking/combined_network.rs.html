@@ -561,7 +561,7 @@
 };
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>parking_lot::RwLock <span class="kw">as </span>PlRwLock;
-<span class="kw">use </span>tracing::{debug, warn};
+<span class="kw">use </span>tracing::{debug, info, warn};
 
 <span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
 <span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
@@ -665,7 +665,7 @@
         {
             <span class="comment">// If the primary failed more than `COMBINED_NETWORK_MIN_PRIMARY_FAILURES` times,
             // we don't want to delay this message, and from now on we consider the primary as down
-            </span><span class="macro">warn!</span>(
+            </span><span class="macro">info!</span>(
                 <span class="string">"View progression is slower than normally, stop delaying messages on the secondary"
             </span>);
             <span class="self">self</span>.primary_down.store(<span class="bool-val">true</span>, Ordering::Relaxed);

@@ -1279,7 +1279,7 @@
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
                 <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number);
-                <span class="macro">error!</span>(
+                <span class="macro">warn!</span>(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(<span class="kw-2">&amp;</span>leader),
                     view_number = <span class="kw-2">*</span>view_number,
@@ -1396,7 +1396,7 @@
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
                         async_sleep(timeout).<span class="kw">await</span>;
-                        <span class="macro">info!</span>(<span class="string">"Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}"</span>, relay);
+                        <span class="macro">warn!</span>(<span class="string">"Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}"</span>, relay);
 
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -1488,7 +1488,7 @@
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
                         async_sleep(timeout).<span class="kw">await</span>;
-                        <span class="macro">info!</span>(
+                        <span class="macro">warn!</span>(
                             <span class="string">"Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}"</span>,
                             relay
                         );
@@ -1584,7 +1584,7 @@
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
                         async_sleep(timeout).<span class="kw">await</span>;
-                        <span class="macro">info!</span>(<span class="string">"Vote sending timed out in ViewSyncTrigger"</span>);
+                        <span class="macro">warn!</span>(<span class="string">"Vote sending timed out in ViewSyncTrigger"</span>);
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
                                 TYPES::Time::new(<span class="kw-2">*</span>next_view),
@@ -1650,7 +1650,7 @@
                         <span class="kw">let </span>last_cert = last_seen_certificate.clone();
                         <span class="kw">async move </span>{
                             async_sleep(timeout).<span class="kw">await</span>;
-                            <span class="macro">info!</span>(
+                            <span class="macro">warn!</span>(
                                 <span class="string">"Vote sending timed out in ViewSyncTimeout relay = {}"</span>,
                                 relay
                             );

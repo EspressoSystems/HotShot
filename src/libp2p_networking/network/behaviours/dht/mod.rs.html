@@ -828,7 +828,7 @@
                     </span>}
                 },
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"GOT ERROR IN KAD QUERY {:?}"</span>, err);
+                    <span class="macro">warn!</span>(<span class="string">"Error in Kademlia query: {:?}"</span>, err);
                     <span class="number">0
                 </span>}
             },
@@ -893,7 +893,7 @@
                     // Initiate new query that hits more replicas
                     </span><span class="kw">if </span>retry_count &gt; <span class="number">0 </span>{
                         <span class="kw">let </span>new_retry_count = retry_count - <span class="number">1</span>;
-                        <span class="macro">error!</span>(<span class="string">"Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes. {:?} retries left"</span>, progress, new_retry_count);
+                        <span class="macro">warn!</span>(<span class="string">"Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes. {:?} retries left"</span>, progress, new_retry_count);
                         <span class="kw">let </span>new_factor = NonZeroUsize::max(
                             NonZeroUsize::new(num_replicas.get() + <span class="number">1</span>).unwrap_or(num_replicas),
                             <span class="kw-2">*</span>MAX_DHT_QUERY_SIZE,
@@ -908,7 +908,7 @@
                             records: HashMap::default(),
                         });
                     }
-                    <span class="macro">error!</span>(<span class="string">"Get DHT: Internal disagreement for get dht request {:?}! Giving up because out of retries. "</span>, progress);
+                    <span class="macro">warn!</span>(<span class="string">"Get DHT: Internal disagreement for get dht request {:?}! Giving up because out of retries. "</span>, progress);
                 }
             }
         }

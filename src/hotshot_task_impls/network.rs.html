@@ -997,7 +997,7 @@
             }
             <span class="kw">match </span>net.vid_broadcast_message(messages).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(()) =&gt; {}
-                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
             }
         });
 
@@ -1289,7 +1289,7 @@
                         .direct_message(serialized_message.clone(), recipient)
                         .<span class="kw">await
                     </span>{
-                        <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {e:?}"</span>);
+                        <span class="macro">warn!</span>(<span class="string">"Failed to send message: {e:?}"</span>);
                     }
 
                     <span class="comment">// Otherwise, send the next message.
@@ -1300,7 +1300,7 @@
 
             <span class="kw">match </span>transmit_result {
                 <span class="prelude-val">Ok</span>(()) =&gt; {}
-                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">"Failed to send message task: {:?}"</span>, e),
             }
         });
     }

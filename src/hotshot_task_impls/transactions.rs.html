@@ -829,7 +829,7 @@
     utils::ViewInner,
     vid::{VidCommitment, VidPrecomputeData},
 };
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>vbs::version::{StaticVersionType, Version};
 <span class="kw">use </span>vec1::Vec1;
@@ -985,7 +985,7 @@
             .<span class="kw">await</span>;
         } <span class="kw">else </span>{
             <span class="comment">// If we couldn't get a block, send an empty block
-            </span><span class="macro">warn!</span>(
+            </span><span class="macro">info!</span>(
                 <span class="string">"Failed to get a block for view {:?}, proposing empty block"</span>,
                 block_view
             );
@@ -1242,7 +1242,7 @@
 
                 <span class="kw">let </span><span class="kw-2">mut </span>make_block = <span class="bool-val">false</span>;
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">error!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
+                    <span class="macro">info!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                     make_block = <span class="self">self</span>.membership.leader(view) == <span class="self">self</span>.public_key;
                 }
                 <span class="self">self</span>.cur_view = view;
@@ -1371,7 +1371,7 @@
 
                 <span class="comment">// We failed to get a block
                 </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Couldn't get a block: {err:#}"</span>);
+                    <span class="macro">tracing::info!</span>(<span class="string">"Couldn't get a block: {err:#}"</span>);
                     <span class="comment">// pause a bit
                     </span>async_sleep(RETRY_DELAY).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
@@ -1379,7 +1379,7 @@
 
                 <span class="comment">// We timed out while getting available blocks
                 </span><span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">error!</span>(%err, <span class="string">"Timeout while getting available blocks"</span>);
+                    <span class="macro">info!</span>(%err, <span class="string">"Timeout while getting available blocks"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
             }
