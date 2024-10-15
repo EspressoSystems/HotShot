@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use super::node_implementation::NodeType;
 use crate::{
     consensus::{CommitmentMap, View},
-    data::{DaProposal, Leaf, QuorumProposal, Leaf2, QuorumProposal2, VidDisperseShare},
+    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},

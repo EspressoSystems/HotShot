@@ -391,6 +391,18 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 }
 
+impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
+    fn from(quorum_proposal: QuorumProposal<TYPES>) -> Self {
+        Self {
+            block_header: quorum_proposal.block_header,
+            view_number: quorum_proposal.view_number,
+            justify_qc: LeafCertificate::Quorum(quorum_proposal.justify_qc),
+            upgrade_certificate: quorum_proposal.upgrade_certificate,
+            proposal_certificate: quorum_proposal.proposal_certificate,
+        }
+    }
+}
+
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal<TYPES> {
     fn view_number(&self) -> TYPES::Time {
         self.view_number
@@ -510,37 +522,35 @@ pub struct Leaf2<TYPES: NodeType> {
 
 #[derive(Hash, Eq, Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(bound(deserialize = ""))]
-/// Certificates for the new `QuorumProposal2` type, 
+/// Certificates for the new `QuorumProposal2` type,
 /// which may include either a QC or an eQC.
 pub enum LeafCertificate<TYPES: NodeType> {
-  /// a QC
-  Quorum(QuorumCertificate<TYPES>),
-  /// an eQC
-  Epoch,
+    /// a QC
+    Quorum(QuorumCertificate<TYPES>),
+    /// an eQC
+    Epoch,
 }
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-      match &self.justify_qc {
-        LeafCertificate::Quorum(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
-            .u64_field("view number", *self.view_number)
-            .field("parent leaf commitment", self.parent_commitment)
-            .field("block header", self.block_header.commit())
-            .field("justify qc", justify_qc.commit())
-            .optional("upgrade certificate", &self.upgrade_certificate)
-            .finalize(),
-        LeafCertificate::Epoch => RawCommitmentBuilder::new("leaf commitment")
-            .u64_field("view number", *self.view_number)
-            .field("parent leaf commitment", self.parent_commitment)
-            .field("block header", self.block_header.commit())
-            .u64_field("eqc", 0)
-            .optional("upgrade certificate", &self.upgrade_certificate)
-            .finalize(),
-
-      }
+        match &self.justify_qc {
+            LeafCertificate::Quorum(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
+                .u64_field("view number", *self.view_number)
+                .field("parent leaf commitment", self.parent_commitment)
+                .field("block header", self.block_header.commit())
+                .field("justify qc", justify_qc.commit())
+                .optional("upgrade certificate", &self.upgrade_certificate)
+                .finalize(),
+            LeafCertificate::Epoch => RawCommitmentBuilder::new("leaf commitment")
+                .u64_field("view number", *self.view_number)
+                .field("parent leaf commitment", self.parent_commitment)
+                .field("block header", self.block_header.commit())
+                .u64_field("eqc", 0)
+                .optional("upgrade certificate", &self.upgrade_certificate)
+                .finalize(),
+        }
     }
 }
-
 
 impl<TYPES: NodeType> Leaf<TYPES> {
     #[allow(clippy::unused_async)]

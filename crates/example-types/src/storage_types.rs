@@ -14,7 +14,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     consensus::CommitmentMap,
-    data::{DaProposal, Leaf, QuorumProposal, Leaf2, QuorumProposal2, VidDisperseShare},
+    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
