@@ -14,7 +14,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     consensus::CommitmentMap,
-    data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare},
+    data::{DaProposal, Leaf, QuorumProposal, Leaf2, QuorumProposal2, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
@@ -38,6 +38,7 @@ pub struct TestStorageState<TYPES: NodeType> {
     vids: VidShares<TYPES>,
     das: HashMap<TYPES::Time, Proposal<TYPES, DaProposal<TYPES>>>,
     proposals: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal<TYPES>>>,
+    proposals2: BTreeMap<TYPES::Time, Proposal<TYPES, QuorumProposal2<TYPES>>>,
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
     action: TYPES::Time,
 }
@@ -48,6 +49,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
             vids: HashMap::new(),
             das: HashMap::new(),
             proposals: BTreeMap::new(),
+            proposals2: BTreeMap::new(),
             high_qc: None,
             action: TYPES::Time::genesis(),
         }
@@ -142,6 +144,20 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
             .insert(proposal.data.view_number, proposal.clone());
         Ok(())
     }
+    async fn append_proposal2(
+        &self,
+        proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to append VID proposal to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        let mut inner = self.inner.write().await;
+        inner
+            .proposals2
+            .insert(proposal.data.view_number, proposal.clone());
+        Ok(())
+    }
 
     async fn record_action(
         &self,
@@ -180,6 +196,17 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     async fn update_undecided_state(
         &self,
         _leafs: CommitmentMap<Leaf<TYPES>>,
+        _state: BTreeMap<TYPES::Time, View<TYPES>>,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to update high qc to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        Ok(())
+    }
+    async fn update_undecided_state2(
+        &self,
+        _leafs: CommitmentMap<Leaf2<TYPES>>,
         _state: BTreeMap<TYPES::Time, View<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {

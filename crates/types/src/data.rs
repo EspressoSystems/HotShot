@@ -368,6 +368,29 @@ pub struct QuorumProposal<TYPES: NodeType> {
     pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 }
 
+/// Proposal to append a block.
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub struct QuorumProposal2<TYPES: NodeType> {
+    /// The block header to append
+    pub block_header: TYPES::BlockHeader,
+
+    /// CurView from leader when proposing leaf
+    pub view_number: TYPES::Time,
+
+    /// Per spec, justification
+    pub justify_qc: LeafCertificate<TYPES>,
+
+    /// Possible upgrade certificate, which the leader may optionally attach.
+    pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// Possible timeout or view sync certificate.
+    /// - A timeout certificate is only present if the justify_qc is not for the preceding view
+    /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
+    /// present.
+    pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
+}
+
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal<TYPES> {
     fn view_number(&self) -> TYPES::Time {
         self.view_number
@@ -387,6 +410,12 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperseShare<TYPES> {
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal<TYPES> {
+    fn view_number(&self) -> TYPES::Time {
+        self.view_number
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal2<TYPES> {
     fn view_number(&self) -> TYPES::Time {
         self.view_number
     }
@@ -450,6 +479,68 @@ pub struct Leaf<TYPES: NodeType> {
     /// It may be empty for nodes not in the DA committee.
     block_payload: Option<TYPES::BlockPayload>,
 }
+
+/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
+/// as well as the hash of its parent `Leaf`.
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::BlockPayload`
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq)]
+#[serde(bound(deserialize = ""))]
+pub struct Leaf2<TYPES: NodeType> {
+    /// CurView from leader when proposing leaf
+    view_number: TYPES::Time,
+
+    /// Per spec, justification
+    justify_qc: LeafCertificate<TYPES>,
+
+    /// The hash of the parent `Leaf`
+    /// So we can ask if it extends
+    parent_commitment: Commitment<Self>,
+
+    /// Block header.
+    block_header: TYPES::BlockHeader,
+
+    /// Optional upgrade certificate, if one was attached to the quorum proposal for this view.
+    upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
+    /// Optional block payload.
+    ///
+    /// It may be empty for nodes not in the DA committee.
+    block_payload: Option<TYPES::BlockPayload>,
+}
+
+#[derive(Hash, Eq, Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(bound(deserialize = ""))]
+/// Certificates for the new `QuorumProposal2` type, 
+/// which may include either a QC or an eQC.
+pub enum LeafCertificate<TYPES: NodeType> {
+  /// a QC
+  Quorum(QuorumCertificate<TYPES>),
+  /// an eQC
+  Epoch,
+}
+
+impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
+    fn commit(&self) -> committable::Commitment<Self> {
+      match &self.justify_qc {
+        LeafCertificate::Quorum(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
+            .u64_field("view number", *self.view_number)
+            .field("parent leaf commitment", self.parent_commitment)
+            .field("block header", self.block_header.commit())
+            .field("justify qc", justify_qc.commit())
+            .optional("upgrade certificate", &self.upgrade_certificate)
+            .finalize(),
+        LeafCertificate::Epoch => RawCommitmentBuilder::new("leaf commitment")
+            .u64_field("view number", *self.view_number)
+            .field("parent leaf commitment", self.parent_commitment)
+            .field("block header", self.block_header.commit())
+            .u64_field("eqc", 0)
+            .optional("upgrade certificate", &self.upgrade_certificate)
+            .finalize(),
+
+      }
+    }
+}
+
 
 impl<TYPES: NodeType> Leaf<TYPES> {
     #[allow(clippy::unused_async)]
