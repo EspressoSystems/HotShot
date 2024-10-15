@@ -54,8 +54,6 @@ pub enum TransmitType<TYPES: NodeType> {
     Broadcast,
     /// broadcast to DA committee
     DaCommitteeBroadcast,
-    /// broadcast to the leader and the DA
-    DaCommitteeAndLeaderBroadcast(TYPES::SignatureKey),
 }
 
 /// Errors that can occur in the network
@@ -120,17 +118,6 @@ pub enum NetworkError {
     /// Failed to look up a node on the network
     #[error("Node lookup failed: {0}")]
     LookupError(String),
-}
-
-/// common traits we would like our network messages to implement
-pub trait NetworkMsg:
-    Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
-{
-}
-
-impl<T> NetworkMsg for T where
-    T: Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + Debug + 'static
-{
 }
 
 /// Trait that bundles what we need from a request ID
