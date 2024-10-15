@@ -803,6 +803,13 @@
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -846,7 +853,10 @@
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::{debug, info, instrument, warn};
 
-<span class="kw">use crate</span>::{events::HotShotEvent, request::REQUEST_TIMEOUT};
+<span class="kw">use crate</span>::{
+    events::HotShotEvent, quorum_proposal_recv::QuorumProposalRecvTaskState,
+    request::REQUEST_TIMEOUT,
+};
 
 <span class="doccomment">/// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 </span><span class="attr">#[instrument(skip_all)]
@@ -1241,11 +1251,8 @@
 ///
 /// # Errors
 /// If any validation or state update fails.
-/// TODO - This should just take the QuorumProposalRecv task state after
-/// we merge the dependency tasks.
-</span><span class="attr">#[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_lines)]
-#[instrument(skip_all, fields(id = id, view = <span class="kw-2">*</span>proposal.data.view_number()))]
+</span><span class="attr">#[allow(clippy::too_many_lines)]
+#[instrument(skip_all, fields(id = task_state.id, view = <span class="kw-2">*</span>proposal.data.view_number()))]
 </span><span class="kw">pub async fn </span>validate_proposal_safety_and_liveness&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
@@ -1253,21 +1260,15 @@
 &gt;(
     proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf&lt;TYPES&gt;,
-    consensus: OuterConsensus&lt;TYPES&gt;,
-    decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
-    quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     sender: TYPES::SignatureKey,
-    event_sender: Sender&lt;Event&lt;TYPES&gt;&gt;,
-    id: u64,
-    upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
-    storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
 
     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
     <span class="macro">ensure!</span>(
-        proposed_leaf.parent_commitment() == parent_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
+        proposed_leaf.parent_commitment() == parent_leaf.commit(<span class="kw-2">&amp;</span>task_state.upgrade_lock).<span class="kw">await</span>,
         <span class="string">"Proposed leaf does not extend the parent leaf."
     </span>);
 
@@ -1276,19 +1277,19 @@
     );
     <span class="kw">let </span>view = View {
         view_inner: ViewInner::Leaf {
-            leaf: proposed_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
+            leaf: proposed_leaf.commit(<span class="kw-2">&amp;</span>task_state.upgrade_lock).<span class="kw">await</span>,
             state,
             delta: <span class="prelude-val">None</span>, <span class="comment">// May be updated to `Some` in the vote task.
         </span>},
     };
 
     {
-        <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = consensus.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
             <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
         }
         consensus_write
-            .update_saved_leaves(proposed_leaf.clone(), <span class="kw-2">&amp;</span>upgrade_lock)
+            .update_saved_leaves(proposed_leaf.clone(), <span class="kw-2">&amp;</span>task_state.upgrade_lock)
             .<span class="kw">await</span>;
 
         <span class="comment">// Update our internal storage of the proposal. The proposal is valid, so
@@ -1307,14 +1308,17 @@
 
     UpgradeCertificate::validate(
         <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
-        <span class="kw-2">&amp;</span>quorum_membership,
-        <span class="kw-2">&amp;</span>upgrade_lock,
+        <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Validate that the upgrade certificate is re-attached, if we saw one on the parent
     </span>proposed_leaf
-        .extends_upgrade(<span class="kw-2">&amp;</span>parent_leaf, <span class="kw-2">&amp;</span>decided_upgrade_certificate)
+        .extends_upgrade(
+            <span class="kw-2">&amp;</span>parent_leaf,
+            <span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate,
+        )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
@@ -1323,7 +1327,7 @@
 
     // Liveness check.
     </span>{
-        <span class="kw">let </span>read_consensus = consensus.read().<span class="kw">await</span>;
+        <span class="kw">let </span>read_consensus = task_state.consensus.read().<span class="kw">await</span>;
         <span class="kw">let </span>liveness_check = justify_qc.view_number() &gt; read_consensus.locked_view();
 
         <span class="comment">// Safety check.
@@ -1347,7 +1351,7 @@
                         view_number,
                         event: EventType::Error { error: Arc::new(e) },
                     },
-                    <span class="kw-2">&amp;</span>event_sender,
+                    <span class="kw-2">&amp;</span>task_state.output_event_stream,
                 )
                 .<span class="kw">await</span>;
             }
@@ -1358,7 +1362,12 @@
 
     <span class="comment">// Update our persistent storage of the proposal. If we cannot store the proposal reutrn
     // and error so we don't vote
-    </span>storage.write().<span class="kw">await</span>.append_proposal(<span class="kw-2">&amp;</span>proposal).<span class="kw">await</span><span class="question-mark">?</span>;
+    </span>task_state
+        .storage
+        .write()
+        .<span class="kw">await
+        </span>.append_proposal(<span class="kw-2">&amp;</span>proposal)
+        .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// We accept the proposal, notify the application layer
     </span>broadcast_event(
@@ -1369,7 +1378,7 @@
                 sender,
             },
         },
-        <span class="kw-2">&amp;</span>event_sender,
+        <span class="kw-2">&amp;</span>task_state.output_event_stream,
     )
     .<span class="kw">await</span>;
 
@@ -1392,23 +1401,24 @@
 ///
 /// # Errors
 /// If any validation or view number check fails.
-</span><span class="kw">pub async fn </span>validate_proposal_view_and_certs&lt;TYPES: NodeType, V: Versions&gt;(
+</span><span class="kw">pub async fn </span>validate_proposal_view_and_certs&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    V: Versions,
+&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
-    cur_view: TYPES::Time,
-    quorum_membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
-    timeout_membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
-    upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view = proposal.data.view_number();
     <span class="macro">ensure!</span>(
-        view &gt;= cur_view,
+        view &gt;= task_state.cur_view,
         <span class="string">"Proposal is from an older view {:?}"</span>,
         proposal.data.clone()
     );
 
     <span class="comment">// Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     </span>proposal
-        .validate_signature(quorum_membership, upgrade_lock)
+        .validate_signature(<span class="kw-2">&amp;</span>task_state.quorum_membership, <span class="kw-2">&amp;</span>task_state.upgrade_lock)
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
@@ -1428,7 +1438,10 @@
                 );
                 <span class="macro">ensure!</span>(
                     timeout_cert
-                        .is_valid_cert(timeout_membership.as_ref(), upgrade_lock)
+                        .is_valid_cert(
+                            task_state.timeout_membership.as_ref(),
+                            <span class="kw-2">&amp;</span>task_state.upgrade_lock
+                        )
                         .<span class="kw">await</span>,
                     <span class="string">"Timeout certificate for view {} was invalid"</span>,
                     <span class="kw-2">*</span>view
@@ -1445,7 +1458,10 @@
                 <span class="comment">// View sync certs must also be valid.
                 </span><span class="macro">ensure!</span>(
                     view_sync_cert
-                        .is_valid_cert(quorum_membership.as_ref(), upgrade_lock)
+                        .is_valid_cert(
+                            task_state.quorum_membership.as_ref(),
+                            <span class="kw-2">&amp;</span>task_state.upgrade_lock
+                        )
                         .<span class="kw">await</span>,
                     <span class="string">"Invalid view sync finalize cert provided"
                 </span>);
@@ -1457,8 +1473,8 @@
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
     </span>UpgradeCertificate::validate(
         <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
-        quorum_membership,
-        upgrade_lock,
+        <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1470,25 +1486,19 @@
 ///
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
-/// TODO: Remove args when we merge dependency tasks.
-</span><span class="attr">#[allow(clippy::too_many_arguments)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_view&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_view&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     new_view: TYPES::Time,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    timeout: u64,
-    consensus: OuterConsensus&lt;TYPES&gt;,
-    cur_view: <span class="kw-2">&amp;mut </span>TYPES::Time,
-    cur_view_time: <span class="kw-2">&amp;mut </span>i64,
-    timeout_task: <span class="kw-2">&amp;mut </span>JoinHandle&lt;()&gt;,
-    output_event_stream: <span class="kw-2">&amp;</span>Sender&lt;Event&lt;TYPES&gt;&gt;,
-    is_old_view_leader: bool,
+    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">ensure!</span>(
-        new_view &gt; <span class="kw-2">*</span>cur_view,
+        new_view &gt; task_state.cur_view,
         <span class="string">"New view is not greater than our current view"
     </span>);
 
-    <span class="kw">let </span>old_view = <span class="kw-2">*</span>cur_view;
+    <span class="kw">let </span>is_old_view_leader =
+        task_state.quorum_membership.leader(task_state.cur_view) == task_state.public_key;
+    <span class="kw">let </span>old_view = task_state.cur_view;
 
     <span class="macro">debug!</span>(<span class="string">"Updating view from {} to {}"</span>, <span class="kw-2">*</span>old_view, <span class="kw-2">*</span>new_view);
 
@@ -1496,10 +1506,10 @@
         <span class="macro">info!</span>(<span class="string">"Progress: entered view {:&gt;6}"</span>, <span class="kw-2">*</span>new_view);
     }
 
-    <span class="kw-2">*</span>cur_view = new_view;
+    task_state.cur_view = new_view;
 
     <span class="comment">// The next view is just the current view + 1
-    </span><span class="kw">let </span>next_view = <span class="kw-2">*</span>cur_view + <span class="number">1</span>;
+    </span><span class="kw">let </span>next_view = task_state.cur_view + <span class="number">1</span>;
 
     <span class="macro">futures::join!</span> {
         broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
@@ -1510,7 +1520,7 @@
                     view_number: old_view,
                 },
             },
-            output_event_stream,
+            <span class="kw-2">&amp;</span>task_state.output_event_stream,
         )
     };
 
@@ -1520,7 +1530,7 @@
         <span class="comment">// Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
         </span><span class="kw">let </span>view_number = next_view;
-        <span class="kw">let </span>timeout = Duration::from_millis(timeout);
+        <span class="kw">let </span>timeout = Duration::from_millis(task_state.timeout);
         <span class="kw">async move </span>{
             async_sleep(timeout).<span class="kw">await</span>;
             broadcast_event(
@@ -1532,30 +1542,34 @@
     });
 
     <span class="comment">// cancel the old timeout task
-    </span>cancel_task(std::mem::replace(timeout_task, new_timeout_task)).<span class="kw">await</span>;
+    </span>cancel_task(std::mem::replace(
+        <span class="kw-2">&amp;mut </span>task_state.timeout_task,
+        new_timeout_task,
+    ))
+    .<span class="kw">await</span>;
 
-    <span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
+    <span class="kw">let </span>consensus = task_state.consensus.upgradable_read().<span class="kw">await</span>;
     consensus
         .metrics
         .current_view
-        .set(usize::try_from(cur_view.u64()).unwrap());
+        .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     <span class="kw">let </span>new_view_time = Utc::now().timestamp();
     <span class="kw">if </span>is_old_view_leader {
         <span class="attr">#[allow(clippy::cast_precision_loss)]
         </span>consensus
             .metrics
             .view_duration_as_leader
-            .add_point((new_view_time - <span class="kw-2">*</span>cur_view_time) <span class="kw">as </span>f64);
+            .add_point((new_view_time - task_state.cur_view_time) <span class="kw">as </span>f64);
     }
-    <span class="kw-2">*</span>cur_view_time = new_view_time;
+    task_state.cur_view_time = new_view_time;
 
     <span class="comment">// Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    </span><span class="kw">if </span>usize::try_from(cur_view.u64()).unwrap()
+    </span><span class="kw">if </span>usize::try_from(task_state.cur_view.u64()).unwrap()
         &gt; usize::try_from(consensus.last_decided_view().u64()).unwrap()
     {
         consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(cur_view.u64()).unwrap()
+            usize::try_from(task_state.cur_view.u64()).unwrap()
                 - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
         );
     }

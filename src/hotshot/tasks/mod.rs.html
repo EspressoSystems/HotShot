@@ -771,14 +771,14 @@
 
     {
         <span class="kw">use </span>hotshot_task_impls::{
-            consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
+            consensus::ConsensusTaskState, quorum_proposal::QuorumProposalTaskState,
             quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
         };
 
         handle.add_task(QuorumProposalTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
         handle.add_task(QuorumVoteTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
         handle.add_task(QuorumProposalRecvTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
-        handle.add_task(Consensus2TaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
+        handle.add_task(ConsensusTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"rewind"</span>)]
