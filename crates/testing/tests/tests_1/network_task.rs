@@ -142,7 +142,7 @@ async fn test_network_external_mnessages() {
         .unwrap();
     let event = async_compatibility_layer::art::async_timeout(
         Duration::from_millis(100),
-        event_streams[2].next(),
+        event_streams[2].recv(),
     )
     .await
     .unwrap()
@@ -165,7 +165,7 @@ async fn test_network_external_mnessages() {
         .unwrap();
     let event = async_compatibility_layer::art::async_timeout(
         Duration::from_millis(100),
-        event_streams[1].next(),
+        event_streams[1].recv(),
     )
     .await
     .unwrap()
