@@ -109,7 +109,6 @@ async fn test_network_task() {
 #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
 async fn test_network_external_mnessages() {
-    use async_std::stream::StreamExt;
     use hotshot::types::EventType;
     use hotshot_testing::helpers::build_system_handle_from_launcher;
     use hotshot_types::message::RecipientList;
