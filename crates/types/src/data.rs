@@ -403,6 +403,21 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
+    fn from(leaf: Leaf<TYPES>) -> Self {
+        let bytes: [u8; 32] = leaf.parent_commitment.into();
+
+        Self {
+            view_number: leaf.view_number,
+            justify_qc: LeafCertificate::Quorum(leaf.justify_qc),
+            parent_commitment: Commitment::from_raw(bytes),
+            block_header: leaf.block_header,
+            upgrade_certificate: leaf.upgrade_certificate,
+            block_payload: leaf.block_payload,
+        }
+    }
+}
+
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal<TYPES> {
     fn view_number(&self) -> TYPES::Time {
         self.view_number

@@ -32,7 +32,6 @@ type VidShares<TYPES> = HashMap<
     <TYPES as NodeType>::Time,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
-
 #[derive(Clone, Debug)]
 pub struct TestStorageState<TYPES: NodeType> {
     vids: VidShares<TYPES>,
@@ -220,6 +219,24 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     ) -> Result<()> {
         *self.decided_upgrade_certificate.write().await = decided_upgrade_certificate;
+
+        Ok(())
+    }
+
+    async fn migrate_consensus(
+        &self,
+        _convert_leaf: fn(Leaf<TYPES>) -> Leaf2<TYPES>,
+        convert_proposal: fn(
+            Proposal<TYPES, QuorumProposal<TYPES>>,
+        ) -> Proposal<TYPES, QuorumProposal2<TYPES>>,
+    ) -> Result<()> {
+        let mut storage_writer = self.inner.write().await;
+
+        for (view, proposal) in storage_writer.proposals.clone().iter() {
+            storage_writer
+                .proposals2
+                .insert(*view, convert_proposal(proposal.clone()));
+        }
 
         Ok(())
     }

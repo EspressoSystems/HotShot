@@ -46,9 +46,9 @@ pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::{Leaf, QuorumProposal},
+    data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind, Proposal},
+    message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
@@ -57,6 +57,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
+        storage::Storage,
         EncodeBytes,
     },
     HotShotConfig,
@@ -188,6 +189,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// well.
     ///
     /// Use this instead of `init` if you want to start the tasks manually
+    ///
+    /// # Panics
+    ///
+    /// Panics if storage migration fails.
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         public_key: TYPES::SignatureKey,
@@ -201,6 +206,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         storage: I::Storage,
         marketplace_config: MarketplaceConfig<TYPES, I>,
     ) -> Arc<Self> {
+        #[allow(clippy::panic)]
+        match storage
+            .migrate_consensus(
+                Into::<Leaf2<TYPES>>::into,
+                convert_proposal::<TYPES, QuorumProposal<TYPES>, QuorumProposal2<TYPES>>,
+            )
+            .await
+        {
+            Ok(()) => {}
+            Err(e) => {
+                panic!("Failed to migrate consensus storage: {e}");
+            }
+        }
+
         let interal_chan = broadcast(EVENT_CHANNEL_SIZE);
         let external_chan = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
 

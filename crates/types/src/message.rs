@@ -349,6 +349,22 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     pub _pd: PhantomData<TYPES>,
 }
 
+/// Convert a `Proposal` by converting the underlying proposal type
+pub fn convert_proposal<TYPES, PROPOSAL, PROPOSAL2>(
+    proposal: Proposal<TYPES, PROPOSAL>,
+) -> Proposal<TYPES, PROPOSAL2>
+where
+    TYPES: NodeType,
+    PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned,
+    PROPOSAL2: HasViewNumber<TYPES> + DeserializeOwned + From<PROPOSAL>,
+{
+    Proposal {
+        data: proposal.data.into(),
+        signature: proposal.signature,
+        _pd: proposal._pd,
+    }
+}
+
 impl<TYPES> Proposal<TYPES, QuorumProposal<TYPES>>
 where
     TYPES: NodeType,
