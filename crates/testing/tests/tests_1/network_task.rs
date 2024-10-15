@@ -190,7 +190,7 @@ async fn test_network_external_mnessages() {
     for stream in event_streams.iter_mut().skip(1) {
         let event = async_compatibility_layer::art::async_timeout(
             Duration::from_millis(100),
-            stream.next(),
+            stream.recv(),
         )
         .await
         .unwrap()
