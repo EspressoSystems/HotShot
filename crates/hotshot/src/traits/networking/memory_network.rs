@@ -360,10 +360,9 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for MemoryNetwork<K> {
                 }
             }
         } else {
-            Err(NetworkError::MessageSendError(format!(
-                "node does not exist {:?}\n\n\n {:?}",
-                recipient, self.inner.master_map.map
-            )))
+            Err(NetworkError::MessageSendError(
+                "node does not exist".to_string(),
+            ))
         }
     }
 
