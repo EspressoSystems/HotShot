@@ -97,6 +97,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
+    pub did_spam: bool,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
@@ -514,6 +516,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
+        if self.id == 4 && !self.did_spam {
+            self.did_spam = true;
+            let event_stream = sender.clone();
+            let public_key = self.public_key.clone();
+            let private_key = self.private_key.clone();
+            let upgrade_lock = self.upgrade_lock.clone();
+            async_spawn(async move {
+                for i in 0..1000000000 {
+                    let vote = TimeoutVote::create_signed_vote(
+                        TimeoutData::<TYPES> {
+                            view: ViewNumber::new(i),
+                        },
+                        view_number,
+                        &public_key,
+                        &private_key,
+                        &upgrade_lock,
+                    )
+                    .await
+                    .context("Failed to sign TimeoutData")?;
+                    broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).await;
+                }
+            });
+        }
+
         self.handle(event, receiver.clone(), sender.clone()).await;
 
         Ok(())
