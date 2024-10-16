@@ -425,7 +425,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Option<HotShotTaskCompleted> {
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) => {
                 broadcast_event(
@@ -438,30 +438,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     &self.output_event_stream,
                 )
                 .await;
-
-                return None;
             }
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
+
                 debug!("view change in transactions to view {:?}", view);
-                if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
-                    return None;
-                }
+                ensure!(*view > *self.cur_view, format!("Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view ));
 
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
                     info!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.leader(view, self.cur_epoch) == self.public_key;
+                    make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
                 }
                 self.cur_view = view;
 
                 let next_view = self.cur_view + 1;
                 let next_leader =
-                    self.membership.leader(next_view, self.cur_epoch) == self.public_key;
-                if !make_block && !next_leader {
-                    debug!("Not next leader for view {:?}", self.cur_view);
-                    return None;
-                }
+                    self.membership.leader(next_view, self.cur_epoch)? == self.public_key;
+
+                ensure!(
+                    make_block || next_leader,
+                    format!(
+                        "Not making the block because we are not leader for view {:?}",
+                        self.cur_view
+                    )
+                );
 
                 if make_block {
                     self.handle_view_change(&event_stream, self.cur_view).await;
@@ -471,12 +472,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     self.handle_view_change(&event_stream, next_view).await;
                 }
             }
-            HotShotEvent::Shutdown => {
-                return Some(HotShotTaskCompleted);
-            }
             _ => {}
         }
-        None
+        Ok(())
     }
 
     /// Get VID commitment for the last successful view before `block_view`.
@@ -792,7 +790,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, sender.clone()).await;
+        self.handle(event, sender.clone()).await?;
 
         Ok(())
     }
