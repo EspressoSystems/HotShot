@@ -1211,12 +1211,12 @@
         <span class="macro">format!</span>(<span class="string">"Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}"</span>)
     )<span class="question-mark">?</span>;
 
-    <span class="kw">if </span>leaf_commitment != consensus_reader.high_qc().date().leaf_commit {
+    <span class="kw">if </span>leaf_commitment != consensus_reader.high_qc().data().leaf_commit {
         <span class="comment">// NOTE: This happens on the genesis block
         </span><span class="macro">debug!</span>(
             <span class="string">"They don't equal: {:?}   {:?}"</span>,
             leaf_commitment,
-            consensus_reader.high_qc().date().leaf_commit
+            consensus_reader.high_qc().data().leaf_commit
         );
     }
 
@@ -1432,7 +1432,7 @@
         <span class="kw">match </span>received_proposal_cert {
             ViewChangeEvidence::Timeout(timeout_cert) =&gt; {
                 <span class="macro">ensure!</span>(
-                    timeout_cert.date().view == view - <span class="number">1</span>,
+                    timeout_cert.data().view == view - <span class="number">1</span>,
                     <span class="string">"Timeout certificate for view {} was not for the immediately preceding view"</span>,
                     <span class="kw-2">*</span>view
                 );

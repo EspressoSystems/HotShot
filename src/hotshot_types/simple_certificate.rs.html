@@ -425,7 +425,7 @@
             membership.stake_table(),
             U256::from(<span class="self">Self</span>::threshold(membership)),
         );
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(commit) = <span class="self">self</span>.date_commitment(upgrade_lock).<span class="kw">await else </span>{
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(commit) = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await else </span>{
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
@@ -437,10 +437,10 @@
     <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
         THRESHOLD::threshold(membership)
     }
-    <span class="kw">fn </span>date(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable {
+    <span class="kw">fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable {
         <span class="kw-2">&amp;</span><span class="self">self</span>.data
     }
-    <span class="kw">async fn </span>date_commitment&lt;V: Versions&gt;(
+    <span class="kw">async fn </span>data_commitment&lt;V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Commitment&lt;VersionedVoteData&lt;TYPES, VOTEABLE, V&gt;&gt;&gt; {

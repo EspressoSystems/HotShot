@@ -1143,7 +1143,7 @@
     <span class="doccomment">/// Check that the given ViewChangeEvidence is relevant to the current view.
     </span><span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
-            ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.date().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
+            ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.data().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
             ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; view_sync_cert.view_number == <span class="kw-2">*</span>view,
         }
     }
@@ -1671,7 +1671,7 @@
         Leaf {
             view_number: <span class="kw-2">*</span>view_number,
             justify_qc: justify_qc.clone(),
-            parent_commitment: justify_qc.date().leaf_commit,
+            parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: <span class="prelude-val">None</span>,

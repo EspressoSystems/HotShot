@@ -789,7 +789,7 @@
             .read()
             .<span class="kw">await
             </span>.saved_leaves()
-            .get(<span class="kw-2">&amp;</span>justify_qc.date().leaf_commit)
+            .get(<span class="kw-2">&amp;</span>justify_qc.data().leaf_commit)
             .cloned();
         maybe_parent = <span class="kw">match </span>maybe_parent {
             <span class="prelude-val">Some</span>(p) =&gt; <span class="prelude-val">Some</span>(p),
@@ -808,7 +808,7 @@
         };
         <span class="kw">let </span>parent = maybe_parent.context(<span class="macro">format!</span>(
             <span class="string">"Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}"</span>,
-            justify_qc.date().leaf_commit,
+            justify_qc.data().leaf_commit,
             proposed_leaf.view_number(),
         ))<span class="question-mark">?</span>;
         <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
@@ -980,7 +980,7 @@
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert) =&gt; {
-                    <span class="kw">let </span>cert_payload_comm = cert.date().payload_commit;
+                    <span class="kw">let </span>cert_payload_comm = cert.data().payload_commit;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>cert_payload_comm != comm {
                             <span class="macro">error!</span>(<span class="string">"DAC has inconsistent payload commitment with quorum proposal or VID."</span>);

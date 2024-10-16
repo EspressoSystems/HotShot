@@ -1344,7 +1344,7 @@
                     .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
+                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1355,13 +1355,13 @@
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
                 }
 
-                <span class="kw">if </span>certificate.date().relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate.date().relay;
+                <span class="kw">if </span>certificate.data().relay &gt; <span class="self">self</span>.relay {
+                    <span class="self">self</span>.relay = certificate.data().relay;
                 }
 
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = ViewSyncCommitVote::&lt;TYPES&gt;::create_signed_vote(
                     ViewSyncCommitData {
-                        relay: certificate.date().relay,
+                        relay: certificate.data().relay,
                         round: <span class="self">self</span>.next_view,
                     },
                     <span class="self">self</span>.next_view,
@@ -1426,7 +1426,7 @@
                     .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
+                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1437,13 +1437,13 @@
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
                 }
 
-                <span class="kw">if </span>certificate.date().relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate.date().relay;
+                <span class="kw">if </span>certificate.data().relay &gt; <span class="self">self</span>.relay {
+                    <span class="self">self</span>.relay = certificate.data().relay;
                 }
 
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = ViewSyncFinalizeVote::&lt;TYPES&gt;::create_signed_vote(
                     ViewSyncFinalizeData {
-                        relay: certificate.date().relay,
+                        relay: certificate.data().relay,
                         round: <span class="self">self</span>.next_view,
                     },
                     <span class="self">self</span>.next_view,
@@ -1518,7 +1518,7 @@
                     .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.date());
+                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1529,8 +1529,8 @@
                     <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
                 }
 
-                <span class="kw">if </span>certificate.date().relay &gt; <span class="self">self</span>.relay {
-                    <span class="self">self</span>.relay = certificate.date().relay;
+                <span class="kw">if </span>certificate.data().relay &gt; <span class="self">self</span>.relay {
+                    <span class="self">self</span>.relay = certificate.data().relay;
                 }
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
