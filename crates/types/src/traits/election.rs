@@ -26,21 +26,21 @@ pub trait Membership<TYPES: NodeType>:
     /// Get all participants in the committee (including their stake) for a specific epoch
     fn stake_table(
         &self,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
     /// Get all participants in the committee for a specific view for a specific epoch
     fn committee_members(
         &self,
-        view_number: TYPES::ViewTime,
-        epoch: TYPES::EpochTime,
+        view_number: TYPES::View,
+        epoch: TYPES::Epoch,
     ) -> BTreeSet<TYPES::SignatureKey>;
 
     /// Get all leaders in the committee for a specific view for a specific epoch
     fn committee_leaders(
         &self,
-        view_number: TYPES::ViewTime,
-        epoch: TYPES::EpochTime,
+        view_number: TYPES::View,
+        epoch: TYPES::Epoch,
     ) -> BTreeSet<TYPES::SignatureKey>;
 
     /// Get the stake table entry for a public key, returns `None` if the
@@ -48,20 +48,20 @@ pub trait Membership<TYPES: NodeType>:
     fn stake(
         &self,
         pub_key: &TYPES::SignatureKey,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
     /// See if a node has stake in the committee in a specific epoch
-    fn has_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::EpochTime) -> bool;
+    fn has_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool;
 
     /// The leader of the committee for view `view_number` in an epoch `epoch`.
-    fn leader(&self, view_number: TYPES::ViewTime, epoch: TYPES::EpochTime) -> TYPES::SignatureKey;
+    fn leader(&self, view_number: TYPES::View, epoch: TYPES::Epoch) -> TYPES::SignatureKey;
 
     /// Get the network topic for the committee
     fn committee_topic(&self) -> Topic;
 
     /// Returns the number of total nodes in the committee in an epoch `epoch`
-    fn total_nodes(&self, epoch: TYPES::EpochTime) -> usize;
+    fn total_nodes(&self, epoch: TYPES::Epoch) -> usize;
 
     /// Returns the threshold for a specific `Membership` implementation
     fn success_threshold(&self) -> NonZeroU64;

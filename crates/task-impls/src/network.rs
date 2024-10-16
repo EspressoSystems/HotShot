@@ -163,7 +163,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 // Send the external message to the external event stream so it can be processed
                 broadcast_event(
                     Event {
-                        view_number: TYPES::ViewTime::new(1),
+                        view_number: TYPES::View::new(1),
                         event: EventType::ExternalMessageReceived(data),
                     },
                     &self.external_event_stream,
@@ -184,9 +184,9 @@ pub struct NetworkEventTaskState<
     /// comm network
     pub network: Arc<NET>,
     /// view number
-    pub view: TYPES::ViewTime,
+    pub view: TYPES::View,
     /// epoch number
-    pub epoch: TYPES::EpochTime,
+    pub epoch: TYPES::Epoch,
     /// quorum for the network
     pub quorum_membership: TYPES::Membership,
     /// da for the network
@@ -301,7 +301,7 @@ impl<
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
         state: Arc<RwLock<Consensus<TYPES>>>,
-        view: <TYPES as NodeType>::ViewTime,
+        view: <TYPES as NodeType>::View,
     ) -> Result<(), ()> {
         if let Some(action) = maybe_action {
             if !state.write().await.update_action(action, view) {

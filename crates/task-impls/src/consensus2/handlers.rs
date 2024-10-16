@@ -114,7 +114,7 @@ pub(crate) async fn handle_view_change<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    new_view_number: TYPES::ViewTime,
+    new_view_number: TYPES::View,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I, V>,
 ) -> Result<()> {
@@ -155,7 +155,7 @@ pub(crate) async fn handle_view_change<
         async move {
             async_sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::ViewTime::new(*view_number))),
+                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
                 &stream,
             )
             .await;
@@ -215,7 +215,7 @@ pub(crate) async fn handle_view_change<
 /// Handle a `Timeout` event.
 #[instrument(skip_all)]
 pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    view_number: TYPES::ViewTime,
+    view_number: TYPES::View,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut Consensus2TaskState<TYPES, I, V>,
 ) -> Result<()> {

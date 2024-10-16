@@ -39,7 +39,7 @@ use crate::{
 
 /// Alias for a map of Vote Collectors
 pub type VoteCollectorsMap<TYPES, VOTE, CERT, V> =
-    BTreeMap<<TYPES as NodeType>::ViewTime, VoteCollectionTaskState<TYPES, VOTE, CERT, V>>;
+    BTreeMap<<TYPES as NodeType>::View, VoteCollectionTaskState<TYPES, VOTE, CERT, V>>;
 
 /// Task state for collecting votes of one type and emitting a certificate
 pub struct VoteCollectionTaskState<
@@ -58,10 +58,10 @@ pub struct VoteCollectionTaskState<
     pub accumulator: Option<VoteAccumulator<TYPES, VOTE, CERT, V>>,
 
     /// The view which we are collecting votes for
-    pub view: TYPES::ViewTime,
+    pub view: TYPES::View,
 
     /// The epoch which we are collecting votes for
-    pub epoch: TYPES::EpochTime,
+    pub epoch: TYPES::Epoch,
 
     /// Node id
     pub id: u64,
@@ -78,7 +78,7 @@ pub trait AggregatableVote<
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey;
 
     /// return the Hotshot event for the completion of this CERT
@@ -161,9 +161,9 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
     /// Membership we are accumulation votes for
     pub membership: Arc<TYPES::Membership>,
     /// View of the votes we are collecting
-    pub view: TYPES::ViewTime,
+    pub view: TYPES::View,
     /// Epoch of the votes we are collecting
-    pub epoch: TYPES::EpochTime,
+    pub epoch: TYPES::Epoch,
     /// This nodes id
     pub id: u64,
 }
@@ -230,7 +230,7 @@ pub async fn handle_vote<
     vote: &VOTE,
     public_key: TYPES::SignatureKey,
     membership: &Arc<TYPES::Membership>,
-    epoch: TYPES::EpochTime,
+    epoch: TYPES::Epoch,
     id: u64,
     event: &Arc<HotShotEvent<TYPES>>,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -310,7 +310,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertifica
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.view_number() + 1, epoch)
     }
@@ -328,7 +328,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.view_number(), epoch)
     }
@@ -346,7 +346,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.view_number(), epoch)
     }
@@ -364,7 +364,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertifi
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.view_number() + 1, epoch)
     }
@@ -383,7 +383,7 @@ impl<TYPES: NodeType>
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.date().round + self.date().relay, epoch)
     }
@@ -402,7 +402,7 @@ impl<TYPES: NodeType>
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.date().round + self.date().relay, epoch)
     }
@@ -421,7 +421,7 @@ impl<TYPES: NodeType>
     fn leader(
         &self,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         membership.leader(self.date().round + self.date().relay, epoch)
     }

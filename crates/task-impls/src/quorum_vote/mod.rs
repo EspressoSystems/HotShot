@@ -75,9 +75,9 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
     /// View number to vote on.
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
     /// Epoch number to vote on.
-    pub epoch_number: TYPES::EpochTime,
+    pub epoch_number: TYPES::Epoch,
     /// Event sender.
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
@@ -376,10 +376,10 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub instance_state: Arc<TYPES::InstanceState>,
 
     /// Latest view number that has been voted for.
-    pub latest_voted_view: TYPES::ViewTime,
+    pub latest_voted_view: TYPES::View,
 
     /// Table for the in-progress dependency tasks.
-    pub vote_dependencies: HashMap<TYPES::ViewTime, JoinHandle<()>>,
+    pub vote_dependencies: HashMap<TYPES::View, JoinHandle<()>>,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -409,7 +409,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     fn create_event_dependency(
         &self,
         dependency_type: VoteDependency,
-        view_number: TYPES::ViewTime,
+        view_number: TYPES::View,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
         EventDependency::new(
@@ -453,8 +453,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote crete dependency task if new", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
-        view_number: TYPES::ViewTime,
-        epoch_number: TYPES::EpochTime,
+        view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         event: Option<Arc<HotShotEvent<TYPES>>>,
@@ -510,7 +510,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
     /// Update the latest voted view number.
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
-    async fn update_latest_voted_view(&mut self, new_view: TYPES::ViewTime) -> bool {
+    async fn update_latest_voted_view(&mut self, new_view: TYPES::View) -> bool {
         if *self.latest_voted_view < *new_view {
             debug!(
                 "Updating next vote view from {} to {} in the quorum vote task",
@@ -519,7 +519,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
             // Cancel the old dependency tasks.
             for view in *self.latest_voted_view..(*new_view) {
-                if let Some(dependency) = self.vote_dependencies.remove(&TYPES::ViewTime::new(view))
+                if let Some(dependency) = self.vote_dependencies.remove(&TYPES::View::new(view))
                 {
                     cancel_task(dependency).await;
                     debug!("Vote dependency removed for view {:?}", view);

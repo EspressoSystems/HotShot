@@ -80,7 +80,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     /// Get the stake table for the current view
     fn stake_table(
         &self,
-        _epoch: <TYPES as NodeType>::EpochTime,
+        _epoch: <TYPES as NodeType>::Epoch,
     ) -> Vec<<<TYPES as NodeType>::SignatureKey as SignatureKey>::StakeTableEntry> {
         self.stake_table.clone()
     }
@@ -88,8 +88,8 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     /// Get all members of the committee for the current view
     fn committee_members(
         &self,
-        _view_number: <TYPES as NodeType>::ViewTime,
-        _epoch: <TYPES as NodeType>::EpochTime,
+        _view_number: <TYPES as NodeType>::View,
+        _epoch: <TYPES as NodeType>::Epoch,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
         self.stake_table
             .iter()
@@ -100,8 +100,8 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     /// Get all eligible leaders of the committee for the current view
     fn committee_leaders(
         &self,
-        _view_number: <TYPES as NodeType>::ViewTime,
-        _epoch: <TYPES as NodeType>::EpochTime,
+        _view_number: <TYPES as NodeType>::View,
+        _epoch: <TYPES as NodeType>::Epoch,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
         self.eligible_leaders
             .iter()
@@ -113,7 +113,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     fn stake(
         &self,
         pub_key: &<TYPES as NodeType>::SignatureKey,
-        _epoch: <TYPES as NodeType>::EpochTime,
+        _epoch: <TYPES as NodeType>::Epoch,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
         // Only return the stake if it is above zero
         self.indexed_stake_table.get(pub_key).cloned()
@@ -123,7 +123,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     fn has_stake(
         &self,
         pub_key: &<TYPES as NodeType>::SignatureKey,
-        _epoch: <TYPES as NodeType>::EpochTime,
+        _epoch: <TYPES as NodeType>::Epoch,
     ) -> bool {
         self.indexed_stake_table
             .get(pub_key)
@@ -138,8 +138,8 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     /// Index the vector of public keys with the current view number
     fn leader(
         &self,
-        view_number: TYPES::ViewTime,
-        _epoch: <TYPES as NodeType>::EpochTime,
+        view_number: TYPES::View,
+        _epoch: <TYPES as NodeType>::Epoch,
     ) -> TYPES::SignatureKey {
         #[allow(clippy::cast_possible_truncation)]
         let index = *view_number as usize % self.eligible_leaders.len();
@@ -148,7 +148,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get the total number of nodes in the committee
-    fn total_nodes(&self, _epoch: <TYPES as NodeType>::EpochTime) -> usize {
+    fn total_nodes(&self, _epoch: <TYPES as NodeType>::Epoch) -> usize {
         self.stake_table.len()
     }
 

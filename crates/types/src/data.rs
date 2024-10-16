@@ -172,7 +172,7 @@ pub struct DaProposal<TYPES: NodeType> {
     /// Metadata of the block to be applied.
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
 }
 
 /// A proposal to upgrade the network
@@ -185,7 +185,7 @@ where
     /// The information about which version we are upgrading to.
     pub upgrade_proposal: UpgradeProposalData<TYPES>,
     /// View this proposal applies to
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
 }
 
 /// VID dispersal data
@@ -196,7 +196,7 @@ where
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -210,10 +210,10 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
     pub fn from_membership(
-        view_number: TYPES::ViewTime,
+        view_number: TYPES::View,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> Self {
         let shares = membership
             .committee_members(view_number, epoch)
@@ -238,8 +238,8 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub async fn calculate_vid_disperse(
         txns: Arc<[u8]>,
         membership: &Arc<TYPES::Membership>,
-        view: TYPES::ViewTime,
-        epoch: TYPES::EpochTime,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
         precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
         let num_nodes = membership.total_nodes(epoch);
@@ -274,7 +274,7 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
 
 impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
     /// Check that the given ViewChangeEvidence is relevant to the current view.
-    pub fn is_valid_for_view(&self, view: &TYPES::ViewTime) -> bool {
+    pub fn is_valid_for_view(&self, view: &TYPES::View) -> bool {
         match self {
             ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.date().view == *view - 1,
             ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number == *view,
@@ -286,7 +286,7 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
 /// VID share and associated metadata for a single node
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -388,7 +388,7 @@ pub struct QuorumProposal<TYPES: NodeType> {
     pub block_header: TYPES::BlockHeader,
 
     /// CurView from leader when proposing leaf
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
@@ -404,31 +404,31 @@ pub struct QuorumProposal<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal<TYPES> {
-    fn view_number(&self) -> TYPES::ViewTime {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperse<TYPES> {
-    fn view_number(&self) -> TYPES::ViewTime {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperseShare<TYPES> {
-    fn view_number(&self) -> TYPES::ViewTime {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal<TYPES> {
-    fn view_number(&self) -> TYPES::ViewTime {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
-    fn view_number(&self) -> TYPES::ViewTime {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
@@ -465,7 +465,7 @@ pub trait TestableLeaf {
 #[serde(bound(deserialize = ""))]
 pub struct Leaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
-    view_number: TYPES::ViewTime,
+    view_number: TYPES::View,
 
     /// Per spec, justification
     justify_qc: QuorumCertificate<TYPES>,
@@ -538,7 +538,7 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         // since this is genesis, we should never have a decided upgrade certificate.
         let upgrade_lock = UpgradeLock::<TYPES, V>::new();
 
-        let genesis_view = <TYPES::ViewTime as ConsensusTime>::genesis();
+        let genesis_view = <TYPES::View as ConsensusTime>::genesis();
 
         let data = QuorumData {
             leaf_commit: Leaf::genesis(validated_state, instance_state)
@@ -598,13 +598,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let justify_qc = QuorumCertificate::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            <TYPES::ViewTime as ConsensusTime>::genesis(),
+            <TYPES::View as ConsensusTime>::genesis(),
             None,
             PhantomData,
         );
 
         Self {
-            view_number: TYPES::ViewTime::genesis(),
+            view_number: TYPES::View::genesis(),
             justify_qc,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
@@ -614,7 +614,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     }
 
     /// Time when this leaf was created.
-    pub fn view_number(&self) -> TYPES::ViewTime {
+    pub fn view_number(&self) -> TYPES::View {
         self.view_number
     }
     /// Height of this leaf in the chain.
@@ -901,7 +901,7 @@ pub struct PackedBundle<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
 
     /// The view number that this block is associated with.
-    pub view_number: TYPES::ViewTime,
+    pub view_number: TYPES::View,
 
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
@@ -918,7 +918,7 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
     pub fn new(
         encoded_transactions: Arc<[u8]>,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
-        view_number: TYPES::ViewTime,
+        view_number: TYPES::View,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
         vid_precompute: Option<VidPrecomputeData>,
         auction_result: Option<TYPES::AuctionResult>,

@@ -45,8 +45,8 @@ use vbs::version::StaticVersion;
 pub struct TestTypes;
 impl NodeType for TestTypes {
     type AuctionResult = TestAuctionResult;
-    type ViewTime = ViewNumber;
-    type EpochTime = EpochNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
@@ -75,8 +75,8 @@ impl NodeType for TestTypes {
 pub struct TestTypesRandomizedLeader;
 impl NodeType for TestTypesRandomizedLeader {
     type AuctionResult = TestAuctionResult;
-    type ViewTime = ViewNumber;
-    type EpochTime = EpochNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
@@ -105,8 +105,8 @@ impl NodeType for TestTypesRandomizedLeader {
 pub struct TestConsecutiveLeaderTypes;
 impl NodeType for TestConsecutiveLeaderTypes {
     type AuctionResult = TestAuctionResult;
-    type ViewTime = ViewNumber;
-    type EpochTime = EpochNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
@@ -238,8 +238,8 @@ mod tests {
 
         let data = TestData { data: 10 };
 
-        let view_0 = <TestTypes as NodeType>::ViewTime::new(0);
-        let view_1 = <TestTypes as NodeType>::ViewTime::new(1);
+        let view_0 = <TestTypes as NodeType>::View::new(0);
+        let view_1 = <TestTypes as NodeType>::View::new(1);
 
         let versioned_data_0 =
             VersionedVoteData::<TestTypes, TestData, MarketplaceTestVersions>::new(

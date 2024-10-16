@@ -140,7 +140,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     #[instrument(skip_all, target = "NetworkResponseState", fields(id = self.id))]
     async fn get_or_calc_vid_share(
         &self,
-        view: TYPES::ViewTime,
+        view: TYPES::View,
         key: &TYPES::SignatureKey,
     ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
         let contained = self
@@ -192,7 +192,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     }
 
     /// Makes sure the sender is allowed to send a request in the given epoch.
-    fn valid_sender(&self, sender: &TYPES::SignatureKey, epoch: TYPES::EpochTime) -> bool {
+    fn valid_sender(&self, sender: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool {
         self.quorum.has_stake(sender, epoch)
     }
 }

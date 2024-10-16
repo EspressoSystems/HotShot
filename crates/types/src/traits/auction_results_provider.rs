@@ -22,6 +22,6 @@ pub trait AuctionResultsProvider<TYPES: NodeType>: Send + Sync + Clone {
     /// subsequent calls will invoke additional wasted calls.
     async fn fetch_auction_result(
         &self,
-        view_number: TYPES::ViewTime,
+        view_number: TYPES::View,
     ) -> Result<TYPES::AuctionResult>;
 }

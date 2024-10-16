@@ -1023,8 +1023,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     where
         TYPES: NodeType<SignatureKey = K> + 'a,
     {
-        let future_view = <TYPES as NodeType>::ViewTime::new(view) + LOOK_AHEAD;
-        let epoch = <TYPES as NodeType>::EpochTime::new(epoch);
+        let future_view = <TYPES as NodeType>::View::new(view) + LOOK_AHEAD;
+        let epoch = <TYPES as NodeType>::Epoch::new(epoch);
         let future_leader = membership.leader(future_view, epoch);
 
         let _ = self

@@ -47,7 +47,7 @@ use crate::{events::HotShotEvent, request::REQUEST_TIMEOUT};
 #[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
-    view_number: TYPES::ViewTime,
+    view_number: TYPES::View,
     event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -165,10 +165,10 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 #[derive(Debug)]
 pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     /// The new locked view obtained from a 2 chain starting from the proposal's parent.
-    pub new_locked_view_number: Option<TYPES::ViewTime>,
+    pub new_locked_view_number: Option<TYPES::View>,
 
     /// The new decided view obtained from a 3 chain starting from the proposal's parent.
-    pub new_decided_view_number: Option<TYPES::ViewTime>,
+    pub new_decided_view_number: Option<TYPES::View>,
 
     /// The qc for the decided chain.
     pub new_decide_qc: Option<QuorumCertificate<TYPES>>,
@@ -353,7 +353,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 #[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
-    next_proposal_view_number: TYPES::ViewTime,
+    next_proposal_view_number: TYPES::View,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -593,8 +593,8 @@ pub async fn validate_proposal_safety_and_liveness<
 /// If any validation or view number check fails.
 pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    cur_view: TYPES::ViewTime,
-    cur_epoch: TYPES::EpochTime,
+    cur_view: TYPES::View,
+    cur_epoch: TYPES::Epoch,
     quorum_membership: &Arc<TYPES::Membership>,
     timeout_membership: &Arc<TYPES::Membership>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -674,11 +674,11 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
 /// TODO: Remove args when we merge dependency tasks.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_view<TYPES: NodeType>(
-    new_view: TYPES::ViewTime,
+    new_view: TYPES::View,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     timeout: u64,
     consensus: OuterConsensus<TYPES>,
-    cur_view: &mut TYPES::ViewTime,
+    cur_view: &mut TYPES::View,
     cur_view_time: &mut i64,
     timeout_task: &mut JoinHandle<()>,
     output_event_stream: &Sender<Event<TYPES>>,
@@ -725,7 +725,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         async move {
             async_sleep(timeout).await;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::ViewTime::new(*view_number))),
+                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
                 &stream,
             )
             .await;

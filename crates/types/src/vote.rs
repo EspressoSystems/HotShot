@@ -48,7 +48,7 @@ pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
 /// Any type that is associated with a view
 pub trait HasViewNumber<TYPES: NodeType> {
     /// Returns the view number the type refers to.
-    fn view_number(&self) -> TYPES::ViewTime;
+    fn view_number(&self) -> TYPES::View;
 }
 
 /**
@@ -68,14 +68,14 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
         vote_commitment: Commitment<VersionedVoteData<TYPES, Self::Voteable, V>>,
         data: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
-        view: TYPES::ViewTime,
+        view: TYPES::View,
     ) -> Self;
 
     /// Checks if the cert is valid in the given epoch
     fn is_valid_cert<MEMBERSHIP: Membership<TYPES>, V: Versions>(
         &self,
         membership: &MEMBERSHIP,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> impl std::future::Future<Output = bool>;
     /// Returns the amount of stake needed to create this certificate
@@ -138,7 +138,7 @@ impl<
         &mut self,
         vote: &VOTE,
         membership: &TYPES::Membership,
-        epoch: TYPES::EpochTime,
+        epoch: TYPES::Epoch,
     ) -> Either<(), CERT> {
         let key = vote.signing_key();
 

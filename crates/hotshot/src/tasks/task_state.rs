@@ -176,7 +176,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             finalize_relay_map: HashMap::default().into(),
             view_sync_timeout: handle.hotshot.config.view_sync_timeout,
             id: handle.hotshot.id,
-            last_garbage_collected_view: TYPES::ViewTime::new(0),
+            last_garbage_collected_view: TYPES::View::new(0),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }
     }

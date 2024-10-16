@@ -54,8 +54,8 @@ pub struct Test;
 
 impl NodeType for Test {
     type AuctionResult = TestAuctionResult;
-    type ViewTime = ViewNumber;
-    type EpochTime = EpochNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;

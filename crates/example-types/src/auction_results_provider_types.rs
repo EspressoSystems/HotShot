@@ -50,7 +50,7 @@ impl<TYPES: NodeType> AuctionResultsProvider<TYPES> for TestAuctionResultsProvid
     /// in the solver.
     async fn fetch_auction_result(
         &self,
-        view_number: TYPES::ViewTime,
+        view_number: TYPES::View,
     ) -> Result<TYPES::AuctionResult> {
         if let Some(url) = &self.broadcast_url {
             let resp =

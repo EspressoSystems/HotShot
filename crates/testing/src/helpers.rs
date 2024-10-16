@@ -121,8 +121,8 @@ pub async fn build_cert<
 >(
     data: DATAType,
     membership: &TYPES::Membership,
-    view: TYPES::ViewTime,
-    epoch: TYPES::EpochTime,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -187,8 +187,8 @@ pub async fn build_assembled_sig<
 >(
     data: &DATAType,
     membership: &TYPES::Membership,
-    view: TYPES::ViewTime,
-    epoch: TYPES::EpochTime,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
     let stake_table = membership.stake_table(epoch);
@@ -246,8 +246,8 @@ pub fn key_pair_for_id<TYPES: NodeType>(
 #[must_use]
 pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
-    view_number: TYPES::ViewTime,
-    epoch_number: TYPES::EpochTime,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
 ) -> VidSchemeType {
     let num_storage_nodes = membership
         .committee_members(view_number, epoch_number)
@@ -257,8 +257,8 @@ pub fn vid_scheme_from_view_number<TYPES: NodeType>(
 
 pub fn vid_payload_commitment<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::ViewTime,
-    epoch_number: TYPES::EpochTime,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
     let mut vid =
@@ -272,7 +272,7 @@ pub fn vid_payload_commitment<TYPES: NodeType>(
 pub fn da_payload_commitment<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
-    epoch_number: TYPES::EpochTime,
+    epoch_number: TYPES::Epoch,
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
@@ -284,8 +284,8 @@ pub fn da_payload_commitment<TYPES: NodeType>(
 
 pub fn build_payload_commitment<TYPES: NodeType>(
     membership: &<TYPES as NodeType>::Membership,
-    view: TYPES::ViewTime,
-    epoch: TYPES::EpochTime,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
 ) -> <VidSchemeType as VidScheme>::Commit {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -297,8 +297,8 @@ pub fn build_payload_commitment<TYPES: NodeType>(
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
 pub fn build_vid_proposal<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::ViewTime,
-    epoch_number: TYPES::EpochTime,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
 ) -> VidProposal<TYPES> {
@@ -339,8 +339,8 @@ pub fn build_vid_proposal<TYPES: NodeType>(
 pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     da_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::ViewTime,
-    epoch_number: TYPES::EpochTime,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,

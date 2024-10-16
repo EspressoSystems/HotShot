@@ -96,8 +96,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// Errors if signing the request for proposal fails
     pub fn request_proposal(
         &self,
-        view: TYPES::ViewTime,
-        epoch: TYPES::EpochTime,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
         leaf_commitment: Commitment<Leaf<TYPES>>,
     ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal<TYPES>>>>> {
         // We need to be able to sign this request before submitting it to the network. Compute the
@@ -203,7 +203,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    pub async fn state(&self, view: TYPES::ViewTime) -> Option<Arc<TYPES::ValidatedState>> {
+    pub async fn state(&self, view: TYPES::View) -> Option<Arc<TYPES::ValidatedState>> {
         self.hotshot.state(view).await
     }
 
@@ -278,8 +278,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     #[allow(clippy::unused_async)] // async for API compatibility reasons
     pub async fn leader(
         &self,
-        view_number: TYPES::ViewTime,
-        epoch_number: TYPES::EpochTime,
+        view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
     ) -> TYPES::SignatureKey {
         self.hotshot
             .memberships
@@ -311,13 +311,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
     /// Wrapper to get the view number this node is on.
     #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
-    pub async fn cur_view(&self) -> TYPES::ViewTime {
+    pub async fn cur_view(&self) -> TYPES::View {
         self.hotshot.consensus.read().await.cur_view()
     }
 
     /// Wrapper to get the epoch number this node is on.
     #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
-    pub async fn cur_epoch(&self) -> TYPES::EpochTime {
+    pub async fn cur_epoch(&self) -> TYPES::Epoch {
         self.hotshot.consensus.read().await.cur_epoch()
     }
 
