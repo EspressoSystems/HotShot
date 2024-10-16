@@ -91,6 +91,9 @@ pub struct Error {
 /// Trait for a `std::result::Result` that can be wrapped into a `Result`
 pub trait Wrap<T> {
     /// Wrap the value into a `Result`
+    ///
+    /// # Errors
+    /// Propagates errors from `self`
     fn wrap(self) -> Result<T>;
 }
 
