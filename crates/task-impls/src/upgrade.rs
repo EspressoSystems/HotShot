@@ -266,8 +266,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     && time < self.stop_proposing_time
                     && !self.upgraded().await
                     && self.quorum_membership.leader(
-                    TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
-                    self.cur_epoch,
+                        TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                        self.cur_epoch,
                     ) == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {

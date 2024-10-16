@@ -343,9 +343,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
             // Cancel the old dependency tasks.
             for view in (*self.latest_proposed_view + 1)..=(*new_view) {
-                if let Some(dependency) = self
-                    .proposal_dependencies
-                    .remove(&TYPES::View::new(view))
+                if let Some(dependency) = self.proposal_dependencies.remove(&TYPES::View::new(view))
                 {
                     cancel_task(dependency).await;
                 }
@@ -438,7 +436,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 {
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
-                        certificate.date()
+                        certificate.data()
                     );
                     return;
                 }

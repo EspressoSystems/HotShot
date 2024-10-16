@@ -470,9 +470,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the map of our recent proposals
-    pub fn last_proposals(
-        &self,
-    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>> {
+    pub fn last_proposals(&self) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>> {
         &self.last_proposals
     }
 
@@ -669,11 +667,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Add a new entry to the da_certs map.
-    pub fn update_saved_da_certs(
-        &mut self,
-        view_number: TYPES::View,
-        cert: DaCertificate<TYPES>,
-    ) {
+    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate<TYPES>) {
         self.saved_da_certs.insert(view_number, cert);
     }
 
@@ -742,11 +736,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// `saved_payloads` and `validated_state_map` fields of `Consensus`.
     /// # Panics
     /// On inconsistent stored entries
-    pub fn collect_garbage(
-        &mut self,
-        old_anchor_view: TYPES::View,
-        new_anchor_view: TYPES::View,
-    ) {
+    pub fn collect_garbage(&mut self, old_anchor_view: TYPES::View, new_anchor_view: TYPES::View) {
         // state check
         let anchor_entry = self
             .validated_state_map

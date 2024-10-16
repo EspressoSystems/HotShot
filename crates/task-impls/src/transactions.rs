@@ -530,9 +530,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 }
                 ViewInner::Failed => {
                     // For failed views, backtrack
-                    target_view = TYPES::View::new(
-                        target_view.checked_sub(1).context("Reached genesis")?,
-                    );
+                    target_view =
+                        TYPES::View::new(target_view.checked_sub(1).context("Reached genesis")?);
                     continue;
                 }
             }
