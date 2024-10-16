@@ -72,6 +72,9 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -94,6 +97,7 @@
 };
 
 <span class="kw">use super</span>::{test_builder::TestDescription, test_runner::TestRunner};
+<span class="kw">use </span><span class="kw">crate</span>::test_task::TestTaskStateSeed;
 
 <span class="doccomment">/// A type alias to help readability
 </span><span class="kw">pub type </span>Network&lt;TYPES, I&gt; = Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Network&gt;;
@@ -119,6 +123,8 @@
     </span><span class="kw">pub </span>resource_generator: ResourceGenerators&lt;TYPES, I&gt;,
     <span class="doccomment">/// metadata used for tasks
     </span><span class="kw">pub </span>metadata: TestDescription&lt;TYPES, I, V&gt;,
+    <span class="doccomment">/// any additional test tasks to run
+    </span><span class="kw">pub </span>additional_test_tasks: Vec&lt;Box&lt;<span class="kw">dyn </span>TestTaskStateSeed&lt;TYPES, I, V&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt; TestLauncher&lt;TYPES, I, V&gt; {

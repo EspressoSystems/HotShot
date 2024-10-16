@@ -567,6 +567,21 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -602,6 +617,7 @@
 <span class="kw">use crate</span>::{
     spinning_task::SpinningTaskDescription,
     test_launcher::{Network, ResourceGenerators, TestLauncher},
+    test_task::TestTaskStateSeed,
     view_sync_task::ViewSyncTaskDescription,
 };
 
@@ -1013,8 +1029,21 @@
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the the configuration values are zero
-    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>, node_id: u64) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
+        <span class="self">self</span>.gen_launcher_with_tasks(node_id, <span class="macro">vec!</span>[])
+    }
+
+    <span class="doccomment">/// turn a description of a test (e.g. a [`TestDescription`]) into
+    /// a [`TestLauncher`] that can be used to launch the test, with
+    /// additional testing tasks to run in test harness
+    /// # Panics
+    /// if some of the the configuration values are zero
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>gen_launcher_with_tasks(
+        <span class="self">self</span>,
+        node_id: u64,
+        additional_test_tasks: Vec&lt;Box&lt;<span class="kw">dyn </span>TestTaskStateSeed&lt;TYPES, I, V&gt;&gt;&gt;,
+    ) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
         <span class="kw">let </span>TestDescription {
             num_nodes_with_stake,
             num_bootstrap_nodes,
@@ -1130,6 +1159,7 @@
                 }),
             },
             metadata: <span class="self">self</span>,
+            additional_test_tasks,
         }
         .modify_default_config(mod_config)
     }

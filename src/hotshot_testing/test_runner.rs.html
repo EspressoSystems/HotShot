@@ -743,6 +743,15 @@
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -878,7 +887,7 @@
         }
 
         <span class="kw">let </span>TestRunner {
-            <span class="kw-2">ref </span>launcher,
+            launcher,
             nodes,
             solver_server,
             late_start,
@@ -938,9 +947,9 @@
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await</span>,
-            async_delay_config: <span class="self">self</span>.launcher.metadata.async_delay_config,
+            async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
-            channel_generator: <span class="self">self</span>.launcher.resource_generator.channel_generator,
+            channel_generator: launcher.resource_generator.channel_generator,
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, N, I, V&gt;&gt;::new(
             spinning_task_state,
@@ -951,16 +960,16 @@
         </span><span class="kw">let </span>overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
             ctx: RoundCtx::default(),
-            properties: <span class="self">self</span>.launcher.metadata.overall_safety_properties.clone(),
+            properties: launcher.metadata.overall_safety_properties.clone(),
             error: <span class="prelude-val">None</span>,
             test_sender,
         };
 
         <span class="kw">let </span>consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
-            safety_properties: <span class="self">self</span>.launcher.metadata.overall_safety_properties,
-            ensure_upgrade: <span class="self">self</span>.launcher.metadata.upgrade_view.is_some(),
-            validate_transactions: <span class="self">self</span>.launcher.metadata.validate_transactions,
+            safety_properties: launcher.metadata.overall_safety_properties,
+            ensure_upgrade: launcher.metadata.upgrade_view.is_some(),
+            validate_transactions: launcher.metadata.validate_transactions,
             _pd: PhantomData,
         };
 
@@ -979,7 +988,7 @@
         <span class="comment">// add view sync task
         </span><span class="kw">let </span>view_sync_task_state = ViewSyncTask {
             hit_view_sync: HashSet::new(),
-            description: <span class="self">self</span>.launcher.metadata.view_sync_properties,
+            description: launcher.metadata.view_sync_properties,
             _pd: PhantomData,
         };
 
@@ -1004,6 +1013,15 @@
         }
 
         drop(nodes);
+
+        <span class="kw">for </span>seed <span class="kw">in </span>launcher.additional_test_tasks {
+            <span class="kw">let </span>task = TestTask::new(
+                seed.into_state(Arc::clone(<span class="kw-2">&amp;</span>handles)).<span class="kw">await</span>,
+                event_rxs.clone(),
+                test_receiver.clone(),
+            );
+            task_futs.push(task.run());
+        }
 
         task_futs.push(overall_safety_task.run());
         task_futs.push(consistency_task.run());
