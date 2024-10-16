@@ -247,7 +247,7 @@ pub trait NodeType:
     type ValidatedState: ValidatedState<Self, Instance = Self::InstanceState, Time = Self::Time>;
 
     /// Membership used for this implementation
-    type Membership: Membership<Self>;
+    type Membership: Membership<Self::SignatureKey, Self::Time>;
 
     /// The type builder uses to sign its messages
     type BuilderSignatureKey: BuilderSignatureKey;

@@ -11,39 +11,36 @@ use super::{network::Topic, node_implementation::NodeType};
 use crate::{traits::signature_key::SignatureKey, PeerConfig};
 
 /// A protocol for determining membership in and participating in a committee.
-pub trait Membership<TYPES: NodeType>:
+pub trait Membership<Key: SignatureKey, Time: ConsensusTime + Display>:
     Clone + Debug + Eq + PartialEq + Send + Sync + Hash + 'static
 {
     /// Create a committee
     fn new(
         // Note: eligible_leaders is currently a hack because the DA leader == the quorum leader
         // but they should not have voting power.
-        eligible_leaders: Vec<PeerConfig<TYPES::SignatureKey>>,
-        committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
+        eligible_leaders: Vec<PeerConfig<Key>>,
+        committee_members: Vec<PeerConfig<Key>>,
         committee_topic: Topic,
     ) -> Self;
 
     /// Get all participants in the committee (including their stake)
-    fn stake_table(&self) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    fn stake_table(&self) -> Vec<<Key as SignatureKey>::StakeTableEntry>;
 
     /// Get all participants in the committee for a specific view
-    fn committee_members(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+    fn committee_members(&self, view_number: Time) -> BTreeSet<Key>;
 
     /// Get all leaders in the committee for a specific view
-    fn committee_leaders(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
+    fn committee_leaders(&self, view_number: Time) -> BTreeSet<Key>;
 
     /// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table
-    fn stake(
-        &self,
-        pub_key: &TYPES::SignatureKey,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    fn stake(&self, pub_key: &Key) -> Option<<Key as SignatureKey>::StakeTableEntry>;
 
     /// See if a node has stake in the committee
-    fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool;
+    fn has_stake(&self, pub_key: &Key) -> bool;
 
     /// The leader of the committee for view `view_number`.
-    fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+    fn leader(&self, view_number: Time) -> Key;
 
     /// Get the network topic for the committee
     fn committee_topic(&self) -> Topic;

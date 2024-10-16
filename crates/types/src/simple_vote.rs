@@ -39,9 +39,9 @@ pub struct DaData {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.
-pub struct TimeoutData<TYPES: NodeType> {
+pub struct TimeoutData<Time: ConsensusTime + Display> {
     /// View the timeout is for
-    pub view: TYPES::Time,
+    pub view: Time,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a VID vote.
@@ -51,44 +51,44 @@ pub struct VidData {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Pre Commit vote.
-pub struct ViewSyncPreCommitData<TYPES: NodeType> {
+pub struct ViewSyncPreCommitData<Time: ConsensusTime + Display> {
     /// The relay this vote is intended for
     pub relay: u64,
     /// The view number we are trying to sync on
-    pub round: TYPES::Time,
+    pub round: Time,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Commit vote.
-pub struct ViewSyncCommitData<TYPES: NodeType> {
+pub struct ViewSyncCommitData<Time: ConsensusTime + Display> {
     /// The relay this vote is intended for
     pub relay: u64,
     /// The view number we are trying to sync on
-    pub round: TYPES::Time,
+    pub round: Time,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Finalize vote.
-pub struct ViewSyncFinalizeData<TYPES: NodeType> {
+pub struct ViewSyncFinalizeData<Time: ConsensusTime + Display> {
     /// The relay this vote is intended for
     pub relay: u64,
     /// The view number we are trying to sync on
-    pub round: TYPES::Time,
+    pub round: Time,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Upgrade vote.
-pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
+pub struct UpgradeProposalData<Time: ConsensusTime + Display> {
     /// The old version that we are upgrading from.
     pub old_version: Version,
     /// The new version that we are upgrading to.
     pub new_version: Version,
     /// The last view in which we are allowed to reach a decide on this upgrade.
     /// If it is not decided by that view, we discard it.
-    pub decide_by: TYPES::Time,
+    pub decide_by: Time,
     /// A unique identifier for the specific protocol being voted on.
     pub new_version_hash: Vec<u8>,
     /// The last block for which the old version will be in effect.
-    pub old_version_last_view: TYPES::Time,
+    pub old_version_last_view: Time,
     /// The first block for which the new version will be in effect.
-    pub new_version_first_view: TYPES::Time,
+    pub new_version_first_view: Time,
 }
 
 /// Marker trait for data or commitments that can be voted on.
@@ -114,32 +114,33 @@ mod sealed {
 
 /// A simple yes vote over some votable type.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
+pub struct SimpleVote<Key: SignatureKey, Time: ConsensusTime + Display, DATA: Voteable> {
     /// The signature share associated with this vote
-    pub signature: (
-        TYPES::SignatureKey,
-        <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ),
+    pub signature: (Key, <Key as SignatureKey>::PureAssembledSignatureType),
     /// The leaf commitment being voted on.
     pub data: DATA,
     /// The view this vote was cast for
-    pub view_number: TYPES::Time,
+    pub view_number: Time,
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
-    fn view_number(&self) -> <TYPES as NodeType>::Time {
+impl<Key: SignatureKey, Time: ConsensusTime + Display, DATA: Voteable + 'static> HasViewNumber<Time>
+    for SimpleVote<Key, Time, DATA>
+{
+    fn view_number(&self) -> Time {
         self.view_number
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
+impl<Key: SignatureKey, Time: ConsensusTime + Display, DATA: Voteable + 'static> Vote<Key, Time>
+    for SimpleVote<Key, Time, DATA>
+{
     type Commitment = DATA;
 
-    fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
+    fn signing_key(&self) -> Key {
         self.signature.0.clone()
     }
 
-    fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType {
+    fn signature(&self) -> <Key as SignatureKey>::PureAssembledSignatureType {
         self.signature.1.clone()
     }
 
@@ -152,15 +153,17 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
+impl<Key: SignatureKey, Time: ConsensusTime + Display, DATA: Voteable + 'static>
+    SimpleVote<Key, Time, DATA>
+{
     /// Creates and signs a simple vote
     /// # Errors
     /// If we are unable to sign the data
     pub async fn create_signed_vote<V: Versions>(
         data: DATA,
-        view: TYPES::Time,
-        pub_key: &TYPES::SignatureKey,
-        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        view: Time,
+        pub_key: &Key,
+        private_key: &<Key as SignatureKey>::PrivateKey,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<Self> {
         let commit = VersionedVoteData::new(data.clone(), view, upgrade_lock)
@@ -182,12 +185,12 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// A wrapper for vote data that carries a view number and an `upgrade_lock`, allowing switching the commitment calculation dynamically depending on the version
-pub struct VersionedVoteData<TYPES: NodeType, DATA: Voteable, V: Versions> {
+pub struct VersionedVoteData<Time: ConsensusTime + Display, DATA: Voteable, V: Versions> {
     /// underlying vote data
     data: DATA,
 
     /// view number
-    view: TYPES::Time,
+    view: Time,
 
     /// version applied to the view number
     version: Version,
@@ -196,17 +199,13 @@ pub struct VersionedVoteData<TYPES: NodeType, DATA: Voteable, V: Versions> {
     _pd: PhantomData<V>,
 }
 
-impl<TYPES: NodeType, DATA: Voteable, V: Versions> VersionedVoteData<TYPES, DATA, V> {
+impl<Time: ConsensusTime + Display, DATA: Voteable, V: Versions> VersionedVoteData<Time, DATA, V> {
     /// Create a new `VersionedVoteData` struct
     ///
     /// # Errors
     ///
     /// Returns an error if `upgrade_lock.version(view)` is unable to return a version we support
-    pub async fn new(
-        data: DATA,
-        view: TYPES::Time,
-        upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) -> Result<Self> {
+    pub async fn new(data: DATA, view: Time, upgrade_lock: &UpgradeLock<Time, V>) -> Result<Self> {
         let version = upgrade_lock.version(view).await?;
 
         Ok(Self {
@@ -222,8 +221,8 @@ impl<TYPES: NodeType, DATA: Voteable, V: Versions> VersionedVoteData<TYPES, DATA
     /// This function cannot error, but may use an invalid version.
     pub async fn new_infallible(
         data: DATA,
-        view: TYPES::Time,
-        upgrade_lock: &UpgradeLock<TYPES, V>,
+        view: Time,
+        upgrade_lock: &UpgradeLock<Time, V>,
     ) -> Self {
         let version = upgrade_lock.version_infallible(view).await;
 
@@ -236,8 +235,8 @@ impl<TYPES: NodeType, DATA: Voteable, V: Versions> VersionedVoteData<TYPES, DATA
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable, V: Versions> Committable
-    for VersionedVoteData<TYPES, DATA, V>
+impl<Time: ConsensusTime + Display, DATA: Voteable, V: Versions> Committable
+    for VersionedVoteData<Time, DATA, V>
 {
     fn commit(&self) -> Commitment<Self> {
         if self.version < V::Marketplace::VERSION {
@@ -253,7 +252,7 @@ impl<TYPES: NodeType, DATA: Voteable, V: Versions> Committable
     }
 }
 
-impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
+impl<Time: ConsensusTime + Display> Committable for QuorumData<Time> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Quorum data")
             .var_size_bytes(self.leaf_commit.as_ref())
@@ -261,7 +260,7 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
+impl<Time: ConsensusTime + Display> Committable for TimeoutData<Time> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
@@ -285,7 +284,7 @@ impl Committable for VidData {
     }
 }
 
-impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
+impl<Time: ConsensusTime + Display> Committable for UpgradeProposalData<Time> {
     fn commit(&self) -> Commitment<Self> {
         let builder = committable::RawCommitmentBuilder::new("Upgrade data");
         builder
@@ -302,8 +301,8 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 }
 
 /// This implements commit for all the types which contain a view and relay public key.
-fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
-    view: TYPES::Time,
+fn view_and_relay_commit<Time: ConsensusTime + Display, T: Committable>(
+    view: Time,
     relay: u64,
     tag: &str,
 ) -> Commitment<T> {
@@ -311,20 +310,20 @@ fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     builder.u64(*view).u64(relay).finalize()
 }
 
-impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
+impl<Time: ConsensusTime + Display> Committable for ViewSyncPreCommitData<Time> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Precommit")
+        view_and_relay_commit::<Time, Self>(self.round, self.relay, "View Sync Precommit")
     }
 }
 
-impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
+impl<Time: ConsensusTime + Display> Committable for ViewSyncFinalizeData<Time> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
+        view_and_relay_commit::<Time, Self>(self.round, self.relay, "View Sync Finalize")
     }
 }
-impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
+impl<Time: ConsensusTime + Display> Committable for ViewSyncCommitData<Time> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+        view_and_relay_commit::<Time, Self>(self.round, self.relay, "View Sync Commit")
     }
 }
 
@@ -337,16 +336,22 @@ impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + H
 
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 /// Quorum vote Alias
-pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
+pub type QuorumVote<Key: SignatureKey, Time: ConsensusTime + Display> =
+    SimpleVote<Key, Time, QuorumData<Time>>;
 /// DA vote type alias
-pub type DaVote<TYPES> = SimpleVote<TYPES, DaData>;
+pub type DaVote<Key: SignatureKey, Time: ConsensusTime + Display> = SimpleVote<Key, Time, DaData>;
 /// Timeout Vote type alias
-pub type TimeoutVote<TYPES> = SimpleVote<TYPES, TimeoutData<TYPES>>;
+pub type TimeoutVote<Key: SignatureKey, Time: ConsensusTime + Display> =
+    SimpleVote<Key, Time, TimeoutData<Time>>;
 /// View Sync Commit Vote type alias
-pub type ViewSyncCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncCommitData<TYPES>>;
+pub type ViewSyncCommitVote<Key: SignatureKey, Time: ConsensusTime + Display> =
+    SimpleVote<Key, Time, ViewSyncCommitData<Time>>;
 /// View Sync Pre Commit Vote type alias
-pub type ViewSyncPreCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncPreCommitData<TYPES>>;
+pub type ViewSyncPreCommitVote<Key: SignatureKey, Time: ConsensusTime + Display> =
+    SimpleVote<Key, Time, ViewSyncPreCommitData<Time>>;
 /// View Sync Finalize Vote type alias
-pub type ViewSyncFinalizeVote<TYPES> = SimpleVote<TYPES, ViewSyncFinalizeData<TYPES>>;
+pub type ViewSyncFinalizeVote<Key: SignatureKey, Time: ConsensusTime + Display> =
+    SimpleVote<Key, Time, ViewSyncFinalizeData<Time>>;
 /// Upgrade proposal vote
-pub type UpgradeVote<TYPES> = SimpleVote<TYPES, UpgradeProposalData<TYPES>>;
+pub type UpgradeVote<Key: SignatureKey, Time: ConsensusTime + Display> =
+    SimpleVote<Key, Time, UpgradeProposalData<Time>>;

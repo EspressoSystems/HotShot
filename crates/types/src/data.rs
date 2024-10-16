@@ -722,13 +722,13 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
 /// Serialization for the QC assembled signature
 /// # Panics
 /// if serialization fails
-pub fn serialize_signature2<TYPES: NodeType>(
-    signatures: &<TYPES::SignatureKey as SignatureKey>::QcType,
+pub fn serialize_signature2<Key: SignatureKey>(
+    signatures: &<Key as SignatureKey>::QcType,
 ) -> Vec<u8> {
     let mut signatures_bytes = vec![];
     signatures_bytes.extend("Yes".as_bytes());
 
-    let (sig, proof) = TYPES::SignatureKey::sig_proof(signatures);
+    let (sig, proof) = Key::sig_proof(signatures);
     let proof_bytes = bincode_opts()
         .serialize(&proof.as_bitslice())
         .expect("This serialization shouldn't be able to fail");
