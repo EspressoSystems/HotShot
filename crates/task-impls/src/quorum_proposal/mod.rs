@@ -8,6 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -23,6 +24,7 @@ use hotshot_types::{
     event::Event,
     message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
+    simple_vote::{TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -524,18 +526,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
             let upgrade_lock = self.upgrade_lock.clone();
             async_spawn(async move {
                 for i in 0..1000000000 {
+                    let view_number = <TYPES as NodeType>::Time::new(i);
                     let vote = TimeoutVote::create_signed_vote(
-                        TimeoutData::<TYPES> {
-                            view: ViewNumber::new(i),
-                        },
+                        TimeoutData::<TYPES> { view: view_number },
                         view_number,
                         &public_key,
                         &private_key,
                         &upgrade_lock,
                     )
                     .await
-                    .context("Failed to sign TimeoutData")?;
-                    broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).await;
+                    .expect("Failed to sign TimeoutData");
+                    broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), &event_stream)
+                        .await;
                 }
             });
         }
