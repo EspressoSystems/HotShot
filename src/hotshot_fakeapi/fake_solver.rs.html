@@ -192,12 +192,14 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     io::{<span class="self">self</span>, ErrorKind},
-    thread, time,
+    time,
 };
 
 <span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_example_types::auction_results_provider_types::TestAuctionResult;
@@ -277,7 +279,7 @@
     ///
     /// # Errors
     /// Returns an error if the `should_fault` method is `Some`.
-    </span><span class="kw">fn </span>dump_builders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
+    </span><span class="kw">async fn </span>dump_builders(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(fault) = <span class="self">self</span>.should_fault() {
             <span class="kw">match </span>fault {
                 FakeSolverFaultType::InternalServerFault =&gt; {
@@ -288,7 +290,7 @@
                 }
                 FakeSolverFaultType::TimeoutFault =&gt; {
                     <span class="comment">// Sleep for the preconfigured 1 second timeout interval
-                    </span>thread::sleep(SOLVER_MAX_TIMEOUT_S);
+                    </span>async_sleep(SOLVER_MAX_TIMEOUT_S).<span class="kw">await</span>;
                 }
             }
         }
@@ -324,8 +326,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _view_number: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
-        <span class="self">self</span>.dump_builders()
-    }
+        <span class="self">self</span>.dump_builders().<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Get the auction results with a valid signature.
     </span><span class="kw">async fn </span>get_auction_results_permissioned(
@@ -333,8 +335,8 @@
         _view_number: u64,
         _signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TestAuctionResult, ServerError&gt; {
-        <span class="self">self</span>.dump_builders()
-    }
+        <span class="self">self</span>.dump_builders().<span class="kw">await
+    </span>}
 }
 
 <span class="doccomment">/// Defines the API for the Fake solver.
