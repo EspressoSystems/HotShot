@@ -367,7 +367,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     let current_epoch = consensus.read().await.cur_epoch();
     ensure!(
-        quorum_membership.leader(next_proposal_view_number, current_epoch) == public_key,
+        quorum_membership.leader(next_proposal_view_number, current_epoch)? == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
     let parent_view_number = consensus.read().await.high_qc().view_number();
@@ -697,7 +697,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     let is_old_view_leader = task_state
         .quorum_membership
-        .leader(task_state.cur_view, task_state.cur_epoch)
+        .leader(task_state.cur_view, task_state.cur_epoch)?
         == task_state.public_key;
     let old_view = task_state.cur_view;
 

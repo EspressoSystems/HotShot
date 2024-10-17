@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -125,9 +125,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, sender.clone()).await;
-
-        Ok(())
+        self.handle(event, sender.clone()).await
     }
 
     async fn cancel_subtasks(&mut self) {}
@@ -258,7 +256,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) {
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
                 debug!("Received view sync cert for phase {:?}", certificate);
@@ -292,26 +290,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
-                    let result = relay_task
-                        .handle_vote_event(Arc::clone(&event), &event_stream)
-                        .await;
 
-                    if result == Some(HotShotTaskCompleted) {
-                        // The protocol has finished
+                    // Handle the vote and check if the accumulator has returned successfully
+                    if relay_task
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
+                        .await?
+                        .is_some()
+                    {
                         map.remove(&vote_view);
                     }
-                    return;
+
+                    return Ok(());
                 }
 
                 // We do not have a relay task already running, so start one
-                if self
-                    .membership
-                    .leader(vote_view + relay, self.current_epoch)
-                    != self.public_key
-                {
-                    debug!("View sync vote sent to wrong leader");
-                    return;
-                }
+                ensure!(
+                    self.membership
+                        .leader(vote_view + relay, self.current_epoch)?
+                        == self.public_key,
+                    "View sync vote sent to wrong leader"
+                );
 
                 let info = AccumulatorInfo {
                     public_key: self.public_key.clone(),
@@ -322,10 +320,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 };
                 let vote_collector =
                     create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await;
-                if let Some(vote_task) = vote_collector {
-                    relay_map.insert(relay, vote_task);
-                }
+                        .await?;
+
+                relay_map.insert(relay, vote_collector);
             }
 
             HotShotEvent::ViewSyncCommitVoteRecv(ref vote) => {
@@ -335,26 +332,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
-                    let result = relay_task
-                        .handle_vote_event(Arc::clone(&event), &event_stream)
-                        .await;
 
-                    if result == Some(HotShotTaskCompleted) {
-                        // The protocol has finished
+                    // Handle the vote and check if the accumulator has returned successfully
+                    if relay_task
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
+                        .await?
+                        .is_some()
+                    {
                         map.remove(&vote_view);
                     }
-                    return;
+
+                    return Ok(());
                 }
 
                 // We do not have a relay task already running, so start one
-                if self
-                    .membership
-                    .leader(vote_view + relay, self.current_epoch)
-                    != self.public_key
-                {
-                    debug!("View sync vote sent to wrong leader");
-                    return;
-                }
+                ensure!(
+                    self.membership
+                        .leader(vote_view + relay, self.current_epoch)?
+                        == self.public_key,
+                    "View sync vote sent to wrong leader"
+                );
 
                 let info = AccumulatorInfo {
                     public_key: self.public_key.clone(),
@@ -363,12 +360,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     epoch: self.current_epoch,
                     id: self.id,
                 };
+
                 let vote_collector =
                     create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await;
-                if let Some(vote_task) = vote_collector {
-                    relay_map.insert(relay, vote_task);
-                }
+                        .await?;
+                relay_map.insert(relay, vote_collector);
             }
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
@@ -378,26 +374,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
                     debug!("Forwarding message");
-                    let result = relay_task
-                        .handle_vote_event(Arc::clone(&event), &event_stream)
-                        .await;
 
-                    if result == Some(HotShotTaskCompleted) {
-                        // The protocol has finished
+                    // Handle the vote and check if the accumulator has returned successfully
+                    if relay_task
+                        .handle_vote_event(Arc::clone(&event), &event_stream)
+                        .await?
+                        .is_some()
+                    {
                         map.remove(&vote_view);
                     }
-                    return;
+
+                    return Ok(());
                 }
 
                 // We do not have a relay task already running, so start one
-                if self
-                    .membership
-                    .leader(vote_view + relay, self.current_epoch)
-                    != self.public_key
-                {
-                    debug!("View sync vote sent to wrong leader");
-                    return;
-                }
+                ensure!(
+                    self.membership
+                        .leader(vote_view + relay, self.current_epoch)?
+                        == self.public_key,
+                    "View sync vote sent to wrong leader"
+                );
 
                 let info = AccumulatorInfo {
                     public_key: self.public_key.clone(),
@@ -409,7 +405,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let vote_collector =
                     create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
                         .await;
-                if let Some(vote_task) = vote_collector {
+                if let Ok(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
             }
@@ -454,13 +450,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
             }
             &HotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
-                if view_number <= TYPES::View::new(*self.current_view) {
-                    return;
-                }
+                ensure!(
+                    view_number > self.current_view,
+                    "Discarding old timeout vote."
+                );
 
                 self.num_timeouts_tracked += 1;
-                let leader = self.membership.leader(view_number, self.current_epoch);
-                warn!(
+                let leader = self.membership.leader(view_number, self.current_epoch)?;
+                error!(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(&leader),
                     view_number = *view_number,
@@ -496,6 +493,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
             _ => {}
         }
+        Ok(())
     }
 }
 

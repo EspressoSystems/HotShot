@@ -7,7 +7,6 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use crate::test_builder::TestDescription;
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -44,6 +43,8 @@ use hotshot_types::{
 };
 use jf_vid::VidScheme;
 use serde::Serialize;
+
+use crate::test_builder::TestDescription;
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics

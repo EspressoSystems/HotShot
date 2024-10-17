@@ -275,12 +275,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     }
 
     /// Wrapper for `HotShotConsensusApi`'s `leader` function
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
     #[allow(clippy::unused_async)] // async for API compatibility reasons
     pub async fn leader(
         &self,
         view_number: TYPES::View,
         epoch_number: TYPES::Epoch,
-    ) -> TYPES::SignatureKey {
+    ) -> Result<TYPES::SignatureKey> {
         self.hotshot
             .memberships
             .quorum_membership

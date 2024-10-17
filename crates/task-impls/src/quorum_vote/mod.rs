@@ -539,8 +539,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         event: Arc<HotShotEvent<TYPES>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) {
+    ) -> Result<()> {
         let current_epoch = self.consensus.read().await.cur_epoch();
+
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
                 trace!("Received Proposal for view {}", *proposal.view_number());
@@ -562,23 +563,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             }
             HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
+
                 trace!("Received DAC for view {}", *view);
-                if view <= self.latest_voted_view {
-                    return;
-                }
+                // Do nothing if the DAC is old
+                ensure!(
+                    view > self.latest_voted_view,
+                    "Received DAC for an older view."
+                );
 
                 let current_epoch = self.consensus.read().await.cur_epoch();
                 // Validate the DAC.
-                if !cert
-                    .is_valid_cert(
+                ensure!(
+                    cert.is_valid_cert(
                         self.da_membership.as_ref(),
                         current_epoch,
-                        &self.upgrade_lock,
+                        &self.upgrade_lock
                     )
-                    .await
-                {
-                    return;
-                }
+                    .await,
+                    "Invalid DAC"
+                );
 
                 // Add to the storage.
                 self.consensus
@@ -601,51 +604,43 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
+                // Do nothing if the VID share is old
                 trace!("Received VID share for view {}", *view);
-                if view <= self.latest_voted_view {
-                    return;
-                }
+                ensure!(
+                    view > self.latest_voted_view,
+                    "Received VID share for an older view."
+                );
 
                 // Validate the VID share.
                 let payload_commitment = disperse.data.payload_commitment;
                 let current_epoch = self.consensus.read().await.cur_epoch();
-                // Check sender of VID disperse share is signed by DA committee member
-                let validate_sender = sender
-                    .validate(&disperse.signature, payload_commitment.as_ref())
-                    && self
-                        .da_membership
-                        .committee_members(view, current_epoch)
-                        .contains(sender);
 
-                // Check whether the data satisfies one of the following.
-                // * From the right leader for this view.
-                // * Calculated and signed by the current node.
-                let validated = self
-                    .public_key
-                    .validate(&disperse.signature, payload_commitment.as_ref())
-                    || self
-                        .quorum_membership
-                        .leader(view, current_epoch)
-                        .validate(&disperse.signature, payload_commitment.as_ref());
-                if !validate_sender && !validated {
-                    warn!("Failed to validated the VID dispersal/share sig.");
-                    return;
-                }
+                // Check that the signature is valid
+                ensure!(
+                    sender.validate(&disperse.signature, payload_commitment.as_ref()),
+                    "VID share signature is invalid"
+                );
+
+                // ensure that the VID share was sent by a DA member OR the view leader
+                ensure!(
+                    self.da_membership
+                        .committee_members(view, current_epoch)
+                        .contains(sender)
+                        || *sender == self.quorum_membership.leader(view, current_epoch)?,
+                    "VID share was not sent by a DA member or the view leader."
+                );
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                #[allow(clippy::no_effect)]
                 match vid_scheme(self.quorum_membership.total_nodes(current_epoch)).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     &payload_commitment,
                 ) {
                     Ok(Err(())) | Err(_) => {
-                        return;
+                        bail!("Failed to verify VID share");
                     }
-                    Ok(Ok(())) => {
-                        ();
-                    }
+                    Ok(Ok(())) => {}
                 }
 
                 self.consensus
@@ -653,10 +648,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .await
                     .update_vid_shares(view, disperse.clone());
 
-                if disperse.data.recipient_key != self.public_key {
-                    debug!("Got a Valid VID share but it's not for our key");
-                    return;
-                }
+                ensure!(
+                    disperse.data.recipient_key == self.public_key,
+                    "Got a Valid VID share but it's not for our key"
+                );
 
                 broadcast_event(
                     Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
@@ -675,11 +670,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 debug!("All vote dependencies verified for view {:?}", view_number);
                 if !self.update_latest_voted_view(*view_number).await {
                     debug!("view not updated");
-                    return;
                 }
             }
             _ => {}
         }
+        Ok(())
     }
 }
 
@@ -695,9 +690,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, receiver.clone(), sender.clone()).await;
-
-        Ok(())
+        self.handle(event, receiver.clone(), sender.clone()).await
     }
 
     async fn cancel_subtasks(&mut self) {

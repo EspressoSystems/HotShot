@@ -6,6 +6,7 @@
 
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
+use anyhow::Result;
 use ethereum_types::U256;
 use hotshot_types::{
     traits::{
@@ -140,11 +141,11 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
         &self,
         view_number: TYPES::View,
         _epoch: <TYPES as NodeType>::Epoch,
-    ) -> TYPES::SignatureKey {
+    ) -> Result<TYPES::SignatureKey> {
         #[allow(clippy::cast_possible_truncation)]
         let index = *view_number as usize % self.eligible_leaders.len();
         let res = self.eligible_leaders[index].clone();
-        TYPES::SignatureKey::public_key(&res)
+        Ok(TYPES::SignatureKey::public_key(&res))
     }
 
     /// Get the total number of nodes in the committee
