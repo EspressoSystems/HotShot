@@ -510,6 +510,20 @@
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -521,7 +535,11 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use </span>std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
+</span><span class="kw">use </span>std::{
+    fmt::{<span class="self">self</span>, Debug},
+    marker::PhantomData,
+    sync::Arc,
+};
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::RwLock;
@@ -627,6 +645,16 @@
     </span>Data(DataMessage&lt;TYPES&gt;),
     <span class="doccomment">/// A (still serialized) message to be passed through to external listeners
     </span>External(Vec&lt;u8&gt;),
+}
+
+<span class="doccomment">/// List of keys to send a message to, or broadcast to all known keys
+</span><span class="kw">pub enum </span>RecipientList&lt;K: SignatureKey&gt; {
+    <span class="doccomment">/// Broadcast to all
+    </span>Broadcast,
+    <span class="doccomment">/// Send a message directly to a key
+    </span>Direct(K),
+    <span class="doccomment">/// Send a message directly to many keys
+    </span>Many(Vec&lt;K&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; MessageKind&lt;TYPES&gt; {

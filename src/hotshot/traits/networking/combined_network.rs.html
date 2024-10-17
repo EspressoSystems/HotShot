@@ -523,7 +523,7 @@
 </span><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span>std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, HashMap},
+    collections::{hash_map::DefaultHasher, BTreeMap, HashMap},
     future::Future,
     hash::{Hash, Hasher},
     num::NonZeroUsize,
@@ -907,7 +907,7 @@
     <span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        recipients: BTreeSet&lt;TYPES::SignatureKey&gt;,
+        recipients: Vec&lt;TYPES::SignatureKey&gt;,
         broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>primary = <span class="self">self</span>.primary().clone();

@@ -552,6 +552,7 @@
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -661,6 +662,7 @@
     <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
         internal_event_stream: handle.internal_event_stream.<span class="number">0</span>.clone(),
         external_event_stream: handle.output_event_stream.<span class="number">0</span>.clone(),
+        public_key: handle.public_key().clone(),
     };
 
     <span class="kw">let </span>upgrade_lock = handle.hotshot.upgrade_lock.clone();

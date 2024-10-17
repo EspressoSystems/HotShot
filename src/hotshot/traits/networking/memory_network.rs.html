@@ -387,7 +387,6 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -401,7 +400,6 @@
 
 </span><span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>std::{
-    collections::BTreeSet,
     fmt::Debug,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -695,7 +693,7 @@
     </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        recipients: BTreeSet&lt;K&gt;,
+        recipients: Vec&lt;K&gt;,
         broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Iterate over all topics, compare to recipients, and get the `Topic`

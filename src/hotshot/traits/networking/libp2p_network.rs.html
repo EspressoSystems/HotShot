@@ -2006,7 +2006,7 @@
     </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        recipients: BTreeSet&lt;K&gt;,
+        recipients: Vec&lt;K&gt;,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're not ready, return an error
