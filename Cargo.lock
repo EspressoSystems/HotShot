@@ -3245,6 +3245,7 @@ name = "hotshot-fakeapi"
 version = "0.5.77"
 dependencies = [
  "anyhow",
+ "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-trait",
  "futures",
