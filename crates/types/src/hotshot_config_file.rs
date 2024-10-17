@@ -11,7 +11,7 @@ use vec1::Vec1;
 
 use crate::{
     constants::REQUEST_DATA_DELAY, traits::signature_key::SignatureKey,
-    upgrade_config::UpgradeConfig, ExecutionType, HotShotConfig, PeerConfig, ValidatorConfig,
+    upgrade_config::UpgradeConfig, HotShotConfig, PeerConfig, ValidatorConfig,
 };
 
 /// Default builder URL, used as placeholder
@@ -70,7 +70,6 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
 impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
     fn from(val: HotShotConfigFile<KEY>) -> Self {
         HotShotConfig {
-            execution_type: ExecutionType::Continuous,
             start_threshold: val.start_threshold,
             num_nodes_with_stake: val.num_nodes_with_stake,
             known_da_nodes: val.known_da_nodes,
@@ -81,9 +80,7 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
             fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
-            timeout_ratio: val.timeout_ratio,
             round_start_delay: val.round_start_delay,
-            start_delay: val.start_delay,
             num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
             data_request_delay: val
