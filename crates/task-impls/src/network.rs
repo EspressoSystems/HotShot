@@ -577,8 +577,12 @@ impl<
                         .await
                 }
                 TransmitType::DaCommitteeBroadcast => {
-                    net.da_broadcast_message(serialized_message, da_committee, broadcast_delay)
-                        .await
+                    net.da_broadcast_message(
+                        serialized_message,
+                        da_committee.iter().cloned().collect(),
+                        broadcast_delay,
+                    )
+                    .await
                 }
             };
 

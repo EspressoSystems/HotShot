@@ -10,7 +10,6 @@
 //! `HotShot` nodes can send among themselves.
 
 use std::{
-    collections::BTreeSet,
     fmt::{self, Debug},
     marker::PhantomData,
     sync::Arc,
@@ -129,7 +128,7 @@ pub enum RecipientList<K: SignatureKey> {
     /// Send a message directly to a key
     Direct(K),
     /// Send a message directly to many keys
-    Many(BTreeSet<K>),
+    Many(Vec<K>),
 }
 
 impl<TYPES: NodeType> MessageKind<TYPES> {

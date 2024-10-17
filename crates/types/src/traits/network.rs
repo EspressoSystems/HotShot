@@ -17,7 +17,7 @@ use thiserror::Error;
 #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
 compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
     pin::Pin,
@@ -217,7 +217,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     async fn da_broadcast_message(
         &self,
         message: Vec<u8>,
-        recipients: BTreeSet<K>,
+        recipients: Vec<K>,
         broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError>;
 
