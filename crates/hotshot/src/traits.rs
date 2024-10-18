@@ -24,6 +24,7 @@ pub mod implementations {
         },
         memory_network::{MasterMap, MemoryNetwork},
         push_cdn_network::{
+            definition::message_hook::HotShotMessageHook,
             definition::signature_key::WrappedSignatureKey, definition::ProductionDef,
             definition::TestingDef, definition::Topic as CdnTopic, metrics::CdnMetricsValue,
             KeyPair, PushCdnNetwork,

@@ -29,7 +29,10 @@ use cdn_client::{
 };
 #[cfg(feature = "hotshot-testing")]
 use cdn_marshal::{Config as MarshalConfig, Marshal};
-use definition::{signature_key::WrappedSignatureKey, ClientDef, TestingDef, Topic};
+use definition::{
+    message_hook::HotShotMessageHook, signature_key::WrappedSignatureKey, ClientDef, TestingDef,
+    Topic,
+};
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -201,7 +204,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
                 },
                 discovery_endpoint: discovery_endpoint.clone(),
 
-                user_message_hook: NoMessageHook,
+                user_message_hook: HotShotMessageHook::default(),
                 broker_message_hook: NoMessageHook,
 
                 ca_cert_path: None,

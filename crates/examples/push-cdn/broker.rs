@@ -9,7 +9,9 @@
 use anyhow::Result;
 use cdn_broker::{reexports::def::hook::NoMessageHook, Broker, Config};
 use clap::Parser;
-use hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
+use hotshot::traits::implementations::{
+    HotShotMessageHook, KeyPair, ProductionDef, WrappedSignatureKey,
+};
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 use sha2::Digest;
@@ -103,7 +105,7 @@ async fn main() -> Result<()> {
             private_key,
         },
 
-        user_message_hook: NoMessageHook,
+        user_message_hook: HotShotMessageHook::default(),
         broker_message_hook: NoMessageHook,
 
         public_bind_endpoint: args.public_bind_endpoint,

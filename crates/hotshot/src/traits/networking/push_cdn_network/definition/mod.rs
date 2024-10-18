@@ -6,6 +6,7 @@ use cdn_broker::reexports::{
     discovery::{Embedded, Redis},
 };
 use hotshot_types::traits::{network::Topic as HotShotTopic, signature_key::SignatureKey};
+use message_hook::HotShotMessageHook;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use signature_key::WrappedSignatureKey;
 
@@ -55,7 +56,7 @@ pub struct UserDef<K: SignatureKey + 'static>(PhantomData<K>);
 impl<K: SignatureKey + 'static> ConnectionDef for UserDef<K> {
     type Scheme = WrappedSignatureKey<K>;
     type Protocol = TcpTls;
-    type MessageHook = NoMessageHook;
+    type MessageHook = HotShotMessageHook;
 }
 
 /// The broker definition for the Push CDN.
