@@ -6,7 +6,6 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{ensure, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -33,7 +32,8 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, instrument, warn};
+use tracing::instrument;
+use utils::result12345::*;
 
 use self::handlers::{ProposalDependency, ProposalDependencyHandle};
 use crate::{
@@ -171,7 +171,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
+                    tracing::debug!(
+                        "Dependency {dependency_type:?} is complete for view {event_view:?}!",
+                    );
                 }
                 valid
             }),
@@ -301,7 +303,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             "We have already proposed for this view"
         );
 
-        debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
+        tracing::debug!(
+            "Attempting to make dependency task for view {view_number:?} and event {event:?}"
+        );
 
         ensure!(
             !self.proposal_dependencies.contains_key(&view_number),
@@ -339,9 +343,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::View) -> bool {
         if *self.latest_proposed_view < *new_view {
-            debug!(
+            tracing::debug!(
                 "Updating latest proposed view from {} to {}",
-                *self.latest_proposed_view, *new_view
+                *self.latest_proposed_view,
+                *new_view
             );
 
             // Cancel the old dependency tasks.
@@ -369,14 +374,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
-                debug!(
+                tracing::debug!(
                     "Upgrade certificate received for view {}!",
                     *cert.view_number
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.latest_proposed_view + 3 {
-                    debug!("Updating current formed_upgrade_certificate");
+                    tracing::debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
@@ -438,7 +443,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                             &self.upgrade_lock
                         )
                         .await,
-                    format!(
+                    error!(
                         "View Sync Finalize certificate {:?} was invalid",
                         certificate.data()
                     )
@@ -493,14 +498,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::UpdateHighQc(qc) => {
                 // First update the high QC internally
-                self.consensus.write().await.update_high_qc(qc.clone())?;
+                self.consensus
+                    .write()
+                    .await
+                    .update_high_qc(qc.clone())
+                    .wrap()
+                    .context(error!(
+                        "Failed to update high QC in internal consensus state!"
+                    ))?;
 
                 // Then update the high QC in storage
                 self.storage
                     .write()
                     .await
                     .update_high_qc(qc.clone())
-                    .await?;
+                    .await
+                    .wrap()
+                    .context(error!("Failed to update high QC in storage!"))?;
 
                 broadcast_event(
                     HotShotEvent::HighQcUpdated(qc.clone()).into(),

@@ -6,7 +6,6 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use anyhow::{ensure, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
@@ -35,7 +34,8 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
-use tracing::{debug, info, instrument};
+use tracing::instrument;
+use utils::result12345::*;
 
 use crate::{
     events::HotShotEvent,
@@ -98,7 +98,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
         match event.as_ref() {
             HotShotEvent::DaProposalRecv(proposal, sender) => {
                 let sender = sender.clone();
-                debug!(
+                tracing::debug!(
                     "DA proposal received for view: {:?}",
                     proposal.data.view_number()
                 );
@@ -116,20 +116,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     "Throwing away DA proposal that is more than one view older"
                 );
 
-                ensure!(!self
-                    .consensus
-                    .read()
-                    .await
-                    .saved_payloads()
-                    .contains_key(&view),
-                    format!("Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away", view));
+                ensure!(
+                    !self
+                      .consensus
+                      .read()
+                      .await
+                      .saved_payloads()
+                      .contains_key(&view),
+                    info!(
+                      "Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away",
+                      view
+                    )
+                );
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
-                // ED Is this the right leader?
                 let view_leader_key = self.da_membership.leader(view, self.cur_epoch)?;
-                ensure!(view_leader_key == sender,
-                    format!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone())
+                ensure!(
+                    view_leader_key == sender,
+                    warn!(
+                      "DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}",
+                      *view,
+                      proposal.data.clone()
+                    )
                 );
 
                 ensure!(
@@ -145,8 +154,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
                 let curr_view = self.consensus.read().await.cur_view();
-                ensure!(curr_view <= proposal.data.view_number() + 1,
-                    format!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number()));
+                ensure!(
+                  curr_view <= proposal.data.view_number() + 1,
+                  info!(
+                    "Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", 
+                    curr_view,
+                    proposal.data.view_number()
+                  )
+                );
 
                 // Proposal is fresh and valid, notify the application layer
                 broadcast_event(
@@ -164,13 +179,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 ensure!(
                     self.da_membership
                         .has_stake(&self.public_key, self.cur_epoch),
-                    format!(
+                    debug!(
                         "We were not chosen for consensus committee on {:?}",
                         self.cur_view
                     )
                 );
 
-                self.storage.write().await.append_da(proposal).await?;
+                self.storage
+                    .write()
+                    .await
+                    .append_da(proposal)
+                    .await
+                    .wrap()
+                    .context(error!("Failed to append DA proposal to storage"))?;
 
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let num_nodes = self.quorum_membership.total_nodes(self.cur_epoch);
@@ -192,7 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 )
                 .await?;
 
-                debug!("Sending vote to the DA leader {:?}", vote.view_number());
+                tracing::debug!("Sending vote to the DA leader {:?}", vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
                 let mut consensus = self.consensus.write().await;
@@ -250,13 +271,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
-                debug!("DA vote recv, Main Task {:?}", vote.view_number());
+                tracing::debug!("DA vote recv, Main Task {:?}", vote.view_number());
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.view_number();
 
                 ensure!(
                     self.da_membership.leader(view, self.cur_epoch)? == self.public_key,
-                    format!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1, self.cur_epoch)? == self.public_key)
+                    debug!(
+                      "We are not the DA committee leader for view {} are we leader for next view? {}",
+                      *view,
+                      self.da_membership.leader(view + 1, self.cur_epoch)? == self.public_key
+                    )
                 );
 
                 handle_vote(
@@ -277,11 +302,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 ensure!(
                     *self.cur_view < *view,
-                    "Received a view change to an older view."
+                    info!("Received a view change to an older view.")
                 );
 
                 if *view - *self.cur_view > 1 {
-                    info!("View changed by more than 1 going to view {:?}", view);
+                    tracing::info!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
 
@@ -292,7 +317,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                         == self.public_key
                 );
 
-                debug!("Polling for DA votes for view {}", *self.cur_view + 1);
+                tracing::debug!("Polling for DA votes for view {}", *self.cur_view + 1);
             }
             HotShotEvent::BlockRecv(packed_bundle) => {
                 let PackedBundle::<TYPES> {
@@ -308,7 +333,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 // sign the encoded transactions as opposed to the VID commitment
                 let signature =
-                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)?;
+                    TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
+                        .wrap()?;
 
                 let data: DaProposal<TYPES> = DaProposal {
                     encoded_transactions: Arc::clone(encoded_transactions),

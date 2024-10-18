@@ -6,7 +6,6 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
@@ -31,7 +30,8 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::{error, instrument, warn};
+use tracing::instrument;
+use utils::result12345::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -101,7 +101,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::UpgradeProposalRecv(message, sender)
                         }
                         GeneralConsensusMessage::UpgradeVote(message) => {
-                            error!("Received upgrade vote!");
+                            tracing::error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
                     },
@@ -264,7 +264,7 @@ impl<
             let serialized_message = match self.upgrade_lock.serialize(&message).await {
                 Ok(serialized) => serialized,
                 Err(e) => {
-                    error!("Failed to serialize message: {}", e);
+                    tracing::error!("Failed to serialize message: {}", e);
                     continue;
                 }
             };
@@ -289,7 +289,7 @@ impl<
             }
             match net.vid_broadcast_message(messages).await {
                 Ok(()) => {}
-                Err(e) => warn!("Failed to send message from network task: {:?}", e),
+                Err(e) => tracing::warn!("Failed to send message from network task: {:?}", e),
             }
         });
 
@@ -302,16 +302,16 @@ impl<
         storage: Arc<RwLock<S>>,
         state: Arc<RwLock<Consensus<TYPES>>>,
         view: <TYPES as NodeType>::View,
-    ) -> Result<(), ()> {
+    ) -> std::result::Result<(), ()> {
         if let Some(action) = maybe_action {
             if !state.write().await.update_action(action, view) {
-                warn!("Already actioned {:?} in view {:?}", action, view);
+                tracing::warn!("Already actioned {:?} in view {:?}", action, view);
                 return Err(());
             }
             match storage.write().await.record_action(view, action).await {
                 Ok(()) => Ok(()),
                 Err(e) => {
-                    warn!("Not Sending {:?} because of storage error: {:?}", action, e);
+                    tracing::warn!("Not Sending {:?} because of storage error: {:?}", action, e);
                     Err(())
                 }
             }
@@ -563,7 +563,7 @@ impl<
                 TransmitType::Broadcast,
             )),
             HotShotEvent::UpgradeVoteSend(vote) => {
-                error!("Sending upgrade vote!");
+                tracing::error!("Sending upgrade vote!");
                 let view_number = vote.view_number();
                 let leader = match self.quorum_membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
@@ -664,7 +664,7 @@ impl<
             let serialized_message = match upgrade_lock.serialize(&message).await {
                 Ok(serialized) => serialized,
                 Err(e) => {
-                    error!("Failed to serialize message: {}", e);
+                    tracing::error!("Failed to serialize message: {}", e);
                     return;
                 }
             };
@@ -686,7 +686,7 @@ impl<
                         .direct_message(serialized_message.clone(), recipient)
                         .await
                     {
-                        warn!("Failed to send message: {e:?}");
+                        tracing::warn!("Failed to send message: {e:?}");
                     }
 
                     // Otherwise, send the next message.
@@ -697,7 +697,7 @@ impl<
 
             match transmit_result {
                 Ok(()) => {}
-                Err(e) => warn!("Failed to send message task: {:?}", e),
+                Err(e) => tracing::warn!("Failed to send message task: {:?}", e),
             }
         });
     }

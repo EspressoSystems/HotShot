@@ -80,13 +80,16 @@ impl<T> Log for Result<T> {
 }
 
 #[derive(Debug, Clone)]
+#[must_use]
 /// main error type
 pub struct Error {
     /// level
-    level: Level,
+    pub level: Level,
     /// message
-    message: String,
+    pub message: String,
 }
+
+impl std::error::Error for Error {}
 
 /// Trait for a `std::result::Result` that can be wrapped into a `Result`
 pub trait Wrap<T> {

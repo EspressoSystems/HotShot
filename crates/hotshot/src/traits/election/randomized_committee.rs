@@ -6,7 +6,6 @@
 
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
-use anyhow::Result;
 use ethereum_types::U256;
 use hotshot_types::{
     traits::{
@@ -18,6 +17,7 @@ use hotshot_types::{
     PeerConfig,
 };
 use rand::{rngs::StdRng, Rng};
+use utils::result12345::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 

@@ -11,7 +11,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_trait::async_trait;
 use either::Either::{self, Left, Right};
@@ -31,7 +30,7 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
-use tracing::debug;
+use utils::result12345::*;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -110,17 +109,16 @@ impl<
         );
         ensure!(
             vote.view_number() == self.view,
-            format!(
-                "Vote view does not match! vote view is {} current view is {}",
+            error!(
+                "Vote view does not match! vote view is {} current view is {}. This vote should not have been passed to this accumulator.",
                 *vote.view_number(),
                 *self.view
             )
         );
 
-        let accumulator = self
-            .accumulator
-            .as_mut()
-            .context("No accumulator to handle vote with.")?;
+        let accumulator = self.accumulator.as_mut().context(warn!(
+            "No accumulator to handle vote with. This shouldn't happen."
+        ))?;
 
         match accumulator
             .accumulate(vote, &self.membership, self.epoch)
@@ -128,7 +126,7 @@ impl<
         {
             Either::Left(()) => Ok(None),
             Either::Right(cert) => {
-                debug!("Certificate Formed! {:?}", cert);
+                tracing::debug!("Certificate Formed! {:?}", cert);
 
                 broadcast_event(
                     Arc::new(VOTE::make_cert_event(cert.clone(), &self.public_key)),
@@ -254,7 +252,7 @@ where
 {
     match collectors.entry(vote.view_number()) {
         Entry::Vacant(entry) => {
-            debug!("Starting vote handle for view {:?}", vote.view_number());
+            tracing::debug!("Starting vote handle for view {:?}", vote.view_number());
             let info = AccumulatorInfo {
                 public_key,
                 membership: Arc::clone(membership),

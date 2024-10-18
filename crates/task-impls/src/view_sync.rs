@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-#![allow(clippy::module_name_repetitions)]
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -12,7 +11,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{ensure, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
@@ -38,7 +36,8 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::instrument;
+use utils::result12345::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -197,7 +196,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
         // This certificate is old, we can throw it away
         // If next view = cert round, then that means we should already have a task running for it
         if self.current_view > view {
-            debug!("Already in a higher view than the view sync message");
+            tracing::debug!("Already in a higher view than the view sync message");
             return;
         }
 
@@ -205,7 +204,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
         if let Some(replica_task) = task_map.get_mut(&view) {
             // Forward event then return
-            debug!("Forwarding message");
+            tracing::debug!("Forwarding message");
             let result = replica_task
                 .handle(Arc::clone(&event), sender.clone())
                 .await;
@@ -259,25 +258,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
-                debug!("Received view sync cert for phase {:?}", certificate);
+                tracing::debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) => {
-                debug!("Received view sync cert for phase {:?}", certificate);
+                tracing::debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                debug!("Received view sync cert for phase {:?}", certificate);
+                tracing::debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
             }
             HotShotEvent::ViewSyncTimeout(view, _, _) => {
-                debug!("view sync timeout in main task {:?}", view);
+                tracing::debug!("view sync timeout in main task {:?}", view);
                 let view = *view;
                 self.send_to_or_create_replica(event, view, &event_stream)
                     .await;
@@ -289,7 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
-                    debug!("Forwarding message");
+                    tracing::debug!("Forwarding message");
 
                     // Handle the vote and check if the accumulator has returned successfully
                     if relay_task
@@ -331,7 +330,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
-                    debug!("Forwarding message");
+                    tracing::debug!("Forwarding message");
 
                     // Handle the vote and check if the accumulator has returned successfully
                     if relay_task
@@ -373,7 +372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let relay = vote.date().relay;
                 let relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 if let Some(relay_task) = relay_map.get_mut(&relay) {
-                    debug!("Forwarding message");
+                    tracing::debug!("Forwarding message");
 
                     // Handle the vote and check if the accumulator has returned successfully
                     if relay_task
@@ -413,9 +412,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
             &HotShotEvent::ViewChange(new_view) => {
                 let new_view = TYPES::View::new(*new_view);
                 if self.current_view < new_view {
-                    debug!(
+                    tracing::debug!(
                         "Change from view {} to view {} in view sync task",
-                        *self.current_view, *new_view
+                        *self.current_view,
+                        *new_view
                     );
 
                     self.current_view = new_view;
@@ -457,7 +457,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
                 self.num_timeouts_tracked += 1;
                 let leader = self.membership.leader(view_number, self.current_epoch)?;
-                error!(
+                tracing::error!(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(&leader),
                     view_number = *view_number,
@@ -466,11 +466,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 );
 
                 if self.num_timeouts_tracked >= 3 {
-                    error!("Too many consecutive timeouts!  This shouldn't happen");
+                    tracing::error!("Too many consecutive timeouts!  This shouldn't happen");
                 }
 
                 if self.num_timeouts_tracked >= 2 {
-                    error!("Starting view sync protocol for view {}", *view_number + 1);
+                    tracing::error!("Starting view sync protocol for view {}", *view_number + 1);
 
                     self.send_to_or_create_replica(
                         Arc::new(HotShotEvent::ViewSyncTrigger(view_number + 1)),
@@ -513,7 +513,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
                 // Ignore certificate if it is for an older round
                 if certificate.view_number() < self.next_view {
-                    warn!("We're already in a higher round");
+                    tracing::warn!("We're already in a higher round");
 
                     return None;
                 }
@@ -527,7 +527,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     )
                     .await
                 {
-                    error!("Not valid view sync cert! {:?}", certificate.data());
+                    tracing::error!("Not valid view sync cert! {:?}", certificate.data());
 
                     return None;
                 }
@@ -554,7 +554,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 )
                 .await
                 else {
-                    error!("Failed to sign ViewSyncCommitData!");
+                    tracing::error!("Failed to sign ViewSyncCommitData!");
                     return None;
                 };
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncCommitVote(vote);
@@ -579,7 +579,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
-                        warn!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
+                        tracing::warn!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
 
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -599,7 +599,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
                 // Ignore certificate if it is for an older round
                 if certificate.view_number() < self.next_view {
-                    warn!("We're already in a higher round");
+                    tracing::warn!("We're already in a higher round");
 
                     return None;
                 }
@@ -613,7 +613,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     )
                     .await
                 {
-                    error!("Not valid view sync cert! {:?}", certificate.data());
+                    tracing::error!("Not valid view sync cert! {:?}", certificate.data());
 
                     return None;
                 }
@@ -640,7 +640,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 )
                 .await
                 else {
-                    error!("Failed to sign view sync finalized vote!");
+                    tracing::error!("Failed to sign view sync finalized vote!");
                     return None;
                 };
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncFinalizeVote(vote);
@@ -653,7 +653,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     .await;
                 }
 
-                info!(
+                tracing::info!(
                     "View sync protocol has received view sync evidence to update the view to {}",
                     *self.next_view
                 );
@@ -675,7 +675,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
-                        warn!(
+                        tracing::warn!(
                             "Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}",
                             relay
                         );
@@ -695,7 +695,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 // Ignore certificate if it is for an older round
                 if certificate.view_number() < self.next_view {
-                    warn!("We're already in a higher round");
+                    tracing::warn!("We're already in a higher round");
 
                     return None;
                 }
@@ -709,7 +709,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     )
                     .await
                 {
-                    error!("Not valid view sync cert! {:?}", certificate.data());
+                    tracing::error!("Not valid view sync cert! {:?}", certificate.data());
 
                     return None;
                 }
@@ -739,7 +739,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::ViewSyncTrigger(view_number) => {
                 let view_number = *view_number;
                 if self.next_view != TYPES::View::new(*view_number) {
-                    error!("Unexpected view number to triger view sync");
+                    tracing::error!("Unexpected view number to triger view sync");
                     return None;
                 }
 
@@ -755,7 +755,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 )
                 .await
                 else {
-                    error!("Failed to sign pre commit vote!");
+                    tracing::error!("Failed to sign pre commit vote!");
                     return None;
                 };
                 let message = GeneralConsensusMessage::<TYPES>::ViewSyncPreCommitVote(vote);
@@ -775,7 +775,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let timeout = self.view_sync_timeout;
                     async move {
                         async_sleep(timeout).await;
-                        warn!("Vote sending timed out in ViewSyncTrigger");
+                        tracing::warn!("Vote sending timed out in ViewSyncTrigger");
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
                                 TYPES::View::new(*next_view),
@@ -813,7 +813,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                             )
                             .await
                             else {
-                                error!("Failed to sign ViewSyncPreCommitData!");
+                                tracing::error!("Failed to sign ViewSyncPreCommitData!");
                                 return None;
                             };
                             let message =
@@ -841,7 +841,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         let last_cert = last_seen_certificate.clone();
                         async move {
                             async_sleep(timeout).await;
-                            warn!(
+                            tracing::warn!(
                                 "Vote sending timed out in ViewSyncTimeout relay = {}",
                                 relay
                             );

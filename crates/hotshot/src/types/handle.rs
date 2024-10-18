@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Context, Ok, Result};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
@@ -288,6 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .memberships
             .quorum_membership
             .leader(view_number, epoch_number)
+            .context("Failed to lookup leader")
     }
 
     // Below is for testing only:

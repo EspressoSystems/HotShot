@@ -9,7 +9,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_timeout};
 use async_trait::async_trait;
@@ -32,8 +31,9 @@ use hotshot_types::{
     utils::ViewInner,
     vid::{VidCommitment, VidPrecomputeData},
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::instrument;
 use url::Url;
+use utils::result12345::*;
 use vbs::version::{StaticVersionType, Version};
 use vec1::Vec1;
 
@@ -149,7 +149,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         let version = match self.upgrade_lock.version(block_view).await {
             Ok(v) => v,
             Err(err) => {
-                error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
+                tracing::error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
                 return None;
             }
         };
@@ -191,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .await;
         } else {
             // If we couldn't get a block, send an empty block
-            info!(
+            tracing::info!(
                 "Failed to get a block for view {:?}, proposing empty block",
                 block_view
             );
@@ -209,7 +209,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 self.membership.total_nodes(self.cur_epoch),
                 version,
             ) else {
-                error!("Failed to get null fee");
+                tracing::error!("Failed to get null fee");
                 return None;
             };
 
@@ -254,13 +254,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .await
                 .as_ref()
                 .is_some_and(|cert| cert.upgrading_in(block_view)),
-            "Not requesting block because we are upgrading",
+            info!("Not requesting block because we are upgrading")
         );
 
         let (parent_view, parent_hash) = self
             .last_vid_commitment_retry(block_view, task_start_time)
             .await
-            .context("Failed to find parent hash in time")?;
+            .wrap()
+            .context(warn!("Failed to find parent hash in time"))?;
 
         let start = Instant::now();
 
@@ -270,10 +271,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .fetch_auction_result(block_view),
         )
         .await
-        .context("Timeout while getting auction result")?;
+        .wrap()
+        .context(warn!("Timeout while getting auction result"))?;
 
         let auction_result = maybe_auction_result
-            .map_err(|e| warn!("Failed to get auction results: {e:#}"))
+            .map_err(|e| tracing::warn!("Failed to get auction results: {e:#}"))
             .unwrap_or_default(); // We continue here, as we still have fallback builder URL
 
         let mut futures = Vec::new();
@@ -319,13 +321,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         let validated_state = self.consensus.read().await.decided_state();
 
         let sequencing_fees = Vec1::try_from_vec(sequencing_fees)
-            .context("Failed to receive a bundle from any builder.")?;
+            .wrap()
+            .context(warn!("Failed to receive a bundle from any builder."))?;
         let (block_payload, metadata) = TYPES::BlockPayload::from_transactions(
             transactions,
             &validated_state,
             &Arc::clone(&self.instance_state),
         )
-        .await?;
+        .await
+        .wrap()
+        .context(error!("Failed to construct block payload"))?;
 
         Ok(PackedBundle::new(
             block_payload.encode(),
@@ -348,7 +353,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             self.membership.total_nodes(self.cur_epoch),
             version,
         ) else {
-            error!("Failed to calculate null block fee.");
+            tracing::error!("Failed to calculate null block fee.");
             return None;
         };
 
@@ -379,7 +384,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         let version = match self.upgrade_lock.version(block_view).await {
             Ok(v) => v,
             Err(err) => {
-                error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
+                tracing::error!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
                 return None;
             }
         };
@@ -442,12 +447,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
 
-                debug!("view change in transactions to view {:?}", view);
-                ensure!(*view > *self.cur_view || *self.cur_view == 0, format!("Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view ));
+                tracing::debug!("view change in transactions to view {:?}", view);
+                ensure!(
+                  *view > *self.cur_view || *self.cur_view == 0,
+                  debug!(
+                    "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
+                  )
+                );
 
                 let mut make_block = false;
                 if *view - *self.cur_view > 1 {
-                    info!("View changed by more than 1 going to view {:?}", view);
+                    tracing::info!("View changed by more than 1 going to view {:?}", view);
                     make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
                 }
                 self.cur_view = view;
@@ -458,7 +468,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 ensure!(
                     make_block || next_leader,
-                    format!(
+                    debug!(
                         "Not making the block because we are not leader for view {:?}",
                         self.cur_view
                     )
@@ -512,7 +522,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             let view_data = consensus
                 .validated_state_map()
                 .get(&target_view)
-                .context("Missing record for view {?target_view} in validated state")?;
+                .context(info!(
+                    "Missing record for view {?target_view} in validated state"
+                ))?;
 
             match view_data.view_inner {
                 ViewInner::Da { payload_commitment } => {
@@ -523,13 +535,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     ..
                 } => {
                     let leaf = consensus.saved_leaves().get(&leaf_commitment).context
-                        ("Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves")?;
+                        (info!("Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves"))?;
                     return Ok((target_view, leaf.payload_commitment()));
                 }
                 ViewInner::Failed => {
                     // For failed views, backtrack
                     target_view =
-                        TYPES::View::new(target_view.checked_sub(1).context("Reached genesis")?);
+                        TYPES::View::new(target_view.checked_sub(1).context(warn!("Reached genesis. Something is wrong -- have we not decided any blocks since genesis?"))?);
                     continue;
                 }
             }
@@ -558,7 +570,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         ) {
             Ok(sig) => sig,
             Err(err) => {
-                error!(%err, "Failed to sign block hash");
+                tracing::error!(%err, "Failed to sign block hash");
                 return None;
             }
         };
@@ -586,7 +598,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 // We timed out while getting available blocks
                 Err(err) => {
-                    info!(%err, "Timeout while getting available blocks");
+                    tracing::info!(%err, "Timeout while getting available blocks");
                     return None;
                 }
             }
@@ -672,7 +684,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         parent_comm: VidCommitment,
         view_number: TYPES::View,
         parent_comm_sig: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-    ) -> anyhow::Result<BuilderResponse<TYPES>> {
+    ) -> Result<BuilderResponse<TYPES>> {
         let mut available_blocks = self
             .get_available_blocks(parent_comm, view_number, parent_comm_sig)
             .await;

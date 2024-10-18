@@ -6,7 +6,6 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -38,7 +37,8 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::instrument;
+use utils::result12345::*;
 
 use crate::{
     events::HotShotEvent,
@@ -123,7 +123,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .await
             .ok(),
         };
-        let parent = maybe_parent.context(format!(
+        let parent = maybe_parent.context(info!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
             justify_qc.data().leaf_commit,
             proposed_leaf.view_number(),
@@ -147,7 +147,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 version,
             )
             .await
-            .context("Block header doesn't extend the proposal!")?;
+            .wrap()
+            .context(warn!("Block header doesn't extend the proposal!"))?;
 
         let state = Arc::new(validated_state);
         let delta = Arc::new(state_delta);
@@ -189,7 +190,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .write()
             .await
             .update_undecided_state(new_leaves, new_state)
-            .await?;
+            .await
+            .wrap()
+            .context(error!("Failed to update undecided state"))?;
 
         Ok(())
     }
@@ -204,10 +207,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         ensure!(
             self.quorum_membership
                 .has_stake(&self.public_key, self.epoch_number),
-            format!(
+            info!(
                 "We were not chosen for quorum committee on {:?}",
                 self.view_number
-            ),
+            )
         );
 
         // Create and send the vote.
@@ -221,8 +224,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             &self.upgrade_lock,
         )
         .await
-        .context("Failed to sign vote")?;
-        debug!(
+        .wrap()
+        .context(error!("Failed to sign vote. This should never happen."))?;
+        tracing::debug!(
             "sending vote to next quorum leader {:?}",
             vote.view_number() + 1
         );
@@ -232,7 +236,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .await
             .append_vid(&vid_share)
             .await
-            .context("Failed to store VID share")?;
+            .wrap()
+            .context(error!("Failed to store VID share"))?;
         broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
 
         Ok(())
@@ -283,7 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
-                            error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
+                            tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
                         }
                     } else {
@@ -292,7 +297,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     if proposed_leaf.parent_commitment() != parent_commitment {
-                        warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
+                        tracing::warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
                         return;
                     }
                     leaf = Some(proposed_leaf);
@@ -301,7 +306,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     let cert_payload_comm = cert.data().payload_commit;
                     if let Some(comm) = payload_commitment {
                         if cert_payload_comm != comm {
-                            error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
+                            tracing::error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
                     } else {
@@ -313,7 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     vid_share = Some(share.clone());
                     if let Some(comm) = payload_commitment {
                         if vid_payload_commitment != comm {
-                            error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
+                            tracing::error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
                             return;
                         }
                     } else {
@@ -332,7 +337,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
         .await;
 
         let Some(vid_share) = vid_share else {
-            error!(
+            tracing::error!(
                 "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",
                 self.view_number
             );
@@ -340,7 +345,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
         };
 
         let Some(leaf) = leaf else {
-            error!(
+            tracing::error!(
                 "We don't have the leaf for this view {:?}, but we should, because the vote dependencies have completed.",
                 self.view_number
             );
@@ -349,12 +354,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
 
         // Update internal state
         if let Err(e) = self.update_shared_state(&leaf, &vid_share).await {
-            error!("Failed to update shared consensus state; error = {e:#}");
+            tracing::error!("Failed to update shared consensus state; error = {e:#}");
             return;
         }
 
         if let Err(e) = self.submit_vote(leaf, vid_share).await {
-            debug!("Failed to vote; error = {e:#}");
+            tracing::debug!("Failed to vote; error = {e:#}");
         }
     }
 }
@@ -440,7 +445,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     }
                 };
                 if event_view == view_number {
-                    trace!("Vote dependency {:?} completed", dependency_type);
+                    tracing::trace!("Vote dependency {:?} completed", dependency_type);
                     return true;
                 }
                 false
@@ -512,16 +517,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
     async fn update_latest_voted_view(&mut self, new_view: TYPES::View) -> bool {
         if *self.latest_voted_view < *new_view {
-            debug!(
+            tracing::debug!(
                 "Updating next vote view from {} to {} in the quorum vote task",
-                *self.latest_voted_view, *new_view
+                *self.latest_voted_view,
+                *new_view
             );
 
             // Cancel the old dependency tasks.
             for view in *self.latest_voted_view..(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::View::new(view)) {
                     cancel_task(dependency).await;
-                    debug!("Vote dependency removed for view {:?}", view);
+                    tracing::debug!("Vote dependency removed for view {:?}", view);
                 }
             }
 
@@ -544,13 +550,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
-                trace!("Received Proposal for view {}", *proposal.view_number());
+                tracing::trace!("Received Proposal for view {}", *proposal.view_number());
 
                 // Handle the event before creating the dependency task.
                 if let Err(e) =
                     handle_quorum_proposal_validated(proposal, &event_sender, self).await
                 {
-                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
+                    tracing::debug!(
+                        "Failed to handle QuorumProposalValidated event; error = {e:#}"
+                    );
                 }
 
                 self.create_dependency_task_if_new(
@@ -564,7 +572,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
 
-                trace!("Received DAC for view {}", *view);
+                tracing::trace!("Received DAC for view {}", *view);
                 // Do nothing if the DAC is old
                 ensure!(
                     view > self.latest_voted_view,
@@ -605,7 +613,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
                 // Do nothing if the VID share is old
-                trace!("Received VID share for view {}", *view);
+                tracing::trace!("Received VID share for view {}", *view);
                 ensure!(
                     view > self.latest_voted_view,
                     "Received VID share for an older view."
@@ -667,9 +675,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
-                debug!("All vote dependencies verified for view {:?}", view_number);
+                tracing::debug!("All vote dependencies verified for view {:?}", view_number);
                 if !self.update_latest_voted_view(*view_number).await {
-                    debug!("view not updated");
+                    tracing::debug!("view not updated");
                 }
             }
             _ => {}
